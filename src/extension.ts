@@ -12,6 +12,18 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('echode.newChat', () => {
+      sidebarProvider.newChat();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('echode.openHistory', () => {
+      sidebarProvider.openHistoryPanel();
+    })
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand('echode.openSettings', () => {
       sidebarProvider.openSettingsPanel();
     })

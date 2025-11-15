@@ -9,9 +9,10 @@ interface MessageBubbleProps {
   isEditing?: boolean;
   onEditStart?: (messageId: string) => void;
   onEditCancel?: () => void;
+  isStreaming?: boolean;
 }
 
-export function MessageBubble({ message, onEdit, onUpdate, isEditing, onEditStart, onEditCancel }: MessageBubbleProps) {
+export function MessageBubble({ message, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, isStreaming }: MessageBubbleProps) {
   if (message.role === 'user') {
     return (
       <UserMessage
@@ -26,5 +27,11 @@ export function MessageBubble({ message, onEdit, onUpdate, isEditing, onEditStar
     );
   }
 
-  return <AssistantMessage content={message.content} />;
+  return (
+    <AssistantMessage 
+      content={message.content} 
+      messageId={message.id}
+      isStreaming={isStreaming}
+    />
+  );
 }

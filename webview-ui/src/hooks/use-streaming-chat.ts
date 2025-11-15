@@ -1,12 +1,15 @@
 import { useState, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { nvidiaApi } from '../services/nvidia-api';
+import { getSystemPrompt } from '../utils/prompts';
+import { useWorkspaceContext } from './use-workspace-context';
 import type { Message } from '../types/chat';
 import type { ChatMessage } from '../types/nvidia-api';
 
 export function useStreamingChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const workspace = useWorkspaceContext();
 
   const updateMessage = useCallback((messageId: string, newContent: string) => {
     setMessages(prev =>
@@ -50,7 +53,13 @@ export function useStreamingChat() {
     setMessages((prev) => [...prev, assistantMessage]);
 
     try {
+      const systemPrompt = getSystemPrompt(workspace);
+      
       const chatHistory: ChatMessage[] = [
+        {
+          role: 'system',
+          content: systemPrompt,
+        },
         ...messages.map((msg) => ({
           role: msg.role,
           content: msg.content,

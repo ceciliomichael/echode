@@ -2,11 +2,130 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 
+const EXCLUDED_DIRECTORIES = [
+  'node_modules',
+  '__pycache__',
+  '.venv',
+  'venv',
+  '.git',
+  '.svn',
+  '.hg',
+  'dist',
+  'build',
+  'out',
+  '.next',
+  '.nuxt',
+  '.cache',
+  '.temp',
+  '.tmp',
+  'coverage',
+  '.pytest_cache',
+  '.mypy_cache',
+  '.tox',
+  'target',
+  'bin',
+  'obj',
+  '.gradle',
+  '.idea',
+  '.vscode',
+  '.vs',
+];
+
+const EXCLUDED_FILES = [
+  '.DS_Store',
+  'Thumbs.db',
+  'package-lock.json',
+  'yarn.lock',
+  'pnpm-lock.yaml',
+];
+
 export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'echode.sidebar';
   private _view?: vscode.WebviewView;
 
   constructor(private readonly _extensionUri: vscode.Uri) {}
+
+  private getWorkspaceFiles(workspacePath: string): string[] {
+    const files: string[] = [];
+    
+    const shouldExclude = (name: string, isDirectory: boolean): boolean => {
+      if (isDirectory && EXCLUDED_DIRECTORIES.includes(name)) {
+        return true;
+      }
+      if (!isDirectory && EXCLUDED_FILES.includes(name)) {
+        return true;
+      }
+      if (name.endsWith('.pyc') || name.endsWith('.pyo') || name.endsWith('.pyd')) {
+        return true;
+      }
+      if (name.endsWith('.log') || name.endsWith('.tmp') || name.endsWith('.swp')) {
+        return true;
+      }
+      return false;
+    };
+
+    const traverse = (dir: string, relativePath: string = '') => {
+      try {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        
+        for (const entry of entries) {
+          if (shouldExclude(entry.name, entry.isDirectory())) {
+            continue;
+          }
+          
+          const fullPath = path.join(dir, entry.name);
+          const relPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+          
+          if (entry.isDirectory()) {
+            traverse(fullPath, relPath);
+          } else {
+            files.push(relPath);
+          }
+        }
+      } catch (error) {
+        // Skip directories that can't be read
+      }
+    };
+    
+    traverse(workspacePath);
+    return files.sort();
+  }
+
+  public newChat() {
+    if (this._view) {
+      this._view.webview.postMessage({ type: 'newChat' });
+    }
+  }
+
+  public openHistoryPanel() {
+    const panel = vscode.window.createWebviewPanel(
+      'echodeHistory',
+      'Chat History',
+      vscode.ViewColumn.One,
+      {
+        enableScripts: true,
+        localResourceRoots: [
+          vscode.Uri.joinPath(this._extensionUri, 'webview-ui', 'dist')
+        ]
+      }
+    );
+
+    panel.webview.html = this._getHistoryHtml(panel.webview);
+
+    panel.webview.onDidReceiveMessage(async (data) => {
+      switch (data.type) {
+        case 'loadChat':
+          if (this._view) {
+            this._view.webview.postMessage({ type: 'loadChat', chatId: data.chatId });
+          }
+          panel.dispose();
+          break;
+        case 'closeHistory':
+          panel.dispose();
+          break;
+      }
+    });
+  }
 
   public openSettingsPanel() {
     const panel = vscode.window.createWebviewPanel(
@@ -278,6 +397,59 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
     return html;
   }
 
+  private _getHistoryHtml(webview: vscode.Webview): string {
+    const distPath = vscode.Uri.joinPath(this._extensionUri, 'webview-ui', 'dist');
+    const indexPath = vscode.Uri.joinPath(distPath, 'index.html');
+
+    let html = '';
+    try {
+      html = fs.readFileSync(indexPath.fsPath, 'utf8');
+    } catch (error) {
+      return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat History</title>
+</head>
+<body>
+  <div style="padding: 20px;">
+    <h2>Build Error</h2>
+    <p>Please build the webview-ui first:</p>
+    <pre>cd webview-ui && npm run build</pre>
+  </div>
+</body>
+</html>`;
+    }
+
+    html = html.replace(
+      /(<link.+?href="|<script.+?src="|<img.+?src=")(?!https?:\/\/)(\.?\/)(.+?)"/g,
+      (_match, prefix, _slash, assetPath) => {
+        const assetUri = webview.asWebviewUri(
+          vscode.Uri.joinPath(distPath, assetPath)
+        );
+        return `${prefix}${assetUri}"`;
+      }
+    );
+
+    const theme = vscode.window.activeColorTheme;
+
+    html = html.replace(
+      '<head>',
+      `<head>
+      <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; img-src ${webview.cspSource} https:; script-src ${webview.cspSource} 'unsafe-inline'; connect-src http: https:;">
+      <script>
+        window.vscode = acquireVsCodeApi();
+        window.vsCodeTheme = {
+          kind: ${theme.kind}
+        };
+        window.isHistoryPanel = true;
+      </script>`
+    );
+
+    return html;
+  }
+
   private _getHtmlForWebview(webview: vscode.Webview): string {
     const distPath = vscode.Uri.joinPath(this._extensionUri, 'webview-ui', 'dist');
     const indexPath = vscode.Uri.joinPath(distPath, 'index.html');
@@ -330,6 +502,15 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
       sideBarForeground: new vscode.ThemeColor('sideBar.foreground'),
     };
 
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    const workspaceInfo = workspaceFolders && workspaceFolders.length > 0
+      ? {
+          path: workspaceFolders[0].uri.fsPath,
+          name: workspaceFolders[0].name,
+          files: this.getWorkspaceFiles(workspaceFolders[0].uri.fsPath)
+        }
+      : null;
+
     html = html.replace(
       '<head>',
       `<head>
@@ -339,6 +520,7 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
         window.vsCodeTheme = {
           kind: ${theme.kind}
         };
+        window.workspaceContext = ${JSON.stringify(workspaceInfo)};
       </script>`
     );
 

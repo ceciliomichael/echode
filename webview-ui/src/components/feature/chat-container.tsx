@@ -36,8 +36,8 @@ export function ChatContainer() {
         {messages.length === 0 ? (
           <ChatEmptyState />
         ) : (
-          <div className="space-y-4">
-            {messages.map((message) => (
+          <div className="space-y-1">
+            {messages.map((message, index) => (
               <MessageBubble
                 key={message.id}
                 message={message}
@@ -46,6 +46,7 @@ export function ChatContainer() {
                 isEditing={editingMessageId === message.id}
                 onEditStart={handleEditStart}
                 onEditCancel={handleEditCancel}
+                isStreaming={isStreaming && index === messages.length - 1 && message.role === 'assistant'}
               />
             ))}
           </div>
