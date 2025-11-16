@@ -7,7 +7,11 @@ import type { IStorageService } from './storage-interface';
  * Follows Dependency Inversion Principle
  */
 export class LocalStorageService implements IStorageService {
-  constructor(private readonly storageKey: string) {}
+  private readonly storageKey: string;
+  
+  constructor(storageKey: string) {
+    this.storageKey = storageKey;
+  }
 
   getSettings(): ApiSettings {
     try {

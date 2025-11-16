@@ -1,11 +1,11 @@
-import { useEffect, RefObject } from 'react';
+import { useEffect, type RefObject } from 'react';
 
 /**
  * Custom hook to auto-resize textarea based on content
  * Eliminates duplication between chat-input and message-edit-form
  */
 export function useAutoResizeTextarea(
-  textareaRef: RefObject<HTMLTextAreaElement>,
+  textareaRef: RefObject<HTMLTextAreaElement | null>,
   value: string
 ) {
   useEffect(() => {

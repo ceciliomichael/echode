@@ -1,4 +1,4 @@
-import { MouseEvent } from 'react';
+import type { MouseEvent } from 'react';
 
 /**
  * Custom hook for consistent hover effects across components
