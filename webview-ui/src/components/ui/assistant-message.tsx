@@ -9,14 +9,20 @@ interface AssistantMessageProps {
   content: string;
   messageId?: string;
   isStreaming?: boolean;
+  showCopy?: boolean;
 }
 
-function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming = false }: AssistantMessageProps) {
+function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming = false, showCopy = false }: AssistantMessageProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   
   // Tokenize content into stable segments
   const tokens = useMemo(() => tokenizeContent(content), [content]);
+  
+  const shouldShowCopyRow = useMemo(
+    () => !isStreaming && showCopy,
+    [isStreaming, showCopy]
+  );
   
   const handleCopy = () => {
     // Extract only text content (exclude think blocks)
@@ -34,18 +40,24 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
   };
   
   if (!content) {
-    return (
-      <div className="py-2" style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
-        <div className="max-w-none">
-          <LoadingDots />
+    // Show loading dots when message is empty and pipeline is active
+    // This includes: AI streaming OR tool executing (waiting for AI response)
+    if (isStreaming) {
+      return (
+        <div style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
+          <div className="max-w-none">
+            <LoadingDots />
+          </div>
         </div>
-      </div>
-    );
+      );
+    }
+    // Don't render anything if no content and pipeline stopped
+    return null;
   }
 
   return (
     <div 
-      className="py-2 group relative" 
+      className="group relative" 
       style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -54,56 +66,66 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
         className="max-w-none" 
         style={{ color: 'var(--vscode-editor-foreground)' }}
       >
-        {tokens.map((token) => {
+        {tokens.map((token, index) => {
+          const prevToken = index > 0 ? tokens[index - 1] : null;
+          const isPrevThink = prevToken?.type === 'think';
+          
+          // Much smaller margin after think blocks (like paragraph spacing), normal margin otherwise
+          const marginTop = index === 0 ? '0' : isPrevThink ? '0.25rem' : '0.75rem';
+          
           if (token.type === 'think') {
             return (
-              <ThinkBlock
-                key={`think-${messageId}-${token.index}`}
-                content={token.content}
-                messageId={`${messageId}-${token.index}`}
-                isStreaming={isStreaming && !token.isClosed}
-                isClosed={token.isClosed}
-              />
+              <div key={`think-${messageId}-${token.index}`} style={{ marginTop }}>
+                <ThinkBlock
+                  content={token.content}
+                  messageId={`${messageId}-${token.index}`}
+                  isStreaming={isStreaming && !token.isClosed}
+                  isClosed={token.isClosed}
+                />
+              </div>
             );
           }
           
           // Text content - use memoized markdown renderer
           if (token.content.trim()) {
             return (
-              <StableMarkdown 
-                key={`text-${messageId}-${token.index}`} 
-                content={token.content} 
-              />
+              <div key={`text-${messageId}-${token.index}`} style={{ marginTop }}>
+                <StableMarkdown 
+                  content={token.content} 
+                />
+              </div>
             );
           }
           
           return null;
         })}
       </div>
-      
-      {isHovered && !isStreaming && (
-        <button
-          onClick={handleCopy}
-          className="absolute transition-opacity"
-          style={{
-            background: 'none',
-            border: 'none',
-            padding: 0,
-            cursor: 'pointer',
-            color: 'var(--vscode-foreground)',
-            opacity: 0.6,
-            right: '1.25rem',
-            bottom: '0.5rem'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.opacity = '1';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.opacity = '0.6';
-          }}
+      {shouldShowCopyRow && (
+        <div 
+          className={`mt-1 flex justify-end transition-opacity ${isHovered ? 'opacity-100' : 'opacity-0'}`}
+          style={{ pointerEvents: isHovered ? 'auto' : 'none' }}
         >
-          {isCopied ? <Check size={16} /> : <Copy size={16} />}
-        </button>
+          <button
+            onClick={handleCopy}
+            className="inline-flex items-center gap-1 text-xs transition-opacity"
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              color: 'var(--vscode-foreground)',
+              opacity: isCopied ? 1 : 0.7,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.opacity = '1';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.opacity = isCopied ? '1' : '0.7';
+            }}
+          >
+            {isCopied ? <Check size={14} /> : <Copy size={14} />}
+          </button>
+        </div>
       )}
     </div>
   );
@@ -112,5 +134,6 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
 export const AssistantMessage = memo(AssistantMessageComponent, (prev, next) => {
   return prev.content === next.content && 
          prev.messageId === next.messageId && 
-         prev.isStreaming === next.isStreaming;
+         prev.isStreaming === next.isStreaming &&
+         prev.showCopy === next.showCopy;
 });

@@ -5,8 +5,8 @@ export function useModelFetcher(baseUrl: string, apiKey: string) {
   const [loadingModels, setLoadingModels] = useState(false);
 
   useEffect(() => {
-    // Clear models immediately when endpoint changes
-    setModels([]);
+    // Clear models when endpoint changes
+    const timeoutId = setTimeout(() => setModels([]), 0);
     
     const fetchModels = async () => {
       if (!baseUrl || !apiKey) {
@@ -30,7 +30,7 @@ export function useModelFetcher(baseUrl: string, apiKey: string) {
               } else {
                 setModels([]);
               }
-            } catch (_error) {
+            } catch {
               setModels([]);
             }
             setLoadingModels(false);
@@ -61,8 +61,11 @@ export function useModelFetcher(baseUrl: string, apiKey: string) {
       };
     };
 
-    const timeoutId = setTimeout(fetchModels, 500);
-    return () => clearTimeout(timeoutId);
+    const fetchTimeoutId = setTimeout(fetchModels, 500);
+    return () => {
+      clearTimeout(timeoutId);
+      clearTimeout(fetchTimeoutId);
+    };
   }, [baseUrl, apiKey]);
 
   return { models, loadingModels };

@@ -46,7 +46,7 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave }: 
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (editContent.trim() && editContent !== initialContent) {
+    if (editContent.trim()) {
       onSubmit(editContent.trim());
     } else {
       onCancel();

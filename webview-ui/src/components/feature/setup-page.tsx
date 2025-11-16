@@ -16,6 +16,7 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
   const [baseUrl, setBaseUrl] = useState(initialSettings.baseUrl);
   const [model, setModel] = useState(initialSettings.model);
   const [apiKey, setApiKey] = useState(initialSettings.apiKey);
+  const [maxTokens, setMaxTokens] = useState(initialSettings.maxTokens || 2048);
   const [systemPrompt, setSystemPrompt] = useState(initialSettings.systemPrompt || '');
   const [activeTab, setActiveTab] = useState<'api' | 'system'>('api');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -24,23 +25,28 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
 
   // Clear model when endpoint changes
   useEffect(() => {
-    setModel('');
+    const timeoutId = setTimeout(() => setModel(''), 0);
+    return () => clearTimeout(timeoutId);
   }, [baseUrl]);
 
   useEffect(() => {
-    setBaseUrl(initialSettings.baseUrl);
-    setModel(initialSettings.model);
-    setApiKey(initialSettings.apiKey);
-    setSystemPrompt(initialSettings.systemPrompt || '');
+    const timeoutId = setTimeout(() => {
+      setBaseUrl(initialSettings.baseUrl);
+      setModel(initialSettings.model);
+      setApiKey(initialSettings.apiKey);
+      setMaxTokens(initialSettings.maxTokens || 2048);
+      setSystemPrompt(initialSettings.systemPrompt || '');
+    }, 0);
+    return () => clearTimeout(timeoutId);
   }, [initialSettings]);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      onSave({ baseUrl, model, apiKey, systemPrompt });
+      onSave({ baseUrl, model, apiKey, maxTokens, systemPrompt });
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [baseUrl, model, apiKey, systemPrompt, onSave]);
+  }, [baseUrl, model, apiKey, maxTokens, systemPrompt, onSave]);
 
 
   return (
@@ -79,11 +85,13 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
               baseUrl={baseUrl}
               apiKey={apiKey}
               model={model}
+              maxTokens={maxTokens}
               models={models}
               loadingModels={loadingModels}
               onBaseUrlChange={setBaseUrl}
               onApiKeyChange={setApiKey}
               onModelChange={setModel}
+              onMaxTokensChange={setMaxTokens}
             />
           )}
 

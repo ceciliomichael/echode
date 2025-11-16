@@ -12,7 +12,7 @@ interface MessageBubbleProps {
   isStreaming?: boolean;
 }
 
-export function MessageBubble({ message, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, isStreaming }: MessageBubbleProps) {
+export function MessageBubble({ message, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, isStreaming, showCopy }: MessageBubbleProps & { showCopy?: boolean }) {
   if (message.role === 'user') {
     return (
       <UserMessage
@@ -32,6 +32,7 @@ export function MessageBubble({ message, onEdit, onUpdate, isEditing, onEditStar
       content={message.content} 
       messageId={message.id}
       isStreaming={isStreaming}
+      showCopy={showCopy}
     />
   );
 }

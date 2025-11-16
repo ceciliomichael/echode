@@ -80,7 +80,9 @@ const ThinkBlockComponent = ({
     if (!hasLoadedFromStorageRef.current) {
       const storedDuration = getThinkBlockDuration(messageId, content);
       if (storedDuration > 0) {
-        setDuration(storedDuration);
+        const timeoutId = setTimeout(() => setDuration(storedDuration), 0);
+        hasLoadedFromStorageRef.current = true;
+        return () => clearTimeout(timeoutId);
       }
       hasLoadedFromStorageRef.current = true;
     }
@@ -96,16 +98,18 @@ const ThinkBlockComponent = ({
 
       // Auto-expand when streaming starts (only once)
       if (!hasAutoExpandedRef.current) {
-        setIsExpanded(true);
+        queueMicrotask(() => setIsExpanded(true));
         hasAutoExpandedRef.current = true;
       }
 
       // Update duration every 100ms while streaming
-      intervalRef.current = setInterval(() => {
-        if (startTimeRef.current !== null) {
-          setDuration(Date.now() - startTimeRef.current);
-        }
-      }, 100);
+      if (!intervalRef.current) {
+        intervalRef.current = setInterval(() => {
+          if (startTimeRef.current !== null) {
+            setDuration(Date.now() - startTimeRef.current);
+          }
+        }, 100);
+      }
     } else {
       // Streaming finished
       if (startTimeRef.current !== null) {
@@ -122,7 +126,7 @@ const ThinkBlockComponent = ({
         setIsExpanded(false);
       }
 
-      // Clear interval
+      // Clear intervals
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
@@ -142,19 +146,28 @@ const ThinkBlockComponent = ({
     };
   }, [isStreaming, isClosed, messageId, content]);
 
-  const displayText = isStreaming
-    ? 'Thinking...'
-    : `Thought for ${formatDuration(duration)}`;
 
   return (
-    <div className="my-0.5">
+    <div>
+      <style>
+        {`
+          @keyframes wave-shine {
+            0% {
+              background-position: 200% 0;
+            }
+            100% {
+              background-position: -100% 0;
+            }
+          }
+        `}
+      </style>
       {/* Inline dropdown trigger - looks like text */}
       <div className="inline-flex items-center gap-2">
         <button
           type="button"
           onClick={() => setIsExpanded(!isExpanded)}
           className="inline-flex items-center gap-1 transition-colors group"
-          style={{ 
+          style={{
             color: 'var(--vscode-descriptionForeground)',
             outline: 'none'
           }}
@@ -165,7 +178,25 @@ const ThinkBlockComponent = ({
             e.currentTarget.style.color = 'var(--vscode-descriptionForeground)';
           }}
         >
-          <span className="text-sm italic">{displayText}</span>
+          {!isClosed ? (
+            <span
+              className="text-sm"
+              style={{
+                background: 'linear-gradient(90deg, var(--vscode-descriptionForeground) 0%, var(--vscode-descriptionForeground) 40%, var(--vscode-foreground) 50%, var(--vscode-descriptionForeground) 60%, var(--vscode-descriptionForeground) 100%)',
+                backgroundSize: '300% 100%',
+                WebkitBackgroundClip: 'text',
+                backgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                animation: 'wave-shine 2s linear infinite'
+              }}
+            >
+              Thinking
+            </span>
+          ) : (
+            <span className="text-sm">
+              Thought for {formatDuration(duration)}
+            </span>
+          )}
           {isExpanded ? (
             <ChevronDown className="w-3.5 h-3.5 transition-all duration-200" strokeWidth={1.5} />
           ) : (

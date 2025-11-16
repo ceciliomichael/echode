@@ -5,22 +5,26 @@ interface ApiConfigTabProps {
   baseUrl: string;
   apiKey: string;
   model: string;
+  maxTokens: number;
   models: string[];
   loadingModels: boolean;
   onBaseUrlChange: (value: string) => void;
   onApiKeyChange: (value: string) => void;
   onModelChange: (value: string) => void;
+  onMaxTokensChange: (value: number) => void;
 }
 
 export function ApiConfigTab({
   baseUrl,
   apiKey,
   model,
+  maxTokens,
   models,
   loadingModels,
   onBaseUrlChange,
   onApiKeyChange,
-  onModelChange
+  onModelChange,
+  onMaxTokensChange
 }: ApiConfigTabProps) {
   return (
     <div className="max-w-2xl space-y-4">
@@ -62,6 +66,31 @@ export function ApiConfigTab({
           onChange={onModelChange}
           models={models.length > 0 ? models : [model].filter(Boolean)}
           disabled={loadingModels}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <label
+          htmlFor="maxTokens"
+          className="block text-xs font-semibold"
+          style={{ color: 'var(--vscode-foreground)' }}
+        >
+          Max Tokens
+        </label>
+        <input
+          id="maxTokens"
+          type="number"
+          value={maxTokens}
+          onChange={(e) => onMaxTokensChange(Number(e.target.value))}
+          placeholder="2048"
+          min="1"
+          max="128000"
+          className="w-full px-3 py-2 text-sm rounded-xl border transition-colors"
+          style={{
+            backgroundColor: 'var(--vscode-input-background)',
+            color: 'var(--vscode-input-foreground)',
+            borderColor: 'var(--vscode-input-border)'
+          }}
         />
       </div>
     </div>

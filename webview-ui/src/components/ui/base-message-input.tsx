@@ -1,29 +1,61 @@
-import { useState, useRef, useEffect, type KeyboardEvent, type FormEvent, type ChangeEvent } from 'react';
+import { useState, useRef, useEffect, type KeyboardEvent, type FormEvent, type ChangeEvent, type ReactNode } from 'react';
 import { ArrowUp, Paperclip, Square } from 'lucide-react';
+import { useAutoResizeTextarea } from '../../hooks/use-auto-resize-textarea';
+import { useHoverEffect, hoverPresets } from '../../hooks/use-hover-effect';
 
-interface ChatInputProps {
-  onSendMessage: (message: string) => void;
+interface BaseMessageInputProps {
+  initialValue?: string;
+  placeholder?: string;
+  onSubmit: (content: string) => void;
+  onCancel?: () => void;
   disabled?: boolean;
   isStreaming?: boolean;
   onStop?: () => void;
+  autoFocus?: boolean;
+  showStopButton?: boolean;
+  containerClassName?: string;
+  extraActions?: ReactNode;
 }
 
-export function ChatInput({ onSendMessage, disabled = false, isStreaming = false, onStop }: ChatInputProps) {
-  const [input, setInput] = useState('');
+/**
+ * Base component for message input forms
+ * Eliminates duplication between chat-input and message-edit-form
+ * Follows Single Responsibility Principle
+ */
+export function BaseMessageInput({
+  initialValue = '',
+  placeholder = 'Type your message...',
+  onSubmit,
+  onCancel,
+  disabled = false,
+  isStreaming = false,
+  onStop,
+  autoFocus = false,
+  showStopButton = false,
+  containerClassName = 'px-3',
+  extraActions,
+}: BaseMessageInputProps) {
+  const [input, setInput] = useState(initialValue);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { handleMouseEnter, handleMouseLeave } = useHoverEffect();
+
+  useAutoResizeTextarea(textareaRef, input);
 
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    if (autoFocus && textareaRef.current) {
+      const textarea = textareaRef.current;
+      textarea.focus();
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
     }
-  }, [input]);
+  }, [autoFocus]);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (input.trim() && !disabled) {
-      onSendMessage(input.trim());
+      onSubmit(input.trim());
       setInput('');
+    } else if (!input.trim() && onCancel) {
+      onCancel();
     }
   };
 
@@ -35,12 +67,14 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
+    } else if (e.key === 'Escape' && onCancel) {
+      onCancel();
     }
   };
 
   return (
     <div
-      className="px-3"
+      className={containerClassName}
       style={{
         paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))",
         paddingTop: "0.5rem",
@@ -53,7 +87,7 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
           backgroundColor: 'var(--vscode-chat-surface)',
           borderColor: 'var(--vscode-input-border)'
         }}
-        aria-label="Chat input area"
+        aria-label="Message input area"
       >
         <form onSubmit={handleSubmit} className="flex flex-col gap-0">
           <div className="w-full px-1.5 pt-1.5">
@@ -67,18 +101,8 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
                   borderColor: 'var(--vscode-input-border)',
                   backgroundColor: 'transparent'
                 }}
-                onMouseEnter={(e) => {
-                  if (!disabled) {
-                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.4)';
-                    e.currentTarget.style.boxShadow = '0 0 0 1px rgba(255, 255, 255, 0.3)';
-                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--vscode-input-border)';
-                  e.currentTarget.style.boxShadow = 'none';
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }}
+                onMouseEnter={(e) => !disabled && handleMouseEnter(e, hoverPresets.button.enter)}
+                onMouseLeave={(e) => handleMouseLeave(e, hoverPresets.button.leave)}
               >
                 + No Attachments
               </button>
@@ -91,7 +115,7 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
               value={input}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
-              placeholder="Type your message..."
+              placeholder={placeholder}
               disabled={disabled || isStreaming}
               rows={1}
               className="w-full px-1.5 py-1 rounded-lg bg-transparent text-sm leading-tight min-h-[36px] max-h-[100px] overflow-y-auto resize-none border-0 relative z-10 disabled:opacity-50 disabled:cursor-not-allowed placeholder:opacity-50"
@@ -112,10 +136,11 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
               >
                 <Paperclip className="w-3.5 h-3.5" />
               </button>
+              {extraActions}
             </div>
 
             <div className="flex items-center gap-1">
-              {isStreaming ? (
+              {showStopButton && isStreaming ? (
                 <button
                   type="button"
                   onClick={onStop}

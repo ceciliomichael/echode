@@ -1,4 +1,4 @@
-import type { ChatMessage, StreamChunk, ChatCompletionRequest } from '../types/nvidia-api';
+import type { ChatMessage, StreamChunk, ChatCompletionRequest } from '../types/chat-api';
 import { storageService } from '../utils/storage';
 
 class ProxyFetch {
@@ -19,17 +19,18 @@ class ProxyFetch {
         const message = event.data;
         const pending = this.pendingRequests.get(message.requestId);
         
-        if (!pending) return;
+        if (!pending) {return;}
 
         // Update last activity time on any message
         pending.lastActivityTime = Date.now();
 
         switch (message.type) {
-          case 'apiStreamChunk':
+          case 'apiStreamChunk': {
             // Stream chunk immediately in real-time
             const encoder = new TextEncoder();
             pending.controller.enqueue(encoder.encode(message.chunk));
             break;
+          }
           
           case 'apiResponse':
             // Store status for creating the Response
@@ -56,11 +57,12 @@ class ProxyFetch {
     }
 
     const requestId = ++this.requestCounter;
+    const signal = options.signal as AbortSignal | undefined;
 
     return new Promise((resolve, reject) => {
       let streamController: ReadableStreamDefaultController<Uint8Array>;
-      let responseStatus = 200;
-      let responseStatusText = 'OK';
+      const responseStatus = 200;
+      const responseStatusText = 'OK';
 
       // Create a ReadableStream for real-time streaming
       const stream = new ReadableStream<Uint8Array>({
@@ -88,6 +90,23 @@ class ProxyFetch {
         timeoutId,
         lastActivityTime: Date.now()
       });
+      
+      // Handle abort signal
+      if (signal) {
+        signal.addEventListener('abort', () => {
+          const pending = this.pendingRequests.get(requestId);
+          if (pending) {
+            clearTimeout(pending.timeoutId);
+            pending.controller.close();
+            this.pendingRequests.delete(requestId);
+            // Notify extension to cancel request
+            window.vscode.postMessage({
+              type: 'apiCancel',
+              requestId
+            });
+          }
+        });
+      }
 
       // Resolve with the streaming Response immediately
       const response = new Response(stream, {
@@ -112,8 +131,8 @@ class ProxyFetch {
 
 const proxyFetch = new ProxyFetch();
 
-export class NvidiaApiService {
-  async *streamChat(messages: ChatMessage[]): AsyncGenerator<string, void, unknown> {
+export class ChatApiService {
+  async *streamChat(messages: ChatMessage[], signal?: AbortSignal): AsyncGenerator<string, void, unknown> {
     const settings = storageService.getSettings();
 
     if (!settings.baseUrl || !settings.apiKey || !settings.model) {
@@ -158,8 +177,9 @@ export class NvidiaApiService {
           messages,
           stream: true,
           temperature: 0.7,
-          max_tokens: 2048,
+          max_tokens: settings.maxTokens || 2048,
         } as ChatCompletionRequest),
+        signal,
       });
       
       console.log('[Echode API] Response status:', response.status);
@@ -179,7 +199,7 @@ export class NvidiaApiService {
         if (errorData.error?.message) {
           errorMessage += ` - ${errorData.error.message}`;
         }
-      } catch (_e) {
+      } catch {
         // Ignore JSON parse errors
       }
       throw new Error(errorMessage);
@@ -194,20 +214,52 @@ export class NvidiaApiService {
 
     const decoder = new TextDecoder();
     let buffer = '';
+    let totalChunks = 0;
+    let contentChunks = 0;
 
     try {
       while (true) {
+        // Check if aborted before reading
+        if (signal?.aborted) {
+          console.log('[Echode API] Stream aborted by user');
+          break;
+        }
+        
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          console.log('[Echode API] Stream done. Total chunks:', totalChunks, 'Content chunks:', contentChunks);
+          
+          // Check if we got an error response instead of streaming data
+          if (buffer.length > 0 && contentChunks === 0) {
+            console.log('[Echode API] No content chunks received. Checking for error response...');
+            try {
+              const errorData = JSON.parse(buffer);
+              if (errorData.error) {
+                const errorMsg = errorData.message || errorData.error;
+                throw new Error(`API Error: ${errorMsg}`);
+              }
+            } catch (e) {
+              if (e instanceof SyntaxError) {
+                console.log('[Echode API] Remaining buffer (not JSON):', buffer.substring(0, 200));
+              } else {
+                throw e;
+              }
+            }
+          }
+          break;
+        }
 
-        buffer += decoder.decode(value, { stream: true });
+        totalChunks++;
+        const decodedChunk = decoder.decode(value, { stream: true });
+        
+        buffer += decodedChunk;
         const lines = buffer.split('\n');
         buffer = lines.pop() || '';
 
         for (const line of lines) {
           const trimmedLine = line.trim();
-          if (!trimmedLine || trimmedLine === 'data: [DONE]') continue;
-          if (!trimmedLine.startsWith('data: ')) continue;
+          if (!trimmedLine || trimmedLine === 'data: [DONE]') {continue;}
+          if (!trimmedLine.startsWith('data: ')) {continue;}
 
           try {
             const jsonStr = trimmedLine.slice(6);
@@ -215,17 +267,27 @@ export class NvidiaApiService {
             const content = data.choices[0]?.delta?.content;
             
             if (content) {
+              contentChunks++;
               yield content;
             }
-          } catch (_error) {
+          } catch (e) {
+            console.warn('[Echode API] Failed to parse SSE line:', e);
             continue;
           }
         }
       }
     } finally {
+      // Cancel reader if aborted to clean up resources
+      if (signal?.aborted) {
+        try {
+          await reader.cancel();
+        } catch (e) {
+          // Ignore cancel errors
+        }
+      }
       reader.releaseLock();
     }
   }
 }
 
-export const nvidiaApi = new NvidiaApiService();
+export const chatApi = new ChatApiService();

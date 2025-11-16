@@ -1,12 +1,17 @@
-import type { ApiSettings } from '../types/api-settings';
-import { DEFAULT_API_SETTINGS } from '../types/api-settings';
+import type { ApiSettings } from '../../types/api-settings';
+import { DEFAULT_API_SETTINGS } from '../../types/api-settings';
+import type { IStorageService } from './storage-interface';
 
-const STORAGE_KEY = 'echode_api_settings';
+/**
+ * LocalStorage implementation of IStorageService
+ * Follows Dependency Inversion Principle
+ */
+export class LocalStorageService implements IStorageService {
+  constructor(private readonly storageKey: string) {}
 
-export const storageService = {
   getSettings(): ApiSettings {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
+      const stored = localStorage.getItem(this.storageKey);
       if (!stored) {
         return { ...DEFAULT_API_SETTINGS };
       }
@@ -14,31 +19,31 @@ export const storageService = {
     } catch {
       return { ...DEFAULT_API_SETTINGS };
     }
-  },
+  }
 
   saveSettings(settings: ApiSettings): void {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+      localStorage.setItem(this.storageKey, JSON.stringify(settings));
     } catch {
       console.error('Failed to save settings');
     }
-  },
+  }
 
   clearSettings(): void {
     try {
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(this.storageKey);
     } catch {
       console.error('Failed to clear settings');
     }
-  },
+  }
 
   hasSettings(): boolean {
     const settings = this.getSettings();
     return !!(settings.baseUrl && settings.apiKey && settings.model);
-  },
+  }
 
   getSystemPrompt(): string {
     const settings = this.getSettings();
     return settings.systemPrompt || '';
   }
-};
+}

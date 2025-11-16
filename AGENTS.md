@@ -30,6 +30,7 @@ This is the exclusive space for all internal reasoning.
     * Keep responses concise and focused. Provide only what the user explicitly requested.
     * Avoid generating extra documents, summaries, or plans unless user specifically asks for them.
     * Do not use run_terminal, instead provide the user with the command to be executed.
+    * Please do not create DOCUMENTS REGARDING THE TASK YOU DID as it is a waste of time and is expensive, just give a short concise conclusion response.
 </development_flow>
 
 <design_rules description="The agent should strictly adhere to these design system">

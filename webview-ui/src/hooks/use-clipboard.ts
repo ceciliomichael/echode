@@ -48,7 +48,7 @@ export function useClipboard(
           document.body.removeChild(textArea);
         }
       }
-    } catch (_err) {
+    } catch {
       // Error handled silently
     }
   };

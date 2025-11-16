@@ -12,15 +12,9 @@ declare global {
 
 function App() {
   const [settings, setSettings] = useState<ApiSettings>(storageService.getSettings());
-  const [showSetup, setShowSetup] = useState(false);
-
-  useEffect(() => {
-    if (window.isSettingsPanel) {
-      setShowSetup(true);
-    } else if (!storageService.hasSettings()) {
-      setShowSetup(true);
-    }
-  }, []);
+  const [showSetup, setShowSetup] = useState(() => {
+    return window.isSettingsPanel || !storageService.hasSettings();
+  });
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
