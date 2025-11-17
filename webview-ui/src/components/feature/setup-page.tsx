@@ -4,7 +4,7 @@ import { SettingsDropdown } from '../ui/settings-dropdown';
 import { ApiConfigTab } from './api-config-tab';
 import { SystemPromptTab } from './system-prompt-tab';
 import { useModelFetcher } from '../../hooks/use-model-fetcher';
-import type { ApiSettings } from '../../types/api-settings';
+import type { ApiSettings, Provider } from '../../types/api-settings';
 
 interface SetupPageProps {
   initialSettings: ApiSettings;
@@ -13,28 +13,132 @@ interface SetupPageProps {
 }
 
 export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
-  const [baseUrl, setBaseUrl] = useState(initialSettings.baseUrl);
+  const [provider, setProvider] = useState<Provider>(initialSettings.provider);
+  const [anthropicCustomUrl, setAnthropicCustomUrl] = useState(initialSettings.anthropicCustomUrl || '');
+  const [openaiCustomUrl, setOpenaiCustomUrl] = useState(initialSettings.openaiCustomUrl || '');
+  const [openaiCompatibleCustomUrl, setOpenaiCompatibleCustomUrl] = useState(initialSettings.openaiCompatibleCustomUrl || '');
   const [model, setModel] = useState(initialSettings.model);
+  const [anthropicModel, setAnthropicModel] = useState(initialSettings.anthropicModel || '');
+  const [openaiModel, setOpenaiModel] = useState(initialSettings.openaiModel || '');
+  const [openaiCompatibleModel, setOpenaiCompatibleModel] = useState(initialSettings.openaiCompatibleModel || '');
   const [apiKey, setApiKey] = useState(initialSettings.apiKey);
-  const [maxTokens, setMaxTokens] = useState(initialSettings.maxTokens || 2048);
+  const [anthropicMaxTokens, setAnthropicMaxTokens] = useState(initialSettings.anthropicMaxTokens);
+  const [openaiMaxTokens, setOpenaiMaxTokens] = useState(initialSettings.openaiMaxTokens);
+  const [openaiCompatibleMaxTokens, setOpenaiCompatibleMaxTokens] = useState(initialSettings.openaiCompatibleMaxTokens);
   const [systemPrompt, setSystemPrompt] = useState(initialSettings.systemPrompt || '');
   const [activeTab, setActiveTab] = useState<'api' | 'system'>('api');
   const [showDropdown, setShowDropdown] = useState(false);
 
-  const { models, loadingModels } = useModelFetcher(baseUrl, apiKey);
+  // Get current custom URL and max tokens based on provider
+  const currentCustomUrl = provider === 'anthropic' 
+    ? anthropicCustomUrl 
+    : provider === 'openai' 
+    ? openaiCustomUrl 
+    : openaiCompatibleCustomUrl;
+  const currentMaxTokens = provider === 'anthropic' 
+    ? anthropicMaxTokens 
+    : provider === 'openai' 
+    ? openaiMaxTokens 
+    : openaiCompatibleMaxTokens;
 
-  // Clear model when endpoint changes
+  const { models, loadingModels, fetchModels, refetchModels, clearCache } = useModelFetcher(provider, currentCustomUrl, apiKey);
+
+  // Clear cache and restore model when provider changes
   useEffect(() => {
-    const timeoutId = setTimeout(() => setModel(''), 0);
+    clearCache();
+    const timeoutId = setTimeout(() => {
+      const savedModel = provider === 'anthropic' 
+        ? anthropicModel 
+        : provider === 'openai' 
+        ? openaiModel 
+        : openaiCompatibleModel;
+      setModel(savedModel);
+    }, 0);
     return () => clearTimeout(timeoutId);
-  }, [baseUrl]);
+  }, [provider, anthropicModel, openaiModel, openaiCompatibleModel, clearCache]);
+
+  // Clear cache and refetch when customUrl or apiKey changes
+  useEffect(() => {
+    clearCache();
+    // Refetch models if we have an API key
+    if (apiKey) {
+      const timeoutId = setTimeout(() => {
+        fetchModels(true);
+      }, 500);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [currentCustomUrl, apiKey, clearCache, fetchModels]);
+
+  // Clear model if it's not in the fetched models list
+  useEffect(() => {
+    if (model && models.length > 0 && !models.includes(model)) {
+      setTimeout(() => setModel(''), 0);
+    }
+  }, [models, model]);
+
+  // Handle provider change
+  const handleProviderChange = (newProvider: Provider) => {
+    // Save current model to provider-specific state
+    if (provider === 'anthropic') {
+      setAnthropicModel(model);
+    } else if (provider === 'openai') {
+      setOpenaiModel(model);
+    } else {
+      setOpenaiCompatibleModel(model);
+    }
+    
+    setProvider(newProvider);
+  };
+
+  // Handle custom URL change based on current provider
+  const handleCustomUrlChange = (value: string) => {
+    if (provider === 'anthropic') {
+      setAnthropicCustomUrl(value);
+    } else if (provider === 'openai') {
+      setOpenaiCustomUrl(value);
+    } else {
+      setOpenaiCompatibleCustomUrl(value);
+    }
+  };
+
+  // Handle max tokens change based on current provider
+  const handleMaxTokensChange = (value: number) => {
+    if (provider === 'anthropic') {
+      setAnthropicMaxTokens(value);
+    } else if (provider === 'openai') {
+      setOpenaiMaxTokens(value);
+    } else {
+      setOpenaiCompatibleMaxTokens(value);
+    }
+  };
+
+  // Handle model dropdown open - fetch models lazily
+  const handleModelDropdownOpen = () => {
+    // Fetch if we have an API key
+    if (apiKey) {
+      fetchModels();
+    }
+  };
+
+  // Handle refresh models - force refetch
+  const handleRefreshModels = () => {
+    refetchModels();
+  };
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      setBaseUrl(initialSettings.baseUrl);
+      setProvider(initialSettings.provider);
+      setAnthropicCustomUrl(initialSettings.anthropicCustomUrl || '');
+      setOpenaiCustomUrl(initialSettings.openaiCustomUrl || '');
+      setOpenaiCompatibleCustomUrl(initialSettings.openaiCompatibleCustomUrl || '');
       setModel(initialSettings.model);
+      setAnthropicModel(initialSettings.anthropicModel || '');
+      setOpenaiModel(initialSettings.openaiModel || '');
+      setOpenaiCompatibleModel(initialSettings.openaiCompatibleModel || '');
       setApiKey(initialSettings.apiKey);
-      setMaxTokens(initialSettings.maxTokens || 2048);
+      setAnthropicMaxTokens(initialSettings.anthropicMaxTokens);
+      setOpenaiMaxTokens(initialSettings.openaiMaxTokens);
+      setOpenaiCompatibleMaxTokens(initialSettings.openaiCompatibleMaxTokens);
       setSystemPrompt(initialSettings.systemPrompt || '');
     }, 0);
     return () => clearTimeout(timeoutId);
@@ -42,12 +146,39 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      onSave({ baseUrl, model, apiKey, maxTokens, systemPrompt });
+      // Update provider-specific model before saving
+      let updatedAnthropicModel = anthropicModel;
+      let updatedOpenaiModel = openaiModel;
+      let updatedOpenaiCompatibleModel = openaiCompatibleModel;
+      
+      if (provider === 'anthropic') {
+        updatedAnthropicModel = model;
+      } else if (provider === 'openai') {
+        updatedOpenaiModel = model;
+      } else {
+        updatedOpenaiCompatibleModel = model;
+      }
+      
+      onSave({ 
+        provider,
+        customBaseUrl: currentCustomUrl, // For backward compatibility
+        anthropicCustomUrl,
+        openaiCustomUrl,
+        openaiCompatibleCustomUrl,
+        model, 
+        anthropicModel: updatedAnthropicModel,
+        openaiModel: updatedOpenaiModel,
+        openaiCompatibleModel: updatedOpenaiCompatibleModel,
+        apiKey, 
+        anthropicMaxTokens, 
+        openaiMaxTokens, 
+        openaiCompatibleMaxTokens,
+        systemPrompt 
+      });
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [baseUrl, model, apiKey, maxTokens, systemPrompt, onSave]);
-
+  }, [provider, anthropicCustomUrl, openaiCustomUrl, openaiCompatibleCustomUrl, currentCustomUrl, model, anthropicModel, openaiModel, openaiCompatibleModel, apiKey, anthropicMaxTokens, openaiMaxTokens, openaiCompatibleMaxTokens, systemPrompt, onSave]);
 
   return (
     <div
@@ -82,16 +213,20 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
         <div className="flex-1 overflow-y-auto py-4 sm:py-6 px-4 sm:px-5">
           {activeTab === 'api' && (
             <ApiConfigTab
-              baseUrl={baseUrl}
+              provider={provider}
+              customBaseUrl={currentCustomUrl}
               apiKey={apiKey}
               model={model}
-              maxTokens={maxTokens}
+              maxTokens={currentMaxTokens}
               models={models}
               loadingModels={loadingModels}
-              onBaseUrlChange={setBaseUrl}
+              onProviderChange={handleProviderChange}
+              onCustomBaseUrlChange={handleCustomUrlChange}
               onApiKeyChange={setApiKey}
               onModelChange={setModel}
-              onMaxTokensChange={setMaxTokens}
+              onMaxTokensChange={handleMaxTokensChange}
+              onModelDropdownOpen={handleModelDropdownOpen}
+              onRefreshModels={handleRefreshModels}
             />
           )}
 

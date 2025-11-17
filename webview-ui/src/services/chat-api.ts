@@ -1,6 +1,13 @@
-import type { ChatMessage, StreamChunk, ChatCompletionRequest } from '../types/chat-api';
+import type { ChatMessage } from '../types/chat-api';
 import { storageService } from '../utils/storage';
+import { PROVIDER_DEFAULTS } from '../types/api-settings';
+import { AnthropicService } from './anthropic-service';
+import { OpenAIService } from './openai-service';
+import { OpenAICompatibleService } from './openai-compatible-service';
 
+// ProxyFetch class preserved for potential future VSCode extension communication
+// @ts-expect-error - ProxyFetch kept for future use
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 class ProxyFetch {
   private requestCounter = 0;
   private pendingRequests = new Map<number, {
@@ -9,7 +16,7 @@ class ProxyFetch {
     controller: ReadableStreamDefaultController<Uint8Array>;
     status?: number;
     statusText?: string;
-    timeoutId: number;
+    timeoutId: ReturnType<typeof setTimeout>;
     lastActivityTime: number;
   }>();
 
@@ -129,163 +136,53 @@ class ProxyFetch {
   }
 }
 
-const proxyFetch = new ProxyFetch();
 
 export class ChatApiService {
   async *streamChat(messages: ChatMessage[], signal?: AbortSignal): AsyncGenerator<string, void, unknown> {
     const settings = storageService.getSettings();
 
-    if (!settings.baseUrl || !settings.apiKey || !settings.model) {
+    if (!settings.provider || !settings.apiKey || !settings.model) {
       throw new Error('API configuration not available. Please configure your API settings in the header settings.');
     }
 
-    // Normalize base URL so values like "localhost:1234/v1" work without scheme
-    const rawBaseUrl = settings.baseUrl.trim();
-    let baseUrl = rawBaseUrl;
+    const maxTokens = settings.provider === 'anthropic' 
+      ? settings.anthropicMaxTokens 
+      : settings.provider === 'openai' 
+      ? settings.openaiMaxTokens 
+      : settings.openaiCompatibleMaxTokens;
 
-    if (!/^https?:\/\//i.test(rawBaseUrl)) {
-      if (
-        rawBaseUrl.startsWith('localhost') ||
-        rawBaseUrl.startsWith('127.0.0.1') ||
-        rawBaseUrl.startsWith('0.0.0.0')
-      ) {
-        baseUrl = `http://${rawBaseUrl}`;
-      } else {
-        baseUrl = `https://${rawBaseUrl}`;
-      }
-    }
-
-    // Ensure we don't end up with double slashes before /chat/completions
-    const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
-    const endpoint = `${normalizedBaseUrl}/chat/completions`;
-
-    console.log('[Echode API] Connecting to:', endpoint);
+    console.log('[Echode API] Provider:', settings.provider);
     console.log('[Echode API] Model:', settings.model);
-    console.log('[Echode API] Using proxy:', typeof window !== 'undefined' && window.vscode ? 'Yes' : 'No');
+    console.log('[Echode API] Max Tokens:', maxTokens);
 
-    let response: Response;
-    
-    try {
-      response = await proxyFetch.fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${settings.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: settings.model,
-          messages,
-          stream: true,
-          temperature: 0.7,
-          max_tokens: settings.maxTokens || 2048,
-        } as ChatCompletionRequest),
-        signal,
+    // Route to appropriate service based on provider
+    if (settings.provider === 'anthropic') {
+      const baseURL = settings.anthropicCustomUrl?.trim() || PROVIDER_DEFAULTS.anthropic.baseUrl;
+      const service = new AnthropicService({
+        apiKey: settings.apiKey,
+        model: settings.model,
+        maxTokens,
+        baseURL,
       });
-      
-      console.log('[Echode API] Response status:', response.status);
-    } catch (error) {
-      console.error('[Echode API] Request failed:', error);
-      if (error instanceof TypeError) {
-        throw new Error(`Network error: Unable to connect to ${normalizedBaseUrl}. Please check your Base URL and connection.`);
-      }
-      throw new Error(`Failed to fetch: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-
-    if (!response.ok) {
-      let errorMessage = `API request failed: ${response.status} ${response.statusText}`;
-      try {
-        const errorData = await response.json();
-        console.error('[Echode API] Error response:', errorData);
-        if (errorData.error?.message) {
-          errorMessage += ` - ${errorData.error.message}`;
-        }
-      } catch {
-        // Ignore JSON parse errors
-      }
-      throw new Error(errorMessage);
-    }
-
-    console.log('[Echode API] Starting stream...');
-
-    const reader = response.body?.getReader();
-    if (!reader) {
-      throw new Error('Response body is not readable');
-    }
-
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let totalChunks = 0;
-    let contentChunks = 0;
-
-    try {
-      while (true) {
-        // Check if aborted before reading
-        if (signal?.aborted) {
-          console.log('[Echode API] Stream aborted by user');
-          break;
-        }
-        
-        const { done, value } = await reader.read();
-        if (done) {
-          console.log('[Echode API] Stream done. Total chunks:', totalChunks, 'Content chunks:', contentChunks);
-          
-          // Check if we got an error response instead of streaming data
-          if (buffer.length > 0 && contentChunks === 0) {
-            console.log('[Echode API] No content chunks received. Checking for error response...');
-            try {
-              const errorData = JSON.parse(buffer);
-              if (errorData.error) {
-                const errorMsg = errorData.message || errorData.error;
-                throw new Error(`API Error: ${errorMsg}`);
-              }
-            } catch (e) {
-              if (e instanceof SyntaxError) {
-                console.log('[Echode API] Remaining buffer (not JSON):', buffer.substring(0, 200));
-              } else {
-                throw e;
-              }
-            }
-          }
-          break;
-        }
-
-        totalChunks++;
-        const decodedChunk = decoder.decode(value, { stream: true });
-        
-        buffer += decodedChunk;
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          const trimmedLine = line.trim();
-          if (!trimmedLine || trimmedLine === 'data: [DONE]') {continue;}
-          if (!trimmedLine.startsWith('data: ')) {continue;}
-
-          try {
-            const jsonStr = trimmedLine.slice(6);
-            const data = JSON.parse(jsonStr) as StreamChunk;
-            const content = data.choices[0]?.delta?.content;
-            
-            if (content) {
-              contentChunks++;
-              yield content;
-            }
-          } catch (e) {
-            console.warn('[Echode API] Failed to parse SSE line:', e);
-            continue;
-          }
-        }
-      }
-    } finally {
-      // Cancel reader if aborted to clean up resources
-      if (signal?.aborted) {
-        try {
-          await reader.cancel();
-        } catch (e) {
-          // Ignore cancel errors
-        }
-      }
-      reader.releaseLock();
+      yield* service.streamChat({ messages, signal });
+    } else if (settings.provider === 'openai') {
+      const baseURL = settings.openaiCustomUrl?.trim() || PROVIDER_DEFAULTS.openai.baseUrl;
+      const service = new OpenAIService({
+        apiKey: settings.apiKey,
+        model: settings.model,
+        maxTokens,
+        baseURL,
+      });
+      yield* service.streamChat({ messages, signal });
+    } else if (settings.provider === 'openai-compatible') {
+      const baseURL = settings.openaiCompatibleCustomUrl?.trim() || PROVIDER_DEFAULTS['openai-compatible'].baseUrl;
+      const service = new OpenAICompatibleService({
+        apiKey: settings.apiKey,
+        model: settings.model,
+        maxTokens,
+        baseURL,
+      });
+      yield* service.streamChat({ messages, signal });
     }
   }
 }

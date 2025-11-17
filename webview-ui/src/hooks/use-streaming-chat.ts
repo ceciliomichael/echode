@@ -82,11 +82,10 @@ export function useStreamingChat() {
     setMessages((prev) => [...prev, userMessage]);
 
     // Create a new assistant message for AI responses
-    let assistantMessageId: string;
     let assistantContent = '';
     let pendingUpdate = false;
     
-    assistantMessageId = uuidv4();
+    const assistantMessageId = uuidv4();
     const assistantMessage: Message = {
       id: assistantMessageId,
       role: 'assistant',

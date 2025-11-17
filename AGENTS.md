@@ -29,7 +29,7 @@ This is the exclusive space for all internal reasoning.
 4. During and after development:
     * Keep responses concise and focused. Provide only what the user explicitly requested.
     * Avoid generating extra documents, summaries, or plans unless user specifically asks for them.
-    * Do not use run_terminal, instead provide the user with the command to be executed.
+    * Use run_terminal only for development task, such as (installing packages, dependencies, npm run build, checking linter errors). Do not use for development start commands such as (npm run dev, npm start, etc.)
     * Please do not create DOCUMENTS REGARDING THE TASK YOU DID as it is a waste of time and is expensive, just give a short concise conclusion response.
 </development_flow>
 
@@ -45,7 +45,6 @@ This is the exclusive space for all internal reasoning.
 - ALWAYS USE ICON LIBRARIES FOR ALL ICONS (NO HARDCODED EMOJIS AS ICONS)
 - ALWAYS ADD RESPONSIVE VERTICAL PADDING (py-12 sm:py-16 lg:py-20) TO PREVENT CONTENT FROM TOUCHING SCREEN EDGES
 - FOCUS OUTLINES/RINGS IS NOT ALLOED TO BE USED FOR SLEEK EXPERIENCE (MAINTAIN ACCESSIBILITY BEST PRACTICES)
-- SUBTLE 3D EFFECTS (SOFT SHADOWS, LAYERED SURFACES): USE SPARINGLY FOR DEPTH/HIERARCHY WITHOUT DETRACTING FROM CLARITY
 - MAINTAIN PROPER MOBILE FIRST APPROACH WITH RESPONSIVE DESIGN
 # Mobile-First Responsive Design (MANDATORY)
 - Build for mobile FIRST (320px minimum), then progressively enhance for larger screens
@@ -85,7 +84,6 @@ Use kebab-case for file and folder names.
 - NEVER DOCUMENT ONLY DEVELOP CODE
 - NEVER use any as a type in TypeScript! Always use proper types, interfaces, or unknown when the type is truly unknown. Use type assertions or type guards with unknown instead of any.
 - Use kebab-case for file and folder names
-- ALWAYS use native HTTP libraries for ALL external API integrations. Third-party SDKs are strictly forbidden unless explicitly requested by the user.
 - ALWAYS create reusable UI components and store inside /src/components/ui
 - ALWAYS ensure clean file organization and avoid creating spaghetti code.
 - ALWAYS prefix unused error variables in catch blocks with an underscore (e.g., catch (_error))

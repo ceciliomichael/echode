@@ -34,7 +34,7 @@ export const storageService = {
 
   hasSettings(): boolean {
     const settings = this.getSettings();
-    return !!(settings.baseUrl && settings.apiKey && settings.model);
+    return !!(settings.provider && settings.apiKey && settings.model);
   },
 
   getSystemPrompt(): string {

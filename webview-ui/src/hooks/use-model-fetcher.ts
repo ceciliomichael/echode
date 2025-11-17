@@ -1,72 +1,125 @@
-import { useState, useEffect } from 'react';
+import { useState, useRef, useCallback } from 'react';
+import { PROVIDER_DEFAULTS, type Provider } from '../types/api-settings';
 
-export function useModelFetcher(baseUrl: string, apiKey: string) {
+// Session-only cache for fetched models
+const modelCache = new Map<string, string[]>();
+
+export function useModelFetcher(
+  provider: Provider,
+  customBaseUrl: string | undefined,
+  apiKey: string
+) {
   const [models, setModels] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
+  const abortControllerRef = useRef<(() => void) | null>(null);
 
-  useEffect(() => {
-    // Clear models when endpoint changes
-    const timeoutId = setTimeout(() => setModels([]), 0);
+  // Generate cache key based on provider, url, and apiKey
+  const getCacheKey = useCallback((prov: Provider, url: string | undefined, key: string) => {
+    const baseUrl = url?.trim() || PROVIDER_DEFAULTS[prov].baseUrl;
+    return `${prov}:${baseUrl}:${key}`;
+  }, []);
+
+  const fetchModels = useCallback((force = false) => {
+    if (!apiKey) {
+      setLoadingModels(false);
+      setModels([]);
+      return;
+    }
+
+    const cacheKey = getCacheKey(provider, customBaseUrl, apiKey);
     
-    const fetchModels = async () => {
-      if (!baseUrl || !apiKey) {
-        setLoadingModels(false);
-        return;
-      }
-      
-      setLoadingModels(true);
-      
-      const modelsUrl = baseUrl.replace(/\/chat\/completions\s*$/, '').replace(/\/$/, '') + '/models';
-      
-      const requestId = Date.now();
-      const handleResponse = (event: MessageEvent) => {
-        const message = event.data;
-        if (message.requestId === requestId) {
-          if (message.type === 'apiResponse') {
-            try {
-              const data = JSON.parse(message.data);
-              if (data.data && Array.isArray(data.data)) {
-                setModels(data.data.map((m: { id: string }) => m.id));
-              } else {
-                setModels([]);
-              }
-            } catch {
+    // Check cache first (unless force refresh)
+    if (!force && modelCache.has(cacheKey)) {
+      const cachedModels = modelCache.get(cacheKey)!;
+      setModels(cachedModels);
+      return;
+    }
+
+    // Cancel any pending request
+    if (abortControllerRef.current) {
+      abortControllerRef.current();
+    }
+
+    setLoadingModels(true);
+    
+    const baseUrl = customBaseUrl?.trim() || PROVIDER_DEFAULTS[provider].baseUrl;
+    const modelsUrl = baseUrl.replace(/\/$/, '') + '/v1/models';
+    
+    const requestId = Date.now();
+    let isActive = true;
+
+    const handleResponse = (event: MessageEvent) => {
+      const message = event.data;
+      if (message.requestId === requestId && isActive) {
+        if (message.type === 'apiResponse') {
+          try {
+            const data = JSON.parse(message.data);
+            if (data.data && Array.isArray(data.data)) {
+              // Filter models based on provider
+              const allModels = data.data.map((m: { id: string }) => m.id);
+              const filteredModels = allModels.filter((modelId: string) => {
+                if (provider === 'anthropic') {
+                  return modelId.toLowerCase().startsWith('claude');
+                } else if (provider === 'openai') {
+                  return modelId.toLowerCase().startsWith('gpt');
+                } else if (provider === 'openai-compatible') {
+                  return true;
+                }
+                return false;
+              });
+              setModels(filteredModels);
+              // Store in cache
+              modelCache.set(cacheKey, filteredModels);
+            } else {
               setModels([]);
             }
-            setLoadingModels(false);
-          } else if (message.type === 'apiError') {
+          } catch {
             setModels([]);
-            setLoadingModels(false);
           }
+          setLoadingModels(false);
+        } else if (message.type === 'apiError') {
+          setModels([]);
+          setLoadingModels(false);
         }
-      };
-
-      window.addEventListener('message', handleResponse);
-      
-      window.vscode.postMessage({
-        type: 'apiRequest',
-        requestId,
-        url: modelsUrl,
-        options: {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      });
-
-      return () => {
-        window.removeEventListener('message', handleResponse);
-      };
+      }
     };
 
-    const fetchTimeoutId = setTimeout(fetchModels, 500);
-    return () => {
-      clearTimeout(timeoutId);
+    window.addEventListener('message', handleResponse);
+    
+    const fetchTimeoutId = setTimeout(() => {
+      if (isActive) {
+        window.vscode.postMessage({
+          type: 'apiRequest',
+          requestId,
+          url: modelsUrl,
+          options: {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        });
+      }
+    }, 500);
+
+    // Store cleanup function
+    abortControllerRef.current = () => {
+      isActive = false;
       clearTimeout(fetchTimeoutId);
+      window.removeEventListener('message', handleResponse);
+      setLoadingModels(false);
     };
-  }, [baseUrl, apiKey]);
+  }, [provider, customBaseUrl, apiKey, getCacheKey]);
 
-  return { models, loadingModels };
+  const refetchModels = useCallback(() => {
+    fetchModels(true);
+  }, [fetchModels]);
+
+  const clearCache = useCallback(() => {
+    const cacheKey = getCacheKey(provider, customBaseUrl, apiKey);
+    modelCache.delete(cacheKey);
+  }, [provider, customBaseUrl, apiKey, getCacheKey]);
+
+  return { models, loadingModels, fetchModels, refetchModels, clearCache };
 }

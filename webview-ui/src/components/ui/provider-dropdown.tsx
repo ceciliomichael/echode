@@ -1,17 +1,19 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Search, RotateCw } from 'lucide-react';
+import { ChevronDown, Search } from 'lucide-react';
+import type { Provider } from '../../types/api-settings';
 
-interface ModelDropdownProps {
-  value: string;
-  onChange: (value: string) => void;
-  models: string[];
-  disabled?: boolean;
-  onOpen?: () => void;
-  onRefresh?: () => void;
-  isRefreshing?: boolean;
+interface ProviderDropdownProps {
+  value: Provider;
+  onChange: (value: Provider) => void;
 }
 
-export function ModelDropdown({ value, onChange, models, disabled = false, onOpen, onRefresh, isRefreshing = false }: ModelDropdownProps) {
+const PROVIDER_OPTIONS: { value: Provider; label: string }[] = [
+  { value: 'anthropic', label: 'Anthropic' },
+  { value: 'openai', label: 'OpenAI' },
+  { value: 'openai-compatible', label: 'OpenAI Compatible' },
+];
+
+export function ProviderDropdown({ value, onChange }: ProviderDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -28,41 +30,31 @@ export function ModelDropdown({ value, onChange, models, disabled = false, onOpe
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const filteredModels = models.filter(model =>
-    model.toLowerCase().includes(search.toLowerCase())
+  const filteredProviders = PROVIDER_OPTIONS.filter(provider =>
+    provider.label.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleSelect = (model: string) => {
-    onChange(model);
+  const handleSelect = (provider: Provider) => {
+    onChange(provider);
     setIsOpen(false);
     setSearch('');
   };
 
-  const handleOpen = () => {
-    if (!disabled) {
-      setIsOpen(!isOpen);
-      if (!isOpen && onOpen) {
-        onOpen();
-      }
-    }
-  };
+  const selectedLabel = PROVIDER_OPTIONS.find(p => p.value === value)?.label || 'Select provider...';
 
   return (
     <div ref={dropdownRef} className="relative">
       <button
         type="button"
-        onClick={handleOpen}
-        disabled={disabled}
-        className="w-full px-3 py-2 text-sm rounded-xl border transition-colors flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-3 py-2 text-sm rounded-xl border transition-colors flex items-center justify-between"
         style={{
           backgroundColor: 'var(--vscode-input-background)',
           color: 'var(--vscode-input-foreground)',
           borderColor: 'var(--vscode-input-border)'
         }}
       >
-        <span className={!value ? 'opacity-50' : ''}>
-          {value || 'Select a model...'}
-        </span>
+        <span>{selectedLabel}</span>
         <ChevronDown size={14} />
       </button>
 
@@ -92,7 +84,7 @@ export function ModelDropdown({ value, onChange, models, disabled = false, onOpe
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search models..."
+                placeholder="Search providers..."
                 className="flex-1 bg-transparent text-sm border-0 p-0 placeholder-opacity-50"
                 style={{
                   color: 'var(--vscode-input-foreground)',
@@ -100,32 +92,6 @@ export function ModelDropdown({ value, onChange, models, disabled = false, onOpe
                 }}
                 autoFocus
               />
-              {onRefresh && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRefresh();
-                  }}
-                  disabled={isRefreshing}
-                  className="p-1 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{
-                    color: 'var(--vscode-input-foreground)',
-                    opacity: isRefreshing ? 0.5 : 0.8
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isRefreshing) {
-                      e.currentTarget.style.backgroundColor = 'var(--vscode-toolbar-hoverBackground)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }}
-                  title="Refresh models"
-                >
-                  <RotateCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
-                </button>
-              )}
             </div>
           </div>
 
@@ -136,38 +102,38 @@ export function ModelDropdown({ value, onChange, models, disabled = false, onOpe
               backgroundColor: 'var(--vscode-input-background)'
             }}
           >
-            {filteredModels.length === 0 ? (
+            {filteredProviders.length === 0 ? (
               <div className="p-4 text-center">
                 <div
                   className="text-xs"
                   style={{ color: 'var(--vscode-input-foreground)', opacity: 0.7 }}
                 >
-                  No models available
+                  No providers found
                 </div>
               </div>
             ) : (
-              filteredModels.map((model) => (
+              filteredProviders.map((provider) => (
                 <button
-                  key={model}
+                  key={provider.value}
                   type="button"
-                  onClick={() => handleSelect(model)}
+                  onClick={() => handleSelect(provider.value)}
                   className="w-full px-3 py-2 text-sm text-left transition-colors"
                   style={{
-                    backgroundColor: model === value ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent',
-                    color: model === value ? 'var(--vscode-list-activeSelectionForeground)' : 'var(--vscode-input-foreground)'
+                    backgroundColor: provider.value === value ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent',
+                    color: provider.value === value ? 'var(--vscode-list-activeSelectionForeground)' : 'var(--vscode-input-foreground)'
                   }}
                   onMouseEnter={(e) => {
-                    if (model !== value) {
+                    if (provider.value !== value) {
                       e.currentTarget.style.backgroundColor = 'var(--vscode-editor-background)';
                     }
                   }}
                   onMouseLeave={(e) => {
-                    if (model !== value) {
+                    if (provider.value !== value) {
                       e.currentTarget.style.backgroundColor = 'transparent';
                     }
                   }}
                 >
-                  {model}
+                  {provider.label}
                 </button>
               ))
             )}

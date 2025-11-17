@@ -1,47 +1,67 @@
 import { ModelDropdown } from '../ui/model-dropdown';
 import { ApiKeyInput } from '../ui/api-key-input';
+import { ProviderDropdown } from '../ui/provider-dropdown';
+import { PROVIDER_DEFAULTS, type Provider } from '../../types/api-settings';
 
 interface ApiConfigTabProps {
-  baseUrl: string;
+  provider: Provider;
+  customBaseUrl: string;
   apiKey: string;
   model: string;
   maxTokens: number;
   models: string[];
   loadingModels: boolean;
-  onBaseUrlChange: (value: string) => void;
+  onProviderChange: (value: Provider) => void;
+  onCustomBaseUrlChange: (value: string) => void;
   onApiKeyChange: (value: string) => void;
   onModelChange: (value: string) => void;
   onMaxTokensChange: (value: number) => void;
+  onModelDropdownOpen?: () => void;
+  onRefreshModels?: () => void;
 }
 
 export function ApiConfigTab({
-  baseUrl,
+  provider,
+  customBaseUrl,
   apiKey,
   model,
   maxTokens,
   models,
   loadingModels,
-  onBaseUrlChange,
+  onProviderChange,
+  onCustomBaseUrlChange,
   onApiKeyChange,
   onModelChange,
-  onMaxTokensChange
+  onMaxTokensChange,
+  onModelDropdownOpen,
+  onRefreshModels
 }: ApiConfigTabProps) {
   return (
     <div className="max-w-2xl space-y-4">
       <div className="space-y-2">
         <label
-          htmlFor="baseUrl"
           className="block text-xs font-semibold"
           style={{ color: 'var(--vscode-foreground)' }}
         >
-          Base URL
+          Provider
+        </label>
+        <ProviderDropdown value={provider} onChange={onProviderChange} />
+      </div>
+
+      <div className="space-y-2">
+        <label
+          htmlFor="customBaseUrl"
+          className="block text-xs font-semibold"
+          style={{ color: 'var(--vscode-foreground)' }}
+        >
+          Custom Base URL (Optional)
         </label>
         <input
-          id="baseUrl"
+          id="customBaseUrl"
           type="text"
-          value={baseUrl}
-          onChange={(e) => onBaseUrlChange(e.target.value)}
-          placeholder="https://api.example.com/v1"
+          value={customBaseUrl}
+          onChange={(e) => onCustomBaseUrlChange(e.target.value)}
+          placeholder={PROVIDER_DEFAULTS[provider].baseUrl}
           className="w-full px-3 py-2 text-sm rounded-xl border transition-colors"
           style={{
             backgroundColor: 'var(--vscode-input-background)',
@@ -66,6 +86,9 @@ export function ApiConfigTab({
           onChange={onModelChange}
           models={models.length > 0 ? models : [model].filter(Boolean)}
           disabled={loadingModels}
+          onOpen={onModelDropdownOpen}
+          onRefresh={onRefreshModels}
+          isRefreshing={loadingModels}
         />
       </div>
 
@@ -85,7 +108,7 @@ export function ApiConfigTab({
           placeholder="2048"
           min="1"
           max="128000"
-          className="w-full px-3 py-2 text-sm rounded-xl border transition-colors"
+          className="w-full px-3 py-2 text-sm rounded-xl border transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           style={{
             backgroundColor: 'var(--vscode-input-background)',
             color: 'var(--vscode-input-foreground)',
