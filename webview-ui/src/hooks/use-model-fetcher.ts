@@ -11,7 +11,7 @@ export function useModelFetcher(
 ) {
   const [models, setModels] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
-  const abortControllerRef = useRef<(() => void) | null>(null);
+  const requestIdRef = useRef<number | null>(null);
 
   // Generate cache key based on provider, url, and apiKey
   const getCacheKey = useCallback((prov: Provider, url: string | undefined, key: string) => {
@@ -20,7 +20,7 @@ export function useModelFetcher(
   }, []);
 
   const fetchModels = useCallback((force = false) => {
-    if (!apiKey) {
+    if (!apiKey || !window.vscode) {
       setLoadingModels(false);
       setModels([]);
       return;
@@ -35,81 +35,39 @@ export function useModelFetcher(
       return;
     }
 
-    // Cancel any pending request
-    if (abortControllerRef.current) {
-      abortControllerRef.current();
-    }
-
     setLoadingModels(true);
     
-    const baseUrl = customBaseUrl?.trim() || PROVIDER_DEFAULTS[provider].baseUrl;
-    const modelsUrl = baseUrl.replace(/\/$/, '') + '/v1/models';
-    
+    const baseURL = customBaseUrl?.trim() || PROVIDER_DEFAULTS[provider].baseUrl;
     const requestId = Date.now();
-    let isActive = true;
+    requestIdRef.current = requestId;
 
     const handleResponse = (event: MessageEvent) => {
       const message = event.data;
-      if (message.requestId === requestId && isActive) {
-        if (message.type === 'apiResponse') {
-          try {
-            const data = JSON.parse(message.data);
-            if (data.data && Array.isArray(data.data)) {
-              // Filter models based on provider
-              const allModels = data.data.map((m: { id: string }) => m.id);
-              const filteredModels = allModels.filter((modelId: string) => {
-                if (provider === 'anthropic') {
-                  return modelId.toLowerCase().startsWith('claude');
-                } else if (provider === 'openai') {
-                  return modelId.toLowerCase().startsWith('gpt');
-                } else if (provider === 'openai-compatible') {
-                  return true;
-                }
-                return false;
-              });
-              setModels(filteredModels);
-              // Store in cache
-              modelCache.set(cacheKey, filteredModels);
-            } else {
-              setModels([]);
-            }
-          } catch {
-            setModels([]);
-          }
+      if (message.requestId === requestId) {
+        if (message.type === 'modelsResponse') {
+          setModels(message.models);
+          modelCache.set(cacheKey, message.models);
           setLoadingModels(false);
-        } else if (message.type === 'apiError') {
+          window.removeEventListener('message', handleResponse);
+        } else if (message.type === 'modelsError') {
+          console.error('[Model Fetcher] Error:', message.error);
           setModels([]);
           setLoadingModels(false);
+          window.removeEventListener('message', handleResponse);
         }
       }
     };
 
     window.addEventListener('message', handleResponse);
-    
-    const fetchTimeoutId = setTimeout(() => {
-      if (isActive) {
-        window.vscode.postMessage({
-          type: 'apiRequest',
-          requestId,
-          url: modelsUrl,
-          options: {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        });
-      }
-    }, 500);
 
-    // Store cleanup function
-    abortControllerRef.current = () => {
-      isActive = false;
-      clearTimeout(fetchTimeoutId);
-      window.removeEventListener('message', handleResponse);
-      setLoadingModels(false);
-    };
+    // Send request to backend
+    window.vscode.postMessage({
+      type: 'fetchModels',
+      requestId,
+      provider,
+      apiKey,
+      baseURL
+    });
   }, [provider, customBaseUrl, apiKey, getCacheKey]);
 
   const refetchModels = useCallback(() => {

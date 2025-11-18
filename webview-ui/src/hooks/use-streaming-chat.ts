@@ -18,6 +18,7 @@ function requestWorkspaceInfo(): Promise<void> {
 
     const handler = (event: MessageEvent) => {
       if (event.data.type === 'workspaceInfo') {
+        window.workspaceContext = event.data.workspace;
         window.removeEventListener('message', handler);
         resolve();
       }
@@ -52,7 +53,7 @@ export function useStreamingChat() {
     );
   }, []);
 
-  const sendMessage = useCallback(async (content: string) => {
+  const sendMessage = useCallback(async (content: string, overrideMessages?: Message[]) => {
     // Prevent starting new stream if already streaming
     // Use ref for immediate check, not state which updates asynchronously
     if (isStreamingRef.current) {
@@ -95,14 +96,18 @@ export function useStreamingChat() {
     setMessages((prev) => [...prev, assistantMessage]);
 
     try {
-      const systemPrompt = getSystemPrompt(workspace);
+      const latestWorkspace = window.workspaceContext || workspace;
+      const systemPrompt = getSystemPrompt(latestWorkspace);
+      
+      // Use override messages if provided (for edit flow), otherwise use current messages
+      const messagesToSend = overrideMessages !== undefined ? overrideMessages : messages;
       
       const chatHistory: ChatMessage[] = [
         {
           role: 'system',
           content: systemPrompt,
         },
-        ...messages.map((msg) => ({
+        ...messagesToSend.map((msg) => ({
           role: msg.role,
           content: msg.content,
         })),
@@ -171,21 +176,30 @@ export function useStreamingChat() {
     const messageIndex = messages.findIndex(msg => msg.id === messageId);
     if (messageIndex === -1) {return;}
 
-    // Step 1: Abort any ongoing API call
+    // Step 1: Abort any ongoing API call and wait for cleanup
     if (abortControllerRef.current) {
-      console.log('Aborting ongoing stream before edit');
+      console.log('[Chat] Aborting ongoing stream before edit');
       abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-      isStreamingRef.current = false;
-      setIsStreaming(false);
-      sendingMessageRef.current = false;
+      
+      // Wait briefly for the stream to finish cleanup
+      // This ensures the finally block in sendMessage completes
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    // Prevent overlapping edits after abort completes
+    if (sendingMessageRef.current) {
+      console.warn('[Chat] Message still processing after abort, waiting longer');
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
 
-    // Step 2: Clear all messages subsequent to the one being resent
-    setMessages(prev => prev.slice(0, messageIndex));
+    // Step 2: Get truncated message history (everything before the edited message)
+    const truncatedMessages = messages.slice(0, messageIndex);
+    
+    // Step 3: Clear all messages subsequent to the one being edited
+    setMessages(truncatedMessages);
 
-    // Step 3: Send the new message
-    await sendMessage(newContent);
+    // Step 4: Send the new message with explicit message history to avoid stale closure
+    await sendMessage(newContent, truncatedMessages);
   }, [messages, sendMessage]);
 
   const clearChat = useCallback(() => {

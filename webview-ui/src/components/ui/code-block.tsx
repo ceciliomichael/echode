@@ -44,7 +44,7 @@ const CodeBlockComponent = ({ children, className }: CodeBlockProps) => {
   const codeContent = useMemo(() => extractCodeContent(children), [children]);
 
   const codeLines = useMemo(() => {
-    const lines = codeContent.split("\n");
+    const lines = codeContent.replace(/\n$/, "").split("\n");
     const maxLineNumber = lines.length;
     const paddingWidth = maxLineNumber.toString().length;
     return { lines, paddingWidth };

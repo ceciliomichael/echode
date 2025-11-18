@@ -11,6 +11,7 @@ export function useWorkspaceContext() {
       const message = event.data;
       if (message.type === 'workspaceInfo') {
         setWorkspace(message.workspace);
+        window.workspaceContext = message.workspace;
       }
     };
 

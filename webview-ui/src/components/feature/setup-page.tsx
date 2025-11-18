@@ -21,10 +21,15 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
   const [anthropicModel, setAnthropicModel] = useState(initialSettings.anthropicModel || '');
   const [openaiModel, setOpenaiModel] = useState(initialSettings.openaiModel || '');
   const [openaiCompatibleModel, setOpenaiCompatibleModel] = useState(initialSettings.openaiCompatibleModel || '');
-  const [apiKey, setApiKey] = useState(initialSettings.apiKey);
+  const [anthropicApiKey, setAnthropicApiKey] = useState(initialSettings.anthropicApiKey || initialSettings.apiKey || '');
+  const [openaiApiKey, setOpenaiApiKey] = useState(initialSettings.openaiApiKey || initialSettings.apiKey || '');
+  const [openaiCompatibleApiKey, setOpenaiCompatibleApiKey] = useState(initialSettings.openaiCompatibleApiKey || initialSettings.apiKey || '');
   const [anthropicMaxTokens, setAnthropicMaxTokens] = useState(initialSettings.anthropicMaxTokens);
   const [openaiMaxTokens, setOpenaiMaxTokens] = useState(initialSettings.openaiMaxTokens);
   const [openaiCompatibleMaxTokens, setOpenaiCompatibleMaxTokens] = useState(initialSettings.openaiCompatibleMaxTokens);
+  const [anthropicTemperature, setAnthropicTemperature] = useState(initialSettings.anthropicTemperature);
+  const [openaiTemperature, setOpenaiTemperature] = useState(initialSettings.openaiTemperature);
+  const [openaiCompatibleTemperature, setOpenaiCompatibleTemperature] = useState(initialSettings.openaiCompatibleTemperature);
   const [systemPrompt, setSystemPrompt] = useState(initialSettings.systemPrompt || '');
   const [activeTab, setActiveTab] = useState<'api' | 'system'>('api');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -40,8 +45,18 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
     : provider === 'openai' 
     ? openaiMaxTokens 
     : openaiCompatibleMaxTokens;
+  const currentTemperature = provider === 'anthropic' 
+    ? anthropicTemperature 
+    : provider === 'openai' 
+    ? openaiTemperature 
+    : openaiCompatibleTemperature;
+  const currentApiKey = provider === 'anthropic' 
+    ? anthropicApiKey 
+    : provider === 'openai' 
+    ? openaiApiKey 
+    : openaiCompatibleApiKey;
 
-  const { models, loadingModels, fetchModels, refetchModels, clearCache } = useModelFetcher(provider, currentCustomUrl, apiKey);
+  const { models, loadingModels, fetchModels, refetchModels, clearCache } = useModelFetcher(provider, currentCustomUrl, currentApiKey);
 
   // Clear cache and restore model when provider changes
   useEffect(() => {
@@ -57,17 +72,17 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
     return () => clearTimeout(timeoutId);
   }, [provider, anthropicModel, openaiModel, openaiCompatibleModel, clearCache]);
 
-  // Clear cache and refetch when customUrl or apiKey changes
+  // Clear cache and fetch models when customUrl changes
   useEffect(() => {
     clearCache();
-    // Refetch models if we have an API key
-    if (apiKey) {
+    // Fetch models if we have an API key
+    if (currentApiKey) {
       const timeoutId = setTimeout(() => {
         fetchModels(true);
       }, 500);
       return () => clearTimeout(timeoutId);
     }
-  }, [currentCustomUrl, apiKey, clearCache, fetchModels]);
+  }, [currentCustomUrl, currentApiKey, clearCache, fetchModels]);
 
   // Clear model if it's not in the fetched models list
   useEffect(() => {
@@ -112,10 +127,32 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
     }
   };
 
+  // Handle temperature change based on current provider
+  const handleTemperatureChange = (value: number) => {
+    if (provider === 'anthropic') {
+      setAnthropicTemperature(value);
+    } else if (provider === 'openai') {
+      setOpenaiTemperature(value);
+    } else {
+      setOpenaiCompatibleTemperature(value);
+    }
+  };
+
+  // Handle API key change based on current provider
+  const handleApiKeyChange = (value: string) => {
+    if (provider === 'anthropic') {
+      setAnthropicApiKey(value);
+    } else if (provider === 'openai') {
+      setOpenaiApiKey(value);
+    } else {
+      setOpenaiCompatibleApiKey(value);
+    }
+  };
+
   // Handle model dropdown open - fetch models lazily
   const handleModelDropdownOpen = () => {
     // Fetch if we have an API key
-    if (apiKey) {
+    if (currentApiKey) {
       fetchModels();
     }
   };
@@ -135,10 +172,15 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
       setAnthropicModel(initialSettings.anthropicModel || '');
       setOpenaiModel(initialSettings.openaiModel || '');
       setOpenaiCompatibleModel(initialSettings.openaiCompatibleModel || '');
-      setApiKey(initialSettings.apiKey);
+      setAnthropicApiKey(initialSettings.anthropicApiKey || initialSettings.apiKey || '');
+      setOpenaiApiKey(initialSettings.openaiApiKey || initialSettings.apiKey || '');
+      setOpenaiCompatibleApiKey(initialSettings.openaiCompatibleApiKey || initialSettings.apiKey || '');
       setAnthropicMaxTokens(initialSettings.anthropicMaxTokens);
       setOpenaiMaxTokens(initialSettings.openaiMaxTokens);
       setOpenaiCompatibleMaxTokens(initialSettings.openaiCompatibleMaxTokens);
+      setAnthropicTemperature(initialSettings.anthropicTemperature);
+      setOpenaiTemperature(initialSettings.openaiTemperature);
+      setOpenaiCompatibleTemperature(initialSettings.openaiCompatibleTemperature);
       setSystemPrompt(initialSettings.systemPrompt || '');
     }, 0);
     return () => clearTimeout(timeoutId);
@@ -169,16 +211,22 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
         anthropicModel: updatedAnthropicModel,
         openaiModel: updatedOpenaiModel,
         openaiCompatibleModel: updatedOpenaiCompatibleModel,
-        apiKey, 
+        apiKey: currentApiKey, 
+        anthropicApiKey,
+        openaiApiKey,
+        openaiCompatibleApiKey,
         anthropicMaxTokens, 
         openaiMaxTokens, 
         openaiCompatibleMaxTokens,
+        anthropicTemperature,
+        openaiTemperature,
+        openaiCompatibleTemperature,
         systemPrompt 
       });
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [provider, anthropicCustomUrl, openaiCustomUrl, openaiCompatibleCustomUrl, currentCustomUrl, model, anthropicModel, openaiModel, openaiCompatibleModel, apiKey, anthropicMaxTokens, openaiMaxTokens, openaiCompatibleMaxTokens, systemPrompt, onSave]);
+  }, [provider, anthropicCustomUrl, openaiCustomUrl, openaiCompatibleCustomUrl, currentCustomUrl, model, anthropicModel, openaiModel, openaiCompatibleModel, currentApiKey, anthropicApiKey, openaiApiKey, openaiCompatibleApiKey, anthropicMaxTokens, openaiMaxTokens, openaiCompatibleMaxTokens, anthropicTemperature, openaiTemperature, openaiCompatibleTemperature, systemPrompt, onSave]);
 
   return (
     <div
@@ -215,16 +263,18 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
             <ApiConfigTab
               provider={provider}
               customBaseUrl={currentCustomUrl}
-              apiKey={apiKey}
+              apiKey={currentApiKey}
               model={model}
               maxTokens={currentMaxTokens}
+              temperature={currentTemperature}
               models={models}
               loadingModels={loadingModels}
               onProviderChange={handleProviderChange}
               onCustomBaseUrlChange={handleCustomUrlChange}
-              onApiKeyChange={setApiKey}
+              onApiKeyChange={handleApiKeyChange}
               onModelChange={setModel}
               onMaxTokensChange={handleMaxTokensChange}
+              onTemperatureChange={handleTemperatureChange}
               onModelDropdownOpen={handleModelDropdownOpen}
               onRefreshModels={handleRefreshModels}
             />

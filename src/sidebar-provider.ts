@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 import { handleApiRequest } from './handlers/api-handler';
+import { handleChatStream } from './handlers/chat-streaming-handler';
+import { handleModelFetch } from './handlers/model-fetching-handler';
 import { getMainWebviewHtml, getSettingsHtml, getHistoryHtml } from './utils/html-generator';
 import { getWorkspaceFiles, getAgentsConfig } from './utils/workspace-scanner';
 
@@ -141,6 +143,9 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
         case 'apiRequest':
           await handleApiRequest(data, panel);
           break;
+        case 'fetchModels':
+          await handleModelFetch(data, panel);
+          break;
       }
     });
   }
@@ -174,6 +179,15 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
           break;
         case 'apiRequest':
           await handleApiRequest(data, webviewView);
+          break;
+        case 'chatStream':
+          await handleChatStream(data, webviewView);
+          break;
+        case 'chatStreamAbort':
+          await handleChatStream(data, webviewView);
+          break;
+        case 'fetchModels':
+          await handleModelFetch(data, webviewView);
           break;
         case 'openDiff':
           await this.openDiffEditor(data.oldContent, data.newContent, data.fileName);

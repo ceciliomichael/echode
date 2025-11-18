@@ -45,7 +45,8 @@ const ThinkContent = memo(
       <div 
         className="text-sm m-0"
         style={{ 
-          color: 'var(--vscode-descriptionForeground)',
+          color: 'var(--vscode-disabledForeground)',
+          opacity: 0.7,
           fontFamily: 'var(--vscode-font-family)'
         }}
       >

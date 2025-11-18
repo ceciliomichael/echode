@@ -18,9 +18,15 @@ export function useSetupForm(
   const [openaiModel, setOpenaiModel] = useState(initialSettings.openaiModel || '');
   const [openaiCompatibleModel, setOpenaiCompatibleModel] = useState(initialSettings.openaiCompatibleModel || '');
   const [apiKey, setApiKey] = useState(initialSettings.apiKey);
+  const [anthropicApiKey, setAnthropicApiKey] = useState(initialSettings.anthropicApiKey || initialSettings.apiKey || '');
+  const [openaiApiKey, setOpenaiApiKey] = useState(initialSettings.openaiApiKey || initialSettings.apiKey || '');
+  const [openaiCompatibleApiKey, setOpenaiCompatibleApiKey] = useState(initialSettings.openaiCompatibleApiKey || initialSettings.apiKey || '');
   const [anthropicMaxTokens, setAnthropicMaxTokens] = useState(initialSettings.anthropicMaxTokens);
   const [openaiMaxTokens, setOpenaiMaxTokens] = useState(initialSettings.openaiMaxTokens);
   const [openaiCompatibleMaxTokens, setOpenaiCompatibleMaxTokens] = useState(initialSettings.openaiCompatibleMaxTokens);
+  const [anthropicTemperature, setAnthropicTemperature] = useState(initialSettings.anthropicTemperature);
+  const [openaiTemperature, setOpenaiTemperature] = useState(initialSettings.openaiTemperature);
+  const [openaiCompatibleTemperature, setOpenaiCompatibleTemperature] = useState(initialSettings.openaiCompatibleTemperature);
   const [systemPrompt, setSystemPrompt] = useState(initialSettings.systemPrompt || '');
 
   // Restore model when provider changes
@@ -48,9 +54,15 @@ export function useSetupForm(
       setOpenaiModel(initialSettings.openaiModel || '');
       setOpenaiCompatibleModel(initialSettings.openaiCompatibleModel || '');
       setApiKey(initialSettings.apiKey);
+      setAnthropicApiKey(initialSettings.anthropicApiKey || initialSettings.apiKey || '');
+      setOpenaiApiKey(initialSettings.openaiApiKey || initialSettings.apiKey || '');
+      setOpenaiCompatibleApiKey(initialSettings.openaiCompatibleApiKey || initialSettings.apiKey || '');
       setAnthropicMaxTokens(initialSettings.anthropicMaxTokens);
       setOpenaiMaxTokens(initialSettings.openaiMaxTokens);
       setOpenaiCompatibleMaxTokens(initialSettings.openaiCompatibleMaxTokens);
+      setAnthropicTemperature(initialSettings.anthropicTemperature);
+      setOpenaiTemperature(initialSettings.openaiTemperature);
+      setOpenaiCompatibleTemperature(initialSettings.openaiCompatibleTemperature);
       setSystemPrompt(initialSettings.systemPrompt || '');
     }, 0);
     return () => clearTimeout(timeoutId);
@@ -63,6 +75,12 @@ export function useSetupForm(
       : provider === 'openai' 
       ? openaiCustomUrl 
       : openaiCompatibleCustomUrl;
+    
+    const currentApiKey = provider === 'anthropic' 
+      ? anthropicApiKey 
+      : provider === 'openai' 
+      ? openaiApiKey 
+      : openaiCompatibleApiKey;
     
     // Update provider-specific model before saving
     let updatedAnthropicModel = anthropicModel;
@@ -88,16 +106,22 @@ export function useSetupForm(
         anthropicModel: updatedAnthropicModel,
         openaiModel: updatedOpenaiModel,
         openaiCompatibleModel: updatedOpenaiCompatibleModel,
-        apiKey, 
+        apiKey: currentApiKey, 
+        anthropicApiKey,
+        openaiApiKey,
+        openaiCompatibleApiKey,
         anthropicMaxTokens, 
         openaiMaxTokens, 
         openaiCompatibleMaxTokens,
+        anthropicTemperature,
+        openaiTemperature,
+        openaiCompatibleTemperature,
         systemPrompt 
       });
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [provider, anthropicCustomUrl, openaiCustomUrl, openaiCompatibleCustomUrl, model, anthropicModel, openaiModel, openaiCompatibleModel, apiKey, anthropicMaxTokens, openaiMaxTokens, openaiCompatibleMaxTokens, systemPrompt, onSave]);
+  }, [provider, anthropicCustomUrl, openaiCustomUrl, openaiCompatibleCustomUrl, model, anthropicModel, openaiModel, openaiCompatibleModel, apiKey, anthropicApiKey, openaiApiKey, openaiCompatibleApiKey, anthropicMaxTokens, openaiMaxTokens, openaiCompatibleMaxTokens, anthropicTemperature, openaiTemperature, openaiCompatibleTemperature, systemPrompt, onSave]);
 
   // Handle provider change with model persistence
   const handleProviderChange = (newProvider: Provider) => {
@@ -123,9 +147,15 @@ export function useSetupForm(
     openaiModel,
     openaiCompatibleModel,
     apiKey,
+    anthropicApiKey,
+    openaiApiKey,
+    openaiCompatibleApiKey,
     anthropicMaxTokens,
     openaiMaxTokens,
     openaiCompatibleMaxTokens,
+    anthropicTemperature,
+    openaiTemperature,
+    openaiCompatibleTemperature,
     systemPrompt,
     setProvider: handleProviderChange,
     setAnthropicCustomUrl,
@@ -133,9 +163,15 @@ export function useSetupForm(
     setOpenaiCompatibleCustomUrl,
     setModel,
     setApiKey,
+    setAnthropicApiKey,
+    setOpenaiApiKey,
+    setOpenaiCompatibleApiKey,
     setAnthropicMaxTokens,
     setOpenaiMaxTokens,
     setOpenaiCompatibleMaxTokens,
+    setAnthropicTemperature,
+    setOpenaiTemperature,
+    setOpenaiCompatibleTemperature,
     setSystemPrompt,
   };
 }
