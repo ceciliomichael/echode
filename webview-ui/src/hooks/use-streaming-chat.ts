@@ -5,6 +5,11 @@ import { getSystemPrompt } from '../utils/prompts';
 import { useWorkspaceContext } from './use-workspace-context';
 import type { Message } from '../types/chat';
 import type { ChatMessage } from '../types/chat-api';
+import { hasCompleteToolBlock, extractFirstToolBlock } from '../lib/tool-parser';
+import { ToolExecutor } from '../lib/tool-executor';
+import { getAllTools } from '../lib/tool-registry';
+import type { ToolExecutionState } from '../types/tool';
+import { createToolExecutionState, updateToolExecutionStatus, generateToolExecutionId } from '../lib/tool-execution-tracker';
 
 /**
  * Request fresh workspace info from extension and wait for response
@@ -38,10 +43,22 @@ function requestWorkspaceInfo(): Promise<void> {
 export function useStreamingChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isExecutingTool, setIsExecutingTool] = useState(false);
   const workspace = useWorkspaceContext();
   const abortControllerRef = useRef<AbortController | null>(null);
   const sendingMessageRef = useRef(false);
   const isStreamingRef = useRef(false);
+  const isStoppingRef = useRef(false);
+
+  // Initialize tool executor with enabled tools
+  const toolExecutorRef = useRef<ToolExecutor | null>(null);
+  if (!toolExecutorRef.current) {
+    const enabledTools = getAllTools(false).map(t => t.id);
+    toolExecutorRef.current = new ToolExecutor({
+      enabledTools,
+      isStoppingRef,
+    });
+  }
 
   const updateMessage = useCallback((messageId: string, newContent: string) => {
     setMessages(prev =>
@@ -50,6 +67,22 @@ export function useStreamingChat() {
           ? { ...msg, content: newContent }
           : msg
       )
+    );
+  }, []);
+
+  /**
+   * Update tool execution state for a specific message
+   */
+  const updateToolExecution = useCallback((messageId: string, toolExecutionId: string, state: ToolExecutionState) => {
+    setMessages(prev =>
+      prev.map(msg => {
+        if (msg.id === messageId) {
+          const toolExecutions = new Map(msg.toolExecutions || []);
+          toolExecutions.set(toolExecutionId, state);
+          return { ...msg, toolExecutions };
+        }
+        return msg;
+      })
     );
   }, []);
 
@@ -139,6 +172,33 @@ export function useStreamingChat() {
 
         assistantContent += chunk;
         
+        // Check for complete tool block
+        if (hasCompleteToolBlock(assistantContent)) {
+          // Update UI with current content
+          if (pendingUpdate) {
+            updateUI();
+          } else {
+            updateUI();
+          }
+          
+          // Abort stream to execute tool
+          abortController.abort();
+          
+          // Set executing tool state to show loading
+          setIsExecutingTool(true);
+          
+          // Execute tool and continue
+          await executeToolAndContinue(
+            assistantContent,
+            assistantMessageId,
+            chatHistory,
+            messagesToSend,
+            content
+          );
+          
+          return; // Exit early, tool execution will handle continuation
+        }
+        
         // Batch updates: only update UI every 16ms (60fps) for smooth performance
         if (!pendingUpdate) {
           pendingUpdate = true;
@@ -179,19 +239,21 @@ export function useStreamingChat() {
     // Step 1: Abort any ongoing API call and wait for cleanup
     if (abortControllerRef.current) {
       console.log('[Chat] Aborting ongoing stream before edit');
+      isStoppingRef.current = true; // Signal stopping to prevent further execution loops
       abortControllerRef.current.abort();
+      abortControllerRef.current = null;
       
       // Wait briefly for the stream to finish cleanup
-      // This ensures the finally block in sendMessage completes
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     
-    // Prevent overlapping edits after abort completes
-    if (sendingMessageRef.current) {
-      console.warn('[Chat] Message still processing after abort, waiting longer');
-      await new Promise(resolve => setTimeout(resolve, 200));
-    }
-
+    // Reset stopping flag
+    isStoppingRef.current = false;
+    isStreamingRef.current = false;
+    setIsStreaming(false);
+    setIsExecutingTool(false);
+    sendingMessageRef.current = false;
+    
     // Step 2: Get truncated message history (everything before the edited message)
     const truncatedMessages = messages.slice(0, messageIndex);
     
@@ -209,6 +271,7 @@ export function useStreamingChat() {
   const abortStream = useCallback(() => {
     if (abortControllerRef.current) {
       console.log('Aborting stream');
+      isStoppingRef.current = true;
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
       // Immediately set streaming to false (both ref and state)
@@ -216,12 +279,208 @@ export function useStreamingChat() {
       setIsStreaming(false);
       // Reset sending flag to allow next message
       sendingMessageRef.current = false;
+      isStoppingRef.current = false;
     }
   }, []);
+
+  /**
+   * Execute tool and continue chat with results
+   */
+  const executeToolAndContinue = useCallback(
+    async (
+      assistantContent: string,
+      assistantMessageId: string,
+      _previousHistory: ChatMessage[],
+      messagesToSend: Message[],
+      userContent: string,
+    ) => {
+      if (!toolExecutorRef.current) {return;}
+      
+      try {
+        // Keep executing tool state active
+        setIsExecutingTool(true);
+        
+        // Extract and execute the first tool block
+        const toolBlock = extractFirstToolBlock(assistantContent);
+        if (!toolBlock) {
+          setIsExecutingTool(false);
+          return;
+        }
+        
+        // Generate tool execution ID (index 0 since we extract first block)
+        const toolExecutionId = generateToolExecutionId(assistantMessageId, 0);
+        
+        console.log('[Tool] Executing tool:', toolBlock.toolName, 'ID:', toolExecutionId);
+        
+        // Create initial execution state with "executing" status
+        const executionState = createToolExecutionState(
+          toolExecutionId,
+          toolBlock.toolName,
+          toolBlock.parameters
+        );
+        
+        // Update UI with executing status
+        updateToolExecution(assistantMessageId, toolExecutionId, executionState);
+        
+        // Execute the tool
+        const result = await toolExecutorRef.current.executeToolCalls(assistantContent);
+        
+        if (result.wasStopped) {
+          // Update to aborted status
+          const abortedState = updateToolExecutionStatus(executionState, 'aborted', {
+            success: false,
+            error: 'Stopped by user'
+          });
+          updateToolExecution(assistantMessageId, toolExecutionId, abortedState);
+          setIsExecutingTool(false);
+          return;
+        }
+        
+        if (result.toolResults.length === 0) {
+          setIsExecutingTool(false);
+          return;
+        }
+        
+        // Get the execution result from tool executor
+        const executedTool = result.executedToolCalls[0];
+        if (executedTool) {
+          // Update to completed or error status based on result
+          const finalState = updateToolExecutionStatus(
+            executionState,
+            executedTool.status,
+            executedTool.result
+          );
+          updateToolExecution(assistantMessageId, toolExecutionId, finalState);
+        }
+        
+        // Format tool results for AI context
+        const toolResultText = result.toolResults.join('\n\n');
+        
+        // Continue chat with tool results
+        const latestWorkspace = window.workspaceContext || workspace;
+        const systemPrompt = getSystemPrompt(latestWorkspace);
+        
+        const continuationHistory: ChatMessage[] = [
+          {
+            role: 'system',
+            content: systemPrompt,
+          },
+          ...messagesToSend.map((msg) => ({
+            role: msg.role,
+            content: msg.content,
+          })),
+          {
+            role: 'user',
+            content: userContent,
+          },
+          {
+            role: 'assistant',
+            content: assistantContent,
+          },
+          {
+            role: 'user',
+            content: `Tool execution results:\n${toolResultText}`,
+          },
+        ];
+        
+        // Continue streaming - clear executing tool state
+        setIsExecutingTool(false);
+        
+        const newAbortController = new AbortController();
+        abortControllerRef.current = newAbortController;
+        
+        let continuationContent = assistantContent;
+        let pendingUpdate = false;
+        
+        const updateUI = () => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId
+                ? { ...msg, content: continuationContent }
+                : msg
+            )
+          );
+          pendingUpdate = false;
+        };
+        
+        for await (const chunk of chatApi.streamChat(
+          continuationHistory,
+          newAbortController.signal
+        )) {
+          if (newAbortController.signal.aborted) {
+            break;
+          }
+          
+          continuationContent += chunk;
+          
+          // Check for another tool block
+          if (hasCompleteToolBlock(continuationContent.slice(assistantContent.length))) {
+            // Update UI
+            if (pendingUpdate) {
+              updateUI();
+            } else {
+              updateUI();
+            }
+            
+            // Abort and execute next tool
+            newAbortController.abort();
+            setIsExecutingTool(true);
+            await executeToolAndContinue(
+              continuationContent,
+              assistantMessageId,
+              continuationHistory,
+              messagesToSend,
+              userContent
+            );
+            return;
+          }
+          
+          if (!pendingUpdate) {
+            pendingUpdate = true;
+            requestAnimationFrame(updateUI);
+          }
+        }
+        
+        // Final update
+        if (pendingUpdate) {
+          updateUI();
+        }
+      } catch (error) {
+        console.error('[Tool] Execution error:', error);
+        
+        // Try to extract tool info for error state update
+        const toolBlock = extractFirstToolBlock(assistantContent);
+        if (toolBlock) {
+          const toolExecutionId = generateToolExecutionId(assistantMessageId, 0);
+          const errorState: ToolExecutionState = {
+            toolExecutionId,
+            toolName: toolBlock.toolName,
+            parameters: toolBlock.parameters,
+            status: 'error',
+            result: {
+              success: false,
+              error: error instanceof Error ? error.message : 'Unknown error'
+            },
+            startedAt: Date.now(),
+            completedAt: Date.now(),
+          };
+          updateToolExecution(assistantMessageId, toolExecutionId, errorState);
+        }
+      } finally {
+        setIsExecutingTool(false);
+        isStreamingRef.current = false;
+        setIsStreaming(false);
+        abortControllerRef.current = null;
+        sendingMessageRef.current = false;
+      }
+    },
+    [workspace, updateToolExecution],
+  );
 
   return {
     messages,
     isStreaming,
+    isExecutingTool,
     sendMessage,
     editMessage,
     updateMessage,

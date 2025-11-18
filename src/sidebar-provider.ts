@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { handleApiRequest } from './handlers/api-handler';
 import { handleChatStream } from './handlers/chat-streaming-handler';
 import { handleModelFetch } from './handlers/model-fetching-handler';
+import { handleToolExecution } from './handlers/tool-execution-handler';
 import { getMainWebviewHtml, getSettingsHtml, getHistoryHtml } from './utils/html-generator';
 import { getWorkspaceFiles, getAgentsConfig } from './utils/workspace-scanner';
 
@@ -194,6 +195,9 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
           break;
         case 'requestWorkspaceInfo':
           this.sendWorkspaceInfo(webviewView);
+          break;
+        case 'executeTool':
+          await handleToolExecution(data, webviewView);
           break;
       }
     });

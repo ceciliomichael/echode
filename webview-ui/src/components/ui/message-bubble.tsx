@@ -33,6 +33,7 @@ export function MessageBubble({ message, onEdit, onUpdate, isEditing, onEditStar
       messageId={message.id}
       isStreaming={isStreaming}
       showCopy={showCopy}
+      toolExecutions={message.toolExecutions}
     />
   );
 }

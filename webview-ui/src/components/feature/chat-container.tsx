@@ -5,10 +5,13 @@ import { ChatEmptyState } from '../ui/chat-empty-state';
 import { useStreamingChat } from '../../hooks/use-streaming-chat';
 
 export function ChatContainer() {
-  const { messages, isStreaming, sendMessage, editMessage, updateMessage, clearChat, abortStream } = useStreamingChat();
+  const { messages, isStreaming, isExecutingTool, sendMessage, editMessage, updateMessage, clearChat, abortStream } = useStreamingChat();
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
 
-  const lastAssistantIndex = messages.reduce((lastIndex, msg, index) =>
+  // Filter out hidden messages (tool result feedback messages)
+  const visibleMessages = messages.filter(msg => !msg.hidden);
+
+  const lastAssistantIndex = visibleMessages.reduce((lastIndex, msg, index) =>
     msg.role === 'assistant' ? index : lastIndex,
     -1
   );
@@ -53,23 +56,26 @@ export function ChatContainer() {
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--vscode-sideBar-background)' }}>
       <div className="flex-1 overflow-y-auto py-2 px-1">
-        {messages.length === 0 ? (
+        {visibleMessages.length === 0 ? (
           <ChatEmptyState />
         ) : (
           <div className="space-y-3">
-            {messages.map((message, index) => (
-              <MessageBubble
-                key={message.id}
-                message={message}
-                onEdit={handleEdit}
-                onUpdate={handleUpdate}
-                isEditing={editingMessageId === message.id}
-                onEditStart={handleEditStart}
-                onEditCancel={handleEditCancel}
-                isStreaming={isStreaming && index === messages.length - 1 && message.role === 'assistant'}
-                showCopy={index === lastAssistantIndex}
-              />
-            ))}
+            {visibleMessages.map((message, index) => {
+              const isLastAssistantMessage = index === visibleMessages.length - 1 && message.role === 'assistant';
+              return (
+                <MessageBubble
+                  key={message.id}
+                  message={message}
+                  onEdit={handleEdit}
+                  onUpdate={handleUpdate}
+                  isEditing={editingMessageId === message.id}
+                  onEditStart={handleEditStart}
+                  onEditCancel={handleEditCancel}
+                  isStreaming={(isStreaming || isExecutingTool) && isLastAssistantMessage}
+                  showCopy={index === lastAssistantIndex}
+                />
+              );
+            })}
           </div>
         )}
       </div>

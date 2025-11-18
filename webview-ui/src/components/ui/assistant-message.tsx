@@ -2,22 +2,25 @@ import { memo, useMemo, useState } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { LoadingDots } from './loading-dots';
 import { ThinkBlock } from './think-block';
+import { ToolBlock } from './tool-block';
 import { StableMarkdown } from './stable-markdown';
 import { tokenizeContent } from '../../utils/content-tokenizer';
+import type { ToolCall, ToolExecutionState } from '../../types/tool';
 
 interface AssistantMessageProps {
   content: string;
   messageId?: string;
   isStreaming?: boolean;
   showCopy?: boolean;
+  toolExecutions?: Map<string, ToolExecutionState>;
 }
 
-function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming = false, showCopy = false }: AssistantMessageProps) {
+function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming = false, showCopy = false, toolExecutions }: AssistantMessageProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   
   // Tokenize content into stable segments
-  const tokens = useMemo(() => tokenizeContent(content), [content]);
+  const tokens = useMemo(() => tokenizeContent(content, messageId), [content, messageId]);
   
   const shouldShowCopyRow = useMemo(
     () => !isStreaming && showCopy,
@@ -58,7 +61,6 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
   return (
     <div 
       className="group relative" 
-      style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -75,7 +77,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
           
           if (token.type === 'think') {
             return (
-              <div key={`think-${messageId}-${token.index}`} style={{ marginTop }}>
+              <div key={`think-${messageId}-${token.index}`} style={{ marginTop, paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
                 <ThinkBlock
                   content={token.content}
                   messageId={`${messageId}-${token.index}`}
@@ -86,10 +88,29 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
             );
           }
           
-          // Text content - use memoized markdown renderer
-          if (token.content.trim()) {
+          // Tool block
+          if (token.type === 'tool') {
+            // Merge token data with execution state if available
+            const executionState = toolExecutions?.get(token.toolExecutionId);
+            const toolCall: ToolCall = {
+              toolName: token.toolName,
+              parameters: token.parameters,
+              status: executionState?.status || (token.isClosed ? 'pending' : 'pending'),
+              result: executionState?.result,
+              toolExecutionId: token.toolExecutionId,
+            };
+            
             return (
-              <div key={`text-${messageId}-${token.index}`} style={{ marginTop }}>
+              <div key={`tool-${messageId}-${token.index}`} style={{ marginTop, paddingLeft: '0.5rem', paddingRight: '0.5rem' }}>
+                <ToolBlock toolCall={toolCall} />
+              </div>
+            );
+          }
+          
+          // Text content - use memoized markdown renderer
+          if (token.type === 'text' && token.content.trim()) {
+            return (
+              <div key={`text-${messageId}-${token.index}`} style={{ marginTop, paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
                 <StableMarkdown 
                   content={token.content} 
                 />
@@ -99,11 +120,42 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
           
           return null;
         })}
+
+        {/* Show loading dots when waiting for response after tool or think block */}
+        {isStreaming && tokens.length > 0 && (
+          (() => {
+            const lastToken = tokens[tokens.length - 1];
+            
+            // Case 1: Tool block - only show dots if completed/error/aborted (waiting for AI)
+            // Do NOT show if executing (ToolBlock shows status) or incomplete
+            if (lastToken.type === 'tool' && lastToken.isClosed) {
+              const status = toolExecutions?.get(lastToken.toolExecutionId)?.status;
+              if (status === 'completed' || status === 'error' || status === 'aborted') {
+                return (
+                  <div className="mt-2" style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
+                    <LoadingDots />
+                  </div>
+                );
+              }
+            }
+            
+            // Case 2: Think block - show dots if closed (waiting for text)
+            if (lastToken.type === 'think' && lastToken.isClosed) {
+              return (
+                <div className="mt-2" style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
+                  <LoadingDots />
+                </div>
+              );
+            }
+            
+            return null;
+          })()
+        )}
       </div>
       {shouldShowCopyRow && (
         <div 
           className={`mt-1 flex justify-end transition-opacity ${isHovered ? 'opacity-100' : 'opacity-0'}`}
-          style={{ pointerEvents: isHovered ? 'auto' : 'none' }}
+          style={{ pointerEvents: isHovered ? 'auto' : 'none', paddingRight: '1.25rem' }}
         >
           <button
             onClick={handleCopy}
@@ -132,8 +184,18 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
 }
 
 export const AssistantMessage = memo(AssistantMessageComponent, (prev, next) => {
+  // Compare toolExecutions maps by size and entries
+  const toolExecutionsEqual = 
+    prev.toolExecutions === next.toolExecutions ||
+    (prev.toolExecutions?.size === next.toolExecutions?.size &&
+     Array.from(prev.toolExecutions?.entries() || []).every(([key, value]) => {
+       const nextValue = next.toolExecutions?.get(key);
+       return nextValue?.status === value.status && nextValue?.result === value.result;
+     }));
+  
   return prev.content === next.content && 
          prev.messageId === next.messageId && 
          prev.isStreaming === next.isStreaming &&
-         prev.showCopy === next.showCopy;
+         prev.showCopy === next.showCopy &&
+         toolExecutionsEqual;
 });

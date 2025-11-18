@@ -1,5 +1,6 @@
 import type { WorkspaceContext } from '../types/workspace';
 import { storageService } from './storage';
+import { getAllTools, getToolSystemPrompt } from '../lib/tool-config';
 
 export interface PromptConfig {
   name: string;
@@ -73,5 +74,14 @@ ${workspaceLevelRules}${workspaceLevelRules && userLevelRules ? '\n\n' : ''}${us
 </user_specific_rules>`
     : '';
 
-  return `${identitySection}${behaviorSection}${workspaceSection}${userRulesSection}`;
+  // Add tool configuration
+  const enabledTools = getAllTools(true); // Enable all tools by default
+  const toolsSection = enabledTools.length > 0
+    ? `
+<tools>
+${getToolSystemPrompt(enabledTools)}
+</tools>`
+    : '';
+
+  return `${identitySection}${behaviorSection}${workspaceSection}${userRulesSection}${toolsSection}`;
 }

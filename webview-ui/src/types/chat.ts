@@ -1,3 +1,5 @@
+import type { ToolExecutionState } from './tool';
+
 export type MessageRole = 'user' | 'assistant';
 
 export interface Message {
@@ -5,4 +7,6 @@ export interface Message {
   role: MessageRole;
   content: string;
   timestamp: Date;
+  toolExecutions?: Map<string, ToolExecutionState>;
+  hidden?: boolean;
 }
