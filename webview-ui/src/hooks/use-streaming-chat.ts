@@ -5,7 +5,7 @@ import { getSystemPrompt } from '../utils/prompts';
 import { useWorkspaceContext } from './use-workspace-context';
 import type { Message } from '../types/chat';
 import type { ChatMessage } from '../types/chat-api';
-import { hasCompleteToolBlock, extractFirstToolBlock } from '../lib/tool-parser';
+import { hasCompleteToolBlock, extractToolBlocks } from '../lib/tool-parser';
 import { ToolExecutor } from '../lib/tool-executor';
 import { getAllTools } from '../lib/tool-registry';
 import type { ToolExecutionState } from '../types/tool';
@@ -293,6 +293,7 @@ export function useStreamingChat() {
       _previousHistory: ChatMessage[],
       messagesToSend: Message[],
       userContent: string,
+      toolIndex = 0,
     ) => {
       if (!toolExecutorRef.current) {return;}
       
@@ -300,15 +301,17 @@ export function useStreamingChat() {
         // Keep executing tool state active
         setIsExecutingTool(true);
         
-        // Extract and execute the first tool block
-        const toolBlock = extractFirstToolBlock(assistantContent);
+        // Extract all tool blocks and get the current one by index
+        const toolBlocks = extractToolBlocks(assistantContent);
+        const toolBlock = toolBlocks[toolIndex];
+        
         if (!toolBlock) {
           setIsExecutingTool(false);
           return;
         }
         
-        // Generate tool execution ID (index 0 since we extract first block)
-        const toolExecutionId = generateToolExecutionId(assistantMessageId, 0);
+        // Generate tool execution ID with correct index
+        const toolExecutionId = generateToolExecutionId(assistantMessageId, toolIndex);
         
         console.log('[Tool] Executing tool:', toolBlock.toolName, 'ID:', toolExecutionId);
         
@@ -322,8 +325,67 @@ export function useStreamingChat() {
         // Update UI with executing status
         updateToolExecution(assistantMessageId, toolExecutionId, executionState);
         
-        // Execute the tool
-        const result = await toolExecutorRef.current.executeToolCalls(assistantContent);
+        // Check if stopped before execution
+        if (isStoppingRef.current) {
+          const abortedState = updateToolExecutionStatus(executionState, 'aborted', {
+            success: false,
+            error: 'Stopped by user'
+          });
+          updateToolExecution(assistantMessageId, toolExecutionId, abortedState);
+          setIsExecutingTool(false);
+          return;
+        }
+        
+        // Execute the specific tool directly
+        let result;
+        try {
+          const toolResult = await toolExecutorRef.current.execute({
+            toolName: toolBlock.toolName,
+            parameters: toolBlock.parameters,
+            status: 'executing'
+          });
+
+          // Check if stopped during execution
+          if (isStoppingRef.current) {
+            result = {
+              executedToolCalls: [{
+                toolName: toolBlock.toolName,
+                parameters: toolBlock.parameters,
+                status: 'aborted' as const,
+                result: { success: false, error: 'Stopped by user' }
+              }],
+              toolResults: [],
+              wasStopped: true
+            };
+          } else {
+            result = {
+              executedToolCalls: [{
+                toolName: toolBlock.toolName,
+                parameters: toolBlock.parameters,
+                status: toolResult.success ? ('completed' as const) : ('error' as const),
+                result: toolResult
+              }],
+              toolResults: [
+                toolResult.success 
+                  ? `Tool: ${toolBlock.toolName}\nResult: ${JSON.stringify(toolResult.data, null, 2)}`
+                  : `Tool: ${toolBlock.toolName}\nError: ${toolResult.error}`
+              ],
+              wasStopped: false
+            };
+          }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          result = {
+            executedToolCalls: [{
+              toolName: toolBlock.toolName,
+              parameters: toolBlock.parameters,
+              status: 'error' as const,
+              result: { success: false, error: errorMessage }
+            }],
+            toolResults: [`Tool: ${toolBlock.toolName}\nError: ${errorMessage}`],
+            wasStopped: false
+          };
+        }
         
         if (result.wasStopped) {
           // Update to aborted status
@@ -336,7 +398,7 @@ export function useStreamingChat() {
           return;
         }
         
-        if (result.toolResults.length === 0) {
+        if (result.executedToolCalls.length === 0) {
           setIsExecutingTool(false);
           return;
         }
@@ -430,7 +492,8 @@ export function useStreamingChat() {
               assistantMessageId,
               continuationHistory,
               messagesToSend,
-              userContent
+              userContent,
+              toolIndex + 1
             );
             return;
           }
@@ -449,9 +512,10 @@ export function useStreamingChat() {
         console.error('[Tool] Execution error:', error);
         
         // Try to extract tool info for error state update
-        const toolBlock = extractFirstToolBlock(assistantContent);
+        const toolBlocks = extractToolBlocks(assistantContent);
+        const toolBlock = toolBlocks[toolIndex];
         if (toolBlock) {
-          const toolExecutionId = generateToolExecutionId(assistantMessageId, 0);
+          const toolExecutionId = generateToolExecutionId(assistantMessageId, toolIndex);
           const errorState: ToolExecutionState = {
             toolExecutionId,
             toolName: toolBlock.toolName,
