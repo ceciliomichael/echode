@@ -106,13 +106,37 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
           });
           position = closeMarker + 4; // Skip past closing ```
         } catch {
-          // Invalid JSON, treat as text
+          // Invalid JSON but block is closed. Try to recover using regex instead of falling back to text.
+          // This prevents raw JSON from "escaping" into the chat view.
+          let partialParams: Record<string, unknown> = {};
+          
+          // Try to extract path
+          const pathMatch = paramString.match(/"path"\s*:\s*"([^"]*)"/);
+          if (pathMatch) {
+            partialParams.path = pathMatch[1];
+          }
+          
+          // Try to extract content (handle escaped quotes)
+          const contentMatch = paramString.match(/"content"\s*:\s*"((?:[^"\\]|\\.)*)/);
+          if (contentMatch) {
+            try {
+              const rawStr = contentMatch[1];
+              partialParams.content = rawStr.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+            } catch {
+              partialParams.content = contentMatch[1];
+            }
+          }
+
           tokens.push({
-            type: 'text',
-            content: content.slice(toolStart, paramStart),
-            index: tokenIndex++
+            type: 'tool',
+            toolName,
+            parameters: partialParams,
+            rawContent: content.slice(toolStart, closeMarker + 4),
+            index: tokenIndex++,
+            isClosed: true,
+            toolExecutionId: `${messageId}-tool-${toolIndex++}`
           });
-          position = paramStart;
+          position = closeMarker + 4;
         }
       } else {
         // Unclosed tool block (streaming)
@@ -131,10 +155,33 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
           });
         } catch {
           // Invalid JSON but still streaming, include as partial tool block
+          // Try to extract path from partial JSON using regex
+          let partialParams: Record<string, unknown> = {};
+          const pathMatch = paramString.match(/"path"\s*:\s*"([^"]*)"/);
+          if (pathMatch) {
+            partialParams.path = pathMatch[1];
+          }
+          
+          // Try to extract content from partial JSON using regex (handle escaped quotes)
+          // Matches "content": "..." where ... can contain escaped characters
+          const contentMatch = paramString.match(/"content"\s*:\s*"((?:[^"\\]|\\.)*)/);
+          if (contentMatch) {
+            // Unescape the content to get the actual string
+            try {
+              // Add closing quote to make it valid JSON string fragment if needed
+              const rawStr = contentMatch[1];
+              // JSON.parse(`"${rawStr}"`) might fail if it ends with backslash
+              // Simple unescape for display purposes
+              partialParams.content = rawStr.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+            } catch {
+              partialParams.content = contentMatch[1];
+            }
+          }
+
           tokens.push({
             type: 'tool',
             toolName,
-            parameters: {},
+            parameters: partialParams,
             rawContent: content.slice(toolStart),
             index: tokenIndex++,
             isClosed: false,

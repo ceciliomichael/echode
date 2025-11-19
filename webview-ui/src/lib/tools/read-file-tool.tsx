@@ -19,7 +19,7 @@ registerToolPlugin({
     id: 'read_file',
     name: 'Read File',
     description: 'Read file content from workspace',
-    aiDescription: 'Read the contents of a file. Use this when you need to examine existing code or files.',
+    aiDescription: 'Read the contents of a file. Use this when you need to examine existing code or files. DO NOT use this for directories; use list_files instead.',
     icon: FileText,
     usage: 'Read file content with optional line range',
     formatExample: '```tool:read_file\n{"path": "src/app.ts"}\n```',

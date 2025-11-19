@@ -29,17 +29,12 @@ registerToolPlugin({
   },
   renderer: (data: unknown) => {
     if (typeof data === 'object' && data !== null && 'path' in data) {
-      const result = data as { path: string; bytesWritten?: number };
+      const result = data as { path: string; action?: string };
       return (
         <div className="space-y-1">
           <div className="text-xs font-semibold opacity-70">
-            File written: {result.path}
+            {result.action === 'created' ? 'File created' : 'File modified'}: {result.path}
           </div>
-          {result.bytesWritten !== undefined && (
-            <div className="text-xs opacity-60">
-              {result.bytesWritten} bytes written
-            </div>
-          )}
         </div>
       );
     }

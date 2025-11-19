@@ -22,6 +22,11 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
   // Tokenize content into stable segments
   const tokens = useMemo(() => tokenizeContent(content, messageId), [content, messageId]);
   
+  // Filter out empty text tokens to simplify rendering logic and adjacency checks
+  const visibleTokens = useMemo(() => {
+    return tokens.filter(token => token.type !== 'text' || token.content.trim() !== '');
+  }, [tokens]);
+  
   const shouldShowCopyRow = useMemo(
     () => !isStreaming && showCopy,
     [isStreaming, showCopy]
@@ -68,8 +73,9 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
         className="max-w-none" 
         style={{ color: 'var(--vscode-editor-foreground)' }}
       >
-        {tokens.map((token, index) => {
-          const prevToken = index > 0 ? tokens[index - 1] : null;
+        {visibleTokens.map((token, index) => {
+          const prevToken = index > 0 ? visibleTokens[index - 1] : null;
+          const nextToken = index < visibleTokens.length - 1 ? visibleTokens[index + 1] : null;
           const isPrevThink = prevToken?.type === 'think';
           
           // Much smaller margin after think blocks (like paragraph spacing), normal margin otherwise
@@ -90,25 +96,40 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
           
           // Tool block
           if (token.type === 'tool') {
+            // Check adjacent tools in VISIBLE tokens list for sequential grouping
+            const isConnectedTop = prevToken?.type === 'tool';
+            const isConnectedBottom = nextToken?.type === 'tool';
+
+            // Override margin if connected to top tool (collapse spacing)
+            const toolMarginTop = isConnectedTop ? 0 : marginTop;
+
             // Merge token data with execution state if available
             const executionState = toolExecutions?.get(token.toolExecutionId);
             const toolCall: ToolCall = {
               toolName: token.toolName,
-              parameters: token.parameters,
+              // Prioritize execution parameters as they are authoritative during execution
+              parameters: executionState?.parameters || token.parameters,
               status: executionState?.status || (token.isClosed ? 'pending' : 'pending'),
               result: executionState?.result,
               toolExecutionId: token.toolExecutionId,
             };
             
             return (
-              <div key={`tool-${messageId}-${token.index}`} style={{ marginTop, paddingLeft: '0.5rem', paddingRight: '0.5rem' }}>
-                <ToolBlock toolCall={toolCall} />
+              <div key={`tool-${messageId}-${token.index}`} style={{ marginTop: toolMarginTop, paddingLeft: '0.5rem', paddingRight: '0.5rem' }}>
+                <ToolBlock 
+                  toolCall={toolCall}
+                  isConnectedTop={isConnectedTop}
+                  isConnectedBottom={isConnectedBottom}
+                />
               </div>
             );
           }
           
           // Text content - use memoized markdown renderer
-          if (token.type === 'text' && token.content.trim()) {
+          if (token.type === 'text') {
+            // visibleTokens already filtered out empty text, but double check just in case
+            if (!token.content.trim()) return null;
+            
             return (
               <div key={`text-${messageId}-${token.index}`} style={{ marginTop, paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
                 <StableMarkdown 
@@ -122,9 +143,9 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
         })}
 
         {/* Show loading dots when waiting for response after tool or think block */}
-        {isStreaming && tokens.length > 0 && (
+        {isStreaming && visibleTokens.length > 0 && (
           (() => {
-            const lastToken = tokens[tokens.length - 1];
+            const lastToken = visibleTokens[visibleTokens.length - 1];
             
             // Case 1: Tool block - only show dots if completed/error/aborted (waiting for AI)
             // Do NOT show if executing (ToolBlock shows status) or incomplete

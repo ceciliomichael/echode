@@ -1,6 +1,7 @@
 import { Check, Copy, FileDown, WrapText } from "lucide-react";
 import { memo, useMemo, useState } from "react";
 import { useClipboard } from "../../hooks/use-clipboard";
+import { getLanguageIcon } from "../../utils/file-icon-mapper";
 
 interface CodeBlockProps {
   children: React.ReactNode;
@@ -41,6 +42,9 @@ const CodeBlockComponent = ({ children, className }: CodeBlockProps) => {
     [className],
   );
 
+  const iconConfig = useMemo(() => getLanguageIcon(language), [language]);
+  const LanguageIcon = iconConfig.icon;
+
   const codeContent = useMemo(() => extractCodeContent(children), [children]);
 
   const codeLines = useMemo(() => {
@@ -58,25 +62,29 @@ const CodeBlockComponent = ({ children, className }: CodeBlockProps) => {
 
   return (
     <div
-      className="my-2 rounded-lg overflow-hidden border"
+      className="my-2 rounded-xl overflow-hidden border"
       style={{
         borderColor: 'var(--vscode-input-border)',
-        backgroundColor: 'var(--vscode-sideBar-background)'
+        backgroundColor: 'var(--vscode-editor-background)'
       }}
     >
       <div
-        className="flex items-center justify-between px-3 py-1.5 border-b"
+        className="flex items-center justify-between px-3 py-2 border-b"
         style={{
           borderColor: 'var(--vscode-input-border)',
-          backgroundColor: 'var(--vscode-sideBar-background)'
+          backgroundColor: 'var(--vscode-editor-background)',
+          color: 'var(--vscode-descriptionForeground)'
         }}
       >
-        <span
-          className="text-xs font-medium uppercase"
-          style={{ color: 'var(--vscode-foreground)', opacity: 0.7 }}
-        >
-          {language}
-        </span>
+        <div className="flex items-center gap-2">
+          <LanguageIcon className="w-3.5 h-3.5" style={{ color: iconConfig.color }} />
+          <span
+            className="text-xs font-medium"
+            style={{ color: 'var(--vscode-foreground)', opacity: 0.7 }}
+          >
+            {iconConfig.label || language}
+          </span>
+        </div>
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -117,17 +125,17 @@ const CodeBlockComponent = ({ children, className }: CodeBlockProps) => {
 
       <div
         className="flex"
-        style={{ backgroundColor: 'var(--vscode-sideBar-background)' }}
+        style={{ backgroundColor: 'var(--vscode-editor-background)' }}
       >
         <div
           className="flex-shrink-0 border-r"
           style={{
             borderColor: 'var(--vscode-input-border)',
-            backgroundColor: 'var(--vscode-sideBar-background)'
+            backgroundColor: 'var(--vscode-editorLineNumber-background)'
           }}
         >
-          <pre className="text-xs font-mono m-0" style={{ backgroundColor: 'var(--vscode-sideBar-background)' }}>
-            <code className="block" style={{ backgroundColor: 'var(--vscode-sideBar-background)' }}>
+          <pre className="text-xs font-mono m-0 py-1" style={{ backgroundColor: 'transparent' }}>
+            <code className="block" style={{ backgroundColor: 'transparent' }}>
               {codeLines.lines.map((_, index) => (
                 <div
                   key={`line-number-${index + 1}`}
@@ -148,13 +156,13 @@ const CodeBlockComponent = ({ children, className }: CodeBlockProps) => {
           className={`flex-1 ${wordWrap ? "overflow-hidden" : "overflow-x-auto"}`}
         >
           <pre
-            className={`text-xs font-mono m-0 pl-2 ${wordWrap ? "whitespace-pre-wrap break-words" : "whitespace-pre"}`}
+            className={`text-xs font-mono m-0 pl-2 py-1 ${wordWrap ? "whitespace-pre-wrap break-words" : "whitespace-pre"}`}
             style={{
               color: 'var(--vscode-editor-foreground)',
-              backgroundColor: 'var(--vscode-sideBar-background)'
+              backgroundColor: 'var(--vscode-editor-background)'
             }}
           >
-            <code className="block" style={{ backgroundColor: 'var(--vscode-sideBar-background)' }}>
+            <code className="block" style={{ backgroundColor: 'var(--vscode-editor-background)' }}>
               {codeLines.lines.map((line, index) => (
                 <div
                   key={`content-${index}-${line.slice(0, 10)}`}

@@ -26,6 +26,20 @@ export class ReadFileTool implements ITool {
         : path.join(workspaceRoot, filePath);
 
       const uri = vscode.Uri.file(absolutePath);
+
+      // Check if path is a directory
+      try {
+        const stat = await vscode.workspace.fs.stat(uri);
+        if (stat.type === vscode.FileType.Directory) {
+          return {
+            success: false,
+            error: `Cannot read directory '${filePath}'. Please use 'list_files' to view directory contents.`,
+          };
+        }
+      } catch (error) {
+        // If stat fails (e.g. file not found), readFile will handle the error appropriate
+      }
+
       const fileContent = await vscode.workspace.fs.readFile(uri);
       const content = Buffer.from(fileContent).toString('utf8');
 
@@ -36,10 +50,8 @@ export class ReadFileTool implements ITool {
         const end = endLine ? Math.min(lines.length, endLine) : lines.length;
         const selectedLines = lines.slice(start, end);
         
-        // Format with line numbers
-        const formattedContent = selectedLines
-          .map((line, index) => `${start + index + 1}: ${line}`)
-          .join('\n');
+        // Return raw content without line numbers
+        const formattedContent = selectedLines.join('\n');
 
         return {
           success: true,
@@ -53,18 +65,13 @@ export class ReadFileTool implements ITool {
         };
       }
 
-      // Return full content with line numbers
-      const lines = content.split('\n');
-      const formattedContent = lines
-        .map((line, index) => `${index + 1}: ${line}`)
-        .join('\n');
-
+      // Return full raw content
       return {
         success: true,
         data: {
           path: filePath,
-          content: formattedContent,
-          totalLines: lines.length,
+          content: content,
+          totalLines: content.split('\n').length,
         },
       };
     } catch (error) {
@@ -103,7 +110,18 @@ export class WriteFileTool implements ITool {
         : path.join(workspaceRoot, filePath);
 
       const uri = vscode.Uri.file(absolutePath);
-      const contentBytes = Buffer.from(content, 'utf8');
+      
+      // Check if file exists and capture old content
+      let oldContent: string | null = null;
+      let fileExisted = false;
+      try {
+        const oldFileContent = await vscode.workspace.fs.readFile(uri);
+        oldContent = Buffer.from(oldFileContent).toString('utf8');
+        fileExisted = true;
+      } catch {
+        // File doesn't exist, this is a new file
+        fileExisted = false;
+      }
       
       // Create parent directories if needed
       const dirPath = path.dirname(absolutePath);
@@ -114,14 +132,17 @@ export class WriteFileTool implements ITool {
         // Directory might already exist
       }
 
+      // Write new content
+      const contentBytes = Buffer.from(content, 'utf8');
       await vscode.workspace.fs.writeFile(uri, contentBytes);
 
       return {
         success: true,
         data: {
           path: filePath,
-          message: 'File written successfully',
-          bytes: contentBytes.length,
+          action: fileExisted ? 'modified' : 'created',
+          oldContent: oldContent,
+          newContent: content,
         },
       };
     } catch (error) {

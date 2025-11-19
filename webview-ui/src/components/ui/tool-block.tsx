@@ -2,47 +2,31 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  FileText,
   Loader2,
   X,
 } from 'lucide-react';
 import { memo, type ReactNode, useMemo, useState } from 'react';
 import { getToolMetadata, getToolRenderer } from '../../lib/tool-registry';
 import type { ToolCall } from '../../types/tool';
+import { getFileIconConfig, extractFileName } from '../../utils/file-icon-mapper';
+import { DiffViewer } from './diff-viewer';
 
 interface ToolBlockProps {
   toolCall: ToolCall;
+  isConnectedTop?: boolean;
+  isConnectedBottom?: boolean;
 }
 
-const ToolBlockComponent = ({ toolCall }: ToolBlockProps) => {
+const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBottom = false }: ToolBlockProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const statusConfig = useMemo(() => {
-    const toolName = toolCall.toolName.toLowerCase();
-
-    const getCustomLabel = (status: 'pending' | 'executing'): string => {
-      if (toolName.includes('write')) {
-        return status === 'pending' ? 'Creating file...' : 'Writing content...';
-      }
-      if (toolName.includes('read')) {
-        return status === 'pending' ? 'Reading file...' : 'Loading content...';
-      }
-      if (toolName.includes('list')) {
-        return status === 'pending' ? 'Listing files...' : 'Scanning directory...';
-      }
-      return status === 'pending' ? 'Pending' : 'Processing...';
-    };
-
     switch (toolCall.status) {
       case 'pending':
-        return {
-          icon: <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--vscode-descriptionForeground)' }} />,
-          label: getCustomLabel('pending'),
-        };
       case 'executing':
         return {
-          icon: <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--vscode-statusBarItem-prominentForeground)' }} />,
-          label: getCustomLabel('executing'),
+          icon: <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--vscode-charts-blue)' }} />,
+          label: 'Executing',
         };
       case 'completed':
         return {
@@ -65,50 +49,64 @@ const ToolBlockComponent = ({ toolCall }: ToolBlockProps) => {
           label: 'Unknown',
         };
     }
-  }, [toolCall.status, toolCall.toolName]);
+  }, [toolCall.status]);
 
-  const toolMetadata = useMemo(() => {
-    return getToolMetadata(toolCall.toolName);
-  }, [toolCall.toolName]);
-
-  const toolIcon = useMemo(() => {
-    if (!toolMetadata?.icon) {
-      return <FileText className="w-3.5 h-3.5" style={{ color: 'var(--vscode-foreground)' }} />;
+  // Get file path and icon configuration
+  const fileInfo = useMemo(() => {
+    const path = toolCall.parameters.path as string | undefined;
+    
+    // For write_file and read_file, ALWAYS prioritize showing filename
+    if ((toolCall.toolName === 'write_file' || toolCall.toolName === 'read_file') && path) {
+      const fileName = extractFileName(path);
+      const iconConfig = getFileIconConfig(path);
+      return {
+        displayName: fileName,
+        fullPath: path,
+        iconConfig: iconConfig,
+      };
     }
-    const IconComponent = toolMetadata.icon;
-    if (typeof IconComponent !== 'function') {
-      return null;
-    }
-    return <IconComponent className="w-3.5 h-3.5" style={{ color: 'var(--vscode-foreground)' }} />;
-  }, [toolMetadata]);
 
-  const toolDisplayName = useMemo(() => {
-    return toolMetadata?.name || toolCall.toolName;
-  }, [toolMetadata, toolCall.toolName]);
-
-  const filePathDisplay = useMemo(() => {
     if (toolCall.toolName === 'list_files') {
-      const path = toolCall.parameters.path;
-      if (!path || path === '') {
-        return 'root';
-      }
-      return String(path);
+      const displayPath = !path || path === '' ? 'root' : String(path);
+      return {
+        displayName: displayPath,
+        fullPath: path || '',
+        iconConfig: getFileIconConfig(''),
+      };
     }
 
-    if (toolCall.parameters.path) {
-      const path = String(toolCall.parameters.path);
-      const filename = path.split('/').filter(Boolean).pop() || path;
-      return filename;
+    // Generic file operations with path
+    if (path) {
+      const fileName = extractFileName(path);
+      const iconConfig = getFileIconConfig(path);
+      return {
+        displayName: fileName,
+        fullPath: path,
+        iconConfig: iconConfig,
+      };
     }
-    return null;
+
+    // Fallback for tools without path (shouldn't happen for file tools)
+    return {
+      displayName: getToolMetadata(toolCall.toolName)?.name || toolCall.toolName,
+      fullPath: '',
+      iconConfig: getFileIconConfig(''),
+    };
   }, [toolCall.parameters.path, toolCall.toolName]);
 
   return (
     <div 
-      className="mt-2 rounded-xl border shadow-sm overflow-hidden w-full"
+      className={`shadow-sm overflow-hidden w-full ${isConnectedTop ? 'mt-0' : 'mt-2'}`}
       style={{
         borderColor: 'var(--vscode-input-border)',
         backgroundColor: 'var(--vscode-input-background)',
+        borderWidth: '1px',
+        borderStyle: 'solid',
+        borderTopWidth: isConnectedTop ? 0 : '1px',
+        borderTopLeftRadius: isConnectedTop ? 0 : '0.75rem',
+        borderTopRightRadius: isConnectedTop ? 0 : '0.75rem',
+        borderBottomLeftRadius: isConnectedBottom ? 0 : '0.75rem',
+        borderBottomRightRadius: isConnectedBottom ? 0 : '0.75rem',
       }}
     >
       {/* Header */}
@@ -122,28 +120,25 @@ const ToolBlockComponent = ({ toolCall }: ToolBlockProps) => {
         }}
       >
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          {toolIcon}
+          {/* Language-specific file icon */}
+          <fileInfo.iconConfig.icon
+            className="w-4 h-4 flex-shrink-0"
+            style={{ color: fileInfo.iconConfig.color }}
+          />
+          
+          {/* Filename */}
           <span 
-            className="text-sm font-medium"
+            className="text-sm font-medium truncate"
             style={{ color: 'var(--vscode-input-foreground)' }}
           >
-            {toolDisplayName}
+            {fileInfo.displayName}
           </span>
-          {filePathDisplay && (
-            <span 
-              className="text-xs font-medium px-2 py-0.5 rounded truncate"
-              style={{
-                color: 'var(--vscode-statusBarItem-prominentForeground)',
-                backgroundColor: 'var(--vscode-statusBarItem-prominentBackground)',
-              }}
-            >
-              {filePathDisplay}
-            </span>
-          )}
-          <div className="flex items-center gap-1.5">
+          
+          {/* Status indicator */}
+          <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
             {statusConfig.icon}
             <span 
-              className="text-xs"
+              className="text-xs font-medium"
               style={{ color: 'var(--vscode-descriptionForeground)' }}
             >
               {statusConfig.label}
@@ -162,65 +157,54 @@ const ToolBlockComponent = ({ toolCall }: ToolBlockProps) => {
       {/* Content */}
       {isExpanded && (
         <div 
-          className="px-3 pb-2 border-t overflow-x-auto"
+          className="border-t"
           style={{ borderColor: 'var(--vscode-input-border)' }}
         >
-          {/* Show file path for file operations */}
-          {toolCall.parameters.path != null && (
-            <div 
-              className="mt-2 border rounded-lg p-2 overflow-x-auto"
-              style={{
-                backgroundColor: 'var(--vscode-textCodeBlock-background)',
-                borderColor: 'var(--vscode-input-border)',
-              }}
-            >
-              <div 
-                className="text-xs font-semibold mb-1"
-                style={{ color: 'var(--vscode-descriptionForeground)' }}
-              >
-                File Path
-              </div>
-              <div 
-                className="text-sm font-medium break-all"
-                style={{ color: 'var(--vscode-input-foreground)' }}
-              >
-                {String(toolCall.parameters.path)}
-              </div>
-            </div>
-          )}
-
-          {/* Processing indicator */}
+          {/* Processing indicator or Real-time Streaming */}
           {(toolCall.status === 'executing' || toolCall.status === 'pending') &&
             !toolCall.result && (
-              <div 
-                className="mt-2 border rounded-lg p-2"
-                style={{
-                  backgroundColor: 'var(--vscode-textCodeBlock-background)',
-                  borderColor: 'var(--vscode-input-border)',
-                }}
-              >
-                <div 
-                  className="text-xs italic animate-pulse"
-                  style={{ color: 'var(--vscode-descriptionForeground)' }}
-                >
-                  Executing tool...
-                </div>
-              </div>
+              <>
+                {toolCall.toolName === 'write_file' && 
+                 toolCall.parameters.content ? (
+                  <DiffViewer
+                    oldContent={undefined}
+                    newContent={toolCall.parameters.content as string}
+                    fileName={fileInfo.displayName}
+                    isStreaming={true}
+                    viewOnly={true}
+                  />
+                ) : (
+                  <div 
+                    className="px-3 py-2"
+                    style={{
+                      backgroundColor: 'var(--vscode-textCodeBlock-background)',
+                    }}
+                  >
+                    <div 
+                      className="text-xs italic animate-pulse"
+                      style={{ color: 'var(--vscode-descriptionForeground)' }}
+                    >
+                      {toolCall.toolName === 'write_file' && toolCall.parameters.path 
+                        ? 'Preparing file diff...' 
+                        : 'Executing tool...'}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
           {/* Result */}
           {toolCall.result && (
-            <div className="mt-2 overflow-x-auto">
+            <div className="overflow-x-auto">
               {toolCall.result.success ? (
-                <div className="text-sm" style={{ color: 'var(--vscode-input-foreground)' }}>
-                  {renderToolResult(toolCall.toolName, toolCall.result.data)}
+                <div style={{ color: 'var(--vscode-input-foreground)' }}>
+                  {renderToolResult(toolCall.toolName, toolCall.result.data, fileInfo.displayName)}
                 </div>
               ) : (
                 <div 
-                  className="border rounded-lg p-2"
+                  className="px-3 py-2"
                   style={{
                     backgroundColor: 'var(--vscode-inputValidation-errorBackground)',
-                    borderColor: 'var(--vscode-inputValidation-errorBorder)',
                   }}
                 >
                   <div className="flex items-start gap-2">
@@ -253,24 +237,61 @@ const ToolBlockComponent = ({ toolCall }: ToolBlockProps) => {
   );
 };
 
-function renderToolResult(toolName: string, data: unknown): ReactNode {
-  const renderer = getToolRenderer(toolName);
+function renderToolResult(toolName: string, data: unknown, fileName: string): ReactNode {
+  // Special handling for read_file - show view-only viewer
+  if (toolName === 'read_file' && typeof data === 'object' && data !== null) {
+    const result = data as { content?: string };
+    if (result.content !== undefined) {
+      return (
+        <DiffViewer
+          oldContent={undefined}
+          newContent={result.content}
+          fileName={fileName}
+          viewOnly={true}
+        />
+      );
+    }
+  }
 
+  // Special handling for write_file tool - show diff viewer
+  if (toolName === 'write_file' && typeof data === 'object' && data !== null) {
+    const result = data as {
+      path?: string;
+      action?: string;
+      oldContent?: string | null;
+      newContent?: string;
+    };
+
+    if (result.newContent !== undefined) {
+      return (
+        <DiffViewer
+          oldContent={result.oldContent ?? null}
+          newContent={result.newContent}
+          fileName={fileName}
+        />
+      );
+    }
+  }
+
+  // Use registered renderer for other tools
+  const renderer = getToolRenderer(toolName);
   if (renderer) {
-    return renderer(data) as ReactNode;
+    return <div className="px-3 py-2">{renderer(data) as ReactNode}</div>;
   }
 
   // Default fallback
   return (
-    <pre 
-      className="text-xs font-mono whitespace-pre overflow-x-auto p-2 rounded"
-      style={{
-        color: 'var(--vscode-input-foreground)',
-        backgroundColor: 'var(--vscode-textCodeBlock-background)',
-      }}
-    >
-      {JSON.stringify(data, null, 2)}
-    </pre>
+    <div className="px-3 py-2">
+      <pre 
+        className="text-xs font-mono whitespace-pre overflow-x-auto p-2 rounded"
+        style={{
+          color: 'var(--vscode-input-foreground)',
+          backgroundColor: 'var(--vscode-textCodeBlock-background)',
+        }}
+      >
+        {JSON.stringify(data, null, 2)}
+      </pre>
+    </div>
   );
 }
 
@@ -278,6 +299,8 @@ export const ToolBlock = memo(ToolBlockComponent, (prevProps, nextProps) => {
   return (
     prevProps.toolCall.status === nextProps.toolCall.status &&
     prevProps.toolCall.toolName === nextProps.toolCall.toolName &&
+    prevProps.isConnectedTop === nextProps.isConnectedTop &&
+    prevProps.isConnectedBottom === nextProps.isConnectedBottom &&
     JSON.stringify(prevProps.toolCall.parameters) ===
       JSON.stringify(nextProps.toolCall.parameters) &&
     JSON.stringify(prevProps.toolCall.result) ===

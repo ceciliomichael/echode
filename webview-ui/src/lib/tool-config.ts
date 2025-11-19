@@ -40,6 +40,7 @@ TOOL USAGE:
 - read_file: Read file content with optional line range
   * Example: {"path": "src/app.ts", "startLine": 10, "endLine": 50}
   * Use once per file - don't re-read after operations
+  * DO NOT use on directories (use list_files)
 - write_file: Create or overwrite files with content
   * Example: {"path": "src/new-file.ts", "content": "export const x = 1;"}
   * Creates parent directories automatically
