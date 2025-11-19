@@ -29,11 +29,25 @@ registerToolPlugin({
   },
   renderer: (data: unknown) => {
     if (typeof data === 'object' && data !== null && 'content' in data) {
-      const result = data as { content: string; path: string };
+      const result = data as { 
+        content: string; 
+        path: string; 
+        startLine?: number; 
+        endLine?: number;
+        totalLines?: number;
+      };
+      
+      const lineRangeText = result.startLine && result.endLine 
+        ? `Lines ${result.startLine}-${result.endLine}`
+        : result.totalLines
+        ? `${result.totalLines} lines`
+        : '';
+      
       return (
         <div className="space-y-2">
-          <div className="text-xs font-semibold opacity-70">
-            File: {result.path}
+          <div className="flex items-center justify-between text-xs font-semibold opacity-70">
+            <span>File: {result.path}</span>
+            {lineRangeText && <span>{lineRangeText}</span>}
           </div>
           <pre
             className="text-xs font-mono whitespace-pre-wrap overflow-x-auto p-2 rounded"

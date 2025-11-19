@@ -62,6 +62,7 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
     if ((toolCall.toolName === 'write_file' || toolCall.toolName === 'read_file') && path) {
       const fileName = extractFileName(path);
       const iconConfig = getFileIconConfig(path);
+      
       return {
         displayName: fileName,
         fullPath: path,
@@ -135,7 +136,7 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
       icon: metadata?.icon || getFileIconConfig('').icon,
       iconColor: 'var(--vscode-editor-foreground)',
     };
-  }, [toolCall.parameters.path, toolCall.parameters.query, toolCall.toolName]);
+  }, [toolCall.parameters.path, toolCall.parameters.query, toolCall.toolName, toolCall.result]);
 
   return (
     <div 
@@ -324,7 +325,7 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
 function renderToolResult(toolName: string, data: unknown, fileName: string): ReactNode {
   // Special handling for read_file - show view-only viewer
   if (toolName === 'read_file' && typeof data === 'object' && data !== null) {
-    const result = data as { content?: string };
+    const result = data as { content?: string; startLine?: number; endLine?: number };
     if (result.content !== undefined) {
       return (
         <DiffViewer
@@ -332,6 +333,8 @@ function renderToolResult(toolName: string, data: unknown, fileName: string): Re
           newContent={result.content}
           fileName={fileName}
           viewOnly={true}
+          startLineNumber={result.startLine || 1}
+          endLineNumber={result.endLine}
         />
       );
     }

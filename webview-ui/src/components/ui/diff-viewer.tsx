@@ -6,6 +6,8 @@ interface DiffViewerProps {
   fileName: string;
   isStreaming?: boolean;
   viewOnly?: boolean;
+  startLineNumber?: number;
+  endLineNumber?: number;
 }
 
 interface DiffLine {
@@ -19,14 +21,14 @@ interface DiffLine {
 /**
  * Simple diff algorithm to compare two strings line by line
  */
-function computeDiff(oldContent: string | null | undefined, newContent: string, isStreaming: boolean = false): DiffLine[] {
+function computeDiff(oldContent: string | null | undefined, newContent: string, isStreaming: boolean = false, startLineNumber: number = 1): DiffLine[] {
   // If no old content, all lines are added
   if (oldContent === null || oldContent === undefined) {
     const newLines = newContent.split('\n');
     return newLines.map((line, idx) => ({
       type: 'added' as const,
-      lineNumber: idx + 1,
-      newLineNumber: idx + 1,
+      lineNumber: idx + startLineNumber,
+      newLineNumber: idx + startLineNumber,
       oldLineNumber: undefined,
       content: line,
     }));
@@ -130,7 +132,7 @@ function computeDiff(oldContent: string | null | undefined, newContent: string, 
   return diff;
 }
 
-const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = false, viewOnly = false }: DiffViewerProps) => {
+const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = false, viewOnly = false, startLineNumber = 1, endLineNumber }: DiffViewerProps) => {
   const [displayContent, setDisplayContent] = useState(newContent);
   const lastUpdateRef = useRef(Date.now());
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -162,7 +164,7 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
     };
   }, [newContent, isStreaming]);
 
-  const diffLines = useMemo(() => computeDiff(oldContent, displayContent, isStreaming), [oldContent, displayContent, isStreaming]);
+  const diffLines = useMemo(() => computeDiff(oldContent, displayContent, isStreaming, startLineNumber), [oldContent, displayContent, isStreaming, startLineNumber]);
 
   // Count additions and deletions
   const additions = diffLines.filter((line) => line.type === 'added').length;
@@ -180,7 +182,9 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
         }}
       >
         <span>{fileName}</span>
-        {!viewOnly && (
+        {viewOnly && startLineNumber && endLineNumber ? (
+          <span>{startLineNumber}-{endLineNumber}</span>
+        ) : !viewOnly ? (
           <span className="flex gap-2">
             {additions > 0 && (
               <span style={{ color: 'var(--vscode-gitDecoration-addedResourceForeground)' }}>
@@ -193,7 +197,7 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
               </span>
             )}
           </span>
-        )}
+        ) : null}
       </div>
 
       {/* Diff Content */}
