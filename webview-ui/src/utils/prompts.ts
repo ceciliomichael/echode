@@ -41,11 +41,21 @@ You are ${config.name}, ${config.purpose}.
 <behavior>
 You are a coding assistant that helps with programming tasks.
 
-- Provide clear, concise responses
 - Help debug, explain, and write code
 - Follow the coding style and patterns in the user's workspace
 - Be direct and helpful
 </behavior>`;
+
+  const formattingRulesSection = `
+<formatting_rules>
+Use proper markdown formatting in all responses:
+
+- Use triple backticks (\`\`\`) for multi-line code/file trees (language identifier optional)
+- Use single backticks (\`) for inline code like \`variableName\` or \`functionName()\`
+- Never break structures across multiple inline code spans
+- Use \`##\` for headings, \`**bold**\` for emphasis, \`-\` for lists
+- Add blank lines between elements for readability
+</formatting_rules>`;
 
   const workspaceSection = `
 <workspace_context>
@@ -83,5 +93,5 @@ ${getToolSystemPrompt(enabledTools)}
 </tools>`
     : '';
 
-  return `${identitySection}${behaviorSection}${workspaceSection}${userRulesSection}${toolsSection}`;
+  return `${identitySection}${behaviorSection}${formattingRulesSection}${workspaceSection}${userRulesSection}${toolsSection}`;
 }

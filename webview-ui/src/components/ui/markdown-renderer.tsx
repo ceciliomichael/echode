@@ -101,8 +101,14 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: Mark
         </blockquote>
       </div>
     ),
-    code: ({ className, children, ...props }: { className?: string; children?: React.ReactNode }) => {
-      const isInline = !className;
+    code: ({ className, children, inline, ...props }: { className?: string; children?: React.ReactNode; inline?: boolean }) => {
+      // Check if it's inline code:
+      // 1. Explicitly marked as inline by ReactMarkdown
+      // 2. OR contains no newlines (single line without language identifier)
+      const childrenText = typeof children === 'string' ? children : String(children || '');
+      const hasNewlines = childrenText.includes('\n');
+      const isInline = inline || (!hasNewlines && !className);
+      
       return isInline ? (
         <code
           className="rounded px-1.5 py-0.5 text-xs font-mono border"

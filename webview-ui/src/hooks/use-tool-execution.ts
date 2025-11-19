@@ -4,7 +4,7 @@ import { getSystemPrompt } from '../utils/prompts';
 import { useWorkspaceContext } from './use-workspace-context';
 import type { Message } from '../types/chat';
 import type { ChatMessage } from '../types/chat-api';
-import { hasCompleteToolBlock, extractToolBlocks } from '../lib/tool-parser';
+import { hasCompleteToolBlock, extractToolBlocks, trimToFirstCompleteToolBlock } from '../lib/tool-parser';
 import { ToolExecutor } from '../lib/tool-executor';
 import { getAllTools } from '../lib/tool-registry';
 import type { ToolExecutionState } from '../types/tool';
@@ -235,9 +235,15 @@ export function useToolExecution({
 
           continuationContent += chunk;
           
-          // Check for another tool block
-          if (hasCompleteToolBlock(continuationContent.slice(assistantContent.length))) {
-            // Update UI
+          // Check for another tool block in the new content only
+          const newContent = continuationContent.slice(assistantContent.length);
+          if (hasCompleteToolBlock(newContent)) {
+            // Trim the entire continuation content to only include up to the first complete tool block
+            // This ensures we execute tools strictly one-by-one
+            const trimmedContinuation = assistantContent + trimToFirstCompleteToolBlock(newContent);
+            continuationContent = trimmedContinuation;
+            
+            // Update UI with trimmed content before interrupting
             if (pendingUpdate) {
               updateUI();
             } else {

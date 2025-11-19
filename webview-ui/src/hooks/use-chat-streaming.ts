@@ -6,7 +6,7 @@ import { requestWorkspaceInfo } from '../utils/workspace-info';
 import { useWorkspaceContext } from './use-workspace-context';
 import type { Message } from '../types/chat';
 import type { ChatMessage } from '../types/chat-api';
-import { hasCompleteToolBlock } from '../lib/tool-parser';
+import { hasCompleteToolBlock, trimToFirstCompleteToolBlock } from '../lib/tool-parser';
 
 interface ChatStreamingProps {
   messages: Message[];
@@ -127,7 +127,12 @@ export function useChatStreaming({
         
         // Check for complete tool block
         if (hasCompleteToolBlock(assistantContent)) {
-          // Update UI with current content
+          // Trim content to only include up to the end of the FIRST complete tool block
+          // This ensures we execute tools strictly one-by-one and don't include partial content
+          const trimmedContent = trimToFirstCompleteToolBlock(assistantContent);
+          assistantContent = trimmedContent;
+          
+          // Update UI with trimmed content before interrupting
           if (pendingUpdate) {
             updateUI();
           } else {
