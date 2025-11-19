@@ -1,11 +1,14 @@
 import * as vscode from 'vscode';
 import { defaultRegistry } from '../services/tools/tool-registry';
-import { ReadFileTool, WriteFileTool, ListFilesTool } from '../services/tools/file-system-tools';
+import { ReadFileTool, WriteFileTool, ListFilesTool, GrepSearchTool, EditFileTool, DeleteFileTool } from '../services/tools';
 
 // Register tools
 defaultRegistry.registerTool(new ReadFileTool());
 defaultRegistry.registerTool(new WriteFileTool());
 defaultRegistry.registerTool(new ListFilesTool());
+defaultRegistry.registerTool(new GrepSearchTool());
+defaultRegistry.registerTool(new EditFileTool());
+defaultRegistry.registerTool(new DeleteFileTool());
 
 interface ToolExecutionMessage {
   type: 'executeTool';
@@ -63,6 +66,7 @@ export async function handleToolExecution(
 
     webviewView.webview.postMessage(response);
   } catch (error) {
+    console.error(`Tool execution error (${toolName}):`, error);
     const response: ToolExecutionResponse = {
       type: 'toolExecutionResult',
       requestId,

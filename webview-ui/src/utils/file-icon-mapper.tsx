@@ -37,6 +37,7 @@ import {
   VscMarkdown,
   VscCode,
 } from 'react-icons/vsc';
+import { BsFileText } from 'react-icons/bs';
 
 /**
  * File icon configuration with language-specific colors
@@ -127,7 +128,7 @@ const LANGUAGE_ICONS: Record<string, FileIconConfig> = {
   // Markdown/Docs
   md: { icon: SiMarkdown, color: '#083fa1', label: 'Markdown' },
   mdx: { icon: VscMarkdown, color: '#083fa1', label: 'MDX' },
-  txt: { icon: VscFile, color: '#6d6d6d', label: 'Text' },
+  txt: { icon: BsFileText, color: '#6d6d6d', label: 'Text' },
   rst: { icon: VscFile, color: '#6d6d6d', label: 'reStructuredText' },
 
   // Images

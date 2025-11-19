@@ -1,9 +1,12 @@
 import {
   Check,
   ChevronDown,
-  ChevronUp,
+  ChevronRight,
   Loader2,
   X,
+  Folder,
+  Search,
+  Trash2,
 } from 'lucide-react';
 import { memo, type ReactNode, useMemo, useState } from 'react';
 import { getToolMetadata, getToolRenderer } from '../../lib/tool-registry';
@@ -62,16 +65,53 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
       return {
         displayName: fileName,
         fullPath: path,
-        iconConfig: iconConfig,
+        icon: iconConfig.icon,
+        iconColor: iconConfig.color,
       };
     }
 
+    // List files -> Use Folder icon
     if (toolCall.toolName === 'list_files') {
       const displayPath = !path || path === '' ? 'root' : String(path);
       return {
         displayName: displayPath,
         fullPath: path || '',
-        iconConfig: getFileIconConfig(''),
+        icon: Folder,
+        iconColor: 'var(--vscode-charts-blue)',
+      };
+    }
+
+    // Grep search -> Use Search icon
+    if (toolCall.toolName === 'grep_search') {
+      const query = toolCall.parameters.query as string;
+      return {
+        displayName: query ? `Search: ${query}` : 'Search',
+        fullPath: path || '',
+        icon: Search,
+        iconColor: 'var(--vscode-editor-foreground)',
+      };
+    }
+
+    // Edit file -> Use File type icon (same as write_file)
+    if (toolCall.toolName === 'edit_file') {
+      const fileName = path ? extractFileName(path) : 'file';
+      const iconConfig = path ? getFileIconConfig(path) : getFileIconConfig('');
+      return {
+        displayName: fileName,
+        fullPath: path || '',
+        icon: iconConfig.icon,
+        iconColor: iconConfig.color,
+      };
+    }
+
+    // Delete file -> Use Trash icon
+    if (toolCall.toolName === 'delete_file') {
+      const fileName = path ? extractFileName(path) : 'file';
+      return {
+        displayName: fileName,
+        fullPath: path || '',
+        icon: Trash2,
+        iconColor: 'var(--vscode-errorForeground)',
       };
     }
 
@@ -82,17 +122,20 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
       return {
         displayName: fileName,
         fullPath: path,
-        iconConfig: iconConfig,
+        icon: iconConfig.icon,
+        iconColor: iconConfig.color,
       };
     }
 
-    // Fallback for tools without path (shouldn't happen for file tools)
+    // Fallback
+    const metadata = getToolMetadata(toolCall.toolName);
     return {
-      displayName: getToolMetadata(toolCall.toolName)?.name || toolCall.toolName,
+      displayName: metadata?.name || toolCall.toolName,
       fullPath: '',
-      iconConfig: getFileIconConfig(''),
+      icon: metadata?.icon || getFileIconConfig('').icon,
+      iconColor: 'var(--vscode-editor-foreground)',
     };
-  }, [toolCall.parameters.path, toolCall.toolName]);
+  }, [toolCall.parameters.path, toolCall.parameters.query, toolCall.toolName]);
 
   return (
     <div 
@@ -120,13 +163,13 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
         }}
       >
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          {/* Language-specific file icon */}
-          <fileInfo.iconConfig.icon
+          {/* Tool Icon */}
+          <fileInfo.icon
             className="w-4 h-4 flex-shrink-0"
-            style={{ color: fileInfo.iconConfig.color }}
+            style={{ color: fileInfo.iconColor }}
           />
           
-          {/* Filename */}
+          {/* Filename / Tool Name */}
           <span 
             className="text-sm font-medium truncate"
             style={{ color: 'var(--vscode-input-foreground)' }}
@@ -147,9 +190,9 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
         </div>
         <span style={{ color: 'var(--vscode-descriptionForeground)' }}>
           {isExpanded ? (
-            <ChevronUp className="w-3.5 h-3.5" />
-          ) : (
             <ChevronDown className="w-3.5 h-3.5" />
+          ) : (
+            <ChevronRight className="w-3.5 h-3.5" />
           )}
         </span>
       </button>
@@ -173,6 +216,47 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
                     isStreaming={true}
                     viewOnly={true}
                   />
+                ) : toolCall.toolName === 'edit_file' && 
+                    Array.isArray(toolCall.parameters.edits) && 
+                    toolCall.parameters.edits.length > 0 ? (
+                  <div className="space-y-2 px-3 py-2">
+                    <div className="text-xs opacity-70 font-medium">Preparing edits...</div>
+                    <div className="space-y-2">
+                      {(toolCall.parameters.edits as Array<{oldString?: string; newString?: string; replaceAll?: boolean}>).map((edit, index) => (
+                        <div 
+                          key={index}
+                          className="rounded border p-2 text-xs"
+                          style={{
+                            backgroundColor: 'var(--vscode-editor-background)',
+                            borderColor: 'var(--vscode-input-border)',
+                          }}
+                        >
+                          <div className="flex items-center gap-2 mb-1 opacity-70">
+                            <span className="font-semibold">Edit {index + 1}</span>
+                            {edit.replaceAll && <span className="text-[10px] border rounded px-1">Replace All</span>}
+                          </div>
+                          
+                          {edit.oldString && (
+                            <div className="mb-1">
+                              <div className="opacity-50 text-[10px] uppercase tracking-wider mb-0.5">Original</div>
+                              <div className="font-mono p-1 rounded opacity-70 whitespace-pre-wrap break-all" style={{ backgroundColor: 'var(--vscode-input-background)' }}>
+                                {edit.oldString.length > 200 ? edit.oldString.substring(0, 200) + '...' : edit.oldString}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {edit.newString && (
+                            <div>
+                              <div className="opacity-50 text-[10px] uppercase tracking-wider mb-0.5">New</div>
+                              <div className="font-mono p-1 rounded whitespace-pre-wrap break-all" style={{ backgroundColor: 'var(--vscode-input-background)', color: 'var(--vscode-gitDecoration-addedResourceForeground)' }}>
+                                {edit.newString.length > 200 ? edit.newString.substring(0, 200) + '...' : edit.newString}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 ) : (
                   <div 
                     className="px-3 py-2"
