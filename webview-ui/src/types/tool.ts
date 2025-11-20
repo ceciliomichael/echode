@@ -34,9 +34,16 @@ export interface ParsedToolBlock {
 }
 
 export interface ReadFileParameters {
-  path: string;
+  path?: string;
   startLine?: number;
   endLine?: number;
+  files?: Array<{
+    path: string;
+    line_range?: {
+      start?: number;
+      end?: number;
+    };
+  }>;
 }
 
 export interface WriteFileParameters {

@@ -1,17 +1,146 @@
 import type { ToolCall, ParsedToolBlock } from '../types/tool';
 
 /**
+ * Valid tool names - used to distinguish tool blocks from parameter tags
+ */
+const VALID_TOOL_NAMES = new Set([
+  'read_file',
+  'write_to_file',
+  'list_files',
+  'grep_search',
+  'edit_file',
+  'delete_file',
+]);
+
+/**
  * Centralized regex pattern for tool blocks
- * Format: ```tool:TOOL_NAME\n{json parameters}\n```
+ * Format: <TOOL_NAME><param>value</param>...</TOOL_NAME>
  * 
  * Pattern breakdown:
- * - ```tool:([\w:.-]+) - Opening fence with tool name
- * - \s*\n - Optional whitespace and newline after opening
+ * - <([\w_-]+)> - Opening tag with tool name
  * - ([\s\S]*?) - Non-greedy content capture (tool parameters)
- * - \n\s*``` - Newline followed by optional whitespace and closing backticks
+ * - </\1> - Closing tag matching the opening tool name
  */
-const TOOL_BLOCK_REGEX = /```tool:([\w:.-]+)\s*\n([\s\S]*?)\n\s*```/;
-const TOOL_BLOCK_REGEX_GLOBAL = /```tool:([\w:.-]+)\s*\n([\s\S]*?)\n\s*```/g;
+const TOOL_BLOCK_REGEX = /<([\w_-]+)>([\s\S]*?)<\/\1>/;
+const TOOL_BLOCK_REGEX_GLOBAL = /<([\w_-]+)>([\s\S]*?)<\/\1>/g;
+
+/**
+ * Parse XML-style parameters from tool block content
+ * Supports both simple values and JSON values inside parameter tags
+ * Also handles partial/unclosed tags during streaming
+ */
+function parseXMLParameters(content: string): Record<string, unknown> {
+  const parameters: Record<string, unknown> = {};
+  
+  // First pass: Extract all COMPLETE parameter tags (with closing tags)
+  const completeParamRegex = /<([\w_-]+)>([\s\S]*?)<\/\1>/g;
+  let match: RegExpExecArray | null;
+  
+  while ((match = completeParamRegex.exec(content)) !== null) {
+    const paramName = match[1];
+    const paramValue = match[2].trim();
+    parameters[paramName] = parseParamValue(paramValue);
+  }
+  
+  // Second pass: Extract PARTIAL/UNCLOSED tags (streaming content)
+  // Find opening tags that don't have corresponding closing tags
+  const openingTagRegex = /<([\w_-]+)>/g;
+  const openingTags: Array<{name: string; pos: number}> = [];
+  
+  while ((match = openingTagRegex.exec(content)) !== null) {
+    openingTags.push({ name: match[1], pos: match.index + match[0].length });
+  }
+  
+  // Check each opening tag for unclosed content
+  for (const tag of openingTags) {
+    // Skip if we already have this parameter (it was complete)
+    if (parameters[tag.name] !== undefined) continue;
+    
+    // Extract partial content from opening tag to end or next opening tag
+    const closingTag = `</${tag.name}>`;
+    const closingPos = content.indexOf(closingTag, tag.pos);
+    
+    // If no closing tag found, this is a streaming parameter
+    if (closingPos === -1) {
+      const partialContent = content.slice(tag.pos);
+      parameters[tag.name] = partialContent; // Keep as raw string during streaming
+    }
+  }
+  
+  return parameters;
+}
+
+/**
+ * Parse parameter value with type coercion
+ */
+function parseParamValue(value: string): unknown {
+  // Try to parse as JSON first (for arrays, objects, booleans, numbers)
+  if (value.startsWith('[') || value.startsWith('{')) {
+    try {
+      return JSON.parse(value);
+    } catch {
+      // If it's a partial array, try to extract complete objects
+      if (value.startsWith('[')) {
+        const completeObjects = extractCompleteJsonObjects(value);
+        if (completeObjects.length > 0) {
+          return completeObjects;
+        }
+      }
+      // If JSON parse fails, treat as string
+    }
+  }
+  
+  // Handle boolean values
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  
+  // Handle numeric values
+  if (value && !isNaN(Number(value))) {
+    return Number(value);
+  }
+  
+  // Default: treat as string
+  return value;
+}
+
+/**
+ * Extract complete JSON objects from a partial array string
+ * Used for streaming arrays like edits: [{...}, {...}]
+ */
+function extractCompleteJsonObjects(partialArray: string): unknown[] {
+  const objects: unknown[] = [];
+  
+  // Remove leading [ and whitespace
+  let content = partialArray.slice(1).trim();
+  
+  let depth = 0;
+  let objStart = -1;
+  
+  for (let i = 0; i < content.length; i++) {
+    const char = content[i];
+    
+    if (char === '{') {
+      if (depth === 0) objStart = i;
+      depth++;
+    } else if (char === '}') {
+      depth--;
+      
+      // Found a complete object
+      if (depth === 0 && objStart !== -1) {
+        const objStr = content.slice(objStart, i + 1);
+        try {
+          const obj = JSON.parse(objStr);
+          objects.push(obj);
+        } catch {
+          // Skip malformed object
+        }
+        objStart = -1;
+      }
+    }
+  }
+  
+  return objects;
+}
 
 /**
  * Parse a single tool block and return structured data
@@ -22,9 +151,8 @@ function parseToolBlockInternal(
   rawContent: string,
 ): ParsedToolBlock | null {
   try {
-    const parameters = parametersStr.trim()
-      ? JSON.parse(parametersStr.trim())
-      : {};
+    // Parse XML-style parameters from the content
+    const parameters = parseXMLParameters(parametersStr);
 
     return {
       type: 'tool',
@@ -38,8 +166,8 @@ function parseToolBlockInternal(
 }
 
 /**
- * Extracts tool calls from markdown-style tool blocks
- * Format: ```tool:TOOL_NAME\n{json parameters}\n```
+ * Extracts tool calls from XML-style tool blocks
+ * Format: <TOOL_NAME><param>value</param></TOOL_NAME>
  */
 export function parseToolBlock(content: string): ParsedToolBlock | null {
   const match = content.match(new RegExp(`^${TOOL_BLOCK_REGEX.source}$`, 'm'));
@@ -48,7 +176,14 @@ export function parseToolBlock(content: string): ParsedToolBlock | null {
     return null;
   }
 
-  return parseToolBlockInternal(match[1], match[2], match[0]);
+  const toolName = match[1];
+  
+  // Validate this is a real tool name, not a parameter tag
+  if (!VALID_TOOL_NAMES.has(toolName)) {
+    return null;
+  }
+
+  return parseToolBlockInternal(toolName, match[2], match[0]);
 }
 
 /**
@@ -111,7 +246,10 @@ export function trimToLastCompleteToolBlock(content: string): string {
   regex.lastIndex = 0;
   match = regex.exec(contentWithoutThinkBlocks);
   while (match !== null) {
-    lastToolBlockEnd = match.index + match[0].length;
+    // Only consider valid tool names
+    if (VALID_TOOL_NAMES.has(match[1])) {
+      lastToolBlockEnd = match.index + match[0].length;
+    }
     match = regex.exec(contentWithoutThinkBlocks);
   }
 
@@ -124,10 +262,13 @@ export function trimToLastCompleteToolBlock(content: string): string {
     originalRegex.lastIndex = 0;
     originalMatch = originalRegex.exec(content);
     while (originalMatch !== null) {
-      originalMatches.push({
-        index: originalMatch.index,
-        length: originalMatch[0].length,
-      });
+      // Only consider valid tool names
+      if (VALID_TOOL_NAMES.has(originalMatch[1])) {
+        originalMatches.push({
+          index: originalMatch.index,
+          length: originalMatch[0].length,
+        });
+      }
       originalMatch = originalRegex.exec(content);
     }
 
@@ -155,17 +296,31 @@ export function trimToFirstCompleteToolBlock(content: string): string {
     '',
   );
 
-  const match = new RegExp(TOOL_BLOCK_REGEX.source).exec(
-    contentWithoutThinkBlocks,
-  );
-  if (!match) {
-    return content;
-  }
-
-  // Map the found block back to original content positions
-  const originalMatch = new RegExp(TOOL_BLOCK_REGEX.source).exec(content);
-  if (originalMatch) {
-    return content.slice(0, originalMatch.index + originalMatch[0].length);
+  // Find first valid tool block
+  const regex = new RegExp(TOOL_BLOCK_REGEX.source, 'g');
+  let match: RegExpExecArray | null;
+  
+  regex.lastIndex = 0;
+  match = regex.exec(contentWithoutThinkBlocks);
+  
+  while (match !== null) {
+    if (VALID_TOOL_NAMES.has(match[1])) {
+      // Found a valid tool - map back to original content
+      const originalRegex = new RegExp(TOOL_BLOCK_REGEX.source, 'g');
+      let originalMatch: RegExpExecArray | null;
+      
+      originalRegex.lastIndex = 0;
+      originalMatch = originalRegex.exec(content);
+      
+      while (originalMatch !== null) {
+        if (VALID_TOOL_NAMES.has(originalMatch[1])) {
+          return content.slice(0, originalMatch.index + originalMatch[0].length);
+        }
+        originalMatch = originalRegex.exec(content);
+      }
+      break;
+    }
+    match = regex.exec(contentWithoutThinkBlocks);
   }
 
   return content;
@@ -187,10 +342,16 @@ export function extractToolBlocks(content: string): ParsedToolBlock[] {
 
   match = TOOL_BLOCK_REGEX_GLOBAL.exec(contentWithoutThinkBlocks);
   while (match !== null) {
-    const parsed = parseToolBlockInternal(match[1], match[2], match[0]);
-    if (parsed) {
-      toolBlocks.push(parsed);
+    const toolName = match[1];
+    
+    // Only process if this is a valid tool name (not a parameter tag)
+    if (VALID_TOOL_NAMES.has(toolName)) {
+      const parsed = parseToolBlockInternal(toolName, match[2], match[0]);
+      if (parsed) {
+        toolBlocks.push(parsed);
+      }
     }
+    
     match = TOOL_BLOCK_REGEX_GLOBAL.exec(contentWithoutThinkBlocks);
   }
 

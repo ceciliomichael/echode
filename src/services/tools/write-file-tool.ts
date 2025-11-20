@@ -4,7 +4,7 @@ import { ITool, ToolExecutionResult } from './tool.interface';
 import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
 
 export class WriteFileTool implements ITool {
-  name = 'write_file';
+  name = 'write_to_file';
 
   async execute(parameters: Record<string, unknown>): Promise<ToolExecutionResult> {
     const filePath = parameters.path as string;

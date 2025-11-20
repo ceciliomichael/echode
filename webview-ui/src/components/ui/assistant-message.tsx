@@ -18,20 +18,26 @@ interface AssistantMessageProps {
 function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming = false, showCopy = false, toolExecutions }: AssistantMessageProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
-  
+
   // Tokenize content into stable segments
   const tokens = useMemo(() => tokenizeContent(content, messageId), [content, messageId]);
-  
-  // Filter out empty text tokens to simplify rendering logic and adjacency checks
+
+  // Filter out only empty text tokens (keep incomplete tool blocks to show loading dots)
   const visibleTokens = useMemo(() => {
-    return tokens.filter(token => token.type !== 'text' || token.content.trim() !== '');
+    return tokens.filter(token => {
+      // Filter empty text
+      if (token.type === 'text' && token.content.trim() === '') {
+        return false;
+      }
+      return true;
+    });
   }, [tokens]);
-  
+
   const shouldShowCopyRow = useMemo(
     () => !isStreaming && showCopy,
     [isStreaming, showCopy]
   );
-  
+
   const handleCopy = () => {
     // Extract only text content (exclude think blocks)
     const textContent = tokens
@@ -96,6 +102,18 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
           
           // Tool block
           if (token.type === 'tool') {
+            // Check if tool block has required path parameter
+            const hasPath = token.parameters && typeof token.parameters === 'object' && 'path' in token.parameters && token.parameters.path;
+            
+            // If incomplete (no path yet), show loading dots in its position
+            if (!hasPath) {
+              return (
+                <div key={`tool-loading-${messageId}-${token.index}`} style={{ marginTop, paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
+                  <LoadingDots />
+                </div>
+              );
+            }
+            
             // Check adjacent tools in VISIBLE tokens list for sequential grouping
             const isConnectedTop = prevToken?.type === 'tool';
             const isConnectedBottom = nextToken?.type === 'tool';
@@ -105,6 +123,8 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
 
             // Merge token data with execution state if available
             const executionState = toolExecutions?.get(token.toolExecutionId);
+            
+            // Normal tool rendering (batch files are already split into individual tokens by tokenizer)
             const toolCall: ToolCall = {
               toolName: token.toolName,
               // Prioritize execution parameters as they are authoritative during execution
@@ -143,27 +163,37 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
         })}
 
         {/* Show loading dots when waiting for response after tool or think block */}
-        {isStreaming && visibleTokens.length > 0 && (
+        {isStreaming && (
           (() => {
-            const lastToken = visibleTokens[visibleTokens.length - 1];
-            
-            // Case 1: Tool block - only show dots if completed/error/aborted (waiting for AI)
-            // Do NOT show if executing (ToolBlock shows status) or incomplete
-            if (lastToken.type === 'tool' && lastToken.isClosed) {
-              const status = toolExecutions?.get(lastToken.toolExecutionId)?.status;
-              if (status === 'completed' || status === 'error' || status === 'aborted') {
+            // If there are visible tokens, check the last one
+            if (visibleTokens.length > 0) {
+              const lastToken = visibleTokens[visibleTokens.length - 1];
+              
+              // Case 1: Tool block - only show dots if completed/error/aborted (waiting for AI)
+              // Do NOT show if executing (ToolBlock shows status) or incomplete
+              if (lastToken.type === 'tool' && lastToken.isClosed) {
+                const status = toolExecutions?.get(lastToken.toolExecutionId)?.status;
+                if (status === 'completed' || status === 'error' || status === 'aborted') {
+                  return (
+                    <div className="mt-2" style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
+                      <LoadingDots />
+                    </div>
+                  );
+                }
+              }
+              
+              // Case 2: Think block - show dots if closed (waiting for text)
+              if (lastToken.type === 'think' && lastToken.isClosed) {
                 return (
                   <div className="mt-2" style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
                     <LoadingDots />
                   </div>
                 );
               }
-            }
-            
-            // Case 2: Think block - show dots if closed (waiting for text)
-            if (lastToken.type === 'think' && lastToken.isClosed) {
+            } else if (tokens.length > 0) {
+              // Case 3: Have tokens but all filtered (incomplete tool blocks) - show loading dots
               return (
-                <div className="mt-2" style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
+                <div style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
                   <LoadingDots />
                 </div>
               );

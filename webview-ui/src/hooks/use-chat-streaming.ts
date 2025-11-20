@@ -85,6 +85,7 @@ export function useChatStreaming({
       // Use override messages if provided (for edit flow), otherwise use current messages
       const messagesToSend = overrideMessages !== undefined ? overrideMessages : messages;
       
+      // Build chat history with system prompt + all messages
       const chatHistory: ChatMessage[] = [
         {
           role: 'system',
@@ -96,7 +97,7 @@ export function useChatStreaming({
         })),
         {
           role: 'user',
-          content: content + '\n\n[SYSTEM REMINDER: Follow all system instructions as stated in your system prompt. Adhere to the specified guidelines, formats, and protocols provided throughout.]',
+          content: content + '\n\n[INSTRUCTION: Execute this request while strictly following your system prompt rules, tool protocols, response formats, and user-specific guidelines. Maintain consistency throughout your response.]',
         },
       ];
 

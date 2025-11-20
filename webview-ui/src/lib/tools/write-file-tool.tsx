@@ -10,19 +10,19 @@ async function executeWriteFile(
   parameters: Record<string, unknown>,
   signal?: AbortSignal,
 ): Promise<ToolExecutionResult> {
-  return executeToolViaExtension('write_file', parameters, signal);
+  return executeToolViaExtension('write_to_file', parameters, signal);
 }
 
-// Register write_file tool
+// Register write_to_file tool
 registerToolPlugin({
   metadata: {
-    id: 'write_file',
+    id: 'write_to_file',
     name: 'Write File',
     description: 'Create or overwrite files with content',
     aiDescription: 'Write content to a file. Use this to create new files or update existing ones.',
     icon: FilePlus,
     usage: 'Create or overwrite files with content',
-    formatExample: '```tool:write_file\n{"path": "src/app.ts", "content": "console.log(\'Hello\');"}\n```',
+    formatExample: '<write_to_file>\n<path>src/app.ts</path>\n<content>console.log(\'Hello\');</content>\n</write_to_file>',
   },
   handler: {
     execute: executeWriteFile,

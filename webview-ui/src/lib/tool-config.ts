@@ -25,81 +25,54 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
     .join('\n');
 
   const hasFileTools = enabledTools.some((tool) =>
-    ['write_file', 'read_file', 'list_files', 'grep_search', 'edit_file', 'delete_file'].includes(tool.id),
+    ['write_to_file', 'read_file', 'list_files', 'grep_search', 'edit_file', 'delete_file'].includes(tool.id),
   );
 
   const fileOperationPolicy = hasFileTools
     ? `
 
 <file_operations>
-You have access to workspace file operations through the VSCode extension. All operations are performed on actual workspace files.
+File operations are performed on actual workspace files. Use forward slashes for paths.
 
-<path_handling>
-- File paths can be relative to workspace root or absolute
-- Use forward slashes for paths (e.g., "src/components/Button.tsx")
-- Parent directories are created automatically when writing files
-</path_handling>
+Path Rules:
+- FILE: Has extension (e.g., "src/app.tsx") → Use read_file/edit_file
+- DIRECTORY: No extension (e.g., "src/app") → Use list_files
+- Never use read_file on directories
 
-<tool_descriptions>
-**read_file**: Read file content with optional line range
-- Parameters: path (required), startLine (optional), endLine (optional)
-- Returns file content as text
-- Cannot be used on directories (use list_files instead)
-
-**write_file**: Create new files or completely overwrite existing files
-- Parameters: path (required), content (required)
-- Use only for new files or complete rewrites
-- Creates parent directories automatically
-
-**list_files**: List contents of a directory
-- Parameters: path (optional, defaults to workspace root)
-- Returns list of files and subdirectories
-- Does not include hidden files (starting with .)
-
-**grep_search**: Search for patterns across workspace files
-- Parameters: query (required), path (optional), isRegex (optional), caseSensitive (optional)
-- Supports regex patterns when isRegex is true
-- Use includes/excludes arrays for file filtering
-
-**edit_file**: Perform targeted find-and-replace operations on files
-- Parameters: path (required), edits (array of {oldString, newString, replaceAll})
-- Supports MULTIPLE EDITS in a single tool call via the edits array
-- Make SPECIFIC, TARGETED changes - avoid large blocks of code in oldString
-- Each edit should be precise (a few lines max) for reliability
-- All edits are validated before applying - if any fail, none are applied
-- Set replaceAll: true for multiple occurrences of the same string
-- CRITICAL: Always read the file immediately before editing to ensure exact matches
-- The oldString must match exactly including all whitespace, indentation, and line breaks
-
-**delete_file**: Delete a file from the workspace
-- Parameters: path (required)
-- Moves files to trash/recycle bin for safety
-- Cannot delete directories
-</tool_descriptions>
-
-<critical_file_operation_rules>
-1. Always use read_file immediately before edit_file to get the exact current content
-2. For edit_file, the oldString parameter must be an exact character-for-character match including all whitespace
-3. Make targeted edits: Use small, specific oldString values (1-5 lines) rather than large code blocks
-4. Use multiple edits in one tool call for related changes to the same file
-5. Use write_file only for creating new files or when you need to completely rewrite a file
-6. If you are uncertain about file content, read the file first rather than relying on previous context
-7. After performing file operations, do not re-read files unless specifically needed
-</critical_file_operation_rules>
+Tool Usage:
+- **list_files**: Lists directory contents. Returns directories & files with type field.
+- **read_file**: Reads file content. Supports batch mode & line ranges (startLine, endLine).
+- **edit_file**: Modifies files. Batch edits via edits array. Read file first; oldString must match exactly.
+- **write_to_file**: Creates new files or rewrites short files (<100 lines). Use edit_file for large existing files.
+- **grep_search**: Searches workspace files. Set isRegex=true for regex patterns.
+- **delete_file**: Deletes file (moves to trash).
 </file_operations>`
     : '';
 
   const toolSection = `<tool_calling>
-You have access to tools that allow you to perform operations in the workspace. Use tools when they are necessary to complete the user's request.
+Use tools to perform workspace operations when necessary.
 
 <tool_format>
-Tool calls must use the following format exclusively:
+REQUIRED XML format:
+<TOOL_NAME>
+<parameter_name>value</parameter_name>
+</TOOL_NAME>
 
-\`\`\`tool:TOOL_NAME
-{JSON parameters}
-\`\`\`
+Parameter types:
+- Primitives: Direct value
+- Arrays/Objects: JSON format (e.g., <files>[...]</files>)
 
-Do not use any other formats such as XML tags, function call syntax, or special delimiters. The triple backtick format with "tool:" prefix is the only supported method.
+Examples:
+<read_file><path>src/app.ts</path></read_file>
+<write_to_file><path>file.ts</path><content>code</content></write_to_file>
+
+FORBIDDEN formats (will fail):
+- <tool_NAME>{JSON}</tool_NAME>
+- Control tokens: <|tool_call_begin|>
+- Markdown: \`\`\`tool:name
+- Colons: <tool:name>
+
+Always close tags properly with </TOOLNAME>.
 </tool_format>
 
 <available_tools>
@@ -110,50 +83,63 @@ ${toolDescriptions}${fileOperationPolicy}
 ${enabledTools
   .map((tool) => {
     const examples: Record<string, string> = {
-      read_file: `Read file:
-\`\`\`tool:read_file
-{"path": "src/app.ts"}
-\`\`\`
+      read_file: `<read_file>
+<path>src/app.ts</path>
+</read_file>
 
-Read file with line range:
-\`\`\`tool:read_file
-{"path": "src/app.ts", "startLine": 10, "endLine": 50}
-\`\`\``,
-      write_file: `Write file:
-\`\`\`tool:write_file
-{"path": "src/new-file.ts", "content": "export const hello = 'world';"}
-\`\`\``,
-      list_files: `List files:
-\`\`\`tool:list_files
-{"path": "src"}
-\`\`\`
+With line range:
+<read_file>
+<path>src/app.ts</path>
+<startLine>10</startLine>
+<endLine>50</endLine>
+</read_file>
 
-List root directory:
-\`\`\`tool:list_files
-{"path": ""}
-\`\`\``,
-      grep_search: `Search files:
-\`\`\`tool:grep_search
-{"query": "function", "path": "src"}
-\`\`\`
+Batch (multiple files):
+<read_file>
+<files>[{"path": "src/app.ts"}, {"path": "src/index.ts"}]</files>
+</read_file>`,
+      write_to_file: `<write_to_file>
+<path>src/new-component.tsx</path>
+<content>export default function Component() {
+  return <div>Hello</div>;
+}</content>
+</write_to_file>`,
+      list_files: `<list_files>
+<path>src/app</path>
+</list_files>
 
-Search with regex:
-\`\`\`tool:grep_search
-{"query": "import.*from", "isRegex": true, "includes": ["**/*.ts"], "maxResults": 50}
-\`\`\``,
-      edit_file: `Edit file (single edit):
-\`\`\`tool:edit_file
-{"path": "src/app.ts", "edits": [{"oldString": "const x = 1;", "newString": "const x = 2;"}]}
-\`\`\`
+Returns:
+{
+  "directories": [{"name": "components", "type": "directory"}],
+  "files": [{"name": "page.tsx", "type": "file"}, {"name": "layout.tsx", "type": "file"}]
+}
 
-Edit file (multiple edits):
-\`\`\`tool:edit_file
-{"path": "src/app.ts", "edits": [{"oldString": "foo", "newString": "bar"}, {"oldString": "old", "newString": "new", "replaceAll": true}]}
-\`\`\``,
-      delete_file: `Delete file:
-\`\`\`tool:delete_file
-{"path": "src/unused-file.ts"}
-\`\`\``,
+Next steps:
+- To explore "components" → <list_files><path>src/app/components</path></list_files>
+- To read "page.tsx" → <read_file><path>src/app/page.tsx</path></read_file>`,
+      grep_search: `<grep_search>
+<query>function</query>
+<path>src</path>
+</grep_search>
+
+With regex:
+<grep_search>
+<query>import.*from</query>
+<isRegex>true</isRegex>
+<includes>["**/*.ts"]</includes>
+</grep_search>`,
+      edit_file: `Multiple edits (batch changes):
+<edit_file>
+<path>src/app.ts</path>
+<edits>[
+  {"oldString": "const x = 1;", "newString": "const x = 2;"},
+  {"oldString": "function old", "newString": "function new"},
+  {"oldString": "DEBUG", "newString": "PROD", "replaceAll": true}
+]</edits>
+</edit_file>`,
+      delete_file: `<delete_file>
+<path>src/old-file.ts</path>
+</delete_file>`,
     };
     return examples[tool.id] || '';
   })
@@ -162,12 +148,11 @@ Edit file (multiple edits):
 </tool_usage_examples>
 
 <tool_execution_workflow>
-When using tools, follow this process:
-1. Determine if a tool is needed to complete the task
-2. Output the tool call block using the correct format
-3. The system will execute the tool and provide results
-4. Continue your response with the tool results in context
-5. Use multiple tools sequentially if needed
+1. Determine if tool is needed
+2. Output tool call in correct XML format
+3. System executes and returns results
+4. Continue with results in context
+5. Chain multiple tools sequentially as needed
 </tool_execution_workflow>
 </tool_calling>`;
 

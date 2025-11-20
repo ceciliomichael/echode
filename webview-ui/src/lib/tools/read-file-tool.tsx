@@ -18,11 +18,11 @@ registerToolPlugin({
   metadata: {
     id: 'read_file',
     name: 'Read File',
-    description: 'Read file content from workspace',
-    aiDescription: 'Read the contents of a file. Use this when you need to examine existing code or files. DO NOT use this for directories; use list_files instead.',
+    description: 'Read file content from workspace (single or batch)',
+    aiDescription: 'Read the contents of one or multiple files. Use single mode for one file or batch mode to read multiple files at once with custom line ranges. DO NOT use this for directories; use list_files instead.',
     icon: FileText,
-    usage: 'Read file content with optional line range',
-    formatExample: '```tool:read_file\n{"path": "src/app.ts"}\n```',
+    usage: 'Read file content with optional line range, or batch read multiple files',
+    formatExample: '<read_file>\n<path>src/app.ts</path>\n</read_file>\n\nBatch:\n<read_file>\n<files>[{"path": "file.ts", "line_range": {"start": 10, "end": 25}}]</files>\n</read_file>',
   },
   handler: {
     execute: executeReadFile,

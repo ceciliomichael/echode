@@ -58,8 +58,8 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
   const fileInfo = useMemo(() => {
     const path = toolCall.parameters.path as string | undefined;
     
-    // For write_file and read_file, ALWAYS prioritize showing filename
-    if ((toolCall.toolName === 'write_file' || toolCall.toolName === 'read_file') && path) {
+    // For write_to_file and read_file, ALWAYS prioritize showing filename
+    if ((toolCall.toolName === 'write_to_file' || toolCall.toolName === 'read_file') && path) {
       const fileName = extractFileName(path);
       const iconConfig = getFileIconConfig(path);
       
@@ -208,7 +208,7 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
           {(toolCall.status === 'executing' || toolCall.status === 'pending') &&
             !toolCall.result && (
               <>
-                {toolCall.toolName === 'write_file' && 
+                {toolCall.toolName === 'write_to_file' && 
                  toolCall.parameters.content ? (
                   <DiffViewer
                     oldContent={undefined}
@@ -269,7 +269,7 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
                       className="text-xs italic animate-pulse"
                       style={{ color: 'var(--vscode-descriptionForeground)' }}
                     >
-                      {toolCall.toolName === 'write_file' && toolCall.parameters.path 
+                      {toolCall.toolName === 'write_to_file' && toolCall.parameters.path 
                         ? 'Preparing file diff...' 
                         : 'Executing tool...'}
                     </div>
@@ -340,8 +340,8 @@ function renderToolResult(toolName: string, data: unknown, fileName: string): Re
     }
   }
 
-  // Special handling for write_file tool - show diff viewer
-  if (toolName === 'write_file' && typeof data === 'object' && data !== null) {
+  // Special handling for write_to_file tool - show diff viewer
+  if (toolName === 'write_to_file' && typeof data === 'object' && data !== null) {
     const result = data as {
       path?: string;
       action?: string;
@@ -356,6 +356,40 @@ function renderToolResult(toolName: string, data: unknown, fileName: string): Re
           newContent={result.newContent}
           fileName={fileName}
         />
+      );
+    }
+  }
+
+  // Special handling for edit_file tool - show diff viewer after completion
+  if (toolName === 'edit_file' && typeof data === 'object' && data !== null) {
+    const result = data as {
+      path?: string;
+      editsApplied?: number;
+      originalContent?: string;
+      newContent?: string;
+      truncated?: boolean;
+    };
+
+    if (result.originalContent !== undefined && result.newContent !== undefined) {
+      return (
+        <div>
+          <DiffViewer
+            oldContent={result.originalContent}
+            newContent={result.newContent}
+            fileName={fileName}
+          />
+          {result.truncated && (
+            <div 
+              className="px-3 py-1 text-xs italic"
+              style={{ 
+                color: 'var(--vscode-descriptionForeground)',
+                backgroundColor: 'var(--vscode-textCodeBlock-background)'
+              }}
+            >
+              Content truncated for display
+            </div>
+          )}
+        </div>
       );
     }
   }

@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 interface GenerationParamsSectionProps {
   maxTokens: number;
   temperature: number;
@@ -11,6 +13,44 @@ export function GenerationParamsSection({
   onMaxTokensChange,
   onTemperatureChange
 }: GenerationParamsSectionProps) {
+  const [isEditingTemperature, setIsEditingTemperature] = useState(false);
+  const [temperatureInput, setTemperatureInput] = useState(
+    temperature === undefined || Number.isNaN(temperature) ? '' : String(temperature)
+  );
+
+  useEffect(() => {
+    if (!isEditingTemperature) {
+      setTemperatureInput(
+        temperature === undefined || Number.isNaN(temperature) ? '' : String(temperature)
+      );
+    }
+  }, [temperature, isEditingTemperature]);
+
+  const handleTemperatureInputChange = (value: string) => {
+    if (/^\d*\.?\d*$/.test(value)) {
+      setTemperatureInput(value);
+      if (value !== '' && value !== '.') {
+        onTemperatureChange(Number(value));
+      }
+    }
+  };
+
+  const handleTemperatureCommit = () => {
+    setIsEditingTemperature(false);
+    if (temperatureInput === '' || temperatureInput === '.') {
+      setTemperatureInput('');
+      onTemperatureChange(0);
+      return;
+    }
+
+    const parsed = Number(temperatureInput);
+    if (!Number.isNaN(parsed)) {
+      const normalized = String(parsed);
+      setTemperatureInput(normalized);
+      onTemperatureChange(parsed);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <h2 
@@ -62,13 +102,11 @@ export function GenerationParamsSection({
         <input
           id="temperature"
           type="text"
-          value={temperature ?? ''}
-          onChange={(e) => {
-            const value = e.target.value;
-            if (value === '' || /^\d*\.?\d*$/.test(value)) {
-              onTemperatureChange(value === '' ? 0 : Number(value));
-            }
-          }}
+          inputMode="decimal"
+          value={temperatureInput}
+          onChange={(e) => handleTemperatureInputChange(e.target.value)}
+          onFocus={() => setIsEditingTemperature(true)}
+          onBlur={handleTemperatureCommit}
           placeholder="Default: 0"
           className="w-full px-3 py-2 text-sm rounded-xl border transition-colors"
           style={{

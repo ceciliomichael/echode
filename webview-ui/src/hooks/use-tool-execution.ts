@@ -72,7 +72,15 @@ export function useToolExecution({
         
         console.log('[Tool] Executing tool:', toolBlock.toolName, 'ID:', toolExecutionId);
         
-        // Create initial execution state with "executing" status
+        // Check if this is a batch request
+        const isBatchRequest =
+          toolBlock.toolName === 'read_file' &&
+          toolBlock.parameters.files &&
+          Array.isArray(toolBlock.parameters.files);
+        
+        const filesArray = isBatchRequest ? (toolBlock.parameters.files as Array<{ path: string }>) : [];
+        
+        // Create initial execution state (executing immediately)
         const executionState = createToolExecutionState(
           toolExecutionId,
           toolBlock.toolName,
@@ -81,6 +89,19 @@ export function useToolExecution({
         
         // Update UI with executing status
         updateToolExecution(assistantMessageId, toolExecutionId, executionState);
+        
+        // If this is a batch request, set executing state for individual file tokens
+        if (isBatchRequest) {
+          filesArray.forEach((file, fileIdx) => {
+            const fileToolExecutionId = `${toolExecutionId}-file-${fileIdx}`;
+            const fileExecutionState = createToolExecutionState(
+              fileToolExecutionId,
+              'read_file',
+              { path: file.path }
+            );
+            updateToolExecution(assistantMessageId, fileToolExecutionId, fileExecutionState);
+          });
+        }
         
         // Check if stopped before execution
         if (isStoppingRef.current) {
@@ -115,20 +136,66 @@ export function useToolExecution({
               wasStopped: true
             };
           } else {
-            result = {
-              executedToolCalls: [{
-                toolName: toolBlock.toolName,
-                parameters: toolBlock.parameters,
-                status: toolResult.success ? ('completed' as const) : ('error' as const),
-                result: toolResult
-              }],
-              toolResults: [
-                toolResult.success 
-                  ? `Tool: ${toolBlock.toolName}\nResult: ${JSON.stringify(toolResult.data, null, 2)}`
-                  : `Tool: ${toolBlock.toolName}\nError: ${toolResult.error}`
-              ],
-              wasStopped: false
-            };
+            // Check if this is a batch result (read_file with multiple files)
+            if (
+              toolResult.success &&
+              toolBlock.toolName === 'read_file' &&
+              typeof toolResult.data === 'object' &&
+              toolResult.data !== null &&
+              'batch' in toolResult.data &&
+              'files' in toolResult.data
+            ) {
+              // Keep batch result as single tool call but format for AI
+              const batchData = toolResult.data as { batch: boolean; files: Array<unknown> };
+              
+              // Format combined result for AI context
+              const filesSummary = batchData.files.map((fileResult) => {
+                const fileData = fileResult as {
+                  success: boolean;
+                  path: string;
+                  content?: string;
+                  startLine?: number;
+                  endLine?: number;
+                  totalLines?: number;
+                  error?: string;
+                };
+                
+                if (fileData.success) {
+                  return `- ${fileData.path}: Successfully read (${fileData.totalLines || 0} lines)`;
+                } else {
+                  return `- ${fileData.path}: Error - ${fileData.error}`;
+                }
+              }).join('\n');
+
+              result = {
+                executedToolCalls: [{
+                  toolName: 'read_file',
+                  parameters: toolBlock.parameters,
+                  status: 'completed' as const,
+                  result: toolResult
+                }],
+                toolResults: [
+                  `Tool: read_file (batch)\nResult: Read ${batchData.files.length} files:\n${filesSummary}`
+                ],
+                wasStopped: false
+              };
+            } else {
+              // Single result (normal flow)
+              result = {
+                executedToolCalls: [{
+                  toolName: toolBlock.toolName,
+                  parameters: toolBlock.parameters,
+                  status: toolResult.success ? ('completed' as const) : ('error' as const),
+                  result: toolResult
+                }],
+                toolResults: [
+                  toolResult.success 
+                    ? `Tool: ${toolBlock.toolName}\nResult: ${JSON.stringify(toolResult.data, null, 2)}`
+                    : `Tool: ${toolBlock.toolName}\nError: ${toolResult.error}`
+                ],
+                wasStopped: false
+              };
+            }
           }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -163,13 +230,70 @@ export function useToolExecution({
         // Get the execution result from tool executor
         const executedTool = result.executedToolCalls[0];
         if (executedTool) {
-          // Update to completed or error status based on result
-          const finalState = updateToolExecutionStatus(
-            executionState,
-            executedTool.status,
-            executedTool.result
-          );
-          updateToolExecution(assistantMessageId, toolExecutionId, finalState);
+          // Check if this is a batch result that needs to update multiple individual file tokens
+          if (
+            executedTool.result?.success &&
+            toolBlock.toolName === 'read_file' &&
+            'data' in executedTool.result &&
+            typeof executedTool.result.data === 'object' &&
+            executedTool.result.data !== null &&
+            'batch' in executedTool.result.data &&
+            'files' in executedTool.result.data
+          ) {
+            // Update individual file tool execution states
+            const batchData = executedTool.result.data as {
+              batch: boolean;
+              files: Array<{
+                success: boolean;
+                path: string;
+                content?: string;
+                startLine?: number;
+                endLine?: number;
+                totalLines?: number;
+                error?: string;
+              }>;
+            };
+
+            // Update each individual file token
+            batchData.files.forEach((fileData, fileIdx) => {
+              const fileToolExecutionId = `${toolExecutionId}-file-${fileIdx}`;
+              const fileExecutionState = createToolExecutionState(
+                fileToolExecutionId,
+                'read_file',
+                { path: fileData.path }
+              );
+              
+              const fileResult = {
+                success: fileData.success,
+                data: fileData.success
+                  ? {
+                      path: fileData.path,
+                      content: fileData.content,
+                      startLine: fileData.startLine,
+                      endLine: fileData.endLine,
+                      totalLines: fileData.totalLines,
+                    }
+                  : undefined,
+                error: fileData.error,
+              };
+              
+              const fileFinalState = updateToolExecutionStatus(
+                fileExecutionState,
+                fileData.success ? 'completed' : 'error',
+                fileResult
+              );
+              
+              updateToolExecution(assistantMessageId, fileToolExecutionId, fileFinalState);
+            });
+          } else {
+            // Single tool result - update normally
+            const finalState = updateToolExecutionStatus(
+              executionState,
+              executedTool.status,
+              executedTool.result
+            );
+            updateToolExecution(assistantMessageId, toolExecutionId, finalState);
+          }
         }
         
         // Format tool results for AI context
@@ -198,7 +322,7 @@ export function useToolExecution({
           },
           {
             role: 'user',
-            content: `Tool execution results:\n${toolResultText}\n\n[SYSTEM REMINDER: Follow all system instructions as stated in your system prompt. Adhere to the specified guidelines, formats, and protocols provided throughout.]`,
+            content: `Tool execution results:\n${toolResultText}\n\n[INSTRUCTION: Process these tool results and continue your response. Maintain all system prompt rules, tool protocols, and formatting requirements. Stay focused on the original user request.]`,
           },
         ];
         

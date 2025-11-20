@@ -23,7 +23,7 @@ registerToolPlugin({
     aiDescription: 'Edit files by performing precise find-and-replace operations. Supports multiple edits in a single operation.',
     icon: FileEdit,
     usage: 'Edit files using find-and-replace operations',
-    formatExample: '```tool:edit_file\n{"path": "src/app.ts", "edits": [{"oldString": "const x = 1", "newString": "const x = 2"}]}\n```',
+    formatExample: '<edit_file>\n<path>src/app.ts</path>\n<edits>[{"oldString": "const x = 1", "newString": "const x = 2"}]</edits>\n</edit_file>',
   },
   handler: {
     execute: executeEditFile,

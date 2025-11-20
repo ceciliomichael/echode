@@ -1,4 +1,4 @@
-import { memo, useState, useEffect, useRef, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 interface DiffViewerProps {
   oldContent: string | null | undefined;
@@ -133,38 +133,10 @@ function computeDiff(oldContent: string | null | undefined, newContent: string, 
 }
 
 const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = false, viewOnly = false, startLineNumber = 1, endLineNumber }: DiffViewerProps) => {
-  const [displayContent, setDisplayContent] = useState(newContent);
-  const lastUpdateRef = useRef(Date.now());
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Throttle content updates during streaming to prevent stuttering
-  useEffect(() => {
-    if (!isStreaming) {
-      setDisplayContent(newContent);
-      return;
-    }
-
-    const now = Date.now();
-    const timeSinceLastUpdate = now - lastUpdateRef.current;
-    const throttleMs = 50; // 50ms throttle for smooth 20fps updates
-
-    if (timeSinceLastUpdate >= throttleMs) {
-      setDisplayContent(newContent);
-      lastUpdateRef.current = now;
-    } else {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      timeoutRef.current = setTimeout(() => {
-        setDisplayContent(newContent);
-        lastUpdateRef.current = Date.now();
-      }, throttleMs - timeSinceLastUpdate);
-    }
-
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-  }, [newContent, isStreaming]);
-
-  const diffLines = useMemo(() => computeDiff(oldContent, displayContent, isStreaming, startLineNumber), [oldContent, displayContent, isStreaming, startLineNumber]);
+  const diffLines = useMemo(
+    () => computeDiff(oldContent, newContent, isStreaming, startLineNumber),
+    [oldContent, newContent, isStreaming, startLineNumber],
+  );
 
   // Count additions and deletions
   const additions = diffLines.filter((line) => line.type === 'added').length;
@@ -250,7 +222,7 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
             >
               {/* Line Number */}
               <div
-                className="flex-shrink-0 px-2 py-0.5 text-right select-none"
+                className="flex-shrink-0 px-2 py-1 text-right select-none min-h-[1.15rem] leading-[1.15rem]"
                 style={{
                   minWidth: viewOnly ? '40px' : '50px',
                   color: 'var(--vscode-editorLineNumber-foreground)',
@@ -276,7 +248,7 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
 
               {/* Line Content */}
               <pre
-                className="flex-1 px-2 py-0.5 whitespace-pre m-0"
+                className="flex-1 px-2 py-1 whitespace-pre m-0 min-h-[1.15rem] leading-[1.15rem]"
                 style={{ color: 'var(--vscode-editor-foreground)' }}
               >
                 {!viewOnly && (
