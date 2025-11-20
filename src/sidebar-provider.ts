@@ -6,7 +6,8 @@ import { handleToolExecution } from './handlers/tool-execution-handler';
 import { getMainWebviewHtml, getSettingsHtml } from './utils/html-generator';
 import { getWorkspaceFiles, getAgentsConfig } from './utils/workspace-scanner';
 import { ChatHistoryService } from './services/chat-history-service';
-import { CheckpointService } from './services/checkpoint-service';
+import { ToolHistoryService } from './services/tool-history-service';
+import type { ToolExecutionState } from './types/tool-execution';
 
 /**
  * Echode Sidebar Provider
@@ -16,7 +17,7 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'echode.sidebar';
   private _view?: vscode.WebviewView;
   private _historyService: ChatHistoryService;
-  private _checkpointService: CheckpointService;
+  private _toolHistoryService: ToolHistoryService;
   private _isHistoryOpen: boolean = false;
 
   constructor(
@@ -25,7 +26,7 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
   ) {
     const workspacePath = this.getCurrentWorkspacePath();
     this._historyService = new ChatHistoryService(_context, workspacePath);
-    this._checkpointService = new CheckpointService();
+    this._toolHistoryService = new ToolHistoryService();
     
     // Listen for workspace folder changes
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
@@ -229,70 +230,55 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
         case 'historyPanelClosed':
           this._isHistoryOpen = false;
           break;
-        case 'captureCheckpoint':
-          const workspaceFolders = vscode.workspace.workspaceFolders;
-          if (workspaceFolders && workspaceFolders.length > 0) {
+        case 'undoToolExecutions':
+          const workspaceForToolUndo = vscode.workspace.workspaceFolders;
+          if (workspaceForToolUndo && workspaceForToolUndo.length > 0) {
             try {
-              const checkpoint = await this._checkpointService.captureCheckpoint(workspaceFolders[0].uri.fsPath);
-              webviewView.webview.postMessage({ 
-                type: 'checkpointCaptured', 
-                checkpoint,
-                requestId: data.requestId 
-              });
-            } catch (error) {
-              console.error('[Checkpoint] Error capturing checkpoint:', error);
-              webviewView.webview.postMessage({ 
-                type: 'checkpointError', 
-                error: error instanceof Error ? error.message : 'Failed to capture checkpoint',
-                requestId: data.requestId 
-              });
-            }
-          }
-          break;
-        case 'restoreCheckpoint':
-          const workspaceForRestore = vscode.workspace.workspaceFolders;
-          if (workspaceForRestore && workspaceForRestore.length > 0) {
-            try {
-              await this._checkpointService.restoreCheckpoint(
-                workspaceForRestore[0].uri.fsPath, 
-                data.checkpoint,
-                data.isTemporary || false
+              const toolExecutions = new Map<string, ToolExecutionState>(data.toolExecutions);
+              const result = await this._toolHistoryService.undoToolExecutions(
+                toolExecutions,
+                workspaceForToolUndo[0].uri.fsPath
               );
-              webviewView.webview.postMessage({ 
-                type: 'checkpointRestored',
-                requestId: data.requestId 
+              webviewView.webview.postMessage({
+                type: 'toolExecutionsUndone',
+                requestId: data.requestId,
+                success: result.success,
+                errors: result.errors,
               });
             } catch (error) {
-              console.error('[Checkpoint] Error restoring checkpoint:', error);
-              webviewView.webview.postMessage({ 
-                type: 'checkpointError', 
-                error: error instanceof Error ? error.message : 'Failed to restore checkpoint',
-                requestId: data.requestId 
+              console.error('[ToolHistory] Error undoing tool executions:', error);
+              webviewView.webview.postMessage({
+                type: 'toolExecutionsError',
+                error: error instanceof Error ? error.message : 'Failed to undo tool executions',
+                requestId: data.requestId,
               });
             }
           }
           break;
-        case 'undoCheckpoint':
-          const workspaceForUndo = vscode.workspace.workspaceFolders;
-          if (workspaceForUndo && workspaceForUndo.length > 0) {
+        case 'redoToolExecutions':
+          const workspaceForToolRedo = vscode.workspace.workspaceFolders;
+          if (workspaceForToolRedo && workspaceForToolRedo.length > 0) {
             try {
-              await this._checkpointService.undoTemporaryRestore(workspaceForUndo[0].uri.fsPath);
-              webviewView.webview.postMessage({ 
-                type: 'checkpointUndone',
-                requestId: data.requestId 
+              const toolExecutions = new Map<string, ToolExecutionState>(data.toolExecutions);
+              const result = await this._toolHistoryService.redoToolExecutions(
+                toolExecutions,
+                workspaceForToolRedo[0].uri.fsPath
+              );
+              webviewView.webview.postMessage({
+                type: 'toolExecutionsRedone',
+                requestId: data.requestId,
+                success: result.success,
+                errors: result.errors,
               });
             } catch (error) {
-              console.error('[Checkpoint] Error undoing checkpoint:', error);
-              webviewView.webview.postMessage({ 
-                type: 'checkpointError', 
-                error: error instanceof Error ? error.message : 'Failed to undo checkpoint',
-                requestId: data.requestId 
+              console.error('[ToolHistory] Error redoing tool executions:', error);
+              webviewView.webview.postMessage({
+                type: 'toolExecutionsError',
+                error: error instanceof Error ? error.message : 'Failed to redo tool executions',
+                requestId: data.requestId,
               });
             }
           }
-          break;
-        case 'commitCheckpoint':
-          this._checkpointService.commitTemporaryRestore();
           break;
       }
     });

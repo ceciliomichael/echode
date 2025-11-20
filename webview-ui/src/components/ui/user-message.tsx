@@ -76,10 +76,10 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
         {onRevert && isHovered && (
           <button
             onClick={handleRevertClick}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:opacity-70 transition-opacity"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-xl hover:opacity-70 transition-opacity"
             style={{
-              backgroundColor: 'var(--vscode-button-background)',
-              color: 'var(--vscode-button-foreground)'
+              backgroundColor: 'transparent',
+              color: 'var(--vscode-input-foreground)'
             }}
             title="Revert to this message"
           >

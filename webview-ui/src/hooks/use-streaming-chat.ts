@@ -6,10 +6,10 @@ import type { ChatSession } from '../types/chat-session';
 import { useToolExecution } from './use-tool-execution';
 import { useChatStreaming } from './use-chat-streaming';
 import { storageService } from '../utils/storage';
-import { checkpointApi } from '../services/checkpoint-api';
+import { toolHistoryApi } from '../services/tool-history-api';
 import { getSessionUiState, setSessionEditingMessage, setSessionRevertPreview } from '../utils/session-ui-state';
 
-export function useStreamingChat() {
+export function useStreamingChat(currentTodos?: Array<{ id: string; content: string; status: string }>) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isExecutingTool, setIsExecutingTool] = useState(false);
@@ -90,7 +90,6 @@ export function useStreamingChat() {
           content: msg.content,
           timestamp: new Date(msg.timestamp),
           hidden: msg.hidden,
-          checkpoint: msg.checkpoint,
           // Deserialize toolExecutions array back to Map
           toolExecutions: msg.toolExecutions ? new Map(msg.toolExecutions) : undefined,
         })));
@@ -135,6 +134,7 @@ export function useStreamingChat() {
     sendingMessageRef,
     updateToolExecution,
     messagesRef,
+    currentTodos,
   });
 
   // Chat streaming hook
@@ -153,8 +153,6 @@ export function useStreamingChat() {
     const messageIndex = messages.findIndex(msg => msg.id === messageId);
     if (messageIndex === -1) {return;}
 
-    const message = messages[messageIndex];
-
     // Step 1: Abort any ongoing API call and wait for cleanup
     if (abortControllerRef.current) {
       console.log('[Chat] Aborting ongoing stream before edit');
@@ -172,14 +170,16 @@ export function useStreamingChat() {
     setIsExecutingTool(false);
     sendingMessageRef.current = false;
     
-    // Step 2: Restore workspace to checkpoint if available
-    if (message.checkpoint) {
-      try {
-        console.log('[Chat] Restoring checkpoint for message', messageId);
-        await checkpointApi.restoreCheckpoint(message.checkpoint, false);
-        checkpointApi.commitCheckpoint();
-      } catch (error) {
-        console.error('[Chat] Failed to restore checkpoint:', error);
+    // Step 2: Undo all tool executions from messages after the edited one
+    const messagesToRevert = messages.slice(messageIndex);
+    for (const msg of messagesToRevert) {
+      if (msg.toolExecutions && msg.toolExecutions.size > 0) {
+        try {
+          console.log('[Chat] Undoing tool executions for message', msg.id);
+          await toolHistoryApi.undoToolExecutions(msg.toolExecutions);
+        } catch (error) {
+          console.error('[Chat] Failed to undo tool executions:', error);
+        }
       }
     }
     
@@ -237,9 +237,9 @@ export function useStreamingChat() {
   }, []);
 
   const handleRevertPreview = useCallback(async (messageId: string) => {
-    const message = messages.find(msg => msg.id === messageId);
-    if (!message || !message.checkpoint) {
-      console.warn('[Chat] No checkpoint found for message', messageId);
+    const messageIndex = messages.findIndex(msg => msg.id === messageId);
+    if (messageIndex === -1) {
+      console.warn('[Chat] Message not found', messageId);
       return;
     }
 
@@ -260,9 +260,15 @@ export function useStreamingChat() {
     }
 
     try {
-      // Apply checkpoint as temporary preview
-      console.log('[Chat] Applying temporary checkpoint preview for message', messageId);
-      await checkpointApi.restoreCheckpoint(message.checkpoint, true);
+      // Undo all tool executions from messages after the target message
+      const messagesToRevert = messages.slice(messageIndex);
+      for (const msg of messagesToRevert) {
+        if (msg.toolExecutions && msg.toolExecutions.size > 0) {
+          console.log('[Chat] Undoing tool executions for revert preview, message', msg.id);
+          await toolHistoryApi.undoToolExecutions(msg.toolExecutions);
+        }
+      }
+      
       setRevertPreviewMessageId(messageId);
       
       // Set session UI state to remember we're in revert preview
@@ -271,7 +277,7 @@ export function useStreamingChat() {
       setSessionRevertPreview(sessionId, messageId);
       setEditingMessageId(messageId);
     } catch (error) {
-      console.error('[Chat] Failed to apply checkpoint preview:', error);
+      console.error('[Chat] Failed to apply revert preview:', error);
     }
   }, [messages, ensureSessionId]);
 
@@ -295,8 +301,21 @@ export function useStreamingChat() {
     }
 
     try {
-      console.log('[Chat] Cancelling revert preview');
-      await checkpointApi.undoCheckpoint();
+      console.log('[Chat] Cancelling revert preview - re-applying tool executions');
+      
+      // Find the message we reverted from
+      const messageIndex = messages.findIndex(msg => msg.id === revertPreviewMessageId);
+      if (messageIndex !== -1) {
+        // Re-apply tool executions from messages after the revert point
+        const messagesToReapply = messages.slice(messageIndex);
+        for (const msg of messagesToReapply) {
+          if (msg.toolExecutions && msg.toolExecutions.size > 0) {
+            console.log('[Chat] Redoing tool executions for message', msg.id);
+            await toolHistoryApi.redoToolExecutions(msg.toolExecutions);
+          }
+        }
+      }
+      
       setRevertPreviewMessageId(null);
       
       // Clear session UI state
@@ -309,7 +328,7 @@ export function useStreamingChat() {
     } catch (error) {
       console.error('[Chat] Failed to cancel revert:', error);
     }
-  }, [revertPreviewMessageId]);
+  }, [revertPreviewMessageId, messages]);
 
   return {
     messages,
@@ -329,4 +348,4 @@ export function useStreamingChat() {
     handleRevertPreview,
     handleCancelRevert,
   };
-}
+};

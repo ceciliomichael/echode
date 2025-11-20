@@ -21,9 +21,11 @@ export class DeleteFileTool implements ITool {
       const absolutePath = resolveAbsolutePath(filePath, workspaceRoot);
       const uri = vscode.Uri.file(absolutePath);
 
-      // Check if file exists
+      // Capture file content before deletion for undo capability
+      let deletedContent: string | null = null;
       try {
-        await vscode.workspace.fs.stat(uri);
+        const fileContent = await vscode.workspace.fs.readFile(uri);
+        deletedContent = Buffer.from(fileContent).toString('utf8');
       } catch {
         return { success: false, error: `File not found: ${filePath}` };
       }
@@ -36,6 +38,7 @@ export class DeleteFileTool implements ITool {
         data: {
           path: filePath,
           action: 'deleted',
+          deletedContent: deletedContent,
         },
       };
     } catch (error) {

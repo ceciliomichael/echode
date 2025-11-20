@@ -5,8 +5,11 @@ import { ChatEmptyState } from '../ui/chat-empty-state';
 import { Dropdown } from '../ui/dropdown';
 import { HistoryDropdown } from './history-dropdown';
 import { useStreamingChat } from '../../hooks/use-streaming-chat';
+import { useTodo } from '../../hooks/use-todo';
+import type { TodoTask } from '../../types/todo';
 
 export function ChatContainer() {
+  const { tasks, updateTodos, clearTodos } = useTodo();
   const { 
     messages, 
     isStreaming, 
@@ -23,7 +26,7 @@ export function ChatContainer() {
     handleEditCancel,
     handleRevertPreview,
     handleCancelRevert,
-  } = useStreamingChat();
+  } = useStreamingChat(tasks);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   // Filter out hidden messages (tool result feedback messages)
@@ -34,12 +37,70 @@ export function ChatContainer() {
     -1
   );
 
+  // Extract todos from tool executions (any status: pending, executing, completed)
+  useEffect(() => {
+    let mostRecentTodoWrite: { tasks: TodoTask[]; timestamp: number } | null = null;
+    
+    // Find the most recent todo_write execution across all messages
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (msg.toolExecutions) {
+        for (const execution of msg.toolExecutions.values()) {
+          // Check for ANY todo_write tool execution (pending, executing, completed)
+          if (execution.toolName === 'todo_write') {
+            // Use execution-level timestamp (completedAt > startedAt > message timestamp)
+            // This ensures we pick the LATEST todo_write even when multiple exist in one message
+            const execTimestamp = execution.completedAt ?? execution.startedAt ?? 
+              (msg.timestamp instanceof Date ? msg.timestamp.getTime() : new Date(msg.timestamp).getTime());
+            
+            let tasks: TodoTask[] | null = null;
+
+            // For completed executions, get tasks from result.data
+            if (execution.status === 'completed' && 
+                execution.result?.success &&
+                execution.result.data) {
+              const data = execution.result.data as { tasks?: unknown[] };
+              if (data.tasks && Array.isArray(data.tasks)) {
+                tasks = data.tasks as TodoTask[];
+              }
+            } 
+            // For pending/executing executions, get tasks from parameters
+            else if ((execution.status === 'pending' || execution.status === 'executing') && 
+                     execution.parameters?.tasks) {
+              const paramTasks = execution.parameters.tasks;
+              if (Array.isArray(paramTasks)) {
+                tasks = paramTasks as TodoTask[];
+              }
+            }
+
+            // Keep track of the most recent todo_write using execution timestamp
+            if (tasks && (!mostRecentTodoWrite || execTimestamp > mostRecentTodoWrite.timestamp)) {
+              mostRecentTodoWrite = {
+                tasks,
+                timestamp: execTimestamp
+              };
+            }
+          }
+        }
+      }
+    }
+    
+    // Update todos with the most recent state, or clear if none found
+    if (mostRecentTodoWrite) {
+      updateTodos(mostRecentTodoWrite.tasks);
+    } else if (messages.length === 0) {
+      // Clear todos when no messages (new chat)
+      updateTodos([]);
+    }
+  }, [messages, updateTodos]);
+
   // Listen for messages from extension
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
       if (message.type === 'newChat') {
         clearChat();
+        clearTodos();
       } else if (message.type === 'openHistory') {
         setIsHistoryOpen(true);
       } else if (message.type === 'closeHistory') {
@@ -49,7 +110,7 @@ export function ChatContainer() {
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [clearChat]);
+  }, [clearChat, clearTodos]);
 
   const handleSendMessage = async (content: string) => {
     await sendMessage(content);
@@ -113,6 +174,7 @@ export function ChatContainer() {
           onSendMessage={handleSendMessage} 
           isStreaming={isStreaming}
           onStop={abortStream}
+          todos={tasks}
         />
       </div>
 

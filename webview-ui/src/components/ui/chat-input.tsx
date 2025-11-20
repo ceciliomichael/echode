@@ -1,14 +1,17 @@
 import { useState, useRef, useEffect, type KeyboardEvent, type FormEvent, type ChangeEvent } from 'react';
 import { ArrowUp, Paperclip, Square } from 'lucide-react';
+import { TodoBlock } from './todo-block';
+import type { TodoTask } from '../../types/todo';
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
   disabled?: boolean;
   isStreaming?: boolean;
   onStop?: () => void;
+  todos?: TodoTask[];
 }
 
-export function ChatInput({ onSendMessage, disabled = false, isStreaming = false, onStop }: ChatInputProps) {
+export function ChatInput({ onSendMessage, disabled = false, isStreaming = false, onStop, todos = [] }: ChatInputProps) {
   const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -40,22 +43,30 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
 
   return (
     <div
-      className="px-3"
+      className="px-3 relative"
+      data-edit-outside-ignore="true"
       style={{
         paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))",
         paddingTop: "0.5rem",
         backgroundColor: 'var(--vscode-sideBar-background)'
       }}
     >
+      {/* Todo Drawer - Layered above chat input */}
+      {todos.length > 0 && todos.some(t => t.status !== 'completed') && (
+        <div className="mb-2">
+          <TodoBlock tasks={todos} />
+        </div>
+      )}
+
       <section
-        className="w-full rounded-xl shadow-sm border p-1 transition-colors"
+        className="w-full rounded-xl shadow-sm border transition-colors"
         style={{
           backgroundColor: 'var(--vscode-chat-surface)',
           borderColor: 'var(--vscode-input-border)'
         }}
         aria-label="Chat input area"
       >
-        <form onSubmit={handleSubmit} className="flex flex-col gap-0">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-0 p-1">
           <div className="w-full px-1.5 pt-1.5">
             <div className="flex flex-wrap items-center gap-1 h-[28px]">
               <button

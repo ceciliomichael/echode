@@ -1,4 +1,3 @@
-import type { WorkspaceCheckpoint } from './chat';
 import type { ToolExecutionState } from './tool';
 
 export interface ChatSessionMessage {
@@ -8,7 +7,6 @@ export interface ChatSessionMessage {
   timestamp: string | Date;
   toolExecutions?: Array<[string, ToolExecutionState]>;
   hidden?: boolean;
-  checkpoint?: WorkspaceCheckpoint;
 }
 
 export interface ChatSession {

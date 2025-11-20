@@ -8,9 +8,12 @@ const VALID_TOOL_NAMES = new Set([
   'write_to_file',
   'list_files',
   'grep_search',
+  'glob_search',
   'edit_file',
   'delete_file',
   'patch_file',
+  'todo_write',
+  'todo_read'
 ]);
 
 /**

@@ -20,6 +20,7 @@ interface ToolExecutionHookProps {
   sendingMessageRef: React.MutableRefObject<boolean>;
   updateToolExecution: (messageId: string, toolExecutionId: string, state: ToolExecutionState) => void;
   messagesRef: React.MutableRefObject<Message[]>;
+  currentTodos?: Array<{ id: string; content: string; status: string }>;
 }
 
 export function useToolExecution({
@@ -32,6 +33,7 @@ export function useToolExecution({
   sendingMessageRef,
   messagesRef,
   updateToolExecution,
+  currentTodos = [],
 }: ToolExecutionHookProps) {
   const workspace = useWorkspaceContext();
 
@@ -252,10 +254,29 @@ export function useToolExecution({
           content: assistantContent,
         });
         
+        // Add current todo list context if exists and has incomplete tasks
+        let todoContext = '';
+        if (currentTodos.length > 0) {
+          const pendingTasks = currentTodos.filter(t => t.status === 'pending').map(t => `- ${t.content}`).join('\n');
+          const inProgressTasks = currentTodos.filter(t => t.status === 'in_progress').map(t => `- ${t.content}`).join('\n');
+          const completedTasks = currentTodos.filter(t => t.status === 'completed').map(t => `- ${t.content}`).join('\n');
+          
+          // Only send todo context if there are incomplete tasks
+          const hasIncompleteTasks = pendingTasks || inProgressTasks;
+          
+          if (hasIncompleteTasks) {
+            todoContext = '\n\n<current_todo_list>\n';
+            if (pendingTasks) todoContext += `Pending:\n${pendingTasks}\n\n`;
+            if (inProgressTasks) todoContext += `In Progress:\n${inProgressTasks}\n\n`;
+            if (completedTasks) todoContext += `Completed:\n${completedTasks}\n`;
+            todoContext += '</current_todo_list>\n\n[INSTRUCTION: The current todo list is provided above. Keep track of task progress and update the todo list using the todo_write tool when tasks are completed or new tasks need to be added. Always maintain the todo list to reflect the current state of work.]';
+          }
+        }
+        
         // Add the CURRENT tool execution result
         continuationHistory.push({
           role: 'user',
-          content: `Tool execution results:\n${toolResultText}\n\n[INSTRUCTION: Process these tool results and continue your response. You have access to previous tool results in <previous_tool_results> tags. Maintain all system prompt rules, tool protocols, and formatting requirements. Stay focused on the original user request.]`,
+          content: `Tool execution results:\n${toolResultText}${todoContext}\n\n[INSTRUCTION: Process these tool results and continue your response. You have access to previous tool results in <previous_tool_results> tags. Maintain all system prompt rules, tool protocols, and formatting requirements. Stay focused on the original user request.]`,
         });
         
         // Continue streaming - clear executing tool state
@@ -360,7 +381,7 @@ export function useToolExecution({
         sendingMessageRef.current = false;
       }
     },
-    [workspace, updateToolExecution, setMessages, setIsExecutingTool, setIsStreaming, isStreamingRef, isStoppingRef, abortControllerRef, sendingMessageRef],
+    [workspace, updateToolExecution, setMessages, setIsExecutingTool, setIsStreaming, isStreamingRef, isStoppingRef, abortControllerRef, sendingMessageRef, currentTodos, messagesRef],
   );
 
   return { executeToolAndContinue };

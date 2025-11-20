@@ -25,7 +25,7 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
     .join('\n');
 
   const hasFileTools = enabledTools.some((tool) =>
-    ['write_to_file', 'read_file', 'list_files', 'grep_search', 'edit_file', 'delete_file'].includes(tool.id),
+    ['write_to_file', 'read_file', 'list_files', 'grep_search', 'glob_search', 'edit_file', 'delete_file'].includes(tool.id),
   );
 
   const fileOperationPolicy = hasFileTools
@@ -40,14 +40,16 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
 
 **Tool Quick Ref:**
 - FILE (has extension) → read_file/edit_file | DIRECTORY (no extension) → list_files
-- **grep_search**: Find files. Use specific queries + includes filter for file types
+- **grep_search**: Search file content. Use specific queries + includes filter for file types
+- **glob_search**: Find files by pattern (e.g., *.ts, **/*.json). Fast file discovery
 - **read_file**: View content. Single file only. Use offset/limit for large files (>1000 lines)
 - **edit_file**: Modify via find-replace. Add context to oldString. Use replaceAll for global changes
 - **write_to_file**: New files or small rewrites (<100 lines). Prefer edit_file for existing files
 - **delete_file**: Only when explicitly requested
 
 **Workflows:**
-- **Find & modify**: grep_search → read_file → edit_file (with anchored oldString)
+- **Find files by pattern**: glob_search (*.ts) → read_file → edit_file
+- **Find & modify content**: grep_search → read_file → edit_file (with anchored oldString)
 - **Large files**: grep_search (get line #) → read_file with offset/limit → edit_file
 - **Multiple files**: Call read_file sequentially for each file → edit_file each with proper context
 
@@ -56,6 +58,7 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
 - ❌ Edit without reading → ✅ Always read_file first
 - ❌ "const x = 1" (not unique) → ✅ Include function context around it
 - ❌ Broad grep "function" → ✅ Specific "handleSubmit" or "UserController"
+- ❌ Content search when pattern search needed → ✅ Use glob_search for file patterns, grep_search for content
 - ❌ Batch reading multiple files → ✅ Call read_file sequentially for each file
 - ❌ Sequential: [{old: "a", new: "b"}, {old: "a", new: "c"}] → ✅ [{old: "a", new: "b"}, {old: "b", new: "c"}]
 </file_operations>`
@@ -147,6 +150,35 @@ With regex:
 <isRegex>true</isRegex>
 <includes>["**/*.ts"]</includes>
 </grep_search>`,
+      glob_search: `Find files by glob pattern. Faster than grep_search when you know the file pattern.
+
+Single pattern:
+<glob_search>
+<pattern>*.ts</pattern>
+<path>src</path>
+</glob_search>
+
+Multiple patterns:
+<glob_search>
+<pattern>["*.ts", "*.tsx"]</pattern>
+<path>src/components</path>
+</glob_search>
+
+Advanced with sorting:
+<glob_search>
+<pattern>**/*.json</pattern>
+<sortBy>size</sortBy>
+<sortOrder>desc</sortOrder>
+</glob_search>
+
+Returns:
+{
+  "totalFiles": 15,
+  "results": [
+    {"path": "src/app.ts", "name": "app.ts", "size": 2048, "extension": "ts"},
+    {"path": "src/utils.ts", "name": "utils.ts", "size": 1024, "extension": "ts"}
+  ]
+}`,
       edit_file: `CRITICAL: Always read_file first, then use exact content with surrounding context
 
 Good example (with context for unique match):

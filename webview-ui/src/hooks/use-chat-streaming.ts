@@ -7,7 +7,6 @@ import { useWorkspaceContext } from './use-workspace-context';
 import type { Message } from '../types/chat';
 import type { ChatMessage } from '../types/chat-api';
 import { hasCompleteToolBlock, trimToFirstCompleteToolBlock } from '../lib/tool-parser';
-import { checkpointApi } from '../services/checkpoint-api';
 
 interface ChatStreamingProps {
   messages: Message[];
@@ -58,22 +57,11 @@ export function useChatStreaming({
     // Request fresh workspace info before sending message
     await requestWorkspaceInfo();
     
-    // Capture workspace checkpoint before sending message
-    let checkpoint;
-    try {
-      console.log('[Chat] Capturing workspace checkpoint');
-      checkpoint = await checkpointApi.captureCheckpoint();
-    } catch (error) {
-      console.error('[Chat] Failed to capture checkpoint:', error);
-      // Continue without checkpoint - non-blocking
-    }
-    
     const userMessage: Message = {
       id: uuidv4(),
       role: 'user',
       content,
       timestamp: new Date(),
-      checkpoint,
     };
     setMessages((prev) => [...prev, userMessage]);
 
