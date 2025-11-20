@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { EchodeSidebarProvider } from './sidebar-provider';
 
 export function activate(context: vscode.ExtensionContext) {
-  const sidebarProvider = new EchodeSidebarProvider(context.extensionUri);
+  const sidebarProvider = new EchodeSidebarProvider(context.extensionUri, context);
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(

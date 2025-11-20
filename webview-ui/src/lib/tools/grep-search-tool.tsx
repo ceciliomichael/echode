@@ -57,9 +57,9 @@ registerToolPlugin({
             className="px-3 py-2 text-xs font-medium border-b border-[var(--vscode-input-border)] bg-[var(--vscode-sideBar-background)] flex items-center gap-2"
             style={{ color: 'var(--vscode-sideBarTitle-foreground)' }}
           >
-            <Search className="w-3.5 h-3.5 opacity-70" />
-            <span>{result.query}</span>
-            <span className="ml-auto opacity-50 font-normal">
+            <Search className="w-3.5 h-3.5 opacity-70 flex-shrink-0" />
+            <span className="font-mono overflow-x-auto whitespace-nowrap flex-1 min-w-0">{result.query}</span>
+            <span className="ml-auto opacity-50 font-normal flex-shrink-0">
               {result.totalMatches} {result.totalMatches === 1 ? 'match' : 'matches'}
             </span>
           </div>
@@ -116,7 +116,7 @@ registerToolPlugin({
                               {match.line}
                             </span>
                             <code
-                              className="text-xs font-mono flex-1 whitespace-pre-wrap break-all"
+                              className="text-xs font-mono flex-1 overflow-x-auto whitespace-nowrap"
                               style={{ color: 'var(--vscode-editor-foreground)' }}
                             >
                               {match.text}

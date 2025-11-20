@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { defaultRegistry } from '../services/tools/tool-registry';
-import { ReadFileTool, WriteFileTool, ListFilesTool, GrepSearchTool, EditFileTool, DeleteFileTool } from '../services/tools';
+import { ReadFileTool, WriteFileTool, ListFilesTool, GrepSearchTool, EditFileTool, DeleteFileTool, PatchFileTool } from '../services/tools';
 
 // Register tools
 defaultRegistry.registerTool(new ReadFileTool());
@@ -9,6 +9,7 @@ defaultRegistry.registerTool(new ListFilesTool());
 defaultRegistry.registerTool(new GrepSearchTool());
 defaultRegistry.registerTool(new EditFileTool());
 defaultRegistry.registerTool(new DeleteFileTool());
+defaultRegistry.registerTool(new PatchFileTool());
 
 interface ToolExecutionMessage {
   type: 'executeTool';

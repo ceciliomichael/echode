@@ -3,8 +3,10 @@ import { handleApiRequest } from './handlers/api-handler';
 import { handleChatStream } from './handlers/chat-streaming-handler';
 import { handleModelFetch } from './handlers/model-fetching-handler';
 import { handleToolExecution } from './handlers/tool-execution-handler';
-import { getMainWebviewHtml, getSettingsHtml, getHistoryHtml } from './utils/html-generator';
+import { getMainWebviewHtml, getSettingsHtml } from './utils/html-generator';
 import { getWorkspaceFiles, getAgentsConfig } from './utils/workspace-scanner';
+import { ChatHistoryService } from './services/chat-history-service';
+import { CheckpointService } from './services/checkpoint-service';
 
 /**
  * Echode Sidebar Provider
@@ -13,8 +15,31 @@ import { getWorkspaceFiles, getAgentsConfig } from './utils/workspace-scanner';
 export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'echode.sidebar';
   private _view?: vscode.WebviewView;
+  private _historyService: ChatHistoryService;
+  private _checkpointService: CheckpointService;
+  private _isHistoryOpen: boolean = false;
 
-  constructor(private readonly _extensionUri: vscode.Uri) {}
+  constructor(
+    private readonly _extensionUri: vscode.Uri,
+    private readonly _context: vscode.ExtensionContext
+  ) {
+    const workspacePath = this.getCurrentWorkspacePath();
+    this._historyService = new ChatHistoryService(_context, workspacePath);
+    this._checkpointService = new CheckpointService();
+    
+    // Listen for workspace folder changes
+    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+      const newWorkspacePath = this.getCurrentWorkspacePath();
+      this._historyService.updateWorkspace(newWorkspacePath);
+    });
+  }
+
+  private getCurrentWorkspacePath(): string | undefined {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    return workspaceFolders && workspaceFolders.length > 0
+      ? workspaceFolders[0].uri.fsPath
+      : undefined;
+  }
 
   /**
    * Trigger new chat in the webview
@@ -26,36 +51,18 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
   }
 
   /**
-   * Open chat history panel
+   * Toggle chat history modal in main webview
    */
   public openHistoryPanel(): void {
-    const panel = vscode.window.createWebviewPanel(
-      'echodeHistory',
-      'Chat History',
-      vscode.ViewColumn.One,
-      {
-        enableScripts: true,
-        localResourceRoots: [
-          vscode.Uri.joinPath(this._extensionUri, 'webview-ui', 'dist')
-        ]
+    if (this._view) {
+      if (this._isHistoryOpen) {
+        this._view.webview.postMessage({ type: 'closeHistory' });
+        this._isHistoryOpen = false;
+      } else {
+        this._view.webview.postMessage({ type: 'openHistory' });
+        this._isHistoryOpen = true;
       }
-    );
-
-    panel.webview.html = getHistoryHtml(panel.webview, this._extensionUri);
-
-    panel.webview.onDidReceiveMessage(async (data) => {
-      switch (data.type) {
-        case 'loadChat':
-          if (this._view) {
-            this._view.webview.postMessage({ type: 'loadChat', chatId: data.chatId });
-          }
-          panel.dispose();
-          break;
-        case 'closeHistory':
-          panel.dispose();
-          break;
-      }
-    });
+    }
   }
 
   /**
@@ -160,6 +167,10 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
     _token: vscode.CancellationToken
   ): void {
     this._view = webviewView;
+    
+    // Update history service with current workspace when view is resolved
+    const workspacePath = this.getCurrentWorkspacePath();
+    this._historyService.updateWorkspace(workspacePath);
 
     webviewView.webview.options = {
       enableScripts: true,
@@ -198,6 +209,90 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
           break;
         case 'executeTool':
           await handleToolExecution(data, webviewView);
+          break;
+        case 'saveSession':
+          await this._historyService.saveSession(data.session);
+          break;
+        case 'getSession':
+          const session = await this._historyService.getSession(data.sessionId);
+          webviewView.webview.postMessage({ type: 'sessionLoaded', session });
+          break;
+        case 'getAllSessions':
+          const sessions = await this._historyService.getAllSessions();
+          webviewView.webview.postMessage({ type: 'sessionsLoaded', sessions });
+          break;
+        case 'deleteSession':
+          await this._historyService.deleteSession(data.sessionId);
+          const updatedSessions = await this._historyService.getAllSessions();
+          webviewView.webview.postMessage({ type: 'sessionsUpdated', sessions: updatedSessions });
+          break;
+        case 'historyPanelClosed':
+          this._isHistoryOpen = false;
+          break;
+        case 'captureCheckpoint':
+          const workspaceFolders = vscode.workspace.workspaceFolders;
+          if (workspaceFolders && workspaceFolders.length > 0) {
+            try {
+              const checkpoint = await this._checkpointService.captureCheckpoint(workspaceFolders[0].uri.fsPath);
+              webviewView.webview.postMessage({ 
+                type: 'checkpointCaptured', 
+                checkpoint,
+                requestId: data.requestId 
+              });
+            } catch (error) {
+              console.error('[Checkpoint] Error capturing checkpoint:', error);
+              webviewView.webview.postMessage({ 
+                type: 'checkpointError', 
+                error: error instanceof Error ? error.message : 'Failed to capture checkpoint',
+                requestId: data.requestId 
+              });
+            }
+          }
+          break;
+        case 'restoreCheckpoint':
+          const workspaceForRestore = vscode.workspace.workspaceFolders;
+          if (workspaceForRestore && workspaceForRestore.length > 0) {
+            try {
+              await this._checkpointService.restoreCheckpoint(
+                workspaceForRestore[0].uri.fsPath, 
+                data.checkpoint,
+                data.isTemporary || false
+              );
+              webviewView.webview.postMessage({ 
+                type: 'checkpointRestored',
+                requestId: data.requestId 
+              });
+            } catch (error) {
+              console.error('[Checkpoint] Error restoring checkpoint:', error);
+              webviewView.webview.postMessage({ 
+                type: 'checkpointError', 
+                error: error instanceof Error ? error.message : 'Failed to restore checkpoint',
+                requestId: data.requestId 
+              });
+            }
+          }
+          break;
+        case 'undoCheckpoint':
+          const workspaceForUndo = vscode.workspace.workspaceFolders;
+          if (workspaceForUndo && workspaceForUndo.length > 0) {
+            try {
+              await this._checkpointService.undoTemporaryRestore(workspaceForUndo[0].uri.fsPath);
+              webviewView.webview.postMessage({ 
+                type: 'checkpointUndone',
+                requestId: data.requestId 
+              });
+            } catch (error) {
+              console.error('[Checkpoint] Error undoing checkpoint:', error);
+              webviewView.webview.postMessage({ 
+                type: 'checkpointError', 
+                error: error instanceof Error ? error.message : 'Failed to undo checkpoint',
+                requestId: data.requestId 
+              });
+            }
+          }
+          break;
+        case 'commitCheckpoint':
+          this._checkpointService.commitTemporaryRestore();
           break;
       }
     });

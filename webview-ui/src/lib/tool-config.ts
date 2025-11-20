@@ -32,20 +32,32 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
     ? `
 
 <file_operations>
-File operations are performed on actual workspace files. Use forward slashes for paths.
+**Critical Rules:**
+1. **ALWAYS read_file before edit_file** - Never edit without seeing current content
+2. **edit_file requires exact matches** - oldString must match exactly (whitespace matters)
+3. **Use context for unique matches** - Add surrounding lines to make oldString unique
+4. **Sequential edits** - Edits apply in order; Edit 2 sees result of Edit 1
 
-Path Rules:
-- FILE: Has extension (e.g., "src/app.tsx") → Use read_file/edit_file
-- DIRECTORY: No extension (e.g., "src/app") → Use list_files
-- Never use read_file on directories
+**Tool Quick Ref:**
+- FILE (has extension) → read_file/edit_file | DIRECTORY (no extension) → list_files
+- **grep_search**: Find files. Use specific queries + includes filter for file types
+- **read_file**: View content. Single file only. Use offset/limit for large files (>1000 lines)
+- **edit_file**: Modify via find-replace. Add context to oldString. Use replaceAll for global changes
+- **write_to_file**: New files or small rewrites (<100 lines). Prefer edit_file for existing files
+- **delete_file**: Only when explicitly requested
 
-Tool Usage:
-- **list_files**: Lists directory contents. Returns directories & files with type field.
-- **read_file**: Reads file content. Supports batch mode & line ranges (startLine, endLine).
-- **edit_file**: Modifies files. Batch edits via edits array. Read file first; oldString must match exactly.
-- **write_to_file**: Creates new files or rewrites short files (<100 lines). Use edit_file for large existing files.
-- **grep_search**: Searches workspace files. Set isRegex=true for regex patterns.
-- **delete_file**: Deletes file (moves to trash).
+**Workflows:**
+- **Find & modify**: grep_search → read_file → edit_file (with anchored oldString)
+- **Large files**: grep_search (get line #) → read_file with offset/limit → edit_file
+- **Multiple files**: Call read_file sequentially for each file → edit_file each with proper context
+
+**Common Mistakes:**
+- ❌ Read large file without offset/limit → ✅ Use offset/limit for files >1000 lines
+- ❌ Edit without reading → ✅ Always read_file first
+- ❌ "const x = 1" (not unique) → ✅ Include function context around it
+- ❌ Broad grep "function" → ✅ Specific "handleSubmit" or "UserController"
+- ❌ Batch reading multiple files → ✅ Call read_file sequentially for each file
+- ❌ Sequential: [{old: "a", new: "b"}, {old: "a", new: "c"}] → ✅ [{old: "a", new: "b"}, {old: "b", new: "c"}]
 </file_operations>`
     : '';
 
@@ -83,20 +95,27 @@ ${toolDescriptions}${fileOperationPolicy}
 ${enabledTools
   .map((tool) => {
     const examples: Record<string, string> = {
-      read_file: `<read_file>
+      read_file: `Read a single file. For large files (>1000 lines), use offset and limit.
+
+Small file (entire content):
+<read_file>
 <path>src/app.ts</path>
 </read_file>
 
-With line range:
+Large file (with offset/limit):
 <read_file>
-<path>src/app.ts</path>
-<startLine>10</startLine>
-<endLine>50</endLine>
+<path>src/large-file.ts</path>
+<offset>1</offset>
+<limit>100</limit>
 </read_file>
 
-Batch (multiple files):
+Multiple files (call sequentially):
 <read_file>
-<files>[{"path": "src/app.ts"}, {"path": "src/index.ts"}]</files>
+<path>src/app.ts</path>
+</read_file>
+
+<read_file>
+<path>src/index.ts</path>
 </read_file>`,
       write_to_file: `<write_to_file>
 <path>src/new-component.tsx</path>
@@ -128,14 +147,32 @@ With regex:
 <isRegex>true</isRegex>
 <includes>["**/*.ts"]</includes>
 </grep_search>`,
-      edit_file: `Multiple edits (batch changes):
+      edit_file: `CRITICAL: Always read_file first, then use exact content with surrounding context
+
+Good example (with context for unique match):
 <edit_file>
 <path>src/app.ts</path>
 <edits>[
-  {"oldString": "const x = 1;", "newString": "const x = 2;"},
-  {"oldString": "function old", "newString": "function new"},
-  {"oldString": "DEBUG", "newString": "PROD", "replaceAll": true}
+  {
+    "oldString": "export function init() {\\n  const x = 1;\\n  return x;\\n}",
+    "newString": "export function init() {\\n  const x = 2;\\n  return x;\\n}"
+  }
 ]</edits>
+</edit_file>
+
+Multiple edits (sequential):
+<edit_file>
+<path>src/config.ts</path>
+<edits>[
+  {"oldString": "const MODE = 'DEBUG';", "newString": "const MODE = 'PROD';"},
+  {"oldString": "const VERSION = '1.0';", "newString": "const VERSION = '2.0';"}
+]</edits>
+</edit_file>
+
+replaceAll for global changes:
+<edit_file>
+<path>src/constants.ts</path>
+<edits>[{"oldString": "OLD_NAME", "newString": "NEW_NAME", "replaceAll": true}]</edits>
 </edit_file>`,
       delete_file: `<delete_file>
 <path>src/old-file.ts</path>

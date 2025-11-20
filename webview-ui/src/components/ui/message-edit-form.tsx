@@ -32,12 +32,24 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave }: 
 
   useEffect(() => {
     const handleClickOutside = (event: globalThis.MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        if (editContent.trim() && editContent !== initialContent && onSave) {
-          onSave(editContent.trim());
-        }
-        onCancel();
+      const target = event.target as Node | null;
+      if (!containerRef.current || !target) {
+        return;
       }
+
+      if (containerRef.current.contains(target)) {
+        return;
+      }
+
+      const element = target as HTMLElement;
+      if (element.closest('[data-edit-outside-ignore="true"]')) {
+        return;
+      }
+
+      if (editContent.trim() && editContent !== initialContent && onSave) {
+        onSave(editContent.trim());
+      }
+      onCancel();
     };
 
     document.addEventListener('mousedown', handleClickOutside);

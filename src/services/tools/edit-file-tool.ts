@@ -44,6 +44,39 @@ export class EditFileTool implements ITool {
 
       let content = originalContent;
 
+      // Helper: find a unique match where leading indentation (spaces/tabs) may differ
+      const findIndentInsensitiveMatch = (
+        fileContent: string,
+        pattern: string
+      ): { matchedText: string } | null => {
+        const fileLines = fileContent.split('\n');
+        const patternLines = pattern.split('\n');
+
+        const normalize = (line: string) => line.replace(/^[ \t]*/, '');
+
+        let foundMatch: { matchedText: string } | null = null;
+
+        outer: for (let start = 0; start <= fileLines.length - patternLines.length; start++) {
+          for (let offset = 0; offset < patternLines.length; offset++) {
+            if (normalize(fileLines[start + offset]) !== normalize(patternLines[offset])) {
+              continue outer;
+            }
+          }
+
+          const candidateLines = fileLines.slice(start, start + patternLines.length);
+          const candidateText = candidateLines.join('\n');
+
+          if (foundMatch) {
+            // More than one possible match – require the caller to be more specific
+            return null;
+          }
+
+          foundMatch = { matchedText: candidateText };
+        }
+
+        return foundMatch;
+      };
+
       // Validate all edits first
       for (let i = 0; i < edits.length; i++) {
         const edit = edits[i];
@@ -70,18 +103,66 @@ export class EditFileTool implements ITool {
         }
 
         if (!content.includes(edit.oldString)) {
-          return {
-            success: false,
-            error: `Edit ${i + 1}: oldString not found in file`,
-          };
+          // Fallback: try to match while ignoring leading indentation differences (tabs vs spaces)
+          const indentMatch = findIndentInsensitiveMatch(content, edit.oldString);
+
+          if (indentMatch) {
+            // Use the exact substring from the file for the remainder of validation + application
+            edit.oldString = indentMatch.matchedText;
+          } else {
+            // Try to find similar content to help debug
+            const lines = content.split('\n');
+            const oldStringLines = edit.oldString.split('\n');
+            const firstLine = oldStringLines[0]?.trim();
+            
+            // Find lines containing first line of oldString
+            const similarMatches: string[] = [];
+            lines.forEach((line, idx) => {
+              if (firstLine && line.includes(firstLine)) {
+                const start = Math.max(0, idx - 1);
+                const end = Math.min(lines.length, idx + 3);
+                const snippet = lines.slice(start, end)
+                  .map((l, i) => `${start + i + 1}: ${l}`)
+                  .join('\n');
+                similarMatches.push(snippet);
+              }
+            });
+
+            let errorMsg = `Edit ${i + 1}: oldString not found in file.\n\nPossible causes:\n- File content changed (re-read the file)\n- Whitespace/indentation mismatch\n- Missing surrounding context\n\noldString you tried to match:\n${edit.oldString.substring(0, 200)}${edit.oldString.length > 200 ? '...' : ''}`;
+            
+            if (similarMatches.length > 0) {
+              errorMsg += `\n\nSimilar content found (you may need more context):\n${similarMatches[0]}`;
+            }
+
+            return {
+              success: false,
+              error: errorMsg,
+            };
+          }
         }
 
         if (!edit.replaceAll) {
           const occurrences = content.split(edit.oldString).length - 1;
           if (occurrences > 1) {
+            // Show locations where oldString appears
+            const lines = content.split('\n');
+            const locations: number[] = [];
+            let searchPos = 0;
+            let foundIndex = content.indexOf(edit.oldString, searchPos);
+            
+            while (foundIndex !== -1) {
+              // Find which line this occurrence is on
+              const beforeMatch = content.substring(0, foundIndex);
+              const lineNum = beforeMatch.split('\n').length;
+              locations.push(lineNum);
+              
+              searchPos = foundIndex + 1;
+              foundIndex = content.indexOf(edit.oldString, searchPos);
+            }
+
             return {
               success: false,
-              error: `Edit ${i + 1}: oldString appears ${occurrences} times. Set replaceAll: true or make it unique`,
+              error: `Edit ${i + 1}: oldString appears ${occurrences} times at lines: ${locations.slice(0, 5).join(', ')}${locations.length > 5 ? '...' : ''}.\n\nSolutions:\n1. Add more surrounding context to make it unique\n2. Set replaceAll: true to change all occurrences\n\nCurrent oldString:\n${edit.oldString.substring(0, 150)}${edit.oldString.length > 150 ? '...' : ''}`,
             };
           }
         }

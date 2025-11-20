@@ -6,15 +6,9 @@ export class ReadFileTool implements ITool {
   name = 'read_file';
 
   async execute(parameters: Record<string, unknown>): Promise<ToolExecutionResult> {
-    // Check if this is a batch request
-    if (parameters.files && Array.isArray(parameters.files)) {
-      return this.executeBatch(parameters.files as Array<{ path: string; line_range?: { start?: number; end?: number } }>);
-    }
-
-    // Single file request (backward compatible)
     const filePath = parameters.path as string;
-    const startLine = parameters.startLine as number | undefined;
-    const endLine = parameters.endLine as number | undefined;
+    const offset = parameters.offset as number | undefined;
+    const limit = parameters.limit as number | undefined;
 
     if (!filePath) {
       return { success: false, error: 'File path is required' };
@@ -44,15 +38,23 @@ export class ReadFileTool implements ITool {
 
       const fileContent = await vscode.workspace.fs.readFile(uri);
       const content = Buffer.from(fileContent).toString('utf8');
+      const lines = content.split('\n');
+      const totalLines = lines.length;
 
-      // If line range is specified, extract those lines
-      if (startLine !== undefined || endLine !== undefined) {
-        const lines = content.split('\n');
-        const start = startLine ? Math.max(0, startLine - 1) : 0;
-        const end = endLine ? Math.min(lines.length, endLine) : lines.length;
+      // Handle large files (>1000 lines) - warn if no range specified
+      if (totalLines > 1000 && offset === undefined && limit === undefined) {
+        return {
+          success: false,
+          error: `File has ${totalLines} lines. Please specify offset and limit parameters to read a portion of the file. Example: offset=1, limit=100 to read first 100 lines.`,
+        };
+      }
+
+      // Apply offset/limit if specified
+      if (offset !== undefined || limit !== undefined) {
+        const start = offset ? Math.max(0, offset - 1) : 0;
+        const count = limit || lines.length;
+        const end = Math.min(start + count, lines.length);
         const selectedLines = lines.slice(start, end);
-        
-        // Return raw content without line numbers
         const formattedContent = selectedLines.join('\n');
 
         return {
@@ -62,18 +64,20 @@ export class ReadFileTool implements ITool {
             content: formattedContent,
             startLine: start + 1,
             endLine: end,
-            totalLines: lines.length,
+            totalLines,
           },
         };
       }
 
-      // Return full raw content
+      // Return full content for small files (with line numbers for transparency)
       return {
         success: true,
         data: {
           path: filePath,
-          content: content,
-          totalLines: content.split('\n').length,
+          content,
+          startLine: 1,
+          endLine: totalLines,
+          totalLines,
         },
       };
     } catch (error) {
@@ -84,95 +88,4 @@ export class ReadFileTool implements ITool {
     }
   }
 
-  private async executeBatch(
-    files: Array<{ path: string; line_range?: { start?: number; end?: number } }>
-  ): Promise<ToolExecutionResult> {
-    if (!files || files.length === 0) {
-      return { success: false, error: 'No files specified in batch request' };
-    }
-
-    const workspaceRoot = getWorkspaceRoot();
-    if (!workspaceRoot) {
-      return { success: false, error: 'No workspace folder open' };
-    }
-
-    const results = [];
-
-    for (const fileRequest of files) {
-      const { path: filePath, line_range } = fileRequest;
-      
-      if (!filePath) {
-        results.push({
-          success: false,
-          path: '',
-          error: 'File path is required',
-        });
-        continue;
-      }
-
-      try {
-        const absolutePath = resolveAbsolutePath(filePath, workspaceRoot);
-        const uri = vscode.Uri.file(absolutePath);
-
-        // Check if path is a directory
-        try {
-          const stat = await vscode.workspace.fs.stat(uri);
-          if (stat.type === vscode.FileType.Directory) {
-            results.push({
-              success: false,
-              path: filePath,
-              error: `Cannot read directory '${filePath}'. Please use 'list_files' to view directory contents.`,
-            });
-            continue;
-          }
-        } catch (error) {
-          // If stat fails, readFile will handle the error
-        }
-
-        const fileContent = await vscode.workspace.fs.readFile(uri);
-        const content = Buffer.from(fileContent).toString('utf8');
-
-        // Handle line range if specified
-        if (line_range && (line_range.start !== undefined || line_range.end !== undefined)) {
-          const lines = content.split('\n');
-          const start = line_range.start ? Math.max(0, line_range.start - 1) : 0;
-          const end = line_range.end ? Math.min(lines.length, line_range.end) : lines.length;
-          const selectedLines = lines.slice(start, end);
-          const formattedContent = selectedLines.join('\n');
-
-          results.push({
-            success: true,
-            path: filePath,
-            content: formattedContent,
-            startLine: start + 1,
-            endLine: end,
-            totalLines: lines.length,
-          });
-        } else {
-          // Return full content
-          results.push({
-            success: true,
-            path: filePath,
-            content: content,
-            totalLines: content.split('\n').length,
-          });
-        }
-      } catch (error) {
-        results.push({
-          success: false,
-          path: filePath,
-          error: `Failed to read file: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        });
-      }
-    }
-
-    // Return batch results
-    return {
-      success: true,
-      data: {
-        batch: true,
-        files: results,
-      },
-    };
-  }
 }

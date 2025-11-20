@@ -25,7 +25,8 @@
         {
           "type": "webview",
           "id": "echode.sidebar",
-          "name": "AI Assistant"
+          "name": "AI Assistant",
+          "icon": "$(robot)"
         }
       ]
     },

@@ -216,8 +216,7 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
               style={{
                 backgroundColor: bgColor,
                 borderColor: borderColor,
-                minWidth: '100%',
-                width: 'fit-content',
+                minWidth: 'max(100%, fit-content)',
               }}
             >
               {/* Line Number */}

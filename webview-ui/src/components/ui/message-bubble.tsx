@@ -9,10 +9,11 @@ interface MessageBubbleProps {
   isEditing?: boolean;
   onEditStart?: (messageId: string) => void;
   onEditCancel?: () => void;
+  onRevert?: (messageId: string) => void;
   isStreaming?: boolean;
 }
 
-export function MessageBubble({ message, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, isStreaming, showCopy }: MessageBubbleProps & { showCopy?: boolean }) {
+export function MessageBubble({ message, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, isStreaming, showCopy }: MessageBubbleProps & { showCopy?: boolean }) {
   if (message.role === 'user') {
     return (
       <UserMessage
@@ -23,6 +24,7 @@ export function MessageBubble({ message, onEdit, onUpdate, isEditing, onEditStar
         isEditing={isEditing || false}
         onEditStart={onEditStart || (() => {})}
         onEditCancel={onEditCancel || (() => {})}
+        onRevert={onRevert}
       />
     );
   }

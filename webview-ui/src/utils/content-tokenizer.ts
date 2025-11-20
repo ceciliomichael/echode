@@ -10,7 +10,7 @@ export type ContentToken =
 /**
  * Valid tool names for detection
  */
-const VALID_TOOL_NAMES = ['read_file', 'write_to_file', 'list_files', 'grep_search', 'edit_file', 'delete_file'];
+const VALID_TOOL_NAMES = ['read_file', 'write_to_file', 'list_files', 'grep_search', 'edit_file', 'delete_file', 'patch_file'];
 
 /**
  * Parse XML-style parameters from tool block content
@@ -97,7 +97,7 @@ function extractCompleteJsonObjects(partialArray: string): unknown[] {
   const objects: unknown[] = [];
   
   // Remove leading [ and whitespace
-  let content = partialArray.slice(1).trim();
+  const content = partialArray.slice(1).trim();
   
   let depth = 0;
   let objStart = -1;

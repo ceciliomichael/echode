@@ -102,18 +102,6 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
           
           // Tool block
           if (token.type === 'tool') {
-            // Check if tool block has required path parameter
-            const hasPath = token.parameters && typeof token.parameters === 'object' && 'path' in token.parameters && token.parameters.path;
-            
-            // If incomplete (no path yet), show loading dots in its position
-            if (!hasPath) {
-              return (
-                <div key={`tool-loading-${messageId}-${token.index}`} style={{ marginTop, paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
-                  <LoadingDots />
-                </div>
-              );
-            }
-            
             // Check adjacent tools in VISIBLE tokens list for sequential grouping
             const isConnectedTop = prevToken?.type === 'tool';
             const isConnectedBottom = nextToken?.type === 'tool';
@@ -140,6 +128,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                   toolCall={toolCall}
                   isConnectedTop={isConnectedTop}
                   isConnectedBottom={isConnectedBottom}
+                  isStreaming={isStreaming && !token.isClosed}
                 />
               </div>
             );

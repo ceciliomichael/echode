@@ -14,6 +14,7 @@ import './tools/list-files-tool.tsx';
 import './tools/grep-search-tool.tsx';
 import './tools/edit-file-tool.tsx';
 import './tools/delete-file-tool.tsx';
+import './tools/patch-file-tool.tsx';
 
 /**
  * Tool status callback for mid-execution updates

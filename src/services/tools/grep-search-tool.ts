@@ -4,18 +4,52 @@ import { ITool, ToolExecutionResult } from './tool.interface';
 import { getDefaultGrepExcludes } from '../../constants/excluded-patterns';
 import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
 
+interface FileMatchResult {
+  file: string;
+  matches: Array<{
+    line: number;
+    column: number;
+    text: string;
+    matchText: string;
+  }>;
+  truncated?: boolean;
+}
+
+interface SkippedFile {
+  file: string;
+  reason: 'binary' | 'tooLarge' | 'regexError' | 'permissionDenied';
+}
+
 export class GrepSearchTool implements ITool {
   name = 'grep_search';
 
   async execute(parameters: Record<string, unknown>): Promise<ToolExecutionResult> {
     const query = parameters.query as string;
     const isRegex = (parameters.isRegex as boolean) ?? false;
-    const caseSensitive = (parameters.caseSensitive as boolean) ?? false;
     const searchPath = (parameters.path as string) || '';
     const includes = (parameters.includes as string[]) || [];
     const excludes = (parameters.excludes as string[]) || getDefaultGrepExcludes();
-    const maxResults = (parameters.maxResults as number) || 100;
+    
+    // New enhanced parameters
+    const smartCase = (parameters.smartCase as boolean) ?? true;
+    const caseSensitive = parameters.caseSensitive !== undefined 
+      ? (parameters.caseSensitive as boolean)
+      : (smartCase && /[A-Z]/.test(query)); // Smart case: uppercase in query = case-sensitive
+    
+    const wholeWord = (parameters.wholeWord as boolean) ?? false;
+    const multiline = (parameters.multiline as boolean) ?? false;
+    const dotAll = (parameters.dotAll as boolean) ?? false;
+    
+    // Limits
+    const maxResults = (parameters.maxResults as number) || 1000;
+    const maxFiles = (parameters.maxFiles as number) || 10000;
+    const maxMatchesPerFile = (parameters.maxMatchesPerFile as number) || 1000;
+    const maxFileSizeBytes = (parameters.maxFileSizeBytes as number) || 5 * 1024 * 1024; // 5MB default
+    
+    // Context
     const contextLines = (parameters.contextLines as number) || 0;
+    const beforeContext = (parameters.beforeContext as number) ?? contextLines;
+    const afterContext = (parameters.afterContext as number) ?? contextLines;
 
     if (!query) {
       return { success: false, error: 'Search query is required' };
@@ -29,46 +63,65 @@ export class GrepSearchTool implements ITool {
 
       const absoluteSearchPath = searchPath ? resolveAbsolutePath(searchPath, workspaceRoot) : workspaceRoot;
 
-      // Build glob pattern for file discovery
-      const includePattern = includes.length > 0 
-        ? `{${includes.join(',')}}` 
-        : '**/*';
-      
-      const excludePattern = `{${excludes.join(',')}}`;
-
-      // Find files
-      const files = await vscode.workspace.findFiles(
-        new vscode.RelativePattern(absoluteSearchPath, includePattern),
-        excludePattern
-      );
-
-      // Prepare search pattern
+      // Prepare regex pattern with enhanced features
       let searchPattern: RegExp;
+      let patternForSearch: string;
+
       try {
         if (isRegex) {
-          searchPattern = new RegExp(query, caseSensitive ? 'g' : 'gi');
+          patternForSearch = query;
+          // Apply whole word wrapping if requested
+          if (wholeWord) {
+            patternForSearch = `\\b(?:${patternForSearch})\\b`;
+          }
         } else {
-          const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          searchPattern = new RegExp(escapedQuery, caseSensitive ? 'g' : 'gi');
+          // Escape special regex characters for literal search
+          patternForSearch = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          // Apply whole word wrapping if requested
+          if (wholeWord) {
+            patternForSearch = `\\b${patternForSearch}\\b`;
+          }
         }
+
+        // Build regex flags
+        let flags = 'g'; // Global
+        if (!caseSensitive) {
+          flags += 'i';
+        }
+        if (multiline) {
+          flags += 'm';
+        }
+        if (dotAll) {
+          flags += 's';
+        }
+        flags += 'u'; // Unicode support
+
+        searchPattern = new RegExp(patternForSearch, flags);
       } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
         return {
           success: false,
-          error: `Invalid regex pattern: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          error: `Invalid regex pattern: ${errorMsg}`,
         };
       }
 
-      const results: Array<{
-        file: string;
-        matches: Array<{
-          line: number;
-          column: number;
-          text: string;
-          matchText: string;
-        }>;
-      }> = [];
+      // Build file search patterns
+      const includePattern = includes.length > 0 ? `{${includes.join(',')}}` : '**/*';
+      const excludePattern = `{${excludes.join(',')}}`;
 
+      // Find files (respects .gitignore via VS Code settings)
+      const files = await vscode.workspace.findFiles(
+        new vscode.RelativePattern(absoluteSearchPath, includePattern),
+        excludePattern,
+        maxFiles
+      );
+
+      const results: FileMatchResult[] = [];
+      const skippedFiles: SkippedFile[] = [];
+      const fileMatchCounts = new Map<string, number>();
+      
       let totalMatches = 0;
+      let totalFilesSearched = 0;
 
       // Search through files
       for (const fileUri of files) {
@@ -76,11 +129,32 @@ export class GrepSearchTool implements ITool {
           break;
         }
 
+        totalFilesSearched++;
+
         try {
+          // Check file size before reading
+          const fileStat = await vscode.workspace.fs.stat(fileUri);
+          if (fileStat.size > maxFileSizeBytes) {
+            skippedFiles.push({
+              file: path.relative(workspaceRoot, fileUri.fsPath),
+              reason: 'tooLarge',
+            });
+            continue;
+          }
+
           const fileContent = await vscode.workspace.fs.readFile(fileUri);
           const content = Buffer.from(fileContent).toString('utf8');
-          const lines = content.split('\n');
 
+          // Check for binary content (contains null bytes)
+          if (content.includes('\u0000')) {
+            skippedFiles.push({
+              file: path.relative(workspaceRoot, fileUri.fsPath),
+              reason: 'binary',
+            });
+            continue;
+          }
+
+          const lines = content.split('\n');
           const fileMatches: Array<{
             line: number;
             column: number;
@@ -88,34 +162,35 @@ export class GrepSearchTool implements ITool {
             matchText: string;
           }> = [];
 
+          let fileMatchCount = 0;
+
           for (let i = 0; i < lines.length; i++) {
-            if (totalMatches >= maxResults) {
+            if (totalMatches >= maxResults || fileMatchCount >= maxMatchesPerFile) {
               break;
             }
 
             const lineText = lines[i];
             const matches = Array.from(lineText.matchAll(searchPattern));
 
-            if (matches.length > 0) {
-              for (const match of matches) {
-                if (totalMatches >= maxResults) {
-                  break;
-                }
-
-                // Get context lines
-                const startLine = Math.max(0, i - contextLines);
-                const endLine = Math.min(lines.length - 1, i + contextLines);
-                const contextText = lines.slice(startLine, endLine + 1).join('\n');
-
-                fileMatches.push({
-                  line: i + 1,
-                  column: match.index ?? 0,
-                  text: contextLines > 0 ? contextText : lineText,
-                  matchText: match[0],
-                });
-
-                totalMatches++;
+            for (const match of matches) {
+              if (totalMatches >= maxResults || fileMatchCount >= maxMatchesPerFile) {
+                break;
               }
+
+              // Get context lines
+              const startLine = Math.max(0, i - beforeContext);
+              const endLine = Math.min(lines.length - 1, i + afterContext);
+              const contextText = lines.slice(startLine, endLine + 1).join('\n');
+
+              fileMatches.push({
+                line: i + 1,
+                column: match.index ?? 0,
+                text: beforeContext > 0 || afterContext > 0 ? contextText : lineText,
+                matchText: match[0],
+              });
+
+              fileMatchCount++;
+              totalMatches++;
             }
           }
 
@@ -124,10 +199,17 @@ export class GrepSearchTool implements ITool {
             results.push({
               file: relativePath,
               matches: fileMatches,
+              truncated: fileMatchCount >= maxMatchesPerFile,
             });
+            fileMatchCounts.set(relativePath, fileMatchCount);
           }
         } catch (error) {
           // Skip files that can't be read
+          const relativePath = path.relative(workspaceRoot, fileUri.fsPath);
+          skippedFiles.push({
+            file: relativePath,
+            reason: 'permissionDenied',
+          });
           continue;
         }
       }
@@ -138,10 +220,21 @@ export class GrepSearchTool implements ITool {
           query,
           isRegex,
           caseSensitive,
+          wholeWord,
+          multiline,
+          smartCase,
           totalMatches,
           filesWithMatches: results.length,
+          totalFilesSearched,
+          totalFilesSkipped: skippedFiles.length,
           results,
-          truncated: totalMatches >= maxResults,
+          skippedFiles: skippedFiles.length > 0 ? skippedFiles : undefined,
+          truncated: totalMatches >= maxResults || totalFilesSearched >= maxFiles,
+          truncatedReason: totalMatches >= maxResults 
+            ? 'maxResults' 
+            : totalFilesSearched >= maxFiles 
+              ? 'maxFiles' 
+              : undefined,
         },
       };
     } catch (error) {

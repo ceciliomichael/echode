@@ -11,7 +11,6 @@ function generateWebviewHtml(
   options: {
     title: string;
     isSettingsPanel?: boolean;
-    isHistoryPanel?: boolean;
     workspaceInfo?: {
       path: string;
       name: string;
@@ -68,10 +67,6 @@ function generateWebviewHtml(
     scriptContent += '\n    window.isSettingsPanel = true;';
   }
 
-  if (options.isHistoryPanel) {
-    scriptContent += '\n    window.isHistoryPanel = true;';
-  }
-
   if (options.workspaceInfo) {
     scriptContent += `\n    window.workspaceContext = ${JSON.stringify(options.workspaceInfo)};`;
   }
@@ -124,15 +119,3 @@ export function getSettingsHtml(
   });
 }
 
-/**
- * Generate HTML for history panel
- */
-export function getHistoryHtml(
-  webview: vscode.Webview,
-  extensionUri: vscode.Uri
-): string {
-  return generateWebviewHtml(webview, extensionUri, {
-    title: 'Chat History',
-    isHistoryPanel: true,
-  });
-}

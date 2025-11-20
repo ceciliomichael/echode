@@ -10,6 +10,7 @@ const VALID_TOOL_NAMES = new Set([
   'grep_search',
   'edit_file',
   'delete_file',
+  'patch_file',
 ]);
 
 /**
@@ -74,14 +75,16 @@ function parseXMLParameters(content: string): Record<string, unknown> {
  * Parse parameter value with type coercion
  */
 function parseParamValue(value: string): unknown {
+  const trimmedValue = value.trim();
+  
   // Try to parse as JSON first (for arrays, objects, booleans, numbers)
-  if (value.startsWith('[') || value.startsWith('{')) {
+  if (trimmedValue.startsWith('[') || trimmedValue.startsWith('{')) {
     try {
-      return JSON.parse(value);
+      return JSON.parse(trimmedValue);
     } catch {
       // If it's a partial array, try to extract complete objects
-      if (value.startsWith('[')) {
-        const completeObjects = extractCompleteJsonObjects(value);
+      if (trimmedValue.startsWith('[')) {
+        const completeObjects = extractCompleteJsonObjects(trimmedValue);
         if (completeObjects.length > 0) {
           return completeObjects;
         }
@@ -90,13 +93,41 @@ function parseParamValue(value: string): unknown {
     }
   }
   
+  // Handle newline-separated JSON objects (common AI output format)
+  // Example: {"path": "file1.ts"}\n{"path": "file2.ts"}
+  if (trimmedValue.includes('\n') && trimmedValue.includes('{')) {
+    try {
+      const lines = trimmedValue.split('\n').filter(line => line.trim());
+      const objects = lines
+        .map(line => {
+          try {
+            return JSON.parse(line.trim());
+          } catch {
+            return null;
+          }
+        })
+        .filter(obj => obj !== null);
+      
+      // If we successfully parsed multiple objects, return as array
+      if (objects.length > 1) {
+        return objects;
+      }
+      // If only one object, try to parse the whole value as single JSON
+      if (objects.length === 1 && lines.length === 1) {
+        return objects[0];
+      }
+    } catch {
+      // Fall through to other parsing methods
+    }
+  }
+  
   // Handle boolean values
-  if (value === 'true') return true;
-  if (value === 'false') return false;
+  if (trimmedValue === 'true') return true;
+  if (trimmedValue === 'false') return false;
   
   // Handle numeric values
-  if (value && !isNaN(Number(value))) {
-    return Number(value);
+  if (trimmedValue && !isNaN(Number(trimmedValue))) {
+    return Number(trimmedValue);
   }
   
   // Default: treat as string
@@ -111,7 +142,7 @@ function extractCompleteJsonObjects(partialArray: string): unknown[] {
   const objects: unknown[] = [];
   
   // Remove leading [ and whitespace
-  let content = partialArray.slice(1).trim();
+  const content = partialArray.slice(1).trim();
   
   let depth = 0;
   let objStart = -1;

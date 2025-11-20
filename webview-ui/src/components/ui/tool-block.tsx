@@ -18,12 +18,21 @@ interface ToolBlockProps {
   toolCall: ToolCall;
   isConnectedTop?: boolean;
   isConnectedBottom?: boolean;
+  isStreaming?: boolean;
 }
 
-const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBottom = false }: ToolBlockProps) => {
+const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBottom = false, isStreaming = false }: ToolBlockProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const statusConfig = useMemo(() => {
+    // Show streaming state for incomplete tool blocks
+    if (isStreaming) {
+      return {
+        icon: <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--vscode-charts-blue)' }} />,
+        label: 'Streaming',
+      };
+    }
+    
     switch (toolCall.status) {
       case 'pending':
       case 'executing':
@@ -52,7 +61,7 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
           label: 'Unknown',
         };
     }
-  }, [toolCall.status]);
+  }, [isStreaming, toolCall.status]);
 
   // Get file path and icon configuration
   const fileInfo = useMemo(() => {
@@ -85,8 +94,9 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
     // Grep search -> Use Search icon
     if (toolCall.toolName === 'grep_search') {
       const query = toolCall.parameters.query as string;
+      const truncatedQuery = query && query.length > 60 ? query.substring(0, 60) + '...' : query;
       return {
-        displayName: query ? `Search: ${query}` : 'Search',
+        displayName: truncatedQuery ? `Search: ${truncatedQuery}` : 'Search',
         fullPath: path || '',
         icon: Search,
         iconColor: 'var(--vscode-editor-foreground)',
@@ -136,7 +146,7 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
       icon: metadata?.icon || getFileIconConfig('').icon,
       iconColor: 'var(--vscode-editor-foreground)',
     };
-  }, [toolCall.parameters.path, toolCall.parameters.query, toolCall.toolName, toolCall.result]);
+  }, [toolCall.parameters.path, toolCall.parameters.query, toolCall.toolName]);
 
   return (
     <div 

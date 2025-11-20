@@ -20,10 +20,10 @@ registerToolPlugin({
     id: 'edit_file',
     name: 'Edit File',
     description: 'Edit files using find-and-replace operations',
-    aiDescription: 'Edit files by performing precise find-and-replace operations. Supports multiple edits in a single operation.',
+    aiDescription: 'Edit files by performing precise find-and-replace operations. CRITICAL: Always read_file first to see current content. oldString must match EXACTLY (including whitespace). Add surrounding context to make matches unique. Supports multiple sequential edits in one call.',
     icon: FileEdit,
     usage: 'Edit files using find-and-replace operations',
-    formatExample: '<edit_file>\n<path>src/app.ts</path>\n<edits>[{"oldString": "const x = 1", "newString": "const x = 2"}]</edits>\n</edit_file>',
+    formatExample: '<edit_file>\n<path>src/app.ts</path>\n<edits>[{"oldString": "function init() {\\n  const x = 1;\\n}", "newString": "function init() {\\n  const x = 2;\\n}"}]</edits>\n</edit_file>',
   },
   handler: {
     execute: executeEditFile,

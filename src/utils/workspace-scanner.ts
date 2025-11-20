@@ -41,7 +41,7 @@ const EXCLUDED_FILES = [
 /**
  * Check if a file or directory should be excluded from scanning
  */
-function shouldExclude(name: string, isDirectory: boolean): boolean {
+export function shouldExclude(name: string, isDirectory: boolean): boolean {
   if (isDirectory && EXCLUDED_DIRECTORIES.includes(name)) {
     return true;
   }
