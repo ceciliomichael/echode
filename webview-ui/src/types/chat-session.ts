@@ -20,6 +20,10 @@ export interface ChatSession {
     messageCount: number;
     preview: string;
   };
+  uiState?: {
+    editingMessageId: string | null;
+    revertPreviewMessageId: string | null;
+  };
 }
 
 export interface ChatSessionSummary {

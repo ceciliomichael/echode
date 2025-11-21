@@ -7,7 +7,7 @@ import { useToolExecution } from './use-tool-execution';
 import { useChatStreaming } from './use-chat-streaming';
 import { storageService } from '../utils/storage';
 import { toolHistoryApi } from '../services/tool-history-api';
-import { getSessionUiState, setSessionEditingMessage, setSessionRevertPreview } from '../utils/session-ui-state';
+import { setSessionEditingMessage, setSessionRevertPreview, loadSessionUiState } from '../utils/session-ui-state';
 
 export function useStreamingChat(currentTodos?: Array<{ id: string; content: string; status: string }>) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -79,10 +79,16 @@ export function useStreamingChat(currentTodos?: Array<{ id: string; content: str
         setCurrentSessionId(session.id);
         storageService.setCurrentSessionId(session.id);
         
-        // Restore session UI state (editing message and revert preview if any)
-        const sessionUiState = getSessionUiState(session.id);
-        setEditingMessageId(sessionUiState.editingMessageId);
-        setRevertPreviewMessageId(sessionUiState.revertPreviewMessageId);
+        // Load and restore session UI state from database
+        if (session.uiState) {
+          loadSessionUiState(session.id, session.uiState);
+          setEditingMessageId(session.uiState.editingMessageId);
+          setRevertPreviewMessageId(session.uiState.revertPreviewMessageId);
+        } else {
+          // Fallback for sessions without UI state
+          setEditingMessageId(null);
+          setRevertPreviewMessageId(null);
+        }
         
         setMessages(session.messages.map(msg => ({
           id: msg.id,
@@ -202,12 +208,6 @@ export function useStreamingChat(currentTodos?: Array<{ id: string; content: str
 
   const clearChat = useCallback(() => {
     setMessages([]);
-    const oldSessionId = currentSessionIdRef.current;
-    if (oldSessionId) {
-      // Clear session UI state when starting new chat
-      setSessionEditingMessage(oldSessionId, null);
-      setSessionRevertPreview(oldSessionId, null);
-    }
     currentSessionIdRef.current = null;
     setCurrentSessionId(null);
     storageService.clearCurrentSessionId();

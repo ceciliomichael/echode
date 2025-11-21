@@ -280,6 +280,21 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
             }
           }
           break;
+        case 'setSessionUiState':
+          await this._historyService.setSessionUiState(
+            data.sessionId,
+            data.editingMessageId,
+            data.revertPreviewMessageId
+          );
+          break;
+        case 'getSessionUiState':
+          const uiState = await this._historyService.getSessionUiState(data.sessionId);
+          webviewView.webview.postMessage({
+            type: 'sessionUiStateLoaded',
+            sessionId: data.sessionId,
+            uiState
+          });
+          break;
       }
     });
   }
