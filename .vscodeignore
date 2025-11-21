@@ -1,7 +1,6 @@
 .vscode/**
 .vscode-test/**
 out/**
-node_modules/**
 src/**
 webview-ui/src/**
 webview-ui/node_modules/**
@@ -25,3 +24,12 @@ vsc-extension-quickstart.md
 AGENTS.md
 .vscode-test.mjs
 eslint.config.mjs
+node_modules/@types/**
+node_modules/@vscode/**
+node_modules/esbuild/**
+node_modules/eslint/**
+node_modules/typescript/**
+node_modules/typescript-eslint/**
+node_modules/npm-run-all/**
+node_modules/electron-rebuild/**
+node_modules/.bin/**

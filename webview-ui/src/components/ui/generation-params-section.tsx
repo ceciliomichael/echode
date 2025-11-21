@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState, useMemo } from 'react';
 
 interface GenerationParamsSectionProps {
   maxTokens: number;
@@ -13,40 +13,55 @@ export function GenerationParamsSection({
   onMaxTokensChange,
   onTemperatureChange
 }: GenerationParamsSectionProps) {
+  const [isEditingMaxTokens, setIsEditingMaxTokens] = useState(false);
+  const [maxTokensInput, setMaxTokensInput] = useState('');
   const [isEditingTemperature, setIsEditingTemperature] = useState(false);
-  const [temperatureInput, setTemperatureInput] = useState(
-    temperature === undefined || Number.isNaN(temperature) ? '' : String(temperature)
-  );
+  const [temperatureInput, setTemperatureInput] = useState('');
 
-  useEffect(() => {
-    if (!isEditingTemperature) {
-      setTemperatureInput(
-        temperature === undefined || Number.isNaN(temperature) ? '' : String(temperature)
-      );
+  const maxTokensDisplayValue = useMemo(() => {
+    return isEditingMaxTokens ? maxTokensInput : 
+           (maxTokens === undefined || maxTokens === 0 ? '' : String(maxTokens));
+  }, [maxTokens, isEditingMaxTokens, maxTokensInput]);
+
+  const temperatureDisplayValue = useMemo(() => {
+    return isEditingTemperature ? temperatureInput : 
+           (temperature === undefined || Number.isNaN(temperature) ? '' : String(temperature));
+  }, [temperature, isEditingTemperature, temperatureInput]);
+
+  const handleMaxTokensInputChange = (value: string) => {
+    if (value === '' || /^\d+$/.test(value)) {
+      setMaxTokensInput(value);
     }
-  }, [temperature, isEditingTemperature]);
+  };
+
+  const handleMaxTokensCommit = () => {
+    setIsEditingMaxTokens(false);
+    if (maxTokensInput === '') {
+      onMaxTokensChange(8192);
+      return;
+    }
+
+    const parsed = Number(maxTokensInput);
+    if (!Number.isNaN(parsed)) {
+      onMaxTokensChange(parsed);
+    }
+  };
 
   const handleTemperatureInputChange = (value: string) => {
     if (/^\d*\.?\d*$/.test(value)) {
       setTemperatureInput(value);
-      if (value !== '' && value !== '.') {
-        onTemperatureChange(Number(value));
-      }
     }
   };
 
   const handleTemperatureCommit = () => {
     setIsEditingTemperature(false);
     if (temperatureInput === '' || temperatureInput === '.') {
-      setTemperatureInput('');
       onTemperatureChange(0);
       return;
     }
 
     const parsed = Number(temperatureInput);
     if (!Number.isNaN(parsed)) {
-      const normalized = String(parsed);
-      setTemperatureInput(normalized);
       onTemperatureChange(parsed);
     }
   };
@@ -74,13 +89,11 @@ export function GenerationParamsSection({
         <input
           id="maxTokens"
           type="text"
-          value={maxTokens || ''}
-          onChange={(e) => {
-            const value = e.target.value;
-            if (value === '' || /^\d+$/.test(value)) {
-              onMaxTokensChange(value === '' ? 8192 : Number(value));
-            }
-          }}
+          inputMode="numeric"
+          value={maxTokensDisplayValue}
+          onChange={(e) => handleMaxTokensInputChange(e.target.value)}
+          onFocus={() => setIsEditingMaxTokens(true)}
+          onBlur={handleMaxTokensCommit}
           placeholder="Default: 8192"
           className="w-full px-3 py-2 text-sm rounded-xl border transition-colors"
           style={{
@@ -103,7 +116,7 @@ export function GenerationParamsSection({
           id="temperature"
           type="text"
           inputMode="decimal"
-          value={temperatureInput}
+          value={temperatureDisplayValue}
           onChange={(e) => handleTemperatureInputChange(e.target.value)}
           onFocus={() => setIsEditingTemperature(true)}
           onBlur={handleTemperatureCommit}

@@ -1,9 +1,9 @@
 {
   "name": "echode",
-  "displayName": "echode",
+  "displayName": "Echode",
   "description": "Agentic Coding",
-  "version": "0.0.1",
-  "publisher": "echode",
+  "version": "1.0.0",
+  "publisher": "EchoSphere",
   "repository": {
     "type": "git",
     "url": "https://github.com/ceciliomichael/echode"
@@ -51,26 +51,7 @@
         "title": "Open Settings",
         "icon": "$(settings-gear)"
       }
-    ],
-    "menus": {
-      "view/title": [
-        {
-          "command": "echode.newChat",
-          "when": "view == echode.sidebar",
-          "group": "navigation@1"
-        },
-        {
-          "command": "echode.openHistory",
-          "when": "view == echode.sidebar",
-          "group": "navigation@2"
-        },
-        {
-          "command": "echode.openSettings",
-          "when": "view == echode.sidebar",
-          "group": "navigation@3"
-        }
-      ]
-    }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
