@@ -51,7 +51,26 @@
         "title": "Open Settings",
         "icon": "$(settings-gear)"
       }
-    ]
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "echode.newChat",
+          "when": "view == echode.sidebar",
+          "group": "navigation@1"
+        },
+        {
+          "command": "echode.openHistory",
+          "when": "view == echode.sidebar",
+          "group": "navigation@2"
+        },
+        {
+          "command": "echode.openSettings",
+          "when": "view == echode.sidebar",
+          "group": "navigation@3"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
@@ -59,7 +78,7 @@
     "watch": "npm-run-all -p watch:*",
     "watch:esbuild": "node esbuild.js --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-    "package": "npm run check-types && npm run lint && node esbuild.js --production",
+    "package": "cd webview-ui && npm run build && cd .. && npm run check-types && npm run lint && node esbuild.js --production",
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",

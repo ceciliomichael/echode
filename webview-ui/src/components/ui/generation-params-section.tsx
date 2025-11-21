@@ -20,13 +20,18 @@ export function GenerationParamsSection({
 
   const maxTokensDisplayValue = useMemo(() => {
     return isEditingMaxTokens ? maxTokensInput : 
-           (maxTokens === undefined || maxTokens === 0 ? '' : String(maxTokens));
+           (maxTokens === undefined || Number.isNaN(maxTokens) || maxTokens === 8192 ? '' : String(maxTokens));
   }, [maxTokens, isEditingMaxTokens, maxTokensInput]);
 
   const temperatureDisplayValue = useMemo(() => {
     return isEditingTemperature ? temperatureInput : 
-           (temperature === undefined || Number.isNaN(temperature) ? '' : String(temperature));
+           (temperature === undefined || Number.isNaN(temperature) || temperature === 0 ? '' : String(temperature));
   }, [temperature, isEditingTemperature, temperatureInput]);
+
+  const handleMaxTokensFocus = () => {
+    setIsEditingMaxTokens(true);
+    setMaxTokensInput(maxTokens === undefined || Number.isNaN(maxTokens) || maxTokens === 8192 ? '' : String(maxTokens));
+  };
 
   const handleMaxTokensInputChange = (value: string) => {
     if (value === '' || /^\d+$/.test(value)) {
@@ -45,6 +50,11 @@ export function GenerationParamsSection({
     if (!Number.isNaN(parsed)) {
       onMaxTokensChange(parsed);
     }
+  };
+
+  const handleTemperatureFocus = () => {
+    setIsEditingTemperature(true);
+    setTemperatureInput(temperature === undefined || Number.isNaN(temperature) || temperature === 0 ? '' : String(temperature));
   };
 
   const handleTemperatureInputChange = (value: string) => {
@@ -92,9 +102,9 @@ export function GenerationParamsSection({
           inputMode="numeric"
           value={maxTokensDisplayValue}
           onChange={(e) => handleMaxTokensInputChange(e.target.value)}
-          onFocus={() => setIsEditingMaxTokens(true)}
+          onFocus={handleMaxTokensFocus}
           onBlur={handleMaxTokensCommit}
-          placeholder="Default: 8192"
+          placeholder="8192"
           className="w-full px-3 py-2 text-sm rounded-xl border transition-colors"
           style={{
             backgroundColor: 'var(--vscode-input-background)',
@@ -118,9 +128,9 @@ export function GenerationParamsSection({
           inputMode="decimal"
           value={temperatureDisplayValue}
           onChange={(e) => handleTemperatureInputChange(e.target.value)}
-          onFocus={() => setIsEditingTemperature(true)}
+          onFocus={handleTemperatureFocus}
           onBlur={handleTemperatureCommit}
-          placeholder="Default: 0"
+          placeholder="0"
           className="w-full px-3 py-2 text-sm rounded-xl border transition-colors"
           style={{
             backgroundColor: 'var(--vscode-input-background)',
