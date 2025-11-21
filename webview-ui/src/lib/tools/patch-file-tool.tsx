@@ -19,7 +19,7 @@ registerToolPlugin({
     aiDescription: 'Apply structured diff/patch changes to files using unified diff format. More precise and reliable than edit_file for complex line-based modifications. Takes a diff/patch content as input with line numbers and context.',
     icon: FileDiff,
     usage: 'Apply unified diff patches to files',
-    formatExample: '<patch_file>\n<path>src/app.ts</path>\n<patch>--- a/src/app.ts\n+++ b/src/app.ts\n@@ -10,7 +10,8 @@ function example() {\n   const x = 1;\n-  const y = 2;\n+  const y = 3;\n+  const z = 4;\n   return x + y;\n }</patch>\n</patch_file>',
+    formatExample: '<function_call>\n<tool_name>patch_file</tool_name>\n<path>src/app.ts</path>\n<patch>--- a/src/app.ts\n+++ b/src/app.ts\n@@ -10,7 +10,8 @@ function example() {\n   const x = 1;\n-  const y = 2;\n+  const y = 3;\n+  const z = 4;\n   return x + y;\n }</patch>\n</function_call>',
   },
   handler: {
     execute: executePatchFile,

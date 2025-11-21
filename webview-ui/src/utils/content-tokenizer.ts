@@ -129,21 +129,11 @@ function extractCompleteJsonObjects(partialArray: string): unknown[] {
 }
 
 /**
- * Find the next tool block start position
+ * Find the next tool block start position (function_call tag)
  */
-function findNextToolStart(content: string, fromPosition: number): { position: number; toolName: string } | null {
-  let earliestPos = -1;
-  let earliestTool = '';
-  
-  for (const toolName of VALID_TOOL_NAMES) {
-    const pos = content.indexOf(`<${toolName}>`, fromPosition);
-    if (pos !== -1 && (earliestPos === -1 || pos < earliestPos)) {
-      earliestPos = pos;
-      earliestTool = toolName;
-    }
-  }
-  
-  return earliestPos !== -1 ? { position: earliestPos, toolName: earliestTool } : null;
+function findNextToolStart(content: string, fromPosition: number): number {
+  const pos = content.indexOf('<function_call>', fromPosition);
+  return pos !== -1 ? pos : -1;
 }
 
 /**
@@ -157,21 +147,26 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
   let toolIndex = 0;
 
   while (position < content.length) {
-    // Check for think block and tool block
+    // Check for think/thinking blocks and tool blocks
     const thinkStart = content.indexOf('<think>', position);
-    const toolInfo = findNextToolStart(content, position);
-    const toolStart = toolInfo?.position ?? -1;
+    const thinkingStart = content.indexOf('<thinking>', position);
+    const toolStart = findNextToolStart(content, position);
     
     // Determine which comes first
     let nextBlockStart = -1;
-    let blockType: 'think' | 'tool' | null = null;
+    let blockType: 'think' | 'thinking' | 'tool' | null = null;
     
-    if (thinkStart !== -1 && (toolStart === -1 || thinkStart < toolStart)) {
-      nextBlockStart = thinkStart;
-      blockType = 'think';
-    } else if (toolStart !== -1) {
-      nextBlockStart = toolStart;
-      blockType = 'tool';
+    // Find the earliest block
+    const candidates = [
+      { pos: thinkStart, type: 'think' as const },
+      { pos: thinkingStart, type: 'thinking' as const },
+      { pos: toolStart, type: 'tool' as const }
+    ].filter(c => c.pos !== -1);
+    
+    if (candidates.length > 0) {
+      const earliest = candidates.reduce((min, curr) => curr.pos < min.pos ? curr : min);
+      nextBlockStart = earliest.pos;
+      blockType = earliest.type;
     }
     
     // Add text before next block
@@ -216,116 +211,138 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
         break;
       }
     }
+    // Process thinking block
+    else if (blockType === 'thinking') {
+      const contentStart = thinkingStart + 10; // length of '<thinking>'
+      const closeTag = content.indexOf('</thinking>', contentStart);
+      
+      if (closeTag !== -1) {
+        // Closed thinking block
+        const thinkContent = content.slice(contentStart, closeTag);
+        tokens.push({
+          type: 'think',
+          content: thinkContent,
+          index: tokenIndex++,
+          isClosed: true
+        });
+        position = closeTag + 11; // Skip past '</thinking>'
+      } else {
+        // Unclosed thinking block (streaming)
+        const thinkContent = content.slice(contentStart);
+        tokens.push({
+          type: 'think',
+          content: thinkContent,
+          index: tokenIndex++,
+          isClosed: false
+        });
+        position = content.length;
+        break;
+      }
+    }
     // Process tool block
     else if (blockType === 'tool') {
-      // Get the tool name from toolInfo (already validated)
-      const toolName = toolInfo!.toolName;
-      const openingTag = `<${toolName}>`;
-      const closingTag = `</${toolName}>`;
+      const openingTag = '<function_call>';
+      const closingTag = '</function_call>';
       
-      const paramStart = toolStart + openingTag.length;
-      const closeMarker = content.indexOf(closingTag, paramStart);
+      const contentStart = toolStart + openingTag.length;
+      const closeMarker = content.indexOf(closingTag, contentStart);
       
       if (closeMarker !== -1) {
         // Closed tool block
-        const paramString = content.slice(paramStart, closeMarker);
+        const innerContent = content.slice(contentStart, closeMarker);
         const closingTagLength = closingTag.length;
         const rawContent = content.slice(toolStart, closeMarker + closingTagLength);
         
         try {
-          const parameters = parseXMLParameters(paramString);
+          const parameters = parseXMLParameters(innerContent);
+          const toolName = parameters.tool_name as string;
           
-          // Special handling for read_file with files array
-          if (toolName === 'read_file' && parameters.files && Array.isArray(parameters.files)) {
-            // Create individual tool tokens for each file in the array
-            parameters.files.forEach((file: unknown, fileIdx: number) => {
-              if (typeof file === 'object' && file !== null && 'path' in file) {
-                tokens.push({
-                  type: 'tool',
-                  toolName,
-                  parameters: { path: (file as { path: string }).path, ...(file as Record<string, unknown>) },
-                  rawContent: `<${toolName}><path>${(file as { path: string }).path}</path></${toolName}>`,
-                  index: tokenIndex++,
-                  isClosed: true,
-                  toolExecutionId: `${messageId}-tool-${toolIndex}-file-${fileIdx}`
-                });
-              }
-            });
-            toolIndex++;
-          } else {
-            // Regular single tool token
-            tokens.push({
-              type: 'tool',
-              toolName,
-              parameters,
-              rawContent,
-              index: tokenIndex++,
-              isClosed: true,
-              toolExecutionId: `${messageId}-tool-${toolIndex++}`
-            });
+          if (toolName && typeof toolName === 'string' && VALID_TOOL_NAMES.includes(toolName)) {
+            // Remove tool_name from parameters
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { tool_name, ...actualParameters } = parameters;
+            
+            // Special handling for read_file with files array
+            if (toolName === 'read_file' && actualParameters.files && Array.isArray(actualParameters.files)) {
+              // Create individual tool tokens for each file in the array
+              (actualParameters.files as Array<unknown>).forEach((file: unknown, fileIdx: number) => {
+                if (typeof file === 'object' && file !== null && 'path' in file) {
+                  tokens.push({
+                    type: 'tool',
+                    toolName,
+                    parameters: { path: (file as { path: string }).path, ...(file as Record<string, unknown>) },
+                    rawContent: `<function_call><tool_name>${toolName}</tool_name><path>${(file as { path: string }).path}</path></function_call>`,
+                    index: tokenIndex++,
+                    isClosed: true,
+                    toolExecutionId: `${messageId}-tool-${toolIndex}-file-${fileIdx}`
+                  });
+                }
+              });
+              toolIndex++;
+            } else {
+              // Regular single tool token
+              tokens.push({
+                type: 'tool',
+                toolName,
+                parameters: actualParameters,
+                rawContent,
+                index: tokenIndex++,
+                isClosed: true,
+                toolExecutionId: `${messageId}-tool-${toolIndex++}`
+              });
+            }
           }
           position = closeMarker + closingTagLength;
         } catch {
-          // XML parsing failed but block is closed. Create token with empty params.
-          tokens.push({
-            type: 'tool',
-            toolName,
-            parameters: {},
-            rawContent,
-            index: tokenIndex++,
-            isClosed: true,
-            toolExecutionId: `${messageId}-tool-${toolIndex++}`
-          });
+          // XML parsing failed but block is closed. Skip this block.
           position = closeMarker + closingTagLength;
         }
       } else {
         // Unclosed tool block (streaming)
-        const paramString = content.slice(paramStart);
+        const innerContent = content.slice(contentStart);
         const rawContent = content.slice(toolStart);
         
         try {
-          const parameters = parseXMLParameters(paramString);
+          const parameters = parseXMLParameters(innerContent);
+          const toolName = parameters.tool_name as string;
           
-          // Special handling for read_file with files array during streaming
-          if (toolName === 'read_file' && parameters.files && Array.isArray(parameters.files)) {
-            // Create individual tool tokens for each complete file in the array
-            parameters.files.forEach((file: unknown, fileIdx: number) => {
-              if (typeof file === 'object' && file !== null && 'path' in file) {
-                tokens.push({
-                  type: 'tool',
-                  toolName,
-                  parameters: { path: (file as { path: string }).path, ...(file as Record<string, unknown>) },
-                  rawContent: `<${toolName}><path>${(file as { path: string }).path}</path></${toolName}>`,
-                  index: tokenIndex++,
-                  isClosed: false,
-                  toolExecutionId: `${messageId}-tool-${toolIndex}-file-${fileIdx}`
-                });
-              }
-            });
-            toolIndex++;
-          } else {
-            // Regular single tool token
-            tokens.push({
-              type: 'tool',
-              toolName,
-              parameters,
-              rawContent,
-              index: tokenIndex++,
-              isClosed: false,
-              toolExecutionId: `${messageId}-tool-${toolIndex++}`
-            });
+          if (toolName && typeof toolName === 'string' && VALID_TOOL_NAMES.includes(toolName)) {
+            // Remove tool_name from parameters
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { tool_name, ...actualParameters } = parameters;
+            
+            // Special handling for read_file with files array during streaming
+            if (toolName === 'read_file' && actualParameters.files && Array.isArray(actualParameters.files)) {
+              // Create individual tool tokens for each complete file in the array
+              (actualParameters.files as Array<unknown>).forEach((file: unknown, fileIdx: number) => {
+                if (typeof file === 'object' && file !== null && 'path' in file) {
+                  tokens.push({
+                    type: 'tool',
+                    toolName,
+                    parameters: { path: (file as { path: string }).path, ...(file as Record<string, unknown>) },
+                    rawContent: `<function_call><tool_name>${toolName}</tool_name><path>${(file as { path: string }).path}</path></function_call>`,
+                    index: tokenIndex++,
+                    isClosed: false,
+                    toolExecutionId: `${messageId}-tool-${toolIndex}-file-${fileIdx}`
+                  });
+                }
+              });
+              toolIndex++;
+            } else {
+              // Regular single tool token
+              tokens.push({
+                type: 'tool',
+                toolName,
+                parameters: actualParameters,
+                rawContent,
+                index: tokenIndex++,
+                isClosed: false,
+                toolExecutionId: `${messageId}-tool-${toolIndex++}`
+              });
+            }
           }
         } catch {
-          // XML parsing failed during streaming. Create token with empty params.
-          tokens.push({
-            type: 'tool',
-            toolName,
-            parameters: {},
-            rawContent,
-            index: tokenIndex++,
-            isClosed: false,
-            toolExecutionId: `${messageId}-tool-${toolIndex++}`
-          });
+          // XML parsing failed during streaming. Skip this block.
         }
         position = content.length;
         break;
@@ -335,22 +352,22 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
     else {
       let remainingText = content.slice(position);
       
-      // Hide incomplete tool tag markers during streaming (e.g., "<", "<r", "<read", "<read_f", etc.)
+      // Hide incomplete function_call tag markers during streaming (e.g., "<", "<f", "<func", "<function", etc.)
       // This prevents flashing when AI is still typing the opening tag
-      // Check if remaining text ends with partial tool name
+      // Check if remaining text ends with partial function_call tag
       let hasIncompleteTag = false;
+      const functionCallTag = 'function_call';
+      
       if (remainingText.endsWith('<')) {
         hasIncompleteTag = true;
       } else {
-        for (const toolName of VALID_TOOL_NAMES) {
-          for (let i = 1; i < toolName.length + 1; i++) {
-            const partial = `<${toolName.slice(0, i)}`;
-            if (remainingText.endsWith(partial)) {
-              hasIncompleteTag = true;
-              break;
-            }
+        // Check for partial <function_call>
+        for (let i = 1; i <= functionCallTag.length; i++) {
+          const partial = `<${functionCallTag.slice(0, i)}`;
+          if (remainingText.endsWith(partial)) {
+            hasIncompleteTag = true;
+            break;
           }
-          if (hasIncompleteTag) break;
         }
       }
       

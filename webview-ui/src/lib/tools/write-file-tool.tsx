@@ -22,7 +22,7 @@ registerToolPlugin({
     aiDescription: 'Write content to a file. Use this to create new files or update existing ones.',
     icon: FilePlus,
     usage: 'Create or overwrite files with content',
-    formatExample: '<write_to_file>\n<path>src/app.ts</path>\n<content>console.log(\'Hello\');</content>\n</write_to_file>',
+    formatExample: '<function_call>\n<tool_name>write_to_file</tool_name>\n<path>src/app.ts</path>\n<content>console.log(\'Hello\');</content>\n</function_call>',
   },
   handler: {
     execute: executeWriteFile,

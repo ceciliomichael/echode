@@ -23,7 +23,7 @@ registerToolPlugin({
     aiDescription: 'Search for text patterns across workspace files with regex support, file filtering, and context lines.',
     icon: Search,
     usage: 'Search for patterns across workspace files',
-    formatExample: '<grep_search>\n<query>function</query>\n<path>src</path>\n<caseSensitive>false</caseSensitive>\n</grep_search>',
+    formatExample: '<function_call>\n<tool_name>grep_search</tool_name>\n<query>function</query>\n<path>src</path>\n<caseSensitive>false</caseSensitive>\n</function_call>',
   },
   handler: {
     execute: executeGrepSearch,

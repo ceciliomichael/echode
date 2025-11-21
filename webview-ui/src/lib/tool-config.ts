@@ -69,25 +69,26 @@ Use tools to perform workspace operations when necessary.
 
 <tool_format>
 REQUIRED XML format:
-<TOOL_NAME>
+<function_call>
+<tool_name>TOOL_NAME</tool_name>
 <parameter_name>value</parameter_name>
-</TOOL_NAME>
+</function_call>
 
 Parameter types:
 - Primitives: Direct value
 - Arrays/Objects: JSON format (e.g., <files>[...]</files>)
 
 Examples:
-<read_file><path>src/app.ts</path></read_file>
-<write_to_file><path>file.ts</path><content>code</content></write_to_file>
+<function_call><tool_name>read_file</tool_name><path>src/app.ts</path></function_call>
+<function_call><tool_name>write_to_file</tool_name><path>file.ts</path><content>code</content></function_call>
 
 FORBIDDEN formats (will fail):
-- <tool_NAME>{JSON}</tool_NAME>
+- <tool_name>{JSON}</tool_name>
 - Control tokens: <|tool_call_begin|>
 - Markdown: \`\`\`tool:name
 - Colons: <tool:name>
 
-Always close tags properly with </TOOLNAME>.
+Always close tags properly with </function_call>.
 </tool_format>
 
 <available_tools>
@@ -101,34 +102,40 @@ ${enabledTools
       read_file: `Read a single file. For large files (>1000 lines), use offset and limit.
 
 Small file (entire content):
-<read_file>
+<function_call>
+<tool_name>read_file</tool_name>
 <path>src/app.ts</path>
-</read_file>
+</function_call>
 
 Large file (with offset/limit):
-<read_file>
+<function_call>
+<tool_name>read_file</tool_name>
 <path>src/large-file.ts</path>
 <offset>1</offset>
 <limit>100</limit>
-</read_file>
+</function_call>
 
 Multiple files (call sequentially):
-<read_file>
+<function_call>
+<tool_name>read_file</tool_name>
 <path>src/app.ts</path>
-</read_file>
+</function_call>
 
-<read_file>
+<function_call>
+<tool_name>read_file</tool_name>
 <path>src/index.ts</path>
-</read_file>`,
-      write_to_file: `<write_to_file>
+</function_call>`,
+      write_to_file: `<function_call>
+<tool_name>write_to_file</tool_name>
 <path>src/new-component.tsx</path>
 <content>export default function Component() {
   return <div>Hello</div>;
 }</content>
-</write_to_file>`,
-      list_files: `<list_files>
+</function_call>`,
+      list_files: `<function_call>
+<tool_name>list_files</tool_name>
 <path>src/app</path>
-</list_files>
+</function_call>
 
 Returns:
 {
@@ -137,39 +144,44 @@ Returns:
 }
 
 Next steps:
-- To explore "components" → <list_files><path>src/app/components</path></list_files>
-- To read "page.tsx" → <read_file><path>src/app/page.tsx</path></read_file>`,
-      grep_search: `<grep_search>
+- To explore "components" → <function_call><tool_name>list_files</tool_name><path>src/app/components</path></function_call>
+- To read "page.tsx" → <function_call><tool_name>read_file</tool_name><path>src/app/page.tsx</path></function_call>`,
+      grep_search: `<function_call>
+<tool_name>grep_search</tool_name>
 <query>function</query>
 <path>src</path>
-</grep_search>
+</function_call>
 
 With regex:
-<grep_search>
+<function_call>
+<tool_name>grep_search</tool_name>
 <query>import.*from</query>
 <isRegex>true</isRegex>
 <includes>["**/*.ts"]</includes>
-</grep_search>`,
+</function_call>`,
       glob_search: `Find files by glob pattern. Faster than grep_search when you know the file pattern.
 
 Single pattern:
-<glob_search>
+<function_call>
+<tool_name>glob_search</tool_name>
 <pattern>*.ts</pattern>
 <path>src</path>
-</glob_search>
+</function_call>
 
 Multiple patterns:
-<glob_search>
+<function_call>
+<tool_name>glob_search</tool_name>
 <pattern>["*.ts", "*.tsx"]</pattern>
 <path>src/components</path>
-</glob_search>
+</function_call>
 
 Advanced with sorting:
-<glob_search>
+<function_call>
+<tool_name>glob_search</tool_name>
 <pattern>**/*.json</pattern>
 <sortBy>size</sortBy>
 <sortOrder>desc</sortOrder>
-</glob_search>
+</function_call>
 
 Returns:
 {
@@ -182,7 +194,8 @@ Returns:
       edit_file: `CRITICAL: Always read_file first, then use exact content with surrounding context
 
 Good example (with context for unique match):
-<edit_file>
+<function_call>
+<tool_name>edit_file</tool_name>
 <path>src/app.ts</path>
 <edits>[
   {
@@ -190,25 +203,28 @@ Good example (with context for unique match):
     "newString": "export function init() {\\n  const x = 2;\\n  return x;\\n}"
   }
 ]</edits>
-</edit_file>
+</function_call>
 
 Multiple edits (sequential):
-<edit_file>
+<function_call>
+<tool_name>edit_file</tool_name>
 <path>src/config.ts</path>
 <edits>[
   {"oldString": "const MODE = 'DEBUG';", "newString": "const MODE = 'PROD';"},
   {"oldString": "const VERSION = '1.0';", "newString": "const VERSION = '2.0';"}
 ]</edits>
-</edit_file>
+</function_call>
 
 replaceAll for global changes:
-<edit_file>
+<function_call>
+<tool_name>edit_file</tool_name>
 <path>src/constants.ts</path>
 <edits>[{"oldString": "OLD_NAME", "newString": "NEW_NAME", "replaceAll": true}]</edits>
-</edit_file>`,
-      delete_file: `<delete_file>
+</function_call>`,
+      delete_file: `<function_call>
+<tool_name>delete_file</tool_name>
 <path>src/old-file.ts</path>
-</delete_file>`,
+</function_call>`,
     };
     return examples[tool.id] || '';
   })

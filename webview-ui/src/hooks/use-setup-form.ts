@@ -17,6 +17,7 @@ export function useSetupForm(
   const [anthropicModel, setAnthropicModel] = useState(initialSettings.anthropicModel || '');
   const [openaiModel, setOpenaiModel] = useState(initialSettings.openaiModel || '');
   const [openaiCompatibleModel, setOpenaiCompatibleModel] = useState(initialSettings.openaiCompatibleModel || '');
+  const [vscodeLmModel, setVscodeLmModel] = useState(initialSettings.vscodeLmModel || '');
   const [apiKey, setApiKey] = useState(initialSettings.apiKey);
   const [anthropicApiKey, setAnthropicApiKey] = useState(initialSettings.anthropicApiKey || initialSettings.apiKey || '');
   const [openaiApiKey, setOpenaiApiKey] = useState(initialSettings.openaiApiKey || initialSettings.apiKey || '');
@@ -24,9 +25,11 @@ export function useSetupForm(
   const [anthropicMaxTokens, setAnthropicMaxTokens] = useState(initialSettings.anthropicMaxTokens);
   const [openaiMaxTokens, setOpenaiMaxTokens] = useState(initialSettings.openaiMaxTokens);
   const [openaiCompatibleMaxTokens, setOpenaiCompatibleMaxTokens] = useState(initialSettings.openaiCompatibleMaxTokens);
+  const [vscodeLmMaxTokens, setVscodeLmMaxTokens] = useState(initialSettings.vscodeLmMaxTokens);
   const [anthropicTemperature, setAnthropicTemperature] = useState(initialSettings.anthropicTemperature);
   const [openaiTemperature, setOpenaiTemperature] = useState(initialSettings.openaiTemperature);
   const [openaiCompatibleTemperature, setOpenaiCompatibleTemperature] = useState(initialSettings.openaiCompatibleTemperature);
+  const [vscodeLmTemperature, setVscodeLmTemperature] = useState(initialSettings.vscodeLmTemperature);
   const [systemPrompt, setSystemPrompt] = useState(initialSettings.systemPrompt || '');
 
   // Restore model when provider changes
@@ -36,11 +39,13 @@ export function useSetupForm(
         ? anthropicModel 
         : provider === 'openai' 
         ? openaiModel 
-        : openaiCompatibleModel;
+        : provider === 'openai-compatible'
+        ? openaiCompatibleModel
+        : vscodeLmModel;
       setModel(savedModel);
     }, 0);
     return () => clearTimeout(timeoutId);
-  }, [provider, anthropicModel, openaiModel, openaiCompatibleModel]);
+  }, [provider, anthropicModel, openaiModel, openaiCompatibleModel, vscodeLmModel]);
 
   // Sync with initial settings
   useEffect(() => {
@@ -53,6 +58,7 @@ export function useSetupForm(
       setAnthropicModel(initialSettings.anthropicModel || '');
       setOpenaiModel(initialSettings.openaiModel || '');
       setOpenaiCompatibleModel(initialSettings.openaiCompatibleModel || '');
+      setVscodeLmModel(initialSettings.vscodeLmModel || '');
       setApiKey(initialSettings.apiKey);
       setAnthropicApiKey(initialSettings.anthropicApiKey || initialSettings.apiKey || '');
       setOpenaiApiKey(initialSettings.openaiApiKey || initialSettings.apiKey || '');
@@ -60,9 +66,11 @@ export function useSetupForm(
       setAnthropicMaxTokens(initialSettings.anthropicMaxTokens);
       setOpenaiMaxTokens(initialSettings.openaiMaxTokens);
       setOpenaiCompatibleMaxTokens(initialSettings.openaiCompatibleMaxTokens);
+      setVscodeLmMaxTokens(initialSettings.vscodeLmMaxTokens);
       setAnthropicTemperature(initialSettings.anthropicTemperature);
       setOpenaiTemperature(initialSettings.openaiTemperature);
       setOpenaiCompatibleTemperature(initialSettings.openaiCompatibleTemperature);
+      setVscodeLmTemperature(initialSettings.vscodeLmTemperature);
       setSystemPrompt(initialSettings.systemPrompt || '');
     }, 0);
     return () => clearTimeout(timeoutId);
@@ -74,25 +82,32 @@ export function useSetupForm(
       ? anthropicCustomUrl 
       : provider === 'openai' 
       ? openaiCustomUrl 
-      : openaiCompatibleCustomUrl;
+      : provider === 'openai-compatible'
+      ? openaiCompatibleCustomUrl
+      : '';
     
     const currentApiKey = provider === 'anthropic' 
       ? anthropicApiKey 
       : provider === 'openai' 
       ? openaiApiKey 
-      : openaiCompatibleApiKey;
+      : provider === 'openai-compatible'
+      ? openaiCompatibleApiKey
+      : '';
     
     // Update provider-specific model before saving
     let updatedAnthropicModel = anthropicModel;
     let updatedOpenaiModel = openaiModel;
     let updatedOpenaiCompatibleModel = openaiCompatibleModel;
+    let updatedVscodeLmModel = vscodeLmModel;
     
     if (provider === 'anthropic') {
       updatedAnthropicModel = model;
     } else if (provider === 'openai') {
       updatedOpenaiModel = model;
-    } else {
+    } else if (provider === 'openai-compatible') {
       updatedOpenaiCompatibleModel = model;
+    } else if (provider === 'vscode-lm') {
+      updatedVscodeLmModel = model;
     }
     
     const timeoutId = setTimeout(() => {
@@ -106,6 +121,7 @@ export function useSetupForm(
         anthropicModel: updatedAnthropicModel,
         openaiModel: updatedOpenaiModel,
         openaiCompatibleModel: updatedOpenaiCompatibleModel,
+        vscodeLmModel: updatedVscodeLmModel,
         apiKey: currentApiKey, 
         anthropicApiKey,
         openaiApiKey,
@@ -113,15 +129,17 @@ export function useSetupForm(
         anthropicMaxTokens, 
         openaiMaxTokens, 
         openaiCompatibleMaxTokens,
+        vscodeLmMaxTokens,
         anthropicTemperature,
         openaiTemperature,
         openaiCompatibleTemperature,
+        vscodeLmTemperature,
         systemPrompt 
       });
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [provider, anthropicCustomUrl, openaiCustomUrl, openaiCompatibleCustomUrl, model, anthropicModel, openaiModel, openaiCompatibleModel, apiKey, anthropicApiKey, openaiApiKey, openaiCompatibleApiKey, anthropicMaxTokens, openaiMaxTokens, openaiCompatibleMaxTokens, anthropicTemperature, openaiTemperature, openaiCompatibleTemperature, systemPrompt, onSave]);
+  }, [provider, anthropicCustomUrl, openaiCustomUrl, openaiCompatibleCustomUrl, model, anthropicModel, openaiModel, openaiCompatibleModel, vscodeLmModel, apiKey, anthropicApiKey, openaiApiKey, openaiCompatibleApiKey, anthropicMaxTokens, openaiMaxTokens, openaiCompatibleMaxTokens, vscodeLmMaxTokens, anthropicTemperature, openaiTemperature, openaiCompatibleTemperature, vscodeLmTemperature, systemPrompt, onSave]);
 
   // Handle provider change with model persistence
   const handleProviderChange = (newProvider: Provider) => {
@@ -130,8 +148,10 @@ export function useSetupForm(
       setAnthropicModel(model);
     } else if (provider === 'openai') {
       setOpenaiModel(model);
-    } else {
+    } else if (provider === 'openai-compatible') {
       setOpenaiCompatibleModel(model);
+    } else if (provider === 'vscode-lm') {
+      setVscodeLmModel(model);
     }
     
     setProvider(newProvider);
@@ -146,6 +166,7 @@ export function useSetupForm(
     anthropicModel,
     openaiModel,
     openaiCompatibleModel,
+    vscodeLmModel,
     apiKey,
     anthropicApiKey,
     openaiApiKey,
@@ -153,9 +174,11 @@ export function useSetupForm(
     anthropicMaxTokens,
     openaiMaxTokens,
     openaiCompatibleMaxTokens,
+    vscodeLmMaxTokens,
     anthropicTemperature,
     openaiTemperature,
     openaiCompatibleTemperature,
+    vscodeLmTemperature,
     systemPrompt,
     setProvider: handleProviderChange,
     setAnthropicCustomUrl,
@@ -169,9 +192,11 @@ export function useSetupForm(
     setAnthropicMaxTokens,
     setOpenaiMaxTokens,
     setOpenaiCompatibleMaxTokens,
+    setVscodeLmMaxTokens,
     setAnthropicTemperature,
     setOpenaiTemperature,
     setOpenaiCompatibleTemperature,
+    setVscodeLmTemperature,
     setSystemPrompt,
   };
 }

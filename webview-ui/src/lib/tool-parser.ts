@@ -18,15 +18,15 @@ const VALID_TOOL_NAMES = new Set([
 
 /**
  * Centralized regex pattern for tool blocks
- * Format: <TOOL_NAME><param>value</param>...</TOOL_NAME>
+ * Format: <function_call><tool_name>TOOL_NAME</tool_name><param>value</param>...</function_call>
  * 
  * Pattern breakdown:
- * - <([\w_-]+)> - Opening tag with tool name
- * - ([\s\S]*?) - Non-greedy content capture (tool parameters)
- * - </\1> - Closing tag matching the opening tool name
+ * - <function_call> - Opening tag
+ * - ([\s\S]*?) - Non-greedy content capture (tool name + parameters)
+ * - </function_call> - Closing tag
  */
-const TOOL_BLOCK_REGEX = /<([\w_-]+)>([\s\S]*?)<\/\1>/;
-const TOOL_BLOCK_REGEX_GLOBAL = /<([\w_-]+)>([\s\S]*?)<\/\1>/g;
+const TOOL_BLOCK_REGEX = /<function_call>([\s\S]*?)<\/function_call>/;
+const TOOL_BLOCK_REGEX_GLOBAL = /<function_call>([\s\S]*?)<\/function_call>/g;
 
 /**
  * Parse XML-style parameters from tool block content
@@ -180,18 +180,27 @@ function extractCompleteJsonObjects(partialArray: string): unknown[] {
  * Parse a single tool block and return structured data
  */
 function parseToolBlockInternal(
-  toolName: string,
-  parametersStr: string,
+  contentStr: string,
   rawContent: string,
 ): ParsedToolBlock | null {
   try {
     // Parse XML-style parameters from the content
-    const parameters = parseXMLParameters(parametersStr);
+    const parameters = parseXMLParameters(contentStr);
+    
+    // Extract tool_name from parameters
+    const toolName = parameters.tool_name as string;
+    if (!toolName || typeof toolName !== 'string') {
+      return null;
+    }
+    
+    // Remove tool_name from parameters as it's metadata
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { tool_name, ...actualParameters } = parameters;
 
     return {
       type: 'tool',
       toolName,
-      parameters,
+      parameters: actualParameters,
       rawContent,
     };
   } catch {
@@ -201,7 +210,7 @@ function parseToolBlockInternal(
 
 /**
  * Extracts tool calls from XML-style tool blocks
- * Format: <TOOL_NAME><param>value</param></TOOL_NAME>
+ * Format: <function_call><tool_name>TOOL_NAME</tool_name><param>value</param></function_call>
  */
 export function parseToolBlock(content: string): ParsedToolBlock | null {
   const match = content.match(new RegExp(`^${TOOL_BLOCK_REGEX.source}$`, 'm'));
@@ -210,14 +219,15 @@ export function parseToolBlock(content: string): ParsedToolBlock | null {
     return null;
   }
 
-  const toolName = match[1];
+  const innerContent = match[1];
+  const parsed = parseToolBlockInternal(innerContent, match[0]);
   
-  // Validate this is a real tool name, not a parameter tag
-  if (!VALID_TOOL_NAMES.has(toolName)) {
+  // Validate this is a real tool name
+  if (parsed && !VALID_TOOL_NAMES.has(parsed.toolName)) {
     return null;
   }
 
-  return parseToolBlockInternal(toolName, match[2], match[0]);
+  return parsed;
 }
 
 /**
@@ -239,11 +249,10 @@ export function hasCompleteToolBlock(content: string): boolean {
     return false;
   }
 
-  // Remove <think> blocks before checking for tool blocks
-  const contentWithoutThinkBlocks = content.replace(
-    /<think>[\s\S]*?<\/think>/g,
-    '',
-  );
+  // Remove <think> and <thinking> blocks before checking for tool blocks
+  const contentWithoutThinkBlocks = content
+    .replace(/<think>[\s\S]*?<\/think>/g, '')
+    .replace(/<thinking>[\s\S]*?<\/thinking>/g, '');
 
   // Use extractToolBlocks to ensure we can actually parse complete tool blocks
   const toolBlocks = extractToolBlocks(contentWithoutThinkBlocks);
@@ -280,8 +289,9 @@ export function trimToLastCompleteToolBlock(content: string): string {
   regex.lastIndex = 0;
   match = regex.exec(contentWithoutThinkBlocks);
   while (match !== null) {
-    // Only consider valid tool names
-    if (VALID_TOOL_NAMES.has(match[1])) {
+    // Parse and validate tool name
+    const parsed = parseToolBlockInternal(match[1], match[0]);
+    if (parsed && VALID_TOOL_NAMES.has(parsed.toolName)) {
       lastToolBlockEnd = match.index + match[0].length;
     }
     match = regex.exec(contentWithoutThinkBlocks);
@@ -296,8 +306,9 @@ export function trimToLastCompleteToolBlock(content: string): string {
     originalRegex.lastIndex = 0;
     originalMatch = originalRegex.exec(content);
     while (originalMatch !== null) {
-      // Only consider valid tool names
-      if (VALID_TOOL_NAMES.has(originalMatch[1])) {
+      // Parse to validate tool name
+      const parsed = parseToolBlockInternal(originalMatch[1], originalMatch[0]);
+      if (parsed && VALID_TOOL_NAMES.has(parsed.toolName)) {
         originalMatches.push({
           index: originalMatch.index,
           length: originalMatch[0].length,
@@ -338,7 +349,8 @@ export function trimToFirstCompleteToolBlock(content: string): string {
   match = regex.exec(contentWithoutThinkBlocks);
   
   while (match !== null) {
-    if (VALID_TOOL_NAMES.has(match[1])) {
+    const parsed = parseToolBlockInternal(match[1], match[0]);
+    if (parsed && VALID_TOOL_NAMES.has(parsed.toolName)) {
       // Found a valid tool - map back to original content
       const originalRegex = new RegExp(TOOL_BLOCK_REGEX.source, 'g');
       let originalMatch: RegExpExecArray | null;
@@ -347,7 +359,8 @@ export function trimToFirstCompleteToolBlock(content: string): string {
       originalMatch = originalRegex.exec(content);
       
       while (originalMatch !== null) {
-        if (VALID_TOOL_NAMES.has(originalMatch[1])) {
+        const originalParsed = parseToolBlockInternal(originalMatch[1], originalMatch[0]);
+        if (originalParsed && VALID_TOOL_NAMES.has(originalParsed.toolName)) {
           return content.slice(0, originalMatch.index + originalMatch[0].length);
         }
         originalMatch = originalRegex.exec(content);
@@ -376,14 +389,12 @@ export function extractToolBlocks(content: string): ParsedToolBlock[] {
 
   match = TOOL_BLOCK_REGEX_GLOBAL.exec(contentWithoutThinkBlocks);
   while (match !== null) {
-    const toolName = match[1];
+    const innerContent = match[1];
+    const parsed = parseToolBlockInternal(innerContent, match[0]);
     
-    // Only process if this is a valid tool name (not a parameter tag)
-    if (VALID_TOOL_NAMES.has(toolName)) {
-      const parsed = parseToolBlockInternal(toolName, match[2], match[0]);
-      if (parsed) {
-        toolBlocks.push(parsed);
-      }
+    // Only process if this is a valid tool name
+    if (parsed && VALID_TOOL_NAMES.has(parsed.toolName)) {
+      toolBlocks.push(parsed);
     }
     
     match = TOOL_BLOCK_REGEX_GLOBAL.exec(contentWithoutThinkBlocks);

@@ -6,11 +6,12 @@ export interface ChatMessage {
 }
 
 export interface ChatStreamSettings {
-  provider: 'anthropic' | 'openai' | 'openai-compatible';
+  provider: 'anthropic' | 'openai' | 'openai-compatible' | 'vscode-lm';
   apiKey: string;
   model: string;
   maxTokens: number;
   baseURL: string;
+  temperature?: number;
 }
 
 export interface ILLMProvider {

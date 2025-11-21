@@ -23,7 +23,7 @@ registerToolPlugin({
     aiDescription: 'Find files matching glob patterns (e.g., *.ts, **/*.tsx, src/**/*.js). Supports multiple patterns, excludes, and sorting.',
     icon: FileSearch,
     usage: 'Find files based on glob patterns',
-    formatExample: '<glob_search>\n<pattern>*.ts</pattern>\n<path>src</path>\n</glob_search>',
+    formatExample: '<function_call>\n<tool_name>glob_search</tool_name>\n<pattern>*.ts</pattern>\n<path>src</path>\n</function_call>',
   },
   handler: {
     execute: executeGlobSearch,

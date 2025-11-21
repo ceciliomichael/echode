@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Circle, CheckCircle2, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react';
 import type { TodoTask } from '../../types/todo';
 
 interface TodoBlockProps {
@@ -7,11 +7,11 @@ interface TodoBlockProps {
 }
 
 export function TodoBlock({ tasks }: TodoBlockProps) {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   if (tasks.length === 0) return null;
 
-  const getStatusIcon = (status: TodoTask['status']) => {
+  const getStatusIcon = (status: TodoTask['status'], index: number) => {
     switch (status) {
       case 'completed':
         return (
@@ -22,18 +22,30 @@ export function TodoBlock({ tasks }: TodoBlockProps) {
         );
       case 'in_progress':
         return (
-          <Loader2
-            className="w-4 h-4 flex-shrink-0 animate-spin"
-            style={{ color: 'var(--vscode-charts-blue)' }}
-          />
+          <div
+            className="w-4 h-4 flex-shrink-0 flex items-center justify-center rounded-full text-[10px] font-semibold"
+            style={{ 
+              backgroundColor: 'var(--vscode-charts-blue)',
+              color: 'var(--vscode-editor-background)',
+              opacity: 0.9
+            }}
+          >
+            {index + 1}
+          </div>
         );
       case 'pending':
       default:
         return (
-          <Circle
-            className="w-4 h-4 flex-shrink-0"
-            style={{ color: 'var(--vscode-descriptionForeground)' }}
-          />
+          <div
+            className="w-4 h-4 flex-shrink-0 flex items-center justify-center rounded-full text-[10px] font-semibold"
+            style={{ 
+              backgroundColor: 'var(--vscode-descriptionForeground)',
+              color: 'var(--vscode-editor-background)',
+              opacity: 0.4
+            }}
+          >
+            {index + 1}
+          </div>
         );
     }
   };
@@ -82,13 +94,13 @@ export function TodoBlock({ tasks }: TodoBlockProps) {
       {/* Drawer Content - Collapsible */}
       {isExpanded && (
         <div className="px-3 pb-3 pt-2 space-y-2 border-t" style={{ borderColor: 'var(--vscode-input-border)' }}>
-          {tasks.map((task) => (
+          {tasks.map((task, index) => (
             <div
               key={task.id}
               className="w-full flex items-center gap-2.5 py-1"
             >
               <div className="flex-shrink-0 w-4 h-4 flex items-center justify-center">
-                {getStatusIcon(task.status)}
+                {getStatusIcon(task.status, index)}
               </div>
               <span
                 className={`text-sm flex-1 leading-snug ${

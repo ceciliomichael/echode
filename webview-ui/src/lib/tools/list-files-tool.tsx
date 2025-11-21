@@ -23,7 +23,7 @@ registerToolPlugin({
     aiDescription: 'List files and directories in a workspace path. Use this to explore the project structure.',
     icon: FolderTree,
     usage: 'List files and directories in a path',
-    formatExample: '<list_files>\n<path>src</path>\n</list_files>',
+    formatExample: '<function_call>\n<tool_name>list_files</tool_name>\n<path>src</path>\n</function_call>',
   },
   handler: {
     execute: executeListFiles,

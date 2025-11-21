@@ -20,6 +20,7 @@ export function useProviderSettings(initialSettings: ApiSettings) {
   const [anthropicModel, setAnthropicModel] = useState(initialSettings.anthropicModel || '');
   const [openaiModel, setOpenaiModel] = useState(initialSettings.openaiModel || '');
   const [openaiCompatibleModel, setOpenaiCompatibleModel] = useState(initialSettings.openaiCompatibleModel || '');
+  const [vscodeLmModel, setVscodeLmModel] = useState(initialSettings.vscodeLmModel || '');
   
   const [anthropicApiKey, setAnthropicApiKey] = useState(initialSettings.anthropicApiKey || initialSettings.apiKey || '');
   const [openaiApiKey, setOpenaiApiKey] = useState(initialSettings.openaiApiKey || initialSettings.apiKey || '');
@@ -28,30 +29,32 @@ export function useProviderSettings(initialSettings: ApiSettings) {
   const [anthropicMaxTokens, setAnthropicMaxTokens] = useState(initialSettings.anthropicMaxTokens);
   const [openaiMaxTokens, setOpenaiMaxTokens] = useState(initialSettings.openaiMaxTokens);
   const [openaiCompatibleMaxTokens, setOpenaiCompatibleMaxTokens] = useState(initialSettings.openaiCompatibleMaxTokens);
+  const [vscodeLmMaxTokens, setVscodeLmMaxTokens] = useState(initialSettings.vscodeLmMaxTokens);
   
   const [anthropicTemperature, setAnthropicTemperature] = useState(initialSettings.anthropicTemperature);
   const [openaiTemperature, setOpenaiTemperature] = useState(initialSettings.openaiTemperature);
   const [openaiCompatibleTemperature, setOpenaiCompatibleTemperature] = useState(initialSettings.openaiCompatibleTemperature);
+  const [vscodeLmTemperature, setVscodeLmTemperature] = useState(initialSettings.vscodeLmTemperature);
 
   const [model, setModel] = useState(initialSettings.model);
 
   // Get current settings based on provider
   const currentSettings: ProviderSettings = {
-    customUrl: provider === 'anthropic' ? anthropicCustomUrl : provider === 'openai' ? openaiCustomUrl : openaiCompatibleCustomUrl,
-    apiKey: provider === 'anthropic' ? anthropicApiKey : provider === 'openai' ? openaiApiKey : openaiCompatibleApiKey,
+    customUrl: provider === 'anthropic' ? anthropicCustomUrl : provider === 'openai' ? openaiCustomUrl : provider === 'openai-compatible' ? openaiCompatibleCustomUrl : '',
+    apiKey: provider === 'anthropic' ? anthropicApiKey : provider === 'openai' ? openaiApiKey : provider === 'openai-compatible' ? openaiCompatibleApiKey : '',
     model,
-    maxTokens: provider === 'anthropic' ? anthropicMaxTokens : provider === 'openai' ? openaiMaxTokens : openaiCompatibleMaxTokens,
-    temperature: provider === 'anthropic' ? anthropicTemperature : provider === 'openai' ? openaiTemperature : openaiCompatibleTemperature,
+    maxTokens: provider === 'anthropic' ? anthropicMaxTokens : provider === 'openai' ? openaiMaxTokens : provider === 'openai-compatible' ? openaiCompatibleMaxTokens : vscodeLmMaxTokens,
+    temperature: provider === 'anthropic' ? anthropicTemperature : provider === 'openai' ? openaiTemperature : provider === 'openai-compatible' ? openaiCompatibleTemperature : vscodeLmTemperature,
   };
 
   // Restore model when provider changes
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      const savedModel = provider === 'anthropic' ? anthropicModel : provider === 'openai' ? openaiModel : openaiCompatibleModel;
+      const savedModel = provider === 'anthropic' ? anthropicModel : provider === 'openai' ? openaiModel : provider === 'openai-compatible' ? openaiCompatibleModel : vscodeLmModel;
       setModel(savedModel);
     }, 0);
     return () => clearTimeout(timeoutId);
-  }, [provider, anthropicModel, openaiModel, openaiCompatibleModel]);
+  }, [provider, anthropicModel, openaiModel, openaiCompatibleModel, vscodeLmModel]);
 
   // Sync with initial settings
   useEffect(() => {
@@ -64,15 +67,18 @@ export function useProviderSettings(initialSettings: ApiSettings) {
       setAnthropicModel(initialSettings.anthropicModel || '');
       setOpenaiModel(initialSettings.openaiModel || '');
       setOpenaiCompatibleModel(initialSettings.openaiCompatibleModel || '');
+      setVscodeLmModel(initialSettings.vscodeLmModel || '');
       setAnthropicApiKey(initialSettings.anthropicApiKey || initialSettings.apiKey || '');
       setOpenaiApiKey(initialSettings.openaiApiKey || initialSettings.apiKey || '');
       setOpenaiCompatibleApiKey(initialSettings.openaiCompatibleApiKey || initialSettings.apiKey || '');
       setAnthropicMaxTokens(initialSettings.anthropicMaxTokens);
       setOpenaiMaxTokens(initialSettings.openaiMaxTokens);
       setOpenaiCompatibleMaxTokens(initialSettings.openaiCompatibleMaxTokens);
+      setVscodeLmMaxTokens(initialSettings.vscodeLmMaxTokens);
       setAnthropicTemperature(initialSettings.anthropicTemperature);
       setOpenaiTemperature(initialSettings.openaiTemperature);
       setOpenaiCompatibleTemperature(initialSettings.openaiCompatibleTemperature);
+      setVscodeLmTemperature(initialSettings.vscodeLmTemperature);
     }, 0);
     return () => clearTimeout(timeoutId);
   }, [initialSettings]);
@@ -83,8 +89,10 @@ export function useProviderSettings(initialSettings: ApiSettings) {
       setAnthropicModel(model);
     } else if (provider === 'openai') {
       setOpenaiModel(model);
-    } else {
+    } else if (provider === 'openai-compatible') {
       setOpenaiCompatibleModel(model);
+    } else if (provider === 'vscode-lm') {
+      setVscodeLmModel(model);
     }
     setProvider(newProvider);
   };
@@ -104,8 +112,10 @@ export function useProviderSettings(initialSettings: ApiSettings) {
       setAnthropicMaxTokens(value);
     } else if (provider === 'openai') {
       setOpenaiMaxTokens(value);
-    } else {
+    } else if (provider === 'openai-compatible') {
       setOpenaiCompatibleMaxTokens(value);
+    } else if (provider === 'vscode-lm') {
+      setVscodeLmMaxTokens(value);
     }
   };
 
@@ -114,8 +124,10 @@ export function useProviderSettings(initialSettings: ApiSettings) {
       setAnthropicTemperature(value);
     } else if (provider === 'openai') {
       setOpenaiTemperature(value);
-    } else {
+    } else if (provider === 'openai-compatible') {
       setOpenaiCompatibleTemperature(value);
+    } else if (provider === 'vscode-lm') {
+      setVscodeLmTemperature(value);
     }
   };
 
@@ -134,13 +146,16 @@ export function useProviderSettings(initialSettings: ApiSettings) {
     let updatedAnthropicModel = anthropicModel;
     let updatedOpenaiModel = openaiModel;
     let updatedOpenaiCompatibleModel = openaiCompatibleModel;
+    let updatedVscodeLmModel = vscodeLmModel;
     
     if (provider === 'anthropic') {
       updatedAnthropicModel = model;
     } else if (provider === 'openai') {
       updatedOpenaiModel = model;
-    } else {
+    } else if (provider === 'openai-compatible') {
       updatedOpenaiCompatibleModel = model;
+    } else if (provider === 'vscode-lm') {
+      updatedVscodeLmModel = model;
     }
     
     return {
@@ -153,6 +168,7 @@ export function useProviderSettings(initialSettings: ApiSettings) {
       anthropicModel: updatedAnthropicModel,
       openaiModel: updatedOpenaiModel,
       openaiCompatibleModel: updatedOpenaiCompatibleModel,
+      vscodeLmModel: updatedVscodeLmModel,
       apiKey: currentSettings.apiKey,
       anthropicApiKey,
       openaiApiKey,
@@ -160,9 +176,11 @@ export function useProviderSettings(initialSettings: ApiSettings) {
       anthropicMaxTokens,
       openaiMaxTokens,
       openaiCompatibleMaxTokens,
+      vscodeLmMaxTokens,
       anthropicTemperature,
       openaiTemperature,
       openaiCompatibleTemperature,
+      vscodeLmTemperature,
     };
   };
 
@@ -184,15 +202,18 @@ export function useProviderSettings(initialSettings: ApiSettings) {
       anthropicModel,
       openaiModel,
       openaiCompatibleModel,
+      vscodeLmModel,
       anthropicApiKey,
       openaiApiKey,
       openaiCompatibleApiKey,
       anthropicMaxTokens,
       openaiMaxTokens,
       openaiCompatibleMaxTokens,
+      vscodeLmMaxTokens,
       anthropicTemperature,
       openaiTemperature,
       openaiCompatibleTemperature,
+      vscodeLmTemperature,
     },
   };
 }

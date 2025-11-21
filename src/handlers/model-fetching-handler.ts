@@ -4,7 +4,7 @@ import OpenAI from 'openai';
 
 interface ModelFetchRequest {
   requestId: number;
-  provider: 'anthropic' | 'openai' | 'openai-compatible';
+  provider: 'anthropic' | 'openai' | 'openai-compatible' | 'vscode-lm';
   apiKey: string;
   baseURL: string;
 }
@@ -27,6 +27,8 @@ export async function handleModelFetch(
       models = await fetchAnthropicModels(apiKey, baseURL);
     } else if (provider === 'openai' || provider === 'openai-compatible') {
       models = await fetchOpenAIModels(apiKey, baseURL, provider);
+    } else if (provider === 'vscode-lm') {
+      models = await fetchVSCodeLMModels();
     } else {
       throw new Error(`Unknown provider: ${provider}`);
     }
@@ -99,5 +101,34 @@ async function fetchOpenAIModels(
     }
   } catch (error) {
     throw new Error(`OpenAI API Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+/**
+ * Fetch available models from VS Code Language Model API
+ */
+async function fetchVSCodeLMModels(): Promise<string[]> {
+  try {
+    // Fetch all available Copilot models
+    const models = await vscode.lm.selectChatModels({
+      vendor: 'copilot',
+    });
+
+    if (models.length === 0) {
+      return [];
+    }
+
+    // Extract unique model families
+    const modelFamilies = new Set<string>();
+    for (const model of models) {
+      if (model.family) {
+        modelFamilies.add(model.family);
+      }
+    }
+
+    // Return as array, sorted
+    return Array.from(modelFamilies).sort();
+  } catch (error) {
+    throw new Error(`VS Code LM Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }

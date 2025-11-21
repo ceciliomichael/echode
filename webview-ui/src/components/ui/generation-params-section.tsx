@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
+import type { Provider } from '../../types/api-settings';
 
 interface GenerationParamsSectionProps {
+  provider: Provider;
   maxTokens: number;
   temperature: number;
   onMaxTokensChange: (value: number) => void;
@@ -8,6 +10,7 @@ interface GenerationParamsSectionProps {
 }
 
 export function GenerationParamsSection({
+  provider,
   maxTokens,
   temperature,
   onMaxTokensChange,
@@ -114,31 +117,33 @@ export function GenerationParamsSection({
         />
       </div>
 
-      <div className="space-y-2">
-        <label
-          htmlFor="temperature"
-          className="block text-xs font-semibold"
-          style={{ color: 'var(--vscode-foreground)' }}
-        >
-          Temperature (Optional)
-        </label>
-        <input
-          id="temperature"
-          type="text"
-          inputMode="decimal"
-          value={temperatureDisplayValue}
-          onChange={(e) => handleTemperatureInputChange(e.target.value)}
-          onFocus={handleTemperatureFocus}
-          onBlur={handleTemperatureCommit}
-          placeholder="0"
-          className="w-full px-3 py-2 text-sm rounded-xl border transition-colors"
-          style={{
-            backgroundColor: 'var(--vscode-input-background)',
-            color: 'var(--vscode-input-foreground)',
-            borderColor: 'var(--vscode-input-border)'
-          }}
-        />
-      </div>
+      {provider !== 'vscode-lm' && (
+        <div className="space-y-2">
+          <label
+            htmlFor="temperature"
+            className="block text-xs font-semibold"
+            style={{ color: 'var(--vscode-foreground)' }}
+          >
+            Temperature (Optional)
+          </label>
+          <input
+            id="temperature"
+            type="text"
+            inputMode="decimal"
+            value={temperatureDisplayValue}
+            onChange={(e) => handleTemperatureInputChange(e.target.value)}
+            onFocus={handleTemperatureFocus}
+            onBlur={handleTemperatureCommit}
+            placeholder="0"
+            className="w-full px-3 py-2 text-sm rounded-xl border transition-colors"
+            style={{
+              backgroundColor: 'var(--vscode-input-background)',
+              color: 'var(--vscode-input-foreground)',
+              borderColor: 'var(--vscode-input-border)'
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

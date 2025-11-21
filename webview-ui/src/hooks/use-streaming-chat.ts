@@ -96,8 +96,18 @@ export function useStreamingChat(currentTodos?: Array<{ id: string; content: str
           content: msg.content,
           timestamp: new Date(msg.timestamp),
           hidden: msg.hidden,
-          // Deserialize toolExecutions array back to Map
-          toolExecutions: msg.toolExecutions ? new Map(msg.toolExecutions) : undefined,
+          // Deserialize toolExecutions array back to Map and fix stale 'executing' states
+          toolExecutions: msg.toolExecutions ? new Map(
+            msg.toolExecutions.map(([id, execution]) => {
+              // Fix tool executions stuck in 'executing' state from saved history
+              if (execution.status === 'executing' && execution.result) {
+                // If there's a result, determine final status
+                const finalStatus = execution.result.success ? 'completed' : 'error';
+                return [id, { ...execution, status: finalStatus }];
+              }
+              return [id, execution];
+            })
+          ) : undefined,
         })));
       }
     };

@@ -52,7 +52,7 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
       }}
     >
       {/* Todo Drawer - Layered above chat input */}
-      {todos.length > 0 && todos.some(t => t.status !== 'completed') && (
+      {todos.length > 0 && (
         <div className="mb-2">
           <TodoBlock tasks={todos} />
         </div>

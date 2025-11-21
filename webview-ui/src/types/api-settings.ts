@@ -1,4 +1,4 @@
-export type Provider = 'anthropic' | 'openai' | 'openai-compatible';
+export type Provider = 'anthropic' | 'openai' | 'openai-compatible' | 'vscode-lm';
 
 export interface ApiSettings {
   provider: Provider;
@@ -14,12 +14,15 @@ export interface ApiSettings {
   anthropicModel?: string;
   openaiModel?: string;
   openaiCompatibleModel?: string;
+  vscodeLmModel?: string;
   anthropicMaxTokens: number;
   openaiMaxTokens: number;
   openaiCompatibleMaxTokens: number;
+  vscodeLmMaxTokens: number;
   anthropicTemperature: number;
   openaiTemperature: number;
   openaiCompatibleTemperature: number;
+  vscodeLmTemperature: number;
   systemPrompt?: string;
 }
 
@@ -37,9 +40,11 @@ export const DEFAULT_API_SETTINGS: ApiSettings = {
   anthropicMaxTokens: 8192,
   openaiMaxTokens: 4096,
   openaiCompatibleMaxTokens: 4096,
+  vscodeLmMaxTokens: 4096,
   anthropicTemperature: 0.0,
   openaiTemperature: 0.0,
   openaiCompatibleTemperature: 0.0,
+  vscodeLmTemperature: 1.0,
   systemPrompt: '',
 };
 
@@ -56,6 +61,11 @@ export const PROVIDER_DEFAULTS = {
   },
   'openai-compatible': {
     baseUrl: 'http://localhost:1234',
+    maxTokens: 4096,
+    temperature: 1.0,
+  },
+  'vscode-lm': {
+    baseUrl: '',
     maxTokens: 4096,
     temperature: 1.0,
   },

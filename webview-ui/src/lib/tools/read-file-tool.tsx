@@ -22,7 +22,7 @@ registerToolPlugin({
     aiDescription: 'Read the contents of a file. For large files (>1000 lines), use offset and limit parameters. DO NOT use this for directories; use list_files instead.',
     icon: FileText,
     usage: 'Read file content with optional offset/limit for large files',
-    formatExample: '<read_file>\n<path>src/app.ts</path>\n</read_file>\n\nLarge file:\n<read_file>\n<path>src/large.ts</path>\n<offset>1</offset>\n<limit>100</limit>\n</read_file>',
+    formatExample: '<function_call>\n<tool_name>read_file</tool_name>\n<path>src/app.ts</path>\n</function_call>\n\nLarge file:\n<function_call>\n<tool_name>read_file</tool_name>\n<path>src/large.ts</path>\n<offset>1</offset>\n<limit>100</limit>\n</function_call>',
   },
   handler: {
     execute: executeReadFile,

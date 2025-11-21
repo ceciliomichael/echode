@@ -79,13 +79,14 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave }: 
   };
 
   return (
-    <div ref={containerRef} className="px-2">
+    <div ref={containerRef} className="px-2 relative z-50">
       <section
         className="w-full rounded-xl shadow-sm border p-1 transition-colors"
         style={{
           backgroundColor: 'var(--vscode-chat-surface)',
           borderColor: 'var(--vscode-input-border)'
         }}
+        aria-label="Chat input area"
       >
         <form onSubmit={handleSubmit} className="flex flex-col gap-0">
           <div className="w-full px-1.5 pt-1.5">

@@ -143,6 +143,18 @@ export function ChatContainer() {
 
   return (
     <>
+      {/* Dimmed overlay when in edit mode */}
+      {editingMessageId && (
+        <div
+          className="fixed inset-0 z-40 transition-opacity"
+          style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backdropFilter: 'blur(2px)'
+          }}
+          onClick={handleCancel}
+        />
+      )}
+
       <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--vscode-sideBar-background)' }}>
         <div className="flex-1 overflow-y-auto py-2 px-1">
           {visibleMessages.length === 0 ? (

@@ -1,4 +1,4 @@
-import { ListChecks, Circle, CheckCircle2, Loader2 } from 'lucide-react';
+import { ListChecks, CheckCircle2 } from 'lucide-react';
 import type { ToolExecutionResult } from '../../types/tool';
 import { registerToolPlugin } from './tool-plugin';
 import { executeToolViaExtension } from '../tool-utils';
@@ -19,10 +19,10 @@ registerToolPlugin({
     id: 'todo_write',
     name: 'Todo Write',
     description: 'Write and manage todo list tasks',
-    aiDescription: 'Create or update the todo list with tasks. Each task must have an id, content, and status (pending/in_progress/completed).',
+    aiDescription: 'CRITICAL: Each task MUST have exactly 3 fields: "id" (string), "content" (string), "status" ("pending"|"in_progress"|"completed"). Example: {"id":"1","content":"Fix bug","status":"pending"}. Keep content concise (under 80 chars). Use sequential numeric IDs ("1", "2", "3").',
     icon: ListChecks,
     usage: 'Manage session todo list by writing tasks',
-    formatExample: '<todo_write>\n<tasks>[{"id": "1", "content": "Task description", "status": "pending"}]</tasks>\n</todo_write>',
+    formatExample: '<function_call>\n<tool_name>todo_write</tool_name>\n<tasks>[{"id":"1","content":"Implement auth","status":"pending"},{"id":"2","content":"Add tests","status":"in_progress"}]</tasks>\n</function_call>',
   },
   handler: {
     execute: executeTodoWrite,
@@ -47,7 +47,7 @@ registerToolPlugin({
       );
     }
 
-    const getStatusIcon = (status: string) => {
+    const getStatusIcon = (status: string, index: number) => {
       switch (status) {
         case 'completed':
           return (
@@ -58,18 +58,30 @@ registerToolPlugin({
           );
         case 'in_progress':
           return (
-            <Loader2
-              className="w-4 h-4 animate-spin"
-              style={{ color: 'var(--vscode-charts-blue)' }}
-            />
+            <div
+              className="w-4 h-4 flex items-center justify-center rounded-full text-[10px] font-semibold"
+              style={{ 
+                backgroundColor: 'var(--vscode-charts-blue)',
+                color: 'var(--vscode-editor-background)',
+                opacity: 0.9
+              }}
+            >
+              {index + 1}
+            </div>
           );
         case 'pending':
         default:
           return (
-            <Circle
-              className="w-4 h-4"
-              style={{ color: 'var(--vscode-descriptionForeground)' }}
-            />
+            <div
+              className="w-4 h-4 flex items-center justify-center rounded-full text-[10px] font-semibold"
+              style={{ 
+                backgroundColor: 'var(--vscode-descriptionForeground)',
+                color: 'var(--vscode-editor-background)',
+                opacity: 0.4
+              }}
+            >
+              {index + 1}
+            </div>
           );
       }
     };
@@ -83,10 +95,10 @@ registerToolPlugin({
           Todo List Updated ({tasks.filter(t => t.status === 'completed').length}/{tasks.length})
         </div>
         <div className="space-y-2">
-          {tasks.map((task) => (
+          {tasks.map((task, index) => (
             <div key={task.id} className="flex items-center gap-2.5 py-1">
               <div className="flex-shrink-0 w-4 h-4 flex items-center justify-center">
-                {getStatusIcon(task.status)}
+                {getStatusIcon(task.status, index)}
               </div>
               <span
                 className={`text-sm flex-1 leading-snug ${

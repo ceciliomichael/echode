@@ -222,7 +222,7 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
             >
               {/* Line Number */}
               <div
-                className="flex-shrink-0 px-2 py-1 text-right select-none min-h-[1.15rem] leading-[1.15rem]"
+                className="flex-shrink-0 px-2 text-right select-none min-h-[1.15rem] leading-[1.15rem]"
                 style={{
                   minWidth: viewOnly ? '40px' : '50px',
                   color: 'var(--vscode-editorLineNumber-foreground)',
@@ -248,7 +248,7 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
 
               {/* Line Content */}
               <pre
-                className="flex-1 px-2 py-1 whitespace-pre m-0 min-h-[1.15rem] leading-[1.15rem]"
+                className="flex-1 px-2 whitespace-pre m-0 min-h-[1.15rem] leading-[1.15rem]"
                 style={{ color: 'var(--vscode-editor-foreground)' }}
               >
                 {!viewOnly && (

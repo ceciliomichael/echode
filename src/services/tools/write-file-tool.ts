@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { ITool, ToolExecutionResult } from './tool.interface';
-import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
+import { getWorkspaceRoot, resolveAbsolutePath, getCreatedDirectories } from './utils/workspace-utils';
 
 export class WriteFileTool implements ITool {
   name = 'write_to_file';
@@ -39,6 +39,9 @@ export class WriteFileTool implements ITool {
         fileExisted = false;
       }
       
+      // Track which directories will be created
+      const createdDirectories = await getCreatedDirectories(filePath, workspaceRoot);
+      
       // Create parent directories if needed
       const dirPath = path.dirname(absolutePath);
       const dirUri = vscode.Uri.file(dirPath);
@@ -59,6 +62,7 @@ export class WriteFileTool implements ITool {
           action: fileExisted ? 'modified' : 'created',
           oldContent: oldContent,
           newContent: content,
+          createdDirectories: fileExisted ? [] : createdDirectories,
         },
       };
     } catch (error) {

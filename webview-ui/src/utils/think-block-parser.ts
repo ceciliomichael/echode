@@ -1,5 +1,5 @@
 /**
- * Utility for parsing <think> blocks from AI responses
+ * Utility for parsing <think> and <thinking> blocks from AI responses
  */
 
 export interface ParsedContent {
@@ -8,47 +8,77 @@ export interface ParsedContent {
 }
 
 /**
- * Parse content to extract <think> blocks (including unclosed ones during streaming)
+ * Remove all <think> and <thinking> blocks from content
+ * Used to exclude thinking content from chat history
+ */
+export function removeThinkBlocks(content: string): string {
+  return content
+    .replace(/<think>[\s\S]*?<\/think>/g, '')
+    .replace(/<thinking>[\s\S]*?<\/thinking>/g, '')
+    .replace(/<think>[\s\S]*$/g, '') // Remove unclosed <think> at end
+    .replace(/<thinking>[\s\S]*$/g, ''); // Remove unclosed <thinking> at end
+}
+
+/**
+ * Parse content to extract <think> and <thinking> blocks (including unclosed ones during streaming)
  */
 export function parseThinkBlocks(content: string): ParsedContent {
   const thinkBlocks: Array<{ content: string; index: number }> = [];
   let textContent = '';
-  let lastIndex = 0;
 
-  // Find all <think> opening tags
-  const openTagRegex = /<think>/g;
-  let match;
+  // Process both <think> and <thinking> tags
+  const tagPatterns = [
+    { open: '<think>', close: '</think>', openLen: 7, closeLen: 8 },
+    { open: '<thinking>', close: '</thinking>', openLen: 10, closeLen: 11 }
+  ];
 
-  while ((match = openTagRegex.exec(content)) !== null) {
-    const openIndex = match.index;
-    const contentStart = openIndex + 7; // length of '<think>'
-    
-    // Look for closing tag
-    const closeTag = content.indexOf('</think>', contentStart);
-    
-    // Add text before this think block
-    textContent += content.slice(lastIndex, openIndex);
-    
-    if (closeTag !== -1) {
-      // Closed think block
-      const thinkContent = content.slice(contentStart, closeTag);
-      thinkBlocks.push({
-        content: thinkContent,
-        index: thinkBlocks.length
-      });
-      textContent += `__THINK_BLOCK_${thinkBlocks.length - 1}__`;
-      lastIndex = closeTag + 8; // length of '</think>'
-    } else {
-      // Unclosed think block (streaming)
-      const thinkContent = content.slice(contentStart);
-      thinkBlocks.push({
-        content: thinkContent,
-        index: thinkBlocks.length
-      });
-      textContent += `__THINK_BLOCK_${thinkBlocks.length - 1}__`;
-      lastIndex = content.length;
-      break;
+  // Find all think/thinking blocks in order
+  const blocks: Array<{ start: number; end: number; content: string; tagType: string }> = [];
+  
+  for (const pattern of tagPatterns) {
+    let searchPos = 0;
+    while (true) {
+      const openIndex = content.indexOf(pattern.open, searchPos);
+      if (openIndex === -1) break;
+      
+      const contentStart = openIndex + pattern.openLen;
+      const closeIndex = content.indexOf(pattern.close, contentStart);
+      
+      if (closeIndex !== -1) {
+        // Closed block
+        blocks.push({
+          start: openIndex,
+          end: closeIndex + pattern.closeLen,
+          content: content.slice(contentStart, closeIndex),
+          tagType: pattern.open
+        });
+        searchPos = closeIndex + pattern.closeLen;
+      } else {
+        // Unclosed block (streaming)
+        blocks.push({
+          start: openIndex,
+          end: content.length,
+          content: content.slice(contentStart),
+          tagType: pattern.open
+        });
+        break;
+      }
     }
+  }
+  
+  // Sort blocks by start position
+  blocks.sort((a, b) => a.start - b.start);
+  
+  // Build textContent with placeholders
+  let lastIndex = 0;
+  for (const block of blocks) {
+    textContent += content.slice(lastIndex, block.start);
+    thinkBlocks.push({
+      content: block.content,
+      index: thinkBlocks.length
+    });
+    textContent += `__THINK_BLOCK_${thinkBlocks.length - 1}__`;
+    lastIndex = block.end;
   }
   
   // Add remaining text

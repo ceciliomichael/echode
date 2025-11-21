@@ -1,4 +1,4 @@
-import { ListChecks, Circle, CheckCircle2, Loader2 } from 'lucide-react';
+import { ListChecks, CheckCircle2 } from 'lucide-react';
 import type { ToolExecutionResult } from '../../types/tool';
 import { registerToolPlugin } from './tool-plugin';
 import { executeToolViaExtension } from '../tool-utils';
@@ -22,7 +22,7 @@ registerToolPlugin({
     aiDescription: 'Read the current todo list to see all tasks and their status.',
     icon: ListChecks,
     usage: 'Read the current session todo list',
-    formatExample: '<todo_read></todo_read>',
+    formatExample: '<function_call>\n<tool_name>todo_read</tool_name>\n</function_call>',
   },
   handler: {
     execute: executeTodoRead,
@@ -47,7 +47,7 @@ registerToolPlugin({
       );
     }
 
-    const getStatusIcon = (status: string) => {
+    const getStatusIcon = (status: string, index: number) => {
       switch (status) {
         case 'completed':
           return (
@@ -58,18 +58,30 @@ registerToolPlugin({
           );
         case 'in_progress':
           return (
-            <Loader2
-              className="w-4 h-4 animate-spin"
-              style={{ color: 'var(--vscode-charts-blue)' }}
-            />
+            <div
+              className="w-4 h-4 flex items-center justify-center rounded-full text-[10px] font-semibold"
+              style={{ 
+                backgroundColor: 'var(--vscode-charts-blue)',
+                color: 'var(--vscode-editor-background)',
+                opacity: 0.9
+              }}
+            >
+              {index + 1}
+            </div>
           );
         case 'pending':
         default:
           return (
-            <Circle
-              className="w-4 h-4"
-              style={{ color: 'var(--vscode-descriptionForeground)' }}
-            />
+            <div
+              className="w-4 h-4 flex items-center justify-center rounded-full text-[10px] font-semibold"
+              style={{ 
+                backgroundColor: 'var(--vscode-descriptionForeground)',
+                color: 'var(--vscode-editor-background)',
+                opacity: 0.4
+              }}
+            >
+              {index + 1}
+            </div>
           );
       }
     };
@@ -83,10 +95,10 @@ registerToolPlugin({
           Todo List ({tasks.filter(t => t.status === 'completed').length}/{tasks.length})
         </div>
         <div className="space-y-2">
-          {tasks.map((task) => (
+          {tasks.map((task, index) => (
             <div key={task.id} className="flex items-center gap-2.5 py-1">
               <div className="flex-shrink-0 w-4 h-4 flex items-center justify-center">
-                {getStatusIcon(task.status)}
+                {getStatusIcon(task.status, index)}
               </div>
               <span
                 className={`text-sm flex-1 leading-snug ${

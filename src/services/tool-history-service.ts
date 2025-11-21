@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import type { ToolExecutionState } from '../types/tool-execution';
+import { getCreatedDirectories } from './tools/utils/workspace-utils';
 
 /**
  * Service for managing tool execution history and undo operations
@@ -170,6 +171,7 @@ export class ToolHistoryService {
     const filePath = data.path as string;
     const action = data.action as string;
     const oldContent = data.oldContent as string | null;
+    const createdDirectories = (data.createdDirectories as string[]) || [];
 
     const absolutePath = path.join(workspacePath, filePath);
     const uri = vscode.Uri.file(absolutePath);
@@ -178,6 +180,10 @@ export class ToolHistoryService {
       // File was created, delete it
       try {
         await vscode.workspace.fs.delete(uri, { recursive: false, useTrash: false });
+        
+        // Clean up empty directories that were created
+        await this.cleanupEmptyDirectories(createdDirectories, workspacePath);
+        
         return { success: true };
       } catch (error) {
         return {
@@ -391,6 +397,38 @@ export class ToolHistoryService {
         success: false,
         error: `Failed to redo patch file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
+    }
+  }
+
+  /**
+   * Clean up empty directories that were created during file operations
+   * Deletes directories in reverse order (deepest first) if they are empty
+   */
+  private async cleanupEmptyDirectories(
+    directories: string[],
+    workspacePath: string
+  ): Promise<void> {
+    // Process directories in reverse order (deepest first)
+    for (let i = directories.length - 1; i >= 0; i--) {
+      const dirPath = directories[i];
+      
+      // Safety check: never delete workspace root
+      if (dirPath === workspacePath || dirPath.length <= workspacePath.length) {
+        continue;
+      }
+      
+      try {
+        const dirUri = vscode.Uri.file(dirPath);
+        const contents = await vscode.workspace.fs.readDirectory(dirUri);
+        
+        // Only delete if directory is empty
+        if (contents.length === 0) {
+          await vscode.workspace.fs.delete(dirUri, { recursive: false, useTrash: false });
+        }
+      } catch {
+        // Ignore errors - directory might already be deleted or not accessible
+        continue;
+      }
     }
   }
 }

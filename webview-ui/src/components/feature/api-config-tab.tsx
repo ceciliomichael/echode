@@ -61,6 +61,7 @@ export function ApiConfigTab({
       />
 
       <GenerationParamsSection
+        provider={provider}
         maxTokens={maxTokens}
         temperature={temperature}
         onMaxTokensChange={onMaxTokensChange}

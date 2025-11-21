@@ -2,6 +2,7 @@ import { ILLMProvider, ChatStreamSettings } from './llm-provider.interface';
 import { AnthropicProvider } from './anthropic-provider';
 import { OpenAIProvider } from './openai-provider';
 import { OpenAICompatibleProvider } from './openai-compatible-provider';
+import { VSCodeLMProvider } from './vscode-lm-provider';
 
 export class LLMFactory {
   static getProvider(providerName: ChatStreamSettings['provider']): ILLMProvider {
@@ -12,6 +13,8 @@ export class LLMFactory {
         return new OpenAIProvider();
       case 'openai-compatible':
         return new OpenAICompatibleProvider();
+      case 'vscode-lm':
+        return new VSCodeLMProvider();
       default:
         throw new Error(`Unknown provider: ${providerName}`);
     }

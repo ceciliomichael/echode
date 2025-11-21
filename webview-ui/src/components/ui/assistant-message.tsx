@@ -117,7 +117,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
               toolName: token.toolName,
               // Prioritize execution parameters as they are authoritative during execution
               parameters: executionState?.parameters || token.parameters,
-              status: executionState?.status || (token.isClosed ? 'pending' : 'pending'),
+              status: executionState?.status || (token.isClosed ? 'completed' : 'pending'),
               result: executionState?.result,
               toolExecutionId: token.toolExecutionId,
             };

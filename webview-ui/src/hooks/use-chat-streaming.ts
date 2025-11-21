@@ -7,6 +7,7 @@ import { useWorkspaceContext } from './use-workspace-context';
 import type { Message } from '../types/chat';
 import type { ChatMessage } from '../types/chat-api';
 import { hasCompleteToolBlock, trimToFirstCompleteToolBlock } from '../lib/tool-parser';
+import { removeThinkBlocks } from '../utils/think-block-parser';
 
 interface ChatStreamingProps {
   messages: Message[];
@@ -95,9 +96,12 @@ export function useChatStreaming({
       
       // Add messages with tool results embedded
       for (const msg of messagesToSend) {
+        // Strip <think> and <thinking> blocks from message content before adding to chat history
+        const contentWithoutThinking = removeThinkBlocks(msg.content);
+        
         chatHistory.push({
           role: msg.role,
-          content: msg.content,
+          content: contentWithoutThinking,
         });
         
         // If this message has tool executions, add them as context

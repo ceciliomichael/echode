@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
 import Database from 'better-sqlite3';
+import type { ToolExecutionState } from '../types/tool-execution';
 
 interface ChatSession {
   id: string;
@@ -15,6 +16,7 @@ interface ChatSession {
     role: string;
     content: string;
     timestamp: string;
+    toolExecutions?: Array<[string, ToolExecutionState]>;
   }>;
   metadata: {
     messageCount: number;
@@ -92,6 +94,7 @@ export class ChatHistoryService {
         role TEXT NOT NULL,
         content TEXT NOT NULL,
         timestamp TEXT NOT NULL,
+        tool_executions TEXT DEFAULT NULL,
         FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
       );
       
@@ -99,9 +102,10 @@ export class ChatHistoryService {
         ON messages(session_id);
     `);
     
-    // Migration: Add UI state columns if they don't exist
+    // Migration: Add UI state columns and tool_executions column if they don't exist
     try {
-      const columns = db.pragma('table_info(sessions)') as Array<{ name: string }>;
+      const sessionColumns = db.pragma('table_info(sessions)') as Array<{ name: string }>;
+      const columns = sessionColumns;
       const hasEditingMessageId = columns.some(col => col.name === 'editing_message_id');
       const hasRevertPreviewMessageId = columns.some(col => col.name === 'revert_preview_message_id');
       
@@ -110,6 +114,14 @@ export class ChatHistoryService {
       }
       if (!hasRevertPreviewMessageId) {
         db.exec('ALTER TABLE sessions ADD COLUMN revert_preview_message_id TEXT DEFAULT NULL');
+      }
+      
+      // Migration: Add tool_executions column to messages table
+      const messageColumns = db.pragma('table_info(messages)') as Array<{ name: string }>;
+      const hasToolExecutionsCol = messageColumns.some(col => col.name === 'tool_executions');
+      
+      if (!hasToolExecutionsCol) {
+        db.exec('ALTER TABLE messages ADD COLUMN tool_executions TEXT DEFAULT NULL');
       }
     } catch (error) {
       console.error('Migration error:', error);
@@ -170,7 +182,7 @@ export class ChatHistoryService {
       }
       
       const messagesStmt = this.db.prepare(`
-        SELECT id, role, content, timestamp
+        SELECT id, role, content, timestamp, tool_executions
         FROM messages
         WHERE session_id = ?
         ORDER BY timestamp ASC
@@ -181,7 +193,19 @@ export class ChatHistoryService {
         role: string;
         content: string;
         timestamp: string;
+        tool_executions?: string | null;
       }>;
+      
+      // Parse tool_executions JSON into the expected structure
+      const mappedMessages = messages.map(m => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp,
+        toolExecutions: m.tool_executions
+          ? (JSON.parse(m.tool_executions) as Array<[string, ToolExecutionState]>)
+          : undefined,
+      }));
       
       return {
         id: session.id,
@@ -189,7 +213,7 @@ export class ChatHistoryService {
         title: session.title,
         timestamp: session.timestamp,
         createdAt: session.createdAt,
-        messages,
+        messages: mappedMessages,
         metadata: {
           messageCount: session.messageCount,
           preview: session.preview
@@ -253,17 +277,23 @@ export class ChatHistoryService {
         
         // Insert messages
         const insertMessageStmt = this.db.prepare(`
-          INSERT INTO messages (id, session_id, role, content, timestamp)
-          VALUES (?, ?, ?, ?, ?)
+          INSERT INTO messages (id, session_id, role, content, timestamp, tool_executions)
+          VALUES (?, ?, ?, ?, ?, ?)
         `);
         
         for (const message of session.messages) {
+          // Serialize toolExecutions to JSON if present
+          const toolExecutionsJson = message.toolExecutions
+            ? JSON.stringify(message.toolExecutions)
+            : null;
+          
           insertMessageStmt.run(
             message.id,
             session.id,
             message.role,
             message.content,
-            message.timestamp
+            message.timestamp,
+            toolExecutionsJson
           );
         }
         

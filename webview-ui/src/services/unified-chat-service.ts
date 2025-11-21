@@ -8,6 +8,7 @@ import type { IChatService, ChatServiceConfig, StreamChatParams } from './base-c
 export class UnifiedChatService implements IChatService {
   private static instance: UnifiedChatService | null = null;
   private config: ChatServiceConfig;
+  private provider: 'anthropic' | 'openai' | 'openai-compatible' | 'vscode-lm';
   private requestCounter = 0;
   private pendingStreams = new Map<number, {
     controller: ReadableStreamDefaultController<string>;
@@ -16,20 +17,22 @@ export class UnifiedChatService implements IChatService {
   }>();
   private messageHandler: ((event: MessageEvent) => void) | null = null;
 
-  private constructor(config: ChatServiceConfig) {
+  private constructor(config: ChatServiceConfig, provider: 'anthropic' | 'openai' | 'openai-compatible' | 'vscode-lm' = 'openai-compatible') {
     this.config = config;
+    this.provider = provider;
     this.setupMessageListener();
   }
 
   /**
    * Get or create singleton instance
    */
-  public static getInstance(config: ChatServiceConfig): UnifiedChatService {
+  public static getInstance(config: ChatServiceConfig, provider: 'anthropic' | 'openai' | 'openai-compatible' | 'vscode-lm' = 'openai-compatible'): UnifiedChatService {
     if (!UnifiedChatService.instance) {
-      UnifiedChatService.instance = new UnifiedChatService(config);
+      UnifiedChatService.instance = new UnifiedChatService(config, provider);
     } else {
       // Update config for subsequent calls
       UnifiedChatService.instance.config = config;
+      UnifiedChatService.instance.provider = provider;
     }
     return UnifiedChatService.instance;
   }
@@ -141,7 +144,7 @@ export class UnifiedChatService implements IChatService {
           requestId,
           messages,
           settings: {
-            provider: this.getProvider(),
+            provider: this.provider,
             apiKey: this.config.apiKey,
             model: this.config.model,
             maxTokens: this.config.maxTokens,
@@ -174,17 +177,4 @@ export class UnifiedChatService implements IChatService {
     }
   }
 
-  /**
-   * Determine provider from base URL
-   */
-  private getProvider(): 'anthropic' | 'openai' | 'openai-compatible' {
-    const url = this.config.baseURL.toLowerCase();
-    if (url.includes('anthropic')) {
-      return 'anthropic';
-    } else if (url.includes('openai.com')) {
-      return 'openai';
-    } else {
-      return 'openai-compatible';
-    }
-  }
 }

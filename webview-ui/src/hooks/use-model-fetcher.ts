@@ -20,13 +20,14 @@ export function useModelFetcher(
   }, []);
 
   const fetchModels = useCallback((force = false) => {
-    if (!apiKey || !window.vscode) {
+    // VS Code LM doesn't require API key, skip check for it
+    if (!window.vscode || (provider !== 'vscode-lm' && !apiKey)) {
       setLoadingModels(false);
       setModels([]);
       return;
     }
 
-    const cacheKey = getCacheKey(provider, customBaseUrl, apiKey);
+    const cacheKey = getCacheKey(provider, customBaseUrl, apiKey || 'no-key');
     
     // Check cache first (unless force refresh)
     if (!force && modelCache.has(cacheKey)) {
@@ -75,7 +76,7 @@ export function useModelFetcher(
   }, [fetchModels]);
 
   const clearCache = useCallback(() => {
-    const cacheKey = getCacheKey(provider, customBaseUrl, apiKey);
+    const cacheKey = getCacheKey(provider, customBaseUrl, apiKey || 'no-key');
     modelCache.delete(cacheKey);
   }, [provider, customBaseUrl, apiKey, getCacheKey]);
 

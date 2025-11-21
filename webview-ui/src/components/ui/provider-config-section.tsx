@@ -41,30 +41,34 @@ export function ProviderConfigSection({
         <ProviderDropdown value={provider} onChange={onProviderChange} />
       </div>
 
-      <div className="space-y-2">
-        <label
-          htmlFor="customBaseUrl"
-          className="block text-xs font-semibold"
-          style={{ color: 'var(--vscode-foreground)' }}
-        >
-          Custom Base URL (Optional)
-        </label>
-        <input
-          id="customBaseUrl"
-          type="text"
-          value={customBaseUrl}
-          onChange={(e) => onCustomBaseUrlChange(e.target.value)}
-          placeholder={getProviderDefaults(provider).baseUrl}
-          className="w-full px-3 py-2 text-sm rounded-xl border transition-colors"
-          style={{
-            backgroundColor: 'var(--vscode-input-background)',
-            color: 'var(--vscode-input-foreground)',
-            borderColor: 'var(--vscode-input-border)'
-          }}
-        />
-      </div>
+      {provider !== 'vscode-lm' && (
+        <div className="space-y-2">
+          <label
+            htmlFor="customBaseUrl"
+            className="block text-xs font-semibold"
+            style={{ color: 'var(--vscode-foreground)' }}
+          >
+            Custom Base URL (Optional)
+          </label>
+          <input
+            id="customBaseUrl"
+            type="text"
+            value={customBaseUrl}
+            onChange={(e) => onCustomBaseUrlChange(e.target.value)}
+            placeholder={getProviderDefaults(provider).baseUrl}
+            className="w-full px-3 py-2 text-sm rounded-xl border transition-colors"
+            style={{
+              backgroundColor: 'var(--vscode-input-background)',
+              color: 'var(--vscode-input-foreground)',
+              borderColor: 'var(--vscode-input-border)'
+            }}
+          />
+        </div>
+      )}
 
-      <ApiKeyInput value={apiKey} onChange={onApiKeyChange} />
+      {provider !== 'vscode-lm' && (
+        <ApiKeyInput value={apiKey} onChange={onApiKeyChange} />
+      )}
     </div>
   );
 }

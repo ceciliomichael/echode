@@ -45,13 +45,14 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
   // Clear cache and fetch models when customUrl changes
   useEffect(() => {
     clearCache();
-    if (currentSettings.apiKey) {
+    // VS Code LM doesn't require API key
+    if (provider === 'vscode-lm' || currentSettings.apiKey) {
       const timeoutId = setTimeout(() => {
         fetchModels(true);
       }, 500);
       return () => clearTimeout(timeoutId);
     }
-  }, [currentSettings.customUrl, currentSettings.apiKey, clearCache, fetchModels]);
+  }, [provider, currentSettings.customUrl, currentSettings.apiKey, clearCache, fetchModels]);
 
   // Clear model if it's not in the fetched models list
   useEffect(() => {
@@ -80,7 +81,8 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
   }, [provider, currentSettings, model, systemPrompt, onSave, buildSettings]);
 
   const handleModelDropdownOpen = () => {
-    if (currentSettings.apiKey) {
+    // VS Code LM doesn't require API key
+    if (provider === 'vscode-lm' || currentSettings.apiKey) {
       fetchModels();
     }
   };
