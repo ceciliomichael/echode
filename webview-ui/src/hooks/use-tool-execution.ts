@@ -21,6 +21,7 @@ interface ToolExecutionHookProps {
   updateToolExecution: (messageId: string, toolExecutionId: string, state: ToolExecutionState) => void;
   messagesRef: React.MutableRefObject<Message[]>;
   currentTodos?: Array<{ id: string; content: string; status: string }>;
+  saveSession: () => void;
 }
 
 export function useToolExecution({
@@ -34,6 +35,7 @@ export function useToolExecution({
   messagesRef,
   updateToolExecution,
   currentTodos = [],
+  saveSession,
 }: ToolExecutionHookProps) {
   const workspace = useWorkspaceContext();
 
@@ -73,8 +75,6 @@ export function useToolExecution({
         
         // Generate tool execution ID with correct index
         const toolExecutionId = generateToolExecutionId(assistantMessageId, toolIndex);
-        
-        console.log('[Tool] Executing tool:', toolBlock.toolName, 'ID:', toolExecutionId);
         
         // Create initial execution state (executing immediately)
         const executionState = createToolExecutionState(
@@ -235,7 +235,6 @@ export function useToolExecution({
             });
             
             if (toolResults.length > 0) {
-              console.log(`[Tool Continuation] Adding previous tool results for message ${msg.id}`);
               continuationHistory.push({
                 role: 'user',
                 content: `<previous_tool_results>\n${toolResults.join('\n\n---\n\n')}\n</previous_tool_results>`,
@@ -307,9 +306,6 @@ export function useToolExecution({
             break;
           }
           
-          // Log chunk for debugging
-          console.debug('[Stream Continuation]', JSON.stringify(chunk));
-
           continuationContent += chunk;
           
           // Check for another tool block in the new content only
@@ -379,9 +375,12 @@ export function useToolExecution({
         setIsStreaming(false);
         abortControllerRef.current = null;
         sendingMessageRef.current = false;
+        
+        // Save session after tool execution completion
+        saveSession();
       }
     },
-    [workspace, updateToolExecution, setMessages, setIsExecutingTool, setIsStreaming, isStreamingRef, isStoppingRef, abortControllerRef, sendingMessageRef, currentTodos, messagesRef],
+    [workspace, updateToolExecution, setMessages, setIsExecutingTool, setIsStreaming, isStreamingRef, isStoppingRef, abortControllerRef, sendingMessageRef, currentTodos, messagesRef, saveSession],
   );
 
   return { executeToolAndContinue };

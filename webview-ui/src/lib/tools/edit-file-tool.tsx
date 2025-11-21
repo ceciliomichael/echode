@@ -49,6 +49,7 @@ registerToolPlugin({
             newContent={result.newContent}
             fileName={result.path}
             viewOnly={false}
+            contextLines={3}
           />
         </div>
       );

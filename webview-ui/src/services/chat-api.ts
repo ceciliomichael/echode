@@ -21,10 +21,6 @@ export class ChatApiService {
       ? settings.openaiCompatibleMaxTokens
       : settings.vscodeLmMaxTokens;
 
-    console.log('[Echode API] Provider:', settings.provider);
-    console.log('[Echode API] Model:', settings.model);
-    console.log('[Echode API] Max Tokens:', maxTokens);
-
     // Determine base URL based on provider
     let baseURL: string;
     if (settings.provider === 'anthropic') {

@@ -42,10 +42,8 @@ export function useStreamingChat(currentTodos?: Array<{ id: string; content: str
     setCurrentSessionId(currentSessionIdRef.current);
   }, []);
 
-  useEffect(() => {
-    if (messages.length === 0 || isStreaming || isExecutingTool) {
-      return;
-    }
+  const saveCurrentSession = useCallback(() => {
+    if (messages.length === 0) return;
 
     const sessionId = ensureSessionId();
 
@@ -67,7 +65,7 @@ export function useStreamingChat(currentTodos?: Array<{ id: string; content: str
     };
 
     storageService.saveSession(session);
-  }, [messages, isStreaming, isExecutingTool, ensureSessionId]);
+  }, [messages, ensureSessionId]);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -151,6 +149,7 @@ export function useStreamingChat(currentTodos?: Array<{ id: string; content: str
     updateToolExecution,
     messagesRef,
     currentTodos,
+    saveSession: saveCurrentSession,
   });
 
   // Chat streaming hook
@@ -163,6 +162,7 @@ export function useStreamingChat(currentTodos?: Array<{ id: string; content: str
     sendingMessageRef,
     abortControllerRef,
     executeToolAndContinue,
+    saveSession: saveCurrentSession,
   });
 
   const editMessage = useCallback(async (messageId: string, newContent: string) => {
@@ -171,7 +171,6 @@ export function useStreamingChat(currentTodos?: Array<{ id: string; content: str
 
     // Step 1: Abort any ongoing API call and wait for cleanup
     if (abortControllerRef.current) {
-      console.log('[Chat] Aborting ongoing stream before edit');
       isStoppingRef.current = true;
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -191,7 +190,6 @@ export function useStreamingChat(currentTodos?: Array<{ id: string; content: str
     for (const msg of messagesToRevert) {
       if (msg.toolExecutions && msg.toolExecutions.size > 0) {
         try {
-          console.log('[Chat] Undoing tool executions for message', msg.id);
           await toolHistoryApi.undoToolExecutions(msg.toolExecutions);
         } catch (error) {
           console.error('[Chat] Failed to undo tool executions:', error);
@@ -227,7 +225,6 @@ export function useStreamingChat(currentTodos?: Array<{ id: string; content: str
 
   const abortStream = useCallback(() => {
     if (abortControllerRef.current) {
-      console.log('Aborting stream');
       isStoppingRef.current = true;
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -255,7 +252,6 @@ export function useStreamingChat(currentTodos?: Array<{ id: string; content: str
 
     // If AI is streaming, abort it first
     if (abortControllerRef.current) {
-      console.log('[Chat] Aborting stream for revert preview');
       isStoppingRef.current = true;
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -274,7 +270,6 @@ export function useStreamingChat(currentTodos?: Array<{ id: string; content: str
       const messagesToRevert = messages.slice(messageIndex);
       for (const msg of messagesToRevert) {
         if (msg.toolExecutions && msg.toolExecutions.size > 0) {
-          console.log('[Chat] Undoing tool executions for revert preview, message', msg.id);
           await toolHistoryApi.undoToolExecutions(msg.toolExecutions);
         }
       }
@@ -311,8 +306,6 @@ export function useStreamingChat(currentTodos?: Array<{ id: string; content: str
     }
 
     try {
-      console.log('[Chat] Cancelling revert preview - re-applying tool executions');
-      
       // Find the message we reverted from
       const messageIndex = messages.findIndex(msg => msg.id === revertPreviewMessageId);
       if (messageIndex !== -1) {
@@ -320,7 +313,6 @@ export function useStreamingChat(currentTodos?: Array<{ id: string; content: str
         const messagesToReapply = messages.slice(messageIndex);
         for (const msg of messagesToReapply) {
           if (msg.toolExecutions && msg.toolExecutions.size > 0) {
-            console.log('[Chat] Redoing tool executions for message', msg.id);
             await toolHistoryApi.redoToolExecutions(msg.toolExecutions);
           }
         }

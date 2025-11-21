@@ -8,14 +8,16 @@ interface DiffViewerProps {
   viewOnly?: boolean;
   startLineNumber?: number;
   endLineNumber?: number;
+  contextLines?: number; // When set, show only changed sections with N lines of context
 }
 
 interface DiffLine {
-  type: 'added' | 'removed' | 'unchanged';
+  type: 'added' | 'removed' | 'unchanged' | 'collapsed';
   lineNumber: number | null;
   content: string;
   oldLineNumber?: number;
   newLineNumber?: number;
+  collapsedCount?: number; // For collapsed sections
 }
 
 /**
@@ -132,10 +134,70 @@ function computeDiff(oldContent: string | null | undefined, newContent: string, 
   return diff;
 }
 
-const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = false, viewOnly = false, startLineNumber = 1, endLineNumber }: DiffViewerProps) => {
+/**
+ * Filter diff lines to show only changed sections with context
+ */
+function filterDiffWithContext(diffLines: DiffLine[], contextLines: number | undefined): DiffLine[] {
+  if (contextLines === undefined) {
+    return diffLines;
+  }
+
+  // Find indices of all changed lines
+  const changedIndices = new Set<number>();
+  diffLines.forEach((line, idx) => {
+    if (line.type === 'added' || line.type === 'removed') {
+      changedIndices.add(idx);
+    }
+  });
+
+  if (changedIndices.size === 0) {
+    return diffLines; // No changes, show all
+  }
+
+  // Build set of indices to include (changed lines + context)
+  const includedIndices = new Set<number>();
+  changedIndices.forEach((idx) => {
+    for (let i = Math.max(0, idx - contextLines); i <= Math.min(diffLines.length - 1, idx + contextLines); i++) {
+      includedIndices.add(i);
+    }
+  });
+
+  // Build filtered result with collapsed indicators
+  const result: DiffLine[] = [];
+  let i = 0;
+
+  while (i < diffLines.length) {
+    if (includedIndices.has(i)) {
+      result.push(diffLines[i]);
+      i++;
+    } else {
+      // Start of collapsed section
+      const collapsedStart = i;
+      while (i < diffLines.length && !includedIndices.has(i)) {
+        i++;
+      }
+      const collapsedCount = i - collapsedStart;
+
+      // Add collapsed indicator
+      result.push({
+        type: 'collapsed',
+        lineNumber: null,
+        content: '',
+        collapsedCount,
+      });
+    }
+  }
+
+  return result;
+}
+
+const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = false, viewOnly = false, startLineNumber = 1, endLineNumber, contextLines }: DiffViewerProps) => {
   const diffLines = useMemo(
-    () => computeDiff(oldContent, newContent, isStreaming, startLineNumber),
-    [oldContent, newContent, isStreaming, startLineNumber],
+    () => {
+      const diff = computeDiff(oldContent, newContent, isStreaming, startLineNumber);
+      return filterDiffWithContext(diff, contextLines);
+    },
+    [oldContent, newContent, isStreaming, startLineNumber, contextLines],
   );
 
   // Count additions and deletions
@@ -182,6 +244,24 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
         }}
       >
         {diffLines.map((line, idx) => {
+          // Handle collapsed section indicator
+          if (line.type === 'collapsed') {
+            return (
+              <div
+                key={idx}
+                className="flex items-center justify-center py-1"
+                style={{
+                  backgroundColor: 'var(--vscode-editor-background)',
+                  color: 'var(--vscode-descriptionForeground)',
+                }}
+              >
+                <div className="text-xs italic opacity-70">
+                  ··· {line.collapsedCount} unchanged {line.collapsedCount === 1 ? 'line' : 'lines'} ···
+                </div>
+              </div>
+            );
+          }
+
           let bgColor: string;
           let borderColor: string;
           let linePrefix: string;

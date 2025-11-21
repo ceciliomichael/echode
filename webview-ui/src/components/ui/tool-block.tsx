@@ -387,6 +387,7 @@ function renderToolResult(toolName: string, data: unknown, fileName: string): Re
             oldContent={result.originalContent}
             newContent={result.newContent}
             fileName={fileName}
+            contextLines={3}
           />
           {result.truncated && (
             <div 

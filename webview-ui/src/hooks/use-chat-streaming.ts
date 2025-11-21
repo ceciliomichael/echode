@@ -24,6 +24,7 @@ interface ChatStreamingProps {
     messagesToSend: Message[],
     userContent: string
   ) => Promise<void>;
+  saveSession: () => void;
 }
 
 export function useChatStreaming({
@@ -35,6 +36,7 @@ export function useChatStreaming({
   sendingMessageRef,
   abortControllerRef,
   executeToolAndContinue,
+  saveSession,
 }: ChatStreamingProps) {
   const workspace = useWorkspaceContext();
 
@@ -145,7 +147,6 @@ export function useChatStreaming({
           
           if (toolResults.length > 0) {
             const toolResultsContent = `<tool_results>\n${toolResults.join('\n\n---\n\n')}\n</tool_results>`;
-            console.log(`[Chat] Adding tool results for message ${msg.id}:`, toolResultsContent.substring(0, 500) + '...');
             chatHistory.push({
               role: 'user',
               content: toolResultsContent,
@@ -163,15 +164,6 @@ export function useChatStreaming({
       chatHistory.push({
         role: 'user',
         content: content + instruction,
-      });
-
-      // Log chat history for debugging (excluding system prompt to reduce noise)
-      console.log('[Chat] Sending chat history:');
-      chatHistory.slice(1).forEach((msg, idx) => {
-        const preview = msg.content.length > 200 
-          ? msg.content.substring(0, 200) + '...[truncated]'
-          : msg.content;
-        console.log(`  [${idx}] ${msg.role}: ${preview}`);
       });
 
       const abortController = new AbortController();
@@ -193,9 +185,6 @@ export function useChatStreaming({
         if (abortController.signal.aborted) {
           break;
         }
-
-        // Log chunk for debugging
-        console.debug('[Stream]', JSON.stringify(chunk));
 
         assistantContent += chunk;
         
@@ -261,8 +250,11 @@ export function useChatStreaming({
         abortControllerRef.current = null;
       }
       sendingMessageRef.current = false;
+      
+      // Save session after stream completion
+      saveSession();
     }
-  }, [messages, workspace, executeToolAndContinue, setMessages, setIsStreaming, setIsExecutingTool, isStreamingRef, sendingMessageRef, abortControllerRef]);
+  }, [messages, workspace, executeToolAndContinue, setMessages, setIsStreaming, setIsExecutingTool, isStreamingRef, sendingMessageRef, abortControllerRef, saveSession]);
 
   return { sendMessage };
 }
