@@ -3,6 +3,15 @@
 out/**
 node_modules/**
 src/**
+webview-ui/src/**
+webview-ui/node_modules/**
+webview-ui/public/**
+webview-ui/*.json
+webview-ui/*.js
+webview-ui/*.ts
+webview-ui/*.md
+webview-ui/index.html
+.docs/**
 .gitignore
 .yarnrc
 esbuild.js
@@ -12,3 +21,7 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.ts
 **/.vscode-test.*
+*.vsix
+AGENTS.md
+.vscode-test.mjs
+eslint.config.mjs

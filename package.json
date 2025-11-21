@@ -3,6 +3,11 @@
   "displayName": "echode",
   "description": "Agentic Coding",
   "version": "0.0.1",
+  "publisher": "echode",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ceciliomichael/echode"
+  },
   "engines": {
     "vscode": "^1.106.0"
   },
