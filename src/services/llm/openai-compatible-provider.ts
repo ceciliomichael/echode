@@ -75,7 +75,13 @@ export class OpenAICompatibleProvider implements ILLMProvider {
           if (trimmedLine === 'data: [DONE]') {continue;}
           
           if (trimmedLine.startsWith('data: ')) {
-            const data = trimmedLine.slice(6);
+            let data = trimmedLine.slice(6);
+            // Handle double 'data: ' prefix (e.g., "data: data: {...}")
+            while (data.startsWith('data: ')) {
+              data = data.slice(6);
+            }
+            // Skip [DONE] signal after prefix stripping
+            if (data === '[DONE]') {continue;}
             try {
               const parsed = JSON.parse(data);
               const content = parsed.choices?.[0]?.delta?.content;
@@ -97,19 +103,26 @@ export class OpenAICompatibleProvider implements ILLMProvider {
       if (buffer.trim()) {
           const line = buffer.trim();
           if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-               const data = line.slice(6);
-               try {
-                  const parsed = JSON.parse(data);
-                  const content = parsed.choices?.[0]?.delta?.content;
-                  if (content) {
-                      webview.webview.postMessage({
-                          type: 'chatStreamChunk',
-                          requestId,
-                          chunk: content
-                      });
-                  }
-               } catch (e) {
-                   console.warn('Failed to parse remaining buffer:', line, e);
+               let data = line.slice(6);
+               // Handle double 'data: ' prefix (e.g., "data: data: {...}")
+               while (data.startsWith('data: ')) {
+                 data = data.slice(6);
+               }
+               // Skip [DONE] signal after prefix stripping
+               if (data !== '[DONE]') {
+                 try {
+                    const parsed = JSON.parse(data);
+                    const content = parsed.choices?.[0]?.delta?.content;
+                    if (content) {
+                        webview.webview.postMessage({
+                            type: 'chatStreamChunk',
+                            requestId,
+                            chunk: content
+                        });
+                    }
+                 } catch (e) {
+                     console.warn('Failed to parse remaining buffer:', line, e);
+                 }
                }
           }
       }
