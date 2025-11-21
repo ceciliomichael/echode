@@ -1,0 +1,40 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="85" fill="none" stroke="#e5e7eb" stroke-width="1.5" opacity="0.3"/>
+  
+  <!-- Central hub -->
+  <circle cx="100" cy="100" r="18" fill="#3b82f6"/>
+  
+  <!-- Tool nodes (6 hexagons around the center) -->
+  <g transform="translate(100, 45)">
+    <polygon points="0,-12 10.4,-6 10.4,6 0,12 -10.4,6 -10.4,-6" fill="#10b981"/>
+  </g>
+  
+  <g transform="translate(147.7, 72.5)">
+    <polygon points="0,-12 10.4,-6 10.4,6 0,12 -10.4,6 -10.4,-6" fill="#f59e0b"/>
+  </g>
+  
+  <g transform="translate(147.7, 127.5)">
+    <polygon points="0,-12 10.4,-6 10.4,6 0,12 -10.4,6 -10.4,-6" fill="#8b5cf6"/>
+  </g>
+  
+  <g transform="translate(100, 155)">
+    <polygon points="0,-12 10.4,-6 10.4,6 0,12 -10.4,6 -10.4,-6" fill="#ef4444"/>
+  </g>
+  
+  <g transform="translate(52.3, 127.5)">
+    <polygon points="0,-12 10.4,-6 10.4,6 0,12 -10.4,6 -10.4,-6" fill="#06b6d4"/>
+  </g>
+  
+  <g transform="translate(52.3, 72.5)">
+    <polygon points="0,-12 10.4,-6 10.4,6 0,12 -10.4,6 -10.4,-6" fill="#ec4899"/>
+  </g>
+  
+  <!-- Connection lines -->
+  <line x1="100" y1="100" x2="100" y2="45" stroke="#3b82f6" stroke-width="2" opacity="0.4"/>
+  <line x1="100" y1="100" x2="147.7" y2="72.5" stroke="#3b82f6" stroke-width="2" opacity="0.4"/>
+  <line x1="100" y1="100" x2="147.7" y2="127.5" stroke="#3b82f6" stroke-width="2" opacity="0.4"/>
+  <line x1="100" y1="100" x2="100" y2="155" stroke="#3b82f6" stroke-width="2" opacity="0.4"/>
+  <line x1="100" y1="100" x2="52.3" y2="127.5" stroke="#3b82f6" stroke-width="2" opacity="0.4"/>
+  <line x1="100" y1="100" x2="52.3" y2="72.5" stroke="#3b82f6" stroke-width="2" opacity="0.4"/>
+</svg>

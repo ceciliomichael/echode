@@ -4,6 +4,7 @@
   "description": "Agentic Coding",
   "version": "1.0.0",
   "publisher": "EchoSphere",
+  "icon": "icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/ceciliomichael/echode"
@@ -21,7 +22,7 @@
         {
           "id": "echode-sidebar",
           "title": "Echode",
-          "icon": "$(robot)"
+          "icon": "icon.svg"
         }
       ]
     },
