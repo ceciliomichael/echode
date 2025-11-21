@@ -47,15 +47,6 @@ export function useProviderSettings(initialSettings: ApiSettings) {
     temperature: provider === 'anthropic' ? anthropicTemperature : provider === 'openai' ? openaiTemperature : provider === 'openai-compatible' ? openaiCompatibleTemperature : vscodeLmTemperature,
   };
 
-  // Restore model when provider changes
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      const savedModel = provider === 'anthropic' ? anthropicModel : provider === 'openai' ? openaiModel : provider === 'openai-compatible' ? openaiCompatibleModel : vscodeLmModel;
-      setModel(savedModel);
-    }, 0);
-    return () => clearTimeout(timeoutId);
-  }, [provider, anthropicModel, openaiModel, openaiCompatibleModel, vscodeLmModel]);
-
   // Sync with initial settings
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -85,16 +76,38 @@ export function useProviderSettings(initialSettings: ApiSettings) {
 
   // Handler functions
   const handleProviderChange = (newProvider: Provider) => {
+    // Save current model to current provider-specific state
+    // We need to track the current model value before state updates
+    const currentModel = model;
+    
     if (provider === 'anthropic') {
-      setAnthropicModel(model);
+      setAnthropicModel(currentModel);
     } else if (provider === 'openai') {
-      setOpenaiModel(model);
+      setOpenaiModel(currentModel);
     } else if (provider === 'openai-compatible') {
-      setOpenaiCompatibleModel(model);
+      setOpenaiCompatibleModel(currentModel);
     } else if (provider === 'vscode-lm') {
-      setVscodeLmModel(model);
+      setVscodeLmModel(currentModel);
     }
+    
+    // Determine the saved model for the new provider BEFORE any state updates
+    // Use current state values since React batches updates
+    let savedModelForNewProvider = '';
+    if (newProvider === 'anthropic') {
+      savedModelForNewProvider = anthropicModel;
+    } else if (newProvider === 'openai') {
+      savedModelForNewProvider = openaiModel;
+    } else if (newProvider === 'openai-compatible') {
+      savedModelForNewProvider = openaiCompatibleModel;
+    } else if (newProvider === 'vscode-lm') {
+      savedModelForNewProvider = vscodeLmModel;
+    }
+    
+    // Switch to new provider
     setProvider(newProvider);
+    
+    // Restore the saved model for the new provider
+    setModel(savedModelForNewProvider);
   };
 
   const handleCustomUrlChange = (value: string) => {
@@ -164,11 +177,13 @@ export function useProviderSettings(initialSettings: ApiSettings) {
       anthropicCustomUrl,
       openaiCustomUrl,
       openaiCompatibleCustomUrl,
+      // Generic model mirrors active provider-specific model for convenience
       model,
       anthropicModel: updatedAnthropicModel,
       openaiModel: updatedOpenaiModel,
       openaiCompatibleModel: updatedOpenaiCompatibleModel,
       vscodeLmModel: updatedVscodeLmModel,
+      // Generic apiKey mirrors active provider-specific key (VS Code LM uses empty string)
       apiKey: currentSettings.apiKey,
       anthropicApiKey,
       openaiApiKey,

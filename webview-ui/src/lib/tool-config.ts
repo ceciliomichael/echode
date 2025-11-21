@@ -25,7 +25,7 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
     .join('\n');
 
   const hasFileTools = enabledTools.some((tool) =>
-    ['write_to_file', 'read_file', 'list_files', 'grep_search', 'glob_search', 'edit_file', 'delete_file'].includes(tool.id),
+    ['write_to_file', 'read_file', 'list_files', 'grep_search', 'glob_search', 'edit_file', 'multi_edit', 'delete_file'].includes(tool.id),
   );
 
   const fileOperationPolicy = hasFileTools
@@ -33,34 +33,56 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
 
 <file_operations>
 **Critical Rules:**
-1. **ALWAYS read_file before edit_file** - Never edit without seeing current content
-2. **edit_file requires exact matches** - oldString must match exactly (whitespace matters)
-3. **Use context for unique matches** - Add surrounding lines to make oldString unique
-4. **Sequential edits** - Edits apply in order; Edit 2 sees result of Edit 1
+1. **ALWAYS read_file before edit_file** - Never modify without seeing current content
+2. **edit_file is PRIMARY editing tool** - Simple find-and-replace (copy exact strings)
+3. **Copy EXACT text** - Include all whitespace, indentation, line breaks exactly as shown
+4. **Include enough context** - Make old_string unique (appears once in file)
+5. **NEVER reuse old_string** - If edit fails, read_file again and copy fresh exact text
+6. **DIRECTORY vs FILE detection** - Paths WITHOUT file extensions (no dot after last slash) are DIRECTORIES
+
+**Directory/File Detection (MANDATORY):**
+- **DIRECTORY**: No extension after last / (e.g., src/app, src/routes, api, components/ui)
+  - ❌ NEVER call read_file or edit_file on these paths
+  - ✅ ALWAYS use list_files first, then read_file on specific files from the listing
+- **FILE**: Has extension (e.g., src/app.ts, api/route.tsx, README.md)
+  - ✅ Use read_file/edit_file directly
+
+**Examples:**
+❌ WRONG - calling read_file on directory:
+<function_call><tool_name>read_file</tool_name><path>src/app</path></function_call>
+
+✅ CORRECT - list directory first, then read specific file:
+<function_call><tool_name>list_files</tool_name><path>src/app</path></function_call>
+(sees: page.tsx, layout.tsx, etc.)
+<function_call><tool_name>read_file</tool_name><path>src/app/page.tsx</path></function_call>
 
 **Tool Quick Ref:**
-- FILE (has extension) → read_file/edit_file | DIRECTORY (no extension) → list_files
+- **list_files**: List directory contents. Use for paths WITHOUT extensions
+- **read_file**: View file content with line numbers. Defaults to first 100 lines. Use ONLY for paths WITH extensions
 - **grep_search**: Search file content. Use specific queries + includes filter for file types
 - **glob_search**: Find files by pattern (e.g., *.ts, **/*.json). Fast file discovery
-- **read_file**: View content. Single file only. Use offset/limit for large files (>1000 lines)
-- **edit_file**: Modify via find-replace. Add context to oldString. Use replaceAll for global changes
-- **write_to_file**: New files or small rewrites (<100 lines). Prefer edit_file for existing files
+- **edit_file**: PRIMARY EDITING TOOL - Find and replace exact strings (single change)
+- **multi_edit**: BATCH EDITING TOOL - Apply multiple non-overlapping edits to one file atomically
+- **write_to_file**: New files or complete rewrites only. Use edit_file for modifications
 - **delete_file**: Only when explicitly requested
 
 **Workflows:**
-- **Find files by pattern**: glob_search (*.ts) → read_file → edit_file
-- **Find & modify content**: grep_search → read_file → edit_file (with anchored oldString)
-- **Large files**: grep_search (get line #) → read_file with offset/limit → edit_file
-- **Multiple files**: Call read_file sequentially for each file → edit_file each with proper context
+- **Explore directory**: list_files (e.g., src/app) → read_file on specific files
+- **Single change**: read_file → copy EXACT text → edit_file (old_string + new_string)
+- **Multiple changes (same file)**: read_file → identify all edits → multi_edit (edits array)
+- **Find & modify**: grep_search → read_file → edit_file or multi_edit
+- **Large files**: grep_search (get line #) → read_file with custom offset/limit → edit_file
 
 **Common Mistakes:**
-- ❌ Read large file without offset/limit → ✅ Use offset/limit for files >1000 lines
-- ❌ Edit without reading → ✅ Always read_file first
-- ❌ "const x = 1" (not unique) → ✅ Include function context around it
+- ❌ read_file on src/app (no extension) → ✅ list_files on src/app, then read_file on src/app/page.tsx
+- ❌ Retry read_file after "Cannot read directory" error → ✅ Use list_files on that path immediately
+- ❌ Modify without reading → ✅ Always read_file first
+- ❌ Normalize/clean whitespace when copying → ✅ Copy EXACT text including all spaces/tabs
+- ❌ Edit fails, retry same old_string → ✅ read_file again, copy fresh exact text
+- ❌ Single line that repeats (e.g., "return null;") → ✅ Include surrounding lines for uniqueness
+- ❌ Overlapping edits in multi_edit → ✅ Use single edit_file OR sequence edits properly
+- ❌ multi_edit error "Edit N: ..." but retry all edits → ✅ Fix only that specific edit
 - ❌ Broad grep "function" → ✅ Specific "handleSubmit" or "UserController"
-- ❌ Content search when pattern search needed → ✅ Use glob_search for file patterns, grep_search for content
-- ❌ Batch reading multiple files → ✅ Call read_file sequentially for each file
-- ❌ Sequential: [{old: "a", new: "b"}, {old: "a", new: "c"}] → ✅ [{old: "a", new: "b"}, {old: "b", new: "c"}]
 </file_operations>`
     : '';
 
@@ -99,20 +121,27 @@ ${toolDescriptions}${fileOperationPolicy}
 ${enabledTools
   .map((tool) => {
     const examples: Record<string, string> = {
-      read_file: `Read a single file. For large files (>1000 lines), use offset and limit.
+      read_file: `Read a single file. Defaults to first 100 lines. Use offset/limit for custom ranges.
 
-Small file (entire content):
+Default (first 100 lines):
 <function_call>
 <tool_name>read_file</tool_name>
 <path>src/app.ts</path>
 </function_call>
 
-Large file (with offset/limit):
+Custom range:
 <function_call>
 <tool_name>read_file</tool_name>
 <path>src/large-file.ts</path>
-<offset>1</offset>
-<limit>100</limit>
+<offset>101</offset>
+<limit>50</limit>
+</function_call>
+
+More lines (up to 200):
+<function_call>
+<tool_name>read_file</tool_name>
+<path>src/medium.ts</path>
+<limit>200</limit>
 </function_call>
 
 Multiple files (call sequentially):
@@ -191,36 +220,6 @@ Returns:
     {"path": "src/utils.ts", "name": "utils.ts", "size": 1024, "extension": "ts"}
   ]
 }`,
-      edit_file: `CRITICAL: Always read_file first, then use exact content with surrounding context
-
-Good example (with context for unique match):
-<function_call>
-<tool_name>edit_file</tool_name>
-<path>src/app.ts</path>
-<edits>[
-  {
-    "oldString": "export function init() {\\n  const x = 1;\\n  return x;\\n}",
-    "newString": "export function init() {\\n  const x = 2;\\n  return x;\\n}"
-  }
-]</edits>
-</function_call>
-
-Multiple edits (sequential):
-<function_call>
-<tool_name>edit_file</tool_name>
-<path>src/config.ts</path>
-<edits>[
-  {"oldString": "const MODE = 'DEBUG';", "newString": "const MODE = 'PROD';"},
-  {"oldString": "const VERSION = '1.0';", "newString": "const VERSION = '2.0';"}
-]</edits>
-</function_call>
-
-replaceAll for global changes:
-<function_call>
-<tool_name>edit_file</tool_name>
-<path>src/constants.ts</path>
-<edits>[{"oldString": "OLD_NAME", "newString": "NEW_NAME", "replaceAll": true}]</edits>
-</function_call>`,
       delete_file: `<function_call>
 <tool_name>delete_file</tool_name>
 <path>src/old-file.ts</path>

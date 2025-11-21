@@ -7,37 +7,49 @@ export class ChatApiService {
   async *streamChat(messages: ChatMessage[], signal?: AbortSignal): AsyncGenerator<string, void, unknown> {
     const settings = storageService.getSettings();
 
-    // VS Code LM doesn't require API key
-    const requiresApiKey = settings.provider !== 'vscode-lm';
-    if (!settings.provider || (requiresApiKey && !settings.apiKey) || !settings.model) {
+    if (!settings.provider) {
       throw new Error('API configuration not available. Please configure your API settings in the header settings.');
     }
 
-    const maxTokens = settings.provider === 'anthropic' 
-      ? settings.anthropicMaxTokens 
-      : settings.provider === 'openai' 
-      ? settings.openaiMaxTokens 
-      : settings.provider === 'openai-compatible'
-      ? settings.openaiCompatibleMaxTokens
-      : settings.vscodeLmMaxTokens;
+    // Resolve effective per-provider configuration
+    let effectiveApiKey = '';
+    let effectiveModel = '';
+    let maxTokens = 0;
+    let baseURL = '';
 
-    // Determine base URL based on provider
-    let baseURL: string;
     if (settings.provider === 'anthropic') {
+      effectiveApiKey = settings.anthropicApiKey || settings.apiKey || '';
+      effectiveModel = settings.anthropicModel || settings.model;
+      maxTokens = settings.anthropicMaxTokens;
       baseURL = settings.anthropicCustomUrl?.trim() || getProviderDefaults('anthropic').baseUrl;
     } else if (settings.provider === 'openai') {
+      effectiveApiKey = settings.openaiApiKey || settings.apiKey || '';
+      effectiveModel = settings.openaiModel || settings.model;
+      maxTokens = settings.openaiMaxTokens;
       baseURL = settings.openaiCustomUrl?.trim() || getProviderDefaults('openai').baseUrl;
     } else if (settings.provider === 'openai-compatible') {
+      effectiveApiKey = settings.openaiCompatibleApiKey || settings.apiKey || '';
+      effectiveModel = settings.openaiCompatibleModel || settings.model;
+      maxTokens = settings.openaiCompatibleMaxTokens;
       baseURL = settings.openaiCompatibleCustomUrl?.trim() || getProviderDefaults('openai-compatible').baseUrl;
     } else {
-      // VS Code LM doesn't use baseURL
+      // VS Code LM: no apiKey/baseURL, provider-specific model/maxTokens
+      effectiveApiKey = '';
+      effectiveModel = settings.vscodeLmModel || settings.model;
+      maxTokens = settings.vscodeLmMaxTokens;
       baseURL = '';
+    }
+
+    // VS Code LM doesn't require API key, others do
+    const requiresApiKey = settings.provider !== 'vscode-lm';
+    if ((requiresApiKey && !effectiveApiKey) || !effectiveModel) {
+      throw new Error('API configuration not available. Please configure your API settings in the header settings.');
     }
 
     // Use unified service singleton that communicates with VSCode backend
     const service = UnifiedChatService.getInstance({
-      apiKey: settings.apiKey || '',
-      model: settings.model,
+      apiKey: effectiveApiKey,
+      model: effectiveModel,
       maxTokens,
       baseURL,
     }, settings.provider);

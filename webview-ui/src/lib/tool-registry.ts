@@ -13,9 +13,9 @@ import './tools/write-file-tool.tsx';
 import './tools/list-files-tool.tsx';
 import './tools/grep-search-tool.tsx';
 import './tools/glob-search-tool.tsx';
-import './tools/edit-file-tool.tsx';
 import './tools/delete-file-tool.tsx';
-import './tools/patch-file-tool.tsx';
+import './tools/edit-file-tool.tsx';
+import './tools/multi-edit-tool.tsx';
 import './tools/todo-write-tool.tsx';
 import './tools/todo-read-tool.tsx';
 

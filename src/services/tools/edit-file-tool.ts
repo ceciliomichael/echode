@@ -7,224 +7,193 @@ export class EditFileTool implements ITool {
 
   async execute(parameters: Record<string, unknown>): Promise<ToolExecutionResult> {
     const filePath = parameters.path as string;
-    const edits = parameters.edits as Array<{
-      oldString: string;
-      newString: string;
-      replaceAll?: boolean;
-    }>;
+    const oldString = parameters.old_string as string;
+    const newString = parameters.new_string as string;
+
+    console.log('[EDIT_FILE] ==================== START ====================');
+    console.log('[EDIT_FILE] Target file:', filePath);
 
     if (!filePath) {
+      console.log('[EDIT_FILE] ERROR: No file path provided');
       return { success: false, error: 'File path is required' };
     }
 
-    if (!edits || !Array.isArray(edits) || edits.length === 0) {
-      return { success: false, error: 'Edits array is required' };
+    if (oldString === undefined) {
+      console.log('[EDIT_FILE] ERROR: No old_string provided');
+      return { success: false, error: 'old_string is required' };
     }
+
+    if (newString === undefined) {
+      console.log('[EDIT_FILE] ERROR: No new_string provided');
+      return { success: false, error: 'new_string is required' };
+    }
+
+    if (typeof oldString !== 'string') {
+      console.log('[EDIT_FILE] ERROR: old_string is not a string');
+      return { success: false, error: 'old_string must be a string' };
+    }
+
+    if (typeof newString !== 'string') {
+      console.log('[EDIT_FILE] ERROR: new_string is not a string');
+      return { success: false, error: 'new_string must be a string' };
+    }
+
+    if (oldString === newString) {
+      console.log('[EDIT_FILE] ERROR: old_string and new_string are identical');
+      return { success: false, error: 'old_string and new_string must be different (no-op edit)' };
+    }
+
+    console.log('[EDIT_FILE] old_string length:', oldString.length, 'characters');
+    console.log('[EDIT_FILE] new_string length:', newString.length, 'characters');
+    console.log('[EDIT_FILE] old_string preview:', oldString.substring(0, 100).replace(/\n/g, '\\n'));
 
     try {
       const workspaceRoot = getWorkspaceRoot();
       if (!workspaceRoot) {
+        console.log('[EDIT_FILE] ERROR: No workspace folder open');
         return { success: false, error: 'No workspace folder open' };
       }
 
       const absolutePath = resolveAbsolutePath(filePath, workspaceRoot);
       const uri = vscode.Uri.file(absolutePath);
+      console.log('[EDIT_FILE] Absolute path:', absolutePath);
 
-      // Read original content
+      // Read current file content
       let originalContent: string;
       try {
         const fileContent = await vscode.workspace.fs.readFile(uri);
         originalContent = Buffer.from(fileContent).toString('utf8');
+        console.log('[EDIT_FILE] File read successfully, length:', originalContent.length, 'characters');
       } catch (error) {
+        console.log('[EDIT_FILE] ERROR: File not found:', error);
         return {
           success: false,
-          error: `File not found: ${filePath}`,
+          error: `FILE_NOT_FOUND: Cannot read file '${filePath}'. Verify the path is correct.`,
         };
       }
 
-      let content = originalContent;
+      // Count occurrences of old_string
+      const occurrences = this.countOccurrences(originalContent, oldString);
+      console.log('[EDIT_FILE] Found', occurrences.count, 'occurrence(s) of old_string');
 
-      // Helper: find a unique match where leading indentation (spaces/tabs) may differ
-      const findIndentInsensitiveMatch = (
-        fileContent: string,
-        pattern: string
-      ): { matchedText: string } | null => {
-        const fileLines = fileContent.split('\n');
-        const patternLines = pattern.split('\n');
-
-        const normalize = (line: string) => line.replace(/^[ \t]*/, '');
-
-        let foundMatch: { matchedText: string } | null = null;
-
-        outer: for (let start = 0; start <= fileLines.length - patternLines.length; start++) {
-          for (let offset = 0; offset < patternLines.length; offset++) {
-            if (normalize(fileLines[start + offset]) !== normalize(patternLines[offset])) {
-              continue outer;
-            }
-          }
-
-          const candidateLines = fileLines.slice(start, start + patternLines.length);
-          const candidateText = candidateLines.join('\n');
-
-          if (foundMatch) {
-            // More than one possible match – require the caller to be more specific
-            return null;
-          }
-
-          foundMatch = { matchedText: candidateText };
+      if (occurrences.count === 0) {
+        console.log('[EDIT_FILE] ERROR: old_string not found in file');
+        // Provide helpful context
+        const similarLines = this.findSimilarContent(originalContent, oldString);
+        let errorMsg = `STRING_NOT_FOUND: The exact string was not found in '${filePath}'.\n\nYou must copy the EXACT text from read_file output, including all whitespace and line breaks.`;
+        
+        if (similarLines.length > 0) {
+          errorMsg += `\n\nSimilar content found (check whitespace/indentation):\n${similarLines.slice(0, 3).join('\n')}`;
         }
-
-        return foundMatch;
-      };
-
-      // Validate all edits first
-      for (let i = 0; i < edits.length; i++) {
-        const edit = edits[i];
-
-        if (!edit.oldString) {
-          return {
-            success: false,
-            error: `Edit ${i + 1}: oldString is required`,
-          };
-        }
-
-        if (edit.newString === undefined) {
-          return {
-            success: false,
-            error: `Edit ${i + 1}: newString is required`,
-          };
-        }
-
-        if (edit.oldString === edit.newString) {
-          return {
-            success: false,
-            error: `Edit ${i + 1}: oldString and newString are identical`,
-          };
-        }
-
-        if (!content.includes(edit.oldString)) {
-          // Fallback: try to match while ignoring leading indentation differences (tabs vs spaces)
-          const indentMatch = findIndentInsensitiveMatch(content, edit.oldString);
-
-          if (indentMatch) {
-            // Use the exact substring from the file for the remainder of validation + application
-            edit.oldString = indentMatch.matchedText;
-          } else {
-            // Try to find similar content to help debug
-            const lines = content.split('\n');
-            const oldStringLines = edit.oldString.split('\n');
-            const firstLine = oldStringLines[0]?.trim();
-            
-            // Find lines containing first line of oldString
-            const similarMatches: string[] = [];
-            lines.forEach((line, idx) => {
-              if (firstLine && line.includes(firstLine)) {
-                const start = Math.max(0, idx - 1);
-                const end = Math.min(lines.length, idx + 3);
-                const snippet = lines.slice(start, end)
-                  .map((l, i) => `${start + i + 1}: ${l}`)
-                  .join('\n');
-                similarMatches.push(snippet);
-              }
-            });
-
-            let errorMsg = `Edit ${i + 1}: oldString not found in file.\n\nPossible causes:\n- File content changed (re-read the file)\n- Whitespace/indentation mismatch\n- Missing surrounding context\n\noldString you tried to match:\n${edit.oldString.substring(0, 200)}${edit.oldString.length > 200 ? '...' : ''}`;
-            
-            if (similarMatches.length > 0) {
-              errorMsg += `\n\nSimilar content found (you may need more context):\n${similarMatches[0]}`;
-            }
-
-            return {
-              success: false,
-              error: errorMsg,
-            };
-          }
-        }
-
-        if (!edit.replaceAll) {
-          const occurrences = content.split(edit.oldString).length - 1;
-          if (occurrences > 1) {
-            // Show locations where oldString appears
-            const lines = content.split('\n');
-            const locations: number[] = [];
-            let searchPos = 0;
-            let foundIndex = content.indexOf(edit.oldString, searchPos);
-            
-            while (foundIndex !== -1) {
-              // Find which line this occurrence is on
-              const beforeMatch = content.substring(0, foundIndex);
-              const lineNum = beforeMatch.split('\n').length;
-              locations.push(lineNum);
-              
-              searchPos = foundIndex + 1;
-              foundIndex = content.indexOf(edit.oldString, searchPos);
-            }
-
-            return {
-              success: false,
-              error: `Edit ${i + 1}: oldString appears ${occurrences} times at lines: ${locations.slice(0, 5).join(', ')}${locations.length > 5 ? '...' : ''}.\n\nSolutions:\n1. Add more surrounding context to make it unique\n2. Set replaceAll: true to change all occurrences\n\nCurrent oldString:\n${edit.oldString.substring(0, 150)}${edit.oldString.length > 150 ? '...' : ''}`,
-            };
-          }
-        }
+        
+        errorMsg += '\n\nCall read_file again to see the current file content and copy the exact string.';
+        
+        return {
+          success: false,
+          error: errorMsg,
+        };
       }
 
-      // Apply edits sequentially
-      const appliedEdits: Array<{
-        oldString: string;
-        newString: string;
-        replaceAll: boolean;
-      }> = [];
-
-      for (const edit of edits) {
-        if (edit.replaceAll) {
-          content = content.split(edit.oldString).join(edit.newString);
-        } else {
-          const index = content.indexOf(edit.oldString);
-          if (index !== -1) {
-            content = content.substring(0, index) + edit.newString + content.substring(index + edit.oldString.length);
-          }
-        }
-
-        appliedEdits.push({
-          oldString: edit.oldString,
-          newString: edit.newString,
-          replaceAll: edit.replaceAll ?? false,
-        });
+      if (occurrences.count > 1) {
+        console.log('[EDIT_FILE] ERROR: old_string appears multiple times');
+        const locations = occurrences.locations.slice(0, 5).map(loc => {
+          const lineNum = this.getLineNumber(originalContent, loc);
+          const snippet = this.getSnippet(originalContent, loc, 40);
+          return `  Line ${lineNum}: ...${snippet}...`;
+        }).join('\n');
+        
+        return {
+          success: false,
+          error: `STRING_AMBIGUOUS: The string appears ${occurrences.count} times in '${filePath}'. You must provide more context to make it unique.\n\nLocations:\n${locations}\n\nInclude surrounding lines or more context to uniquely identify which occurrence to replace.`,
+        };
       }
 
-      // Write updated content
-      const contentBytes = Buffer.from(content, 'utf8');
+      // Perform replacement
+      const newContent = originalContent.replace(oldString, newString);
+      console.log('[EDIT_FILE] Replacement successful');
+      console.log('[EDIT_FILE] New content length:', newContent.length, 'characters');
+
+      // Write back to file
+      const contentBytes = Buffer.from(newContent, 'utf8');
       await vscode.workspace.fs.writeFile(uri, contentBytes);
+      console.log('[EDIT_FILE] File written successfully');
 
-      // Truncate content if too large to prevent message passing failure
+      // Truncate for return if too large
       const MAX_CONTENT_SIZE = 1024 * 512; // 512KB
       let returnOriginal = originalContent;
-      let returnNew = content;
+      let returnNew = newContent;
       let truncated = false;
 
-      if (originalContent.length > MAX_CONTENT_SIZE || content.length > MAX_CONTENT_SIZE) {
+      if (originalContent.length > MAX_CONTENT_SIZE || newContent.length > MAX_CONTENT_SIZE) {
         returnOriginal = originalContent.substring(0, MAX_CONTENT_SIZE) + '\n...(truncated)...';
-        returnNew = content.substring(0, MAX_CONTENT_SIZE) + '\n...(truncated)...';
+        returnNew = newContent.substring(0, MAX_CONTENT_SIZE) + '\n...(truncated)...';
         truncated = true;
       }
 
+      console.log('[EDIT_FILE] ==================== SUCCESS ====================');
       return {
         success: true,
         data: {
           path: filePath,
-          editsApplied: appliedEdits.length,
-          edits: appliedEdits,
           originalContent: returnOriginal,
           newContent: returnNew,
           truncated,
+          oldStringLength: oldString.length,
+          newStringLength: newString.length,
+          changeInSize: newString.length - oldString.length,
         },
       };
     } catch (error) {
-      console.error('EditFileTool error:', error);
+      console.error('[EDIT_FILE] ==================== EXCEPTION ====================');
+      console.error('[EDIT_FILE] Exception:', error);
       return {
         success: false,
-        error: `Failed to edit file: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: `EDIT_FAILED: ${error instanceof Error ? error.message : 'Unknown error'}. Call read_file to verify file content and try again.`,
       };
     }
+  }
+
+  private countOccurrences(content: string, searchString: string): { count: number; locations: number[] } {
+    const locations: number[] = [];
+    let index = 0;
+    
+    while ((index = content.indexOf(searchString, index)) !== -1) {
+      locations.push(index);
+      index += searchString.length;
+    }
+    
+    return { count: locations.length, locations };
+  }
+
+  private getLineNumber(content: string, position: number): number {
+    return content.substring(0, position).split('\n').length;
+  }
+
+  private getSnippet(content: string, position: number, maxLength: number): string {
+    const start = Math.max(0, position - maxLength / 2);
+    const end = Math.min(content.length, position + maxLength / 2);
+    return content.substring(start, end).replace(/\n/g, '\\n');
+  }
+
+  private findSimilarContent(content: string, searchString: string): string[] {
+    // Try to find similar strings (ignoring leading/trailing whitespace per line)
+    const searchLines = searchString.split('\n');
+    const contentLines = content.split('\n');
+    const similar: string[] = [];
+    
+    if (searchLines.length === 1) {
+      // Single line search - find lines with similar content
+      const trimmedSearch = searchString.trim();
+      for (let i = 0; i < contentLines.length; i++) {
+        if (contentLines[i].trim() === trimmedSearch) {
+          similar.push(`Line ${i + 1}: "${contentLines[i]}"`);
+          if (similar.length >= 5) {
+            break;
+          }
+        }
+      }
+    }
+    
+    return similar;
   }
 }

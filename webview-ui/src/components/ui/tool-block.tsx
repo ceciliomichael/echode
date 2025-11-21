@@ -1,8 +1,5 @@
 import {
-  Check,
-  ChevronDown,
-  ChevronRight,
-  Loader2,
+  Minus,
   X,
   Folder,
   Search,
@@ -21,51 +18,160 @@ interface ToolBlockProps {
   isStreaming?: boolean;
 }
 
+/**
+ * Strip line numbers from content formatted as "lineNum: content"
+ * Used to show clean code in UI while AI sees line numbers
+ */
+function stripLineNumbers(content: string): string {
+  return content
+    .split('\n')
+    .map(line => {
+      // Match "number: " at start of line
+      const match = line.match(/^\d+: (.*)$/);
+      return match ? match[1] : line;
+    })
+    .join('\n');
+}
+
+/**
+ * Calculate diff statistics from old and new content
+ */
+function calculateDiffStats(oldContent: string | null | undefined, newContent: string): { additions: number; deletions: number } {
+  if (oldContent === null || oldContent === undefined) {
+    const newLines = newContent.split('\n');
+    return { additions: newLines.length, deletions: 0 };
+  }
+
+  const oldLines = oldContent.split('\n');
+  const newLines = newContent.split('\n');
+  let additions = 0;
+  let deletions = 0;
+
+  let oldIndex = 0;
+  let newIndex = 0;
+
+  while (oldIndex < oldLines.length || newIndex < newLines.length) {
+    const oldLine = oldLines[oldIndex];
+    const newLine = newLines[newIndex];
+
+    if (oldIndex >= oldLines.length) {
+      additions++;
+      newIndex++;
+    } else if (newIndex >= newLines.length) {
+      deletions++;
+      oldIndex++;
+    } else if (oldLine === newLine) {
+      oldIndex++;
+      newIndex++;
+    } else {
+      const foundInOld = oldLines.slice(oldIndex + 1).indexOf(newLine);
+      const foundInNew = newLines.slice(newIndex + 1).indexOf(oldLine);
+
+      if (foundInOld !== -1 && (foundInNew === -1 || foundInOld <= foundInNew)) {
+        deletions++;
+        oldIndex++;
+      } else if (foundInNew !== -1) {
+        additions++;
+        newIndex++;
+      } else {
+        deletions++;
+        additions++;
+        oldIndex++;
+        newIndex++;
+      }
+    }
+  }
+
+  return { additions, deletions };
+}
+
 const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBottom = false, isStreaming = false }: ToolBlockProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const statusConfig = useMemo(() => {
-    // Show streaming state for incomplete tool blocks
-    if (isStreaming) {
-      return {
-        icon: <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--vscode-charts-blue)' }} />,
-        label: 'Streaming',
-      };
+    // Handle error and aborted states first
+    if (toolCall.status === 'error') {
+      return 'Error';
     }
-    
-    switch (toolCall.status) {
-      case 'pending':
-      case 'executing':
-        return {
-          icon: <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--vscode-charts-blue)' }} />,
-          label: 'Executing',
-        };
-      case 'completed':
-        return {
-          icon: <Check className="w-3.5 h-3.5" style={{ color: 'var(--vscode-testing-iconPassed)' }} />,
-          label: 'Completed',
-        };
-      case 'error':
-        return {
-          icon: <X className="w-3.5 h-3.5" style={{ color: 'var(--vscode-errorForeground)' }} />,
-          label: 'Error',
-        };
-      case 'aborted':
-        return {
-          icon: <X className="w-3.5 h-3.5" style={{ color: 'var(--vscode-descriptionForeground)' }} />,
-          label: 'Aborted',
-        };
-      default:
-        return {
-          icon: null,
-          label: 'Unknown',
-        };
+    if (toolCall.status === 'aborted') {
+      return 'Aborted';
     }
-  }, [isStreaming, toolCall.status]);
 
-  // Get file path and icon configuration
+    // Show streaming or executing state
+    if (isStreaming || toolCall.status === 'pending' || toolCall.status === 'executing') {
+      return 'Executing';
+    }
+
+    // Tool-specific completed states
+    const toolName = toolCall.toolName;
+    const metadata = getToolMetadata(toolName);
+
+    // read_file: show "Read"
+    if (toolName === 'read_file') {
+      return 'Read';
+    }
+
+    // edit_file, multi_edit, write_to_file: show diff stats with color
+    if (toolName === 'edit_file' || toolName === 'multi_edit' || toolName === 'write_to_file') {
+      if (toolCall.result?.success && toolCall.result.data) {
+        const data = toolCall.result.data as {
+          oldContent?: string | null;
+          newContent?: string;
+          originalContent?: string;
+        };
+        
+        const oldContent = data.oldContent ?? data.originalContent ?? null;
+        const newContent = data.newContent;
+        
+        if (newContent !== undefined) {
+          const { additions, deletions } = calculateDiffStats(oldContent, newContent);
+          return (
+            <span className="flex gap-1.5">
+              {additions > 0 && (
+                <span style={{ color: 'var(--vscode-gitDecoration-addedResourceForeground)' }}>
+                  +{additions}
+                </span>
+              )}
+              {deletions > 0 && (
+                <span style={{ color: 'var(--vscode-gitDecoration-deletedResourceForeground)' }}>
+                  -{deletions}
+                </span>
+              )}
+              {additions === 0 && deletions === 0 && 'No changes'}
+            </span>
+          );
+        }
+      }
+      // Fallback for edit tools without result yet
+      return 'Edit';
+    }
+
+    // todo_write, todo_read: show todo count
+    if (toolName === 'todo_write' || toolName === 'todo_read') {
+      if (toolCall.result?.success && toolCall.result.data) {
+        const data = toolCall.result.data as { tasks?: Array<{ status: string }> };
+        const tasks = data.tasks || [];
+        const completed = tasks.filter(t => t.status === 'completed').length;
+        return `${completed}/${tasks.length}`;
+      }
+      return 'Todo';
+    }
+
+    // Other tools: show tool name from metadata
+    const displayName = metadata?.name || toolName;
+    // Shorten common tool names
+    const shortName = displayName
+      .replace('List Files', 'List')
+      .replace('Grep Search', 'Grep')
+      .replace('Delete File', 'Delete');
+    
+    return shortName;
+  }, [isStreaming, toolCall.status, toolCall.toolName, toolCall.result]);
+
+  // Get file path and icon configuration (with executing state)
   const fileInfo = useMemo(() => {
     const path = toolCall.parameters.path as string | undefined;
+    const isExecuting = isStreaming || toolCall.status === 'pending' || toolCall.status === 'executing';
     
     // For write_to_file and read_file, ALWAYS prioritize showing filename
     if ((toolCall.toolName === 'write_to_file' || toolCall.toolName === 'read_file') && path) {
@@ -75,8 +181,9 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
       return {
         displayName: fileName,
         fullPath: path,
-        icon: iconConfig.icon,
+        icon: isExecuting ? Minus : iconConfig.icon,
         iconColor: iconConfig.color,
+        isSpinning: isExecuting,
       };
     }
 
@@ -86,8 +193,9 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
       return {
         displayName: displayPath,
         fullPath: path || '',
-        icon: Folder,
+        icon: isExecuting ? Minus : Folder,
         iconColor: 'var(--vscode-charts-blue)',
+        isSpinning: isExecuting,
       };
     }
 
@@ -98,20 +206,9 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
       return {
         displayName: truncatedQuery ? `Search: ${truncatedQuery}` : 'Search',
         fullPath: path || '',
-        icon: Search,
+        icon: isExecuting ? Minus : Search,
         iconColor: 'var(--vscode-editor-foreground)',
-      };
-    }
-
-    // Edit file -> Use File type icon (same as write_file)
-    if (toolCall.toolName === 'edit_file') {
-      const fileName = path ? extractFileName(path) : 'file';
-      const iconConfig = path ? getFileIconConfig(path) : getFileIconConfig('');
-      return {
-        displayName: fileName,
-        fullPath: path || '',
-        icon: iconConfig.icon,
-        iconColor: iconConfig.color,
+        isSpinning: isExecuting,
       };
     }
 
@@ -121,8 +218,9 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
       return {
         displayName: fileName,
         fullPath: path || '',
-        icon: Trash2,
+        icon: isExecuting ? Minus : Trash2,
         iconColor: 'var(--vscode-errorForeground)',
+        isSpinning: isExecuting,
       };
     }
 
@@ -133,8 +231,9 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
       return {
         displayName: fileName,
         fullPath: path,
-        icon: iconConfig.icon,
+        icon: isExecuting ? Minus : iconConfig.icon,
         iconColor: iconConfig.color,
+        isSpinning: isExecuting,
       };
     }
 
@@ -143,10 +242,11 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
     return {
       displayName: metadata?.name || toolCall.toolName,
       fullPath: '',
-      icon: metadata?.icon || getFileIconConfig('').icon,
+        icon: isExecuting ? Minus : (metadata?.icon || getFileIconConfig('').icon),
       iconColor: 'var(--vscode-editor-foreground)',
+      isSpinning: isExecuting,
     };
-  }, [toolCall.parameters.path, toolCall.parameters.query, toolCall.toolName]);
+  }, [toolCall.parameters.path, toolCall.parameters.query, toolCall.toolName, toolCall.status, isStreaming]);
 
   return (
     <div 
@@ -174,9 +274,9 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
         }}
       >
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          {/* Tool Icon */}
+          {/* Tool Icon (with spinner when executing) */}
           <fileInfo.icon
-            className="w-4 h-4 flex-shrink-0"
+            className={`w-4 h-4 flex-shrink-0 ${fileInfo.isSpinning ? 'animate-spin' : ''}`}
             style={{ color: fileInfo.iconColor }}
           />
           
@@ -188,24 +288,41 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
             {fileInfo.displayName}
           </span>
           
-          {/* Status indicator */}
+          {/* Status indicator (no icon, just label) */}
           <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
-            {statusConfig.icon}
+            {(isStreaming || toolCall.status === 'pending' || toolCall.status === 'executing') ? (
+              <style>
+                {`
+                  @keyframes wave-shine {
+                    0% {
+                      background-position: 200% 0;
+                    }
+                    100% {
+                      background-position: -100% 0;
+                    }
+                  }
+                `}
+              </style>
+            ) : null}
             <span 
               className="text-xs font-medium"
-              style={{ color: 'var(--vscode-descriptionForeground)' }}
+              style={
+                (isStreaming || toolCall.status === 'pending' || toolCall.status === 'executing')
+                  ? {
+                      background: 'linear-gradient(90deg, var(--vscode-descriptionForeground) 0%, var(--vscode-descriptionForeground) 40%, var(--vscode-foreground) 50%, var(--vscode-descriptionForeground) 60%, var(--vscode-descriptionForeground) 100%)',
+                      backgroundSize: '300% 100%',
+                      WebkitBackgroundClip: 'text',
+                      backgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      animation: 'wave-shine 2s linear infinite'
+                    }
+                  : { color: 'var(--vscode-descriptionForeground)' }
+              }
             >
-              {statusConfig.label}
+              {statusConfig}
             </span>
           </div>
         </div>
-        <span style={{ color: 'var(--vscode-descriptionForeground)' }}>
-          {isExpanded ? (
-            <ChevronDown className="w-3.5 h-3.5" />
-          ) : (
-            <ChevronRight className="w-3.5 h-3.5" />
-          )}
-        </span>
       </button>
 
       {/* Content */}
@@ -227,47 +344,6 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
                     isStreaming={true}
                     viewOnly={true}
                   />
-                ) : toolCall.toolName === 'edit_file' && 
-                    Array.isArray(toolCall.parameters.edits) && 
-                    toolCall.parameters.edits.length > 0 ? (
-                  <div className="space-y-2 px-3 py-2">
-                    <div className="text-xs opacity-70 font-medium">Preparing edits...</div>
-                    <div className="space-y-2">
-                      {(toolCall.parameters.edits as Array<{oldString?: string; newString?: string; replaceAll?: boolean}>).map((edit, index) => (
-                        <div 
-                          key={index}
-                          className="rounded border p-2 text-xs"
-                          style={{
-                            backgroundColor: 'var(--vscode-editor-background)',
-                            borderColor: 'var(--vscode-input-border)',
-                          }}
-                        >
-                          <div className="flex items-center gap-2 mb-1 opacity-70">
-                            <span className="font-semibold">Edit {index + 1}</span>
-                            {edit.replaceAll && <span className="text-[10px] border rounded px-1">Replace All</span>}
-                          </div>
-                          
-                          {edit.oldString && (
-                            <div className="mb-1">
-                              <div className="opacity-50 text-[10px] uppercase tracking-wider mb-0.5">Original</div>
-                              <div className="font-mono p-1 rounded opacity-70 whitespace-pre-wrap break-all" style={{ backgroundColor: 'var(--vscode-input-background)' }}>
-                                {edit.oldString.length > 200 ? edit.oldString.substring(0, 200) + '...' : edit.oldString}
-                              </div>
-                            </div>
-                          )}
-                          
-                          {edit.newString && (
-                            <div>
-                              <div className="opacity-50 text-[10px] uppercase tracking-wider mb-0.5">New</div>
-                              <div className="font-mono p-1 rounded whitespace-pre-wrap break-all" style={{ backgroundColor: 'var(--vscode-input-background)', color: 'var(--vscode-gitDecoration-addedResourceForeground)' }}>
-                                {edit.newString.length > 200 ? edit.newString.substring(0, 200) + '...' : edit.newString}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
                 ) : (
                   <div 
                     className="px-3 py-2"
@@ -337,10 +413,13 @@ function renderToolResult(toolName: string, data: unknown, fileName: string): Re
   if (toolName === 'read_file' && typeof data === 'object' && data !== null) {
     const result = data as { content?: string; startLine?: number; endLine?: number };
     if (result.content !== undefined) {
+      // Strip line numbers from content for clean UI display (AI sees them, user doesn't)
+      const cleanContent = stripLineNumbers(result.content);
+      
       return (
         <DiffViewer
           oldContent={undefined}
-          newContent={result.content}
+          newContent={cleanContent}
           fileName={fileName}
           viewOnly={true}
           startLineNumber={result.startLine || 1}
@@ -370,11 +449,10 @@ function renderToolResult(toolName: string, data: unknown, fileName: string): Re
     }
   }
 
-  // Special handling for edit_file tool - show diff viewer after completion
+  // Special handling for edit_file tool - show diff viewer
   if (toolName === 'edit_file' && typeof data === 'object' && data !== null) {
     const result = data as {
       path?: string;
-      editsApplied?: number;
       originalContent?: string;
       newContent?: string;
       truncated?: boolean;
@@ -382,25 +460,31 @@ function renderToolResult(toolName: string, data: unknown, fileName: string): Re
 
     if (result.originalContent !== undefined && result.newContent !== undefined) {
       return (
-        <div>
-          <DiffViewer
-            oldContent={result.originalContent}
-            newContent={result.newContent}
-            fileName={fileName}
-            contextLines={3}
-          />
-          {result.truncated && (
-            <div 
-              className="px-3 py-1 text-xs italic"
-              style={{ 
-                color: 'var(--vscode-descriptionForeground)',
-                backgroundColor: 'var(--vscode-textCodeBlock-background)'
-              }}
-            >
-              Content truncated for display
-            </div>
-          )}
-        </div>
+        <DiffViewer
+          oldContent={result.originalContent}
+          newContent={result.newContent}
+          fileName={fileName}
+        />
+      );
+    }
+  }
+
+  // Special handling for multi_edit tool - show diff viewer
+  if (toolName === 'multi_edit' && typeof data === 'object' && data !== null) {
+    const result = data as {
+      path?: string;
+      originalContent?: string;
+      newContent?: string;
+      truncated?: boolean;
+    };
+
+    if (result.originalContent !== undefined && result.newContent !== undefined) {
+      return (
+        <DiffViewer
+          oldContent={result.originalContent}
+          newContent={result.newContent}
+          fileName={fileName}
+        />
       );
     }
   }

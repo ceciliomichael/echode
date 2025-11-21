@@ -42,24 +42,10 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
     clearCache();
   }, [provider, clearCache]);
 
-  // Clear cache and fetch models when customUrl changes
+  // Clear cache when connection details change (provider/base URL/apiKey)
   useEffect(() => {
     clearCache();
-    // VS Code LM doesn't require API key
-    if (provider === 'vscode-lm' || currentSettings.apiKey) {
-      const timeoutId = setTimeout(() => {
-        fetchModels(true);
-      }, 500);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [provider, currentSettings.customUrl, currentSettings.apiKey, clearCache, fetchModels]);
-
-  // Clear model if it's not in the fetched models list
-  useEffect(() => {
-    if (model && models.length > 0 && !models.includes(model)) {
-      setTimeout(() => setModel(''), 0);
-    }
-  }, [models, model, setModel]);
+  }, [provider, currentSettings.customUrl, currentSettings.apiKey, clearCache]);
 
   // Sync system prompt with initial settings
   useEffect(() => {

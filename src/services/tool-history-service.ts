@@ -15,19 +15,18 @@ export class ToolHistoryService {
     workspacePath: string
   ): Promise<{ success: boolean; error?: string }> {
     if (!toolExecution.result?.success || !toolExecution.result.data) {
+      console.log(`[ToolHistory] Skipping undo for ${toolExecution.toolName} (no successful result)`);
       return { success: true }; // Nothing to undo if tool failed
     }
 
     const { toolName } = toolExecution;
     const data = toolExecution.result.data as Record<string, unknown>;
+    console.log(`[ToolHistory] Undoing ${toolName}:`, data.path || data);
 
     try {
       switch (toolName) {
         case 'write_to_file':
           return await this.undoWriteFile(data, workspacePath);
-        
-        case 'edit_file':
-          return await this.undoEditFile(data, workspacePath);
         
         case 'delete_file':
           return await this.undoDeleteFile(data, workspacePath);
@@ -92,19 +91,18 @@ export class ToolHistoryService {
     workspacePath: string
   ): Promise<{ success: boolean; error?: string }> {
     if (!toolExecution.result?.success || !toolExecution.result.data) {
+      console.log(`[ToolHistory] Skipping redo for ${toolExecution.toolName} (no successful result)`);
       return { success: true }; // Nothing to redo if tool failed
     }
 
     const { toolName } = toolExecution;
     const data = toolExecution.result.data as Record<string, unknown>;
+    console.log(`[ToolHistory] Redoing ${toolName}:`, data.path || data);
 
     try {
       switch (toolName) {
         case 'write_to_file':
           return await this.redoWriteFile(data, workspacePath);
-        
-        case 'edit_file':
-          return await this.redoEditFile(data, workspacePath);
         
         case 'delete_file':
           return await this.redoDeleteFile(data, workspacePath);
@@ -209,31 +207,6 @@ export class ToolHistoryService {
   }
 
   /**
-   * Undo edit_file operation
-   */
-  private async undoEditFile(
-    data: Record<string, unknown>,
-    workspacePath: string
-  ): Promise<{ success: boolean; error?: string }> {
-    const filePath = data.path as string;
-    const originalContent = data.originalContent as string;
-
-    const absolutePath = path.join(workspacePath, filePath);
-    const uri = vscode.Uri.file(absolutePath);
-
-    try {
-      const contentBytes = Buffer.from(originalContent, 'utf8');
-      await vscode.workspace.fs.writeFile(uri, contentBytes);
-      return { success: true };
-    } catch (error) {
-      return {
-        success: false,
-        error: `Failed to restore edited file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      };
-    }
-  }
-
-  /**
    * Undo delete_file operation
    */
   private async undoDeleteFile(
@@ -328,31 +301,6 @@ export class ToolHistoryService {
   }
 
   /**
-   * Redo edit_file operation
-   */
-  private async redoEditFile(
-    data: Record<string, unknown>,
-    workspacePath: string
-  ): Promise<{ success: boolean; error?: string }> {
-    const filePath = data.path as string;
-    const newContent = data.newContent as string;
-
-    const absolutePath = path.join(workspacePath, filePath);
-    const uri = vscode.Uri.file(absolutePath);
-
-    try {
-      const contentBytes = Buffer.from(newContent, 'utf8');
-      await vscode.workspace.fs.writeFile(uri, contentBytes);
-      return { success: true };
-    } catch (error) {
-      return {
-        success: false,
-        error: `Failed to redo edit file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      };
-    }
-  }
-
-  /**
    * Redo delete_file operation
    */
   private async redoDeleteFile(
@@ -408,12 +356,15 @@ export class ToolHistoryService {
     directories: string[],
     workspacePath: string
   ): Promise<void> {
+    console.log(`[ToolHistory] Cleaning up ${directories.length} directories (if empty)`);
+    
     // Process directories in reverse order (deepest first)
     for (let i = directories.length - 1; i >= 0; i--) {
       const dirPath = directories[i];
       
       // Safety check: never delete workspace root
       if (dirPath === workspacePath || dirPath.length <= workspacePath.length) {
+        console.log(`[ToolHistory] Skipping workspace root: ${dirPath}`);
         continue;
       }
       
@@ -423,9 +374,13 @@ export class ToolHistoryService {
         
         // Only delete if directory is empty
         if (contents.length === 0) {
+          console.log(`[ToolHistory] Deleting empty directory: ${dirPath}`);
           await vscode.workspace.fs.delete(dirUri, { recursive: false, useTrash: false });
+        } else {
+          console.log(`[ToolHistory] Directory not empty (${contents.length} items), keeping: ${dirPath}`);
         }
-      } catch {
+      } catch (error) {
+        console.log(`[ToolHistory] Could not cleanup directory ${dirPath}:`, error instanceof Error ? error.message : 'Unknown error');
         // Ignore errors - directory might already be deleted or not accessible
         continue;
       }

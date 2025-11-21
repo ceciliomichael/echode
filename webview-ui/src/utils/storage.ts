@@ -1,4 +1,4 @@
-import type { ApiSettings } from '../types/api-settings';
+import type { ApiSettings, Provider } from '../types/api-settings';
 import { DEFAULT_API_SETTINGS } from '../types/api-settings';
 import type { ChatSession } from '../types/chat-session';
 import type { Message } from '../types/chat';
@@ -13,7 +13,58 @@ export const storageService = {
       if (!stored) {
         return { ...DEFAULT_API_SETTINGS };
       }
-      return JSON.parse(stored) as ApiSettings;
+      const parsed = JSON.parse(stored) as ApiSettings;
+
+      // Normalize settings to ensure per-provider fields are populated
+      const normalized: ApiSettings = {
+        ...DEFAULT_API_SETTINGS,
+        ...parsed,
+      };
+
+      const provider: Provider = normalized.provider;
+
+      // Backfill provider-specific API keys from generic apiKey when missing
+      if (!normalized.anthropicApiKey && normalized.apiKey) {
+        normalized.anthropicApiKey = normalized.apiKey;
+      }
+      if (!normalized.openaiApiKey && normalized.apiKey) {
+        normalized.openaiApiKey = normalized.apiKey;
+      }
+      if (!normalized.openaiCompatibleApiKey && normalized.apiKey) {
+        normalized.openaiCompatibleApiKey = normalized.apiKey;
+      }
+
+      // Backfill provider-specific models from generic model when missing
+      if (!normalized.anthropicModel && normalized.model) {
+        normalized.anthropicModel = normalized.model;
+      }
+      if (!normalized.openaiModel && normalized.model) {
+        normalized.openaiModel = normalized.model;
+      }
+      if (!normalized.openaiCompatibleModel && normalized.model) {
+        normalized.openaiCompatibleModel = normalized.model;
+      }
+      if (!normalized.vscodeLmModel && normalized.model) {
+        normalized.vscodeLmModel = normalized.model;
+      }
+
+      // Ensure generic apiKey/model mirror the active provider for convenience
+      if (provider === 'anthropic') {
+        normalized.apiKey = normalized.anthropicApiKey || '';
+        normalized.model = normalized.anthropicModel || '';
+      } else if (provider === 'openai') {
+        normalized.apiKey = normalized.openaiApiKey || '';
+        normalized.model = normalized.openaiModel || '';
+      } else if (provider === 'openai-compatible') {
+        normalized.apiKey = normalized.openaiCompatibleApiKey || '';
+        normalized.model = normalized.openaiCompatibleModel || '';
+      } else if (provider === 'vscode-lm') {
+        // VS Code LM does not require apiKey
+        normalized.apiKey = '';
+        normalized.model = normalized.vscodeLmModel || '';
+      }
+
+      return normalized;
     } catch {
       return { ...DEFAULT_API_SETTINGS };
     }
@@ -37,7 +88,30 @@ export const storageService = {
 
   hasSettings(): boolean {
     const settings = this.getSettings();
-    return !!(settings.provider && settings.apiKey && settings.model);
+
+    if (!settings.provider) {
+      return false;
+    }
+
+    // Provider-aware validation
+    if (settings.provider === 'anthropic') {
+      return !!(settings.anthropicApiKey && (settings.anthropicModel || settings.model));
+    }
+
+    if (settings.provider === 'openai') {
+      return !!(settings.openaiApiKey && (settings.openaiModel || settings.model));
+    }
+
+    if (settings.provider === 'openai-compatible') {
+      return !!(settings.openaiCompatibleApiKey && (settings.openaiCompatibleModel || settings.model));
+    }
+
+    // VS Code LM provider: only model is required
+    if (settings.provider === 'vscode-lm') {
+      return !!(settings.vscodeLmModel || settings.model);
+    }
+
+    return false;
   },
 
   getSystemPrompt(): string {

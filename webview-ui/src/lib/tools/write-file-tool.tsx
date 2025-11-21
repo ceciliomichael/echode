@@ -18,11 +18,41 @@ registerToolPlugin({
   metadata: {
     id: 'write_to_file',
     name: 'Write File',
-    description: 'Create or overwrite files with content',
-    aiDescription: 'Write content to a file. Use this to create new files or update existing ones.',
+    description: 'Create NEW files or complete rewrites only',
+    aiDescription: `Write entire TEXT file content from scratch. **Strictly text-only, with safety guards.**
+
+**Use ONLY for:**
+- Creating brand new TEXT files (source code, config, docs)
+- Complete file rewrites (replacing 100% of content)
+
+**DO NOT use for:**
+- ❌ Binary files (.png, .jpg, .ico, .zip, etc.) → BLOCKED by tool
+- ❌ Files with null bytes or control characters → BLOCKED by tool
+- ❌ Modifying existing files → Use patch_file instead
+- ❌ Updating parts of a file → Use patch_file instead
+- ❌ Files >5MB → BLOCKED by tool
+
+**Safety features:**
+- Rejects binary file extensions automatically
+- Detects and blocks binary/non-text content
+- Verifies written file is readable text
+- Size limit: 5MB maximum
+
+**Example (new file):**
+<function_call>
+<tool_name>write_to_file</tool_name>
+<path>src/new-feature.ts</path>
+<content>export function newFeature() {
+  return 'Hello';
+}</content>
+</function_call>
+
+**After creating:** Call read_file to verify the file was created correctly and is readable.
+
+**Rule of thumb:** If file exists and you're not rewriting 90%+ → use patch_file`,
     icon: FilePlus,
-    usage: 'Create or overwrite files with content',
-    formatExample: '<function_call>\n<tool_name>write_to_file</tool_name>\n<path>src/app.ts</path>\n<content>console.log(\'Hello\');</content>\n</function_call>',
+    usage: 'Create NEW files only - use patch_file for modifications',
+    formatExample: '<function_call>\n<tool_name>write_to_file</tool_name>\n<path>src/new-file.ts</path>\n<content>// new file content</content>\n</function_call>',
   },
   handler: {
     execute: executeWriteFile,

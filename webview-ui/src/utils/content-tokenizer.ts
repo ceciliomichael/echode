@@ -10,7 +10,7 @@ export type ContentToken =
 /**
  * Valid tool names for detection
  */
-const VALID_TOOL_NAMES = ['read_file', 'write_to_file', 'list_files', 'grep_search', 'glob_search', 'edit_file', 'delete_file', 'patch_file', 'todo_write', 'todo_read'];
+const VALID_TOOL_NAMES = ['read_file', 'write_to_file', 'list_files', 'grep_search', 'glob_search', 'delete_file', 'edit_file', 'multi_edit', 'todo_write', 'todo_read'];
 
 /**
  * Parse XML-style parameters from tool block content
@@ -20,12 +20,15 @@ function parseXMLParameters(content: string): Record<string, unknown> {
   const parameters: Record<string, unknown> = {};
   
   // First pass: Extract all COMPLETE parameter tags (with closing tags)
-  const completeParamRegex = /<([\w_-]+)>([\s\S]*?)<\/\1>/g;
+  // Use greedy match to handle cases where content contains the closing tag string
+  const completeParamRegex = /<([\w_-]+)>([\s\S]*)<\/\1>/g;
   let match: RegExpExecArray | null;
   
   while ((match = completeParamRegex.exec(content)) !== null) {
     const paramName = match[1];
-    const paramValue = match[2].trim();
+    // Don't trim for old_string/new_string/content/edits - preserve exact whitespace for code
+    const shouldPreserveWhitespace = ['old_string', 'new_string', 'content', 'edits'].includes(paramName);
+    const paramValue = shouldPreserveWhitespace ? match[2] : match[2].trim();
     parameters[paramName] = parseParamValue(paramValue);
   }
   

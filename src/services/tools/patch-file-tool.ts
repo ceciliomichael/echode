@@ -24,32 +24,50 @@ interface ParsedPatch {
 export class PatchFileTool implements ITool {
   name = 'patch_file';
 
+  private normalizeLineEnding(line: string): string {
+    return line.replace(/\r$/, '');
+  }
+
   async execute(parameters: Record<string, unknown>): Promise<ToolExecutionResult> {
     const filePath = parameters.path as string;
     const patchContent = parameters.patch as string;
 
+    console.log('[PATCH_FILE] ==================== START ====================');
+    console.log('[PATCH_FILE] Target file:', filePath);
+
     if (!filePath) {
+      console.log('[PATCH_FILE] ERROR: No file path provided');
       return { success: false, error: 'File path is required' };
     }
 
     if (!patchContent) {
+      console.log('[PATCH_FILE] ERROR: No patch content provided');
       return { success: false, error: 'Patch content is required' };
     }
+
+    console.log('[PATCH_FILE] Patch content length:', patchContent.length, 'characters');
+    console.log('[PATCH_FILE] Patch preview:', patchContent.substring(0, 200).replace(/\n/g, '\\n'));
 
     try {
       const workspaceRoot = getWorkspaceRoot();
       if (!workspaceRoot) {
+        console.log('[PATCH_FILE] ERROR: No workspace folder open');
         return { success: false, error: 'No workspace folder open' };
       }
 
       const absolutePath = resolveAbsolutePath(filePath, workspaceRoot);
       const uri = vscode.Uri.file(absolutePath);
+      console.log('[PATCH_FILE] Absolute path:', absolutePath);
 
       let originalContent: string;
       try {
         const fileContent = await vscode.workspace.fs.readFile(uri);
         originalContent = Buffer.from(fileContent).toString('utf8');
+        console.log('[PATCH_FILE] File read successfully, length:', originalContent.length, 'characters');
+        console.log('[PATCH_FILE] File has CRLF:', originalContent.includes('\r\n'));
+        console.log('[PATCH_FILE] Total lines:', originalContent.split('\n').length);
       } catch (error) {
+        console.log('[PATCH_FILE] ERROR: File not found:', error);
         return {
           success: false,
           error: `File not found: ${filePath}`,
@@ -59,15 +77,22 @@ export class PatchFileTool implements ITool {
       const parsedPatch = this.parsePatch(patchContent);
       
       if (!parsedPatch) {
+        console.log('[PATCH_FILE] ERROR: Failed to parse patch');
         return {
           success: false,
-          error: 'Invalid patch format. Expected unified diff format.',
+          error: 'PATCH_FORMAT_INVALID: Invalid patch format. Expected unified diff format. Regenerate patch from current file content.',
         };
       }
 
-      const applyResult = this.applyPatch(originalContent, parsedPatch);
+      console.log('[PATCH_FILE] Parsed', parsedPatch.hunks.length, 'hunk(s)');
+      parsedPatch.hunks.forEach((hunk, idx) => {
+        console.log(`[PATCH_FILE] Hunk ${idx + 1}: @@ -${hunk.oldStart},${hunk.oldCount} +${hunk.newStart},${hunk.newCount} @@ (${hunk.lines.length} lines)`);
+      });
+
+      const applyResult = this.applyPatch(originalContent, parsedPatch, filePath);
 
       if (!applyResult.success) {
+        console.log('[PATCH_FILE] ERROR: Patch application failed:', applyResult.error);
         return {
           success: false,
           error: applyResult.error,
@@ -75,9 +100,13 @@ export class PatchFileTool implements ITool {
       }
 
       const newContent = applyResult.content!;
+      console.log('[PATCH_FILE] Patch applied successfully');
+      console.log('[PATCH_FILE] New content length:', newContent.length, 'characters');
+      console.log('[PATCH_FILE] New total lines:', newContent.split('\n').length);
 
       const contentBytes = Buffer.from(newContent, 'utf8');
       await vscode.workspace.fs.writeFile(uri, contentBytes);
+      console.log('[PATCH_FILE] File written successfully');
 
       const MAX_CONTENT_SIZE = 1024 * 512;
       let returnOriginal = originalContent;
@@ -90,6 +119,7 @@ export class PatchFileTool implements ITool {
         truncated = true;
       }
 
+      console.log('[PATCH_FILE] ==================== SUCCESS ====================');
       return {
         success: true,
         data: {
@@ -103,10 +133,11 @@ export class PatchFileTool implements ITool {
         },
       };
     } catch (error) {
-      console.error('PatchFileTool error:', error);
+      console.error('[PATCH_FILE] ==================== EXCEPTION ====================');
+      console.error('[PATCH_FILE] Exception:', error);
       return {
         success: false,
-        error: `Failed to apply patch: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: `PATCH_APPLY_FAILED: ${error instanceof Error ? error.message : 'Unknown error'}. Call read_file again and generate NEW patch.`,
       };
     }
   }
@@ -214,20 +245,47 @@ export class PatchFileTool implements ITool {
     };
   }
 
-  private applyPatch(content: string, patch: ParsedPatch): { success: boolean; content?: string; error?: string } {
+  private applyPatch(content: string, patch: ParsedPatch, filePath: string): { success: boolean; content?: string; error?: string } {
     const fileLines = content.split('\n');
+    console.log('[PATCH_FILE] applyPatch: Starting with', fileLines.length, 'lines');
+    
+    // Validate hunks are non-empty and sorted
+    for (let i = 0; i < patch.hunks.length; i++) {
+      const hunk = patch.hunks[i];
+      const hasChanges = hunk.lines.some(l => l.type === 'add' || l.type === 'remove');
+      if (!hasChanges) {
+        console.log(`[PATCH_FILE] ERROR: Hunk ${i + 1} has no changes (pure context)`);
+        return {
+          success: false,
+          error: `PATCH_FORMAT_INVALID: Hunk ${i + 1} contains no actual changes. Regenerate patch with real modifications.`,
+        };
+      }
+      
+      if (i > 0 && hunk.oldStart <= patch.hunks[i - 1].oldStart) {
+        console.log(`[PATCH_FILE] ERROR: Hunks not sorted`);
+        return {
+          success: false,
+          error: `PATCH_FORMAT_INVALID: Hunks must be sorted by line number. Regenerate patch in correct order.`,
+        };
+      }
+    }
+
     let result = [...fileLines];
+    let lineOffset = 0; // Track cumulative line offset from previous hunks
 
     for (let hunkIndex = 0; hunkIndex < patch.hunks.length; hunkIndex++) {
       const hunk = patch.hunks[hunkIndex];
+      console.log(`[PATCH_FILE] Applying hunk ${hunkIndex + 1}/${patch.hunks.length}, offset=${lineOffset}`);
       
-      const applyResult = this.applyHunk(result, hunk, hunkIndex);
+      const applyResult = this.applyHunk(result, hunk, hunkIndex, lineOffset, filePath);
       
       if (!applyResult.success) {
         return applyResult;
       }
       
       result = applyResult.lines!;
+      lineOffset = applyResult.newOffset!;
+      console.log(`[PATCH_FILE] Hunk ${hunkIndex + 1} applied, new offset=${lineOffset}, result has ${result.length} lines`);
     }
 
     return {
@@ -239,14 +297,18 @@ export class PatchFileTool implements ITool {
   private applyHunk(
     fileLines: string[],
     hunk: Hunk,
-    hunkIndex: number
-  ): { success: boolean; lines?: string[]; error?: string } {
-    const targetLineIndex = hunk.oldStart - 1;
+    hunkIndex: number,
+    lineOffset: number,
+    filePath: string
+  ): { success: boolean; lines?: string[]; newOffset?: number; error?: string } {
+    const targetLineIndex = (hunk.oldStart - 1) + lineOffset;
+    console.log(`[PATCH_FILE] applyHunk ${hunkIndex + 1}: targetLineIndex=${targetLineIndex} (oldStart=${hunk.oldStart}, offset=${lineOffset})`);
 
     if (targetLineIndex < 0 || targetLineIndex > fileLines.length) {
+      console.log(`[PATCH_FILE] ERROR: Line out of range`);
       return {
         success: false,
-        error: `Hunk ${hunkIndex + 1}: Line ${hunk.oldStart} is out of range (file has ${fileLines.length} lines)`,
+        error: `LINE_OUT_OF_RANGE: Hunk ${hunkIndex + 1} targets line ${hunk.oldStart} (adjusted: ${targetLineIndex + 1}) but file has ${fileLines.length} lines. File changed since read_file - call read_file again and generate NEW patch.`,
       };
     }
 
@@ -280,18 +342,35 @@ export class PatchFileTool implements ITool {
       const actualIndex = targetLineIndex + i;
 
       if (actualIndex >= fileLines.length) {
+        console.log(`[PATCH_FILE] ERROR: Context mismatch - file ended`);
         return {
           success: false,
-          error: `Hunk ${hunkIndex + 1}: Context mismatch at line ${actualIndex + 1}. Expected "${expected.content}" but file ended.`,
+          error: `CONTEXT_MISMATCH: Hunk ${hunkIndex + 1} at line ${actualIndex + 1} - file ended. File changed since read_file. Call read_file again and generate NEW patch from fresh content. Do NOT reuse this patch.`,
         };
       }
 
       const actual = fileLines[actualIndex];
+      const normalizedActual = this.normalizeLineEnding(actual);
+      const normalizedExpected = this.normalizeLineEnding(expected.content);
 
-      if (actual !== expected.content) {
+      if (normalizedActual !== normalizedExpected) {
+        console.log(`[PATCH_FILE] ERROR: Context mismatch at line ${actualIndex + 1}`);
+        console.log(`[PATCH_FILE] Expected (normalized): "${normalizedExpected}"`);
+        console.log(`[PATCH_FILE] Actual (normalized): "${normalizedActual}"`);
+        console.log(`[PATCH_FILE] Expected (raw): "${expected.content}"`);
+        console.log(`[PATCH_FILE] Actual (raw): "${actual}"`);
+        
+        // Check if it's only whitespace difference
+        if (normalizedActual.trim() === normalizedExpected.trim()) {
+          return {
+            success: false,
+            error: `WHITESPACE_MISMATCH: Hunk ${hunkIndex + 1} at line ${actualIndex + 1} has whitespace-only difference. Match indentation exactly from read_file output.`,
+          };
+        }
+        
         return {
           success: false,
-          error: `Hunk ${hunkIndex + 1}: Context mismatch at line ${actualIndex + 1}.\nExpected: "${expected.content}"\nActual: "${actual}"`,
+          error: `CONTEXT_MISMATCH: Hunk ${hunkIndex + 1} at line ${actualIndex + 1} in "${filePath}".\nExpected: "${normalizedExpected}"\nActual: "${normalizedActual}"\n\nFile changed since read_file. Call read_file again and generate NEW patch from that fresh content. Do NOT reuse this patch.`,
         };
       }
     }
@@ -306,10 +385,17 @@ export class PatchFileTool implements ITool {
     }
 
     result.splice(targetLineIndex, expectedLines.length, ...newLines);
+    
+    const linesAdded = newLines.length;
+    const linesRemoved = expectedLines.length;
+    const newOffset = lineOffset + (linesAdded - linesRemoved);
+
+    console.log(`[PATCH_FILE] Hunk applied: removed ${linesRemoved}, added ${linesAdded}, new offset=${newOffset}`);
 
     return {
       success: true,
       lines: result,
+      newOffset,
     };
   }
 

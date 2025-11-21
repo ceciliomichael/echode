@@ -19,11 +19,35 @@ registerToolPlugin({
   metadata: {
     id: 'list_files',
     name: 'List Files',
-    description: 'List files and directories in a path',
-    aiDescription: 'List files and directories in a workspace path. Use this to explore the project structure.',
+    description: 'List directory contents - USE THIS for paths without extensions',
+    aiDescription: `List files and directories in a workspace path. **DEFAULT TOOL for directory paths**.
+
+**Use list_files when:**
+1. Path has NO file extension (e.g., \`src/app\`, \`src/routes\`, \`api\`, \`components/ui\`)
+2. You don't know if a path is a file or directory
+3. You received "Cannot read directory" error from read_file/patch_file
+4. User asks to "explore", "show files in", or "list contents of" a path
+
+**After listing:**
+- Use read_file on specific FILES from the results (e.g., \`src/app/page.tsx\`)
+- NEVER use read_file on the directory path itself
+
+**Example workflow:**
+<function_call>
+<tool_name>list_files</tool_name>
+<path>src/app</path>
+</function_call>
+
+Result shows: page.tsx, layout.tsx, etc.
+
+Then read specific file:
+<function_call>
+<tool_name>read_file</tool_name>
+<path>src/app/page.tsx</path>
+</function_call>`,
     icon: FolderTree,
-    usage: 'List files and directories in a path',
-    formatExample: '<function_call>\n<tool_name>list_files</tool_name>\n<path>src</path>\n</function_call>',
+    usage: 'List directory contents - DEFAULT for extensionless paths',
+    formatExample: '<function_call>\n<tool_name>list_files</tool_name>\n<path>src/app</path>\n</function_call>',
   },
   handler: {
     execute: executeListFiles,

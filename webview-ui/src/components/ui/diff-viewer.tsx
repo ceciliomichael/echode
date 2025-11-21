@@ -200,10 +200,6 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
     [oldContent, newContent, isStreaming, startLineNumber, contextLines],
   );
 
-  // Count additions and deletions
-  const additions = diffLines.filter((line) => line.type === 'added').length;
-  const deletions = diffLines.filter((line) => line.type === 'removed').length;
-
   return (
     <div className="w-full">
       {/* Diff Header */}
@@ -216,22 +212,9 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
         }}
       >
         <span>{fileName}</span>
-        {viewOnly && startLineNumber && endLineNumber ? (
+        {viewOnly && startLineNumber && endLineNumber && (
           <span>{startLineNumber}-{endLineNumber}</span>
-        ) : !viewOnly ? (
-          <span className="flex gap-2">
-            {additions > 0 && (
-              <span style={{ color: 'var(--vscode-gitDecoration-addedResourceForeground)' }}>
-                +{additions}
-              </span>
-            )}
-            {deletions > 0 && (
-              <span style={{ color: 'var(--vscode-gitDecoration-deletedResourceForeground)' }}>
-                -{deletions}
-              </span>
-            )}
-          </span>
-        ) : null}
+        )}
       </div>
 
       {/* Diff Content */}

@@ -5,6 +5,12 @@ import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
 export class ReadFileTool implements ITool {
   name = 'read_file';
 
+  private formatWithLineNumbers(lines: string[], startLine: number): string {
+    return lines
+      .map((line, index) => `${startLine + index}: ${line}`)
+      .join('\n');
+  }
+
   async execute(parameters: Record<string, unknown>): Promise<ToolExecutionResult> {
     const filePath = parameters.path as string;
     const offset = parameters.offset as number | undefined;
@@ -29,7 +35,7 @@ export class ReadFileTool implements ITool {
         if (stat.type === vscode.FileType.Directory) {
           return {
             success: false,
-            error: `Cannot read directory '${filePath}'. Please use 'list_files' to view directory contents.`,
+            error: `Cannot read directory '${filePath}'. Please use 'list_files' to view directory contents, then call 'read_file' on a specific file from that listing (e.g., ${filePath}/file.tsx).`,
           };
         }
       } catch (error) {
@@ -41,42 +47,40 @@ export class ReadFileTool implements ITool {
       const lines = content.split('\n');
       const totalLines = lines.length;
 
-      // Handle large files (>1000 lines) - warn if no range specified
-      if (totalLines > 1000 && offset === undefined && limit === undefined) {
-        return {
-          success: false,
-          error: `File has ${totalLines} lines. Please specify offset and limit parameters to read a portion of the file. Example: offset=1, limit=100 to read first 100 lines.`,
-        };
-      }
-
-      // Apply offset/limit if specified
-      if (offset !== undefined || limit !== undefined) {
-        const start = offset ? Math.max(0, offset - 1) : 0;
-        const count = limit || lines.length;
-        const end = Math.min(start + count, lines.length);
-        const selectedLines = lines.slice(start, end);
-        const formattedContent = selectedLines.join('\n');
+      // Apply default 100-line limit when no range specified
+      if (offset === undefined && limit === undefined) {
+        const defaultStart = 0;
+        const defaultCount = Math.min(100, lines.length);
+        const defaultEnd = Math.min(defaultStart + defaultCount, lines.length);
+        const selectedLines = lines.slice(defaultStart, defaultEnd);
+        const formattedContent = this.formatWithLineNumbers(selectedLines, defaultStart + 1);
 
         return {
           success: true,
           data: {
             path: filePath,
             content: formattedContent,
-            startLine: start + 1,
-            endLine: end,
+            startLine: defaultStart + 1,
+            endLine: defaultEnd,
             totalLines,
           },
         };
       }
 
-      // Return full content for small files (with line numbers for transparency)
+      // Apply explicit offset/limit if specified
+      const start = offset ? Math.max(0, offset - 1) : 0;
+      const count = limit || lines.length;
+      const end = Math.min(start + count, lines.length);
+      const selectedLines = lines.slice(start, end);
+      const formattedContent = this.formatWithLineNumbers(selectedLines, start + 1);
+
       return {
         success: true,
         data: {
           path: filePath,
-          content,
-          startLine: 1,
-          endLine: totalLines,
+          content: formattedContent,
+          startLine: start + 1,
+          endLine: end,
           totalLines,
         },
       };

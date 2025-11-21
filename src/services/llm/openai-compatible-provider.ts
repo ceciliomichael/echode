@@ -80,6 +80,8 @@ export class OpenAICompatibleProvider implements ILLMProvider {
             while (data.startsWith('data: ')) {
               data = data.slice(6);
             }
+            // Skip control messages that start with ':' after prefix stripping
+            if (data.startsWith(':')) {continue;}
             // Skip [DONE] signal after prefix stripping
             if (data === '[DONE]') {continue;}
             try {
@@ -108,8 +110,10 @@ export class OpenAICompatibleProvider implements ILLMProvider {
                while (data.startsWith('data: ')) {
                  data = data.slice(6);
                }
-               // Skip [DONE] signal after prefix stripping
-               if (data !== '[DONE]') {
+               // Skip control messages that start with ':' after prefix stripping
+               if (data.startsWith(':')) {
+                   // Skip this control message
+               } else if (data !== '[DONE]') {
                  try {
                     const parsed = JSON.parse(data);
                     const content = parsed.choices?.[0]?.delta?.content;

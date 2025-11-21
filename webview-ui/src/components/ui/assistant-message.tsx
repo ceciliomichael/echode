@@ -38,6 +38,14 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
     [isStreaming, showCopy]
   );
 
+  const copyRowMarginTop = useMemo(() => {
+    if (visibleTokens.length === 0) {
+      return '0.25rem';
+    }
+    const lastToken = visibleTokens[visibleTokens.length - 1];
+    return lastToken.type === 'tool' ? '0.75rem' : '0.25rem';
+  }, [visibleTokens]);
+
   const handleCopy = () => {
     // Extract only text content (exclude think blocks)
     const textContent = tokens
@@ -194,8 +202,8 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
       </div>
       {shouldShowCopyRow && (
         <div 
-          className={`mt-1 flex justify-end transition-opacity ${isHovered ? 'opacity-100' : 'opacity-0'}`}
-          style={{ pointerEvents: isHovered ? 'auto' : 'none', paddingRight: '1.25rem' }}
+          className={`flex justify-end transition-opacity ${isHovered ? 'opacity-100' : 'opacity-0'}`}
+          style={{ pointerEvents: isHovered ? 'auto' : 'none', paddingRight: '1.25rem', marginTop: copyRowMarginTop }}
         >
           <button
             onClick={handleCopy}

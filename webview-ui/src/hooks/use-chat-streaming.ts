@@ -67,6 +67,10 @@ export function useChatStreaming({
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, userMessage]);
+    
+    // Save immediately after user message to ensure it's persisted even if AI crashes
+    // Use setTimeout to allow state update to propagate to messagesRef
+    setTimeout(() => saveSession(), 0);
 
     // Create a new assistant message for AI responses
     let assistantContent = '';
@@ -181,19 +185,33 @@ export function useChatStreaming({
         pendingUpdate = false;
       };
 
+      console.log('[STREAMING] Starting stream...');
+      let chunkCount = 0;
+      
       for await (const chunk of chatApi.streamChat(chatHistory, abortController.signal)) {
+        chunkCount++;
+        console.log(`[STREAMING] Chunk #${chunkCount}:`, chunk);
+        
         if (abortController.signal.aborted) {
+          console.log('[STREAMING] Aborted signal received, breaking stream');
           break;
         }
 
         assistantContent += chunk;
+        console.log(`[STREAMING] Accumulated content length: ${assistantContent.length} chars`);
         
         // Check for complete tool block
         if (hasCompleteToolBlock(assistantContent)) {
+          console.log('[STREAMING] ✓ Complete tool block detected!');
+          console.log('[STREAMING] Content before trim:', assistantContent.substring(0, 200) + '...');
+          
           // Trim content to only include up to the end of the FIRST complete tool block
           // This ensures we execute tools strictly one-by-one and don't include partial content
           const trimmedContent = trimToFirstCompleteToolBlock(assistantContent);
           assistantContent = trimmedContent;
+          
+          console.log('[STREAMING] Content after trim:', assistantContent.substring(0, 200) + '...');
+          console.log('[STREAMING] Trimmed content length:', assistantContent.length);
           
           // Update UI with trimmed content before interrupting
           if (pendingUpdate) {
@@ -202,6 +220,7 @@ export function useChatStreaming({
             updateUI();
           }
           
+          console.log('[STREAMING] Aborting stream to execute tool...');
           // Abort stream to execute tool
           abortController.abort();
           
@@ -209,6 +228,7 @@ export function useChatStreaming({
           setIsExecutingTool(true);
           
           // Execute tool and continue
+          console.log('[STREAMING] Starting tool execution...');
           await executeToolAndContinue(
             assistantContent,
             assistantMessageId,
@@ -217,6 +237,7 @@ export function useChatStreaming({
             content
           );
           
+          console.log('[STREAMING] Tool execution completed, exiting stream');
           return; // Exit early, tool execution will handle continuation
         }
         
@@ -226,6 +247,9 @@ export function useChatStreaming({
           requestAnimationFrame(updateUI);
         }
       }
+      
+      console.log('[STREAMING] Stream finished naturally, total chunks:', chunkCount);
+      console.log('[STREAMING] Final content length:', assistantContent.length);
       
       // Final update to ensure all content is displayed
       if (pendingUpdate) {

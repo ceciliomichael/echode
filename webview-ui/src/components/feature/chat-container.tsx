@@ -32,11 +32,6 @@ export function ChatContainer() {
   // Filter out hidden messages (tool result feedback messages)
   const visibleMessages = messages.filter(msg => !msg.hidden);
 
-  const lastAssistantIndex = visibleMessages.reduce((lastIndex, msg, index) =>
-    msg.role === 'assistant' ? index : lastIndex,
-    -1
-  );
-
   // Extract todos from tool executions (any status: pending, executing, completed)
   useEffect(() => {
     let mostRecentTodoWrite: { tasks: TodoTask[]; timestamp: number } | null = null;
@@ -174,7 +169,7 @@ export function ChatContainer() {
                     onEditCancel={handleCancel}
                     onRevert={handleRevert}
                     isStreaming={(isStreaming || isExecutingTool) && isLastAssistantMessage}
-                    showCopy={index === lastAssistantIndex}
+                    showCopy={message.role === 'assistant'}
                   />
                 );
               })}

@@ -43,29 +43,32 @@ export function useStreamingChat(currentTodos?: Array<{ id: string; content: str
   }, []);
 
   const saveCurrentSession = useCallback(() => {
-    if (messages.length === 0) return;
+    // CRITICAL: Use messagesRef.current to get the LATEST messages, not stale closure
+    const currentMessages = messagesRef.current;
+    
+    if (currentMessages.length === 0) return;
 
     const sessionId = ensureSessionId();
 
     const session: ChatSession = {
       id: sessionId,
-      title: storageService.generateTitle(messages),
+      title: storageService.generateTitle(currentMessages),
       timestamp: Date.now(),
       createdAt: Date.now(),
-      messages: messages.map(msg => ({
+      messages: currentMessages.map(msg => ({
         ...msg,
         timestamp: msg.timestamp instanceof Date ? msg.timestamp.toISOString() : msg.timestamp,
         // Serialize toolExecutions Map to array for JSON storage
         toolExecutions: msg.toolExecutions ? Array.from(msg.toolExecutions.entries()) : undefined,
       })),
       metadata: {
-        messageCount: messages.length,
-        preview: storageService.getPreview(messages),
+        messageCount: currentMessages.length,
+        preview: storageService.getPreview(currentMessages),
       },
     };
 
     storageService.saveSession(session);
-  }, [messages, ensureSessionId]);
+  }, [ensureSessionId, messagesRef]);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -186,7 +189,8 @@ export function useStreamingChat(currentTodos?: Array<{ id: string; content: str
     sendingMessageRef.current = false;
     
     // Step 2: Undo all tool executions from messages after the edited one
-    const messagesToRevert = messages.slice(messageIndex);
+    // IMPORTANT: Undo in reverse order (latest to earliest) to properly handle file operations
+    const messagesToRevert = messages.slice(messageIndex).reverse();
     for (const msg of messagesToRevert) {
       if (msg.toolExecutions && msg.toolExecutions.size > 0) {
         try {
@@ -267,12 +271,18 @@ export function useStreamingChat(currentTodos?: Array<{ id: string; content: str
 
     try {
       // Undo all tool executions from messages after the target message
-      const messagesToRevert = messages.slice(messageIndex);
+      // IMPORTANT: Undo in reverse order (latest to earliest) to properly handle file operations
+      const messagesToRevert = messages.slice(messageIndex).reverse();
+      console.log(`[Revert] Starting revert from message index ${messageIndex}, reverting ${messagesToRevert.length} messages`);
+      
       for (const msg of messagesToRevert) {
         if (msg.toolExecutions && msg.toolExecutions.size > 0) {
+          console.log(`[Revert] Undoing ${msg.toolExecutions.size} tool executions from message ${msg.id}`);
           await toolHistoryApi.undoToolExecutions(msg.toolExecutions);
         }
       }
+      
+      console.log('[Revert] All tool executions undone successfully');
       
       setRevertPreviewMessageId(messageId);
       
@@ -311,11 +321,16 @@ export function useStreamingChat(currentTodos?: Array<{ id: string; content: str
       if (messageIndex !== -1) {
         // Re-apply tool executions from messages after the revert point
         const messagesToReapply = messages.slice(messageIndex);
+        console.log(`[CancelRevert] Re-applying ${messagesToReapply.length} messages from index ${messageIndex}`);
+        
         for (const msg of messagesToReapply) {
           if (msg.toolExecutions && msg.toolExecutions.size > 0) {
+            console.log(`[CancelRevert] Redoing ${msg.toolExecutions.size} tool executions from message ${msg.id}`);
             await toolHistoryApi.redoToolExecutions(msg.toolExecutions);
           }
         }
+        
+        console.log('[CancelRevert] All tool executions re-applied successfully');
       }
       
       setRevertPreviewMessageId(null);
