@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { PROVIDER_DEFAULTS, type Provider } from '../types/api-settings';
+import { getProviderDefaults, type Provider } from '../types/api-settings';
 
 // Session-only cache for fetched models
 const modelCache = new Map<string, string[]>();
@@ -15,7 +15,7 @@ export function useModelFetcher(
 
   // Generate cache key based on provider, url, and apiKey
   const getCacheKey = useCallback((prov: Provider, url: string | undefined, key: string) => {
-    const baseUrl = url?.trim() || PROVIDER_DEFAULTS[prov].baseUrl;
+    const baseUrl = url?.trim() || getProviderDefaults(prov).baseUrl;
     return `${prov}:${baseUrl}:${key}`;
   }, []);
 
@@ -37,7 +37,7 @@ export function useModelFetcher(
 
     setLoadingModels(true);
     
-    const baseURL = customBaseUrl?.trim() || PROVIDER_DEFAULTS[provider].baseUrl;
+    const baseURL = customBaseUrl?.trim() || getProviderDefaults(provider).baseUrl;
     const requestId = Date.now();
     requestIdRef.current = requestId;
 

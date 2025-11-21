@@ -1,6 +1,6 @@
 import { ApiKeyInput } from './api-key-input';
 import { ProviderDropdown } from './provider-dropdown';
-import { PROVIDER_DEFAULTS, type Provider } from '../../types/api-settings';
+import { getProviderDefaults, type Provider } from '../../types/api-settings';
 
 interface ProviderConfigSectionProps {
   provider: Provider;
@@ -54,7 +54,7 @@ export function ProviderConfigSection({
           type="text"
           value={customBaseUrl}
           onChange={(e) => onCustomBaseUrlChange(e.target.value)}
-          placeholder={PROVIDER_DEFAULTS[provider].baseUrl}
+          placeholder={getProviderDefaults(provider).baseUrl}
           className="w-full px-3 py-2 text-sm rounded-xl border transition-colors"
           style={{
             backgroundColor: 'var(--vscode-input-background)',

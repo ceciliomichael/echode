@@ -60,3 +60,13 @@ export const PROVIDER_DEFAULTS = {
     temperature: 1.0,
   },
 } as const;
+
+/**
+ * Safely get provider defaults with fallback to anthropic
+ */
+export function getProviderDefaults(provider: Provider | undefined) {
+  if (!provider || !(provider in PROVIDER_DEFAULTS)) {
+    return PROVIDER_DEFAULTS.anthropic;
+  }
+  return PROVIDER_DEFAULTS[provider];
+}

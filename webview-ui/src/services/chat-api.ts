@@ -1,6 +1,6 @@
 import type { ChatMessage } from '../types/chat-api';
 import { storageService } from '../utils/storage';
-import { PROVIDER_DEFAULTS } from '../types/api-settings';
+import { getProviderDefaults } from '../types/api-settings';
 import { UnifiedChatService } from './unified-chat-service';
 
 export class ChatApiService {
@@ -24,11 +24,11 @@ export class ChatApiService {
     // Determine base URL based on provider
     let baseURL: string;
     if (settings.provider === 'anthropic') {
-      baseURL = settings.anthropicCustomUrl?.trim() || PROVIDER_DEFAULTS.anthropic.baseUrl;
+      baseURL = settings.anthropicCustomUrl?.trim() || getProviderDefaults('anthropic').baseUrl;
     } else if (settings.provider === 'openai') {
-      baseURL = settings.openaiCustomUrl?.trim() || PROVIDER_DEFAULTS.openai.baseUrl;
+      baseURL = settings.openaiCustomUrl?.trim() || getProviderDefaults('openai').baseUrl;
     } else {
-      baseURL = settings.openaiCompatibleCustomUrl?.trim() || PROVIDER_DEFAULTS['openai-compatible'].baseUrl;
+      baseURL = settings.openaiCompatibleCustomUrl?.trim() || getProviderDefaults('openai-compatible').baseUrl;
     }
 
     // Use unified service singleton that communicates with VSCode backend
