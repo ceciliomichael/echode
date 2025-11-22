@@ -1,6 +1,7 @@
 import type { WorkspaceContext } from '../types/workspace';
 import { storageService } from './storage';
-import { getAllTools, getToolSystemPrompt } from '../lib/tool-config';
+import { getAllTools, getToolSystemPrompt, getToolsForMode } from '../lib/tool-config';
+import type { ChatMode } from '../types/chat-mode';
 
 export interface PromptConfig {
   name: string;
@@ -30,7 +31,7 @@ export function getPromptConfig(workspace: WorkspaceContext | null): PromptConfi
   };
 }
 
-export function getSystemPrompt(workspace: WorkspaceContext | null): string {
+export function getSystemPrompt(workspace: WorkspaceContext | null, mode: ChatMode = 'agent'): string {
   const config = getPromptConfig(workspace);
   
   const identitySection = `<identity>
@@ -185,10 +186,28 @@ ${workspaceLevelRules}${workspaceLevelRules && userLevelRules ? '\n\n' : ''}${us
 </user_specific_rules>`
     : '';
 
-  // Add tool configuration - use saved enabled tools or default to all enabled
+  // Add mode-specific behavior section
+  const modeSection = mode === 'plan'
+    ? `
+<mode>
+Current mode: PLAN
+
+- You are in planning-only mode.
+- You MUST NOT perform code edits, apply patches, create or delete files, or modify user tasks directly.
+- You MAY ONLY use exploration tools (file reading/listing/search and todo_read).
+- Focus on understanding, analysis, and proposing clear implementation plans and steps.
+- Your role is to help the user understand the codebase and formulate a strategy, not to execute changes.
+</mode>`
+    : '';
+
+  // Add tool configuration - use mode-aware tool filtering
+  // In Plan mode: only exploration tools (read_file, list_files, grep_search, glob_search, todo_read)
+  // In Agent mode: respects user's tool settings from settings page
   const savedTools = storageService.getEnabledTools();
-  const enabledTools = savedTools || getAllTools(true);
-  const activeTools = enabledTools.filter(tool => tool.enabled);
+  const baseTools = mode === 'plan'
+    ? getToolsForMode('plan', true)
+    : (savedTools || getAllTools(true));
+  const activeTools = baseTools.filter(tool => tool.enabled);
   const toolsSection = activeTools.length > 0
     ? `
 <tools>
@@ -196,5 +215,5 @@ ${getToolSystemPrompt(activeTools)}
 </tools>`
     : '';
 
-  return `${identitySection}${thinkingProtocol}${behaviorSection}${developmentWorkflow}${formattingRulesSection}${workspaceSection}${userRulesSection}${toolsSection}`;
+  return `${identitySection}${thinkingProtocol}${behaviorSection}${developmentWorkflow}${formattingRulesSection}${workspaceSection}${userRulesSection}${modeSection}${toolsSection}`;
 }

@@ -2,8 +2,10 @@ import { useState, useRef, useEffect, type KeyboardEvent, type FormEvent, type C
 import { ArrowUp, Paperclip, Square } from 'lucide-react';
 import { TodoBlock } from './todo-block';
 import { AttachmentPreview } from './attachment-preview';
+import { ModeDropdown } from './mode-dropdown';
 import type { TodoTask } from '../../types/todo';
 import type { ImageAttachment } from '../../types/chat';
+import type { ChatMode } from '../../types/chat-mode';
 import { processImageFiles } from '../../utils/image-utils';
 
 interface ChatInputProps {
@@ -12,9 +14,11 @@ interface ChatInputProps {
   isStreaming?: boolean;
   onStop?: () => void;
   todos?: TodoTask[];
+  mode?: ChatMode;
+  onModeChange?: (mode: ChatMode) => void;
 }
 
-export function ChatInput({ onSendMessage, disabled = false, isStreaming = false, onStop, todos = [] }: ChatInputProps) {
+export function ChatInput({ onSendMessage, disabled = false, isStreaming = false, onStop, todos = [], mode, onModeChange }: ChatInputProps) {
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<ImageAttachment[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -209,6 +213,13 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
               >
                 <Paperclip className="w-3.5 h-3.5" />
               </button>
+              {mode && onModeChange && (
+                <ModeDropdown
+                  mode={mode}
+                  onModeChange={onModeChange}
+                  disabled={disabled || isStreaming}
+                />
+              )}
             </div>
 
             <div className="flex items-center gap-1">

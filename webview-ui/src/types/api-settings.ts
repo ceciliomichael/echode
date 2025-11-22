@@ -33,6 +33,7 @@ export interface ApiSettings {
   vscodeLmTemperature: number;
   systemPrompt?: string;
   enabledTools?: Tool[];
+  chatMode?: 'agent' | 'plan';
 }
 
 export const DEFAULT_API_SETTINGS: ApiSettings = {

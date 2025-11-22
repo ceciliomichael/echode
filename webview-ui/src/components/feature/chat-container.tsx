@@ -8,9 +8,13 @@ import { useStreamingChat } from '../../hooks/use-streaming-chat';
 import { useTodo } from '../../hooks/use-todo';
 import type { TodoTask } from '../../types/todo';
 import type { ImageAttachment } from '../../types/chat';
+import type { ChatMode } from '../../types/chat-mode';
+import { storageService } from '../../utils/storage';
 
 export function ChatContainer() {
   const { tasks, updateTodos, clearTodos } = useTodo();
+  const [mode, setMode] = useState<ChatMode>(() => storageService.getChatMode());
+
   const { 
     messages, 
     isStreaming, 
@@ -27,7 +31,7 @@ export function ChatContainer() {
     handleEditCancel,
     handleRevertPreview,
     handleCancelRevert,
-  } = useStreamingChat(tasks);
+  } = useStreamingChat(tasks, mode);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -229,6 +233,11 @@ export function ChatContainer() {
     handleEditCancel();
   };
 
+  const handleModeChange = (newMode: ChatMode) => {
+    setMode(newMode);
+    storageService.setChatMode(newMode);
+  };
+
   return (
     <>
       {/* Dimmed overlay when in edit mode */}
@@ -281,6 +290,8 @@ export function ChatContainer() {
           isStreaming={isStreaming}
           onStop={abortStream}
           todos={tasks}
+          mode={mode}
+          onModeChange={handleModeChange}
         />
       </div>
 

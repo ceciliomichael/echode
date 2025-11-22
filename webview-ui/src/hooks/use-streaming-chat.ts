@@ -3,13 +3,17 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Message, ImageAttachment } from '../types/chat';
 import type { ToolExecutionState } from '../types/tool';
 import type { ChatSession } from '../types/chat-session';
+import type { ChatMode } from '../types/chat-mode';
 import { useToolExecution } from './use-tool-execution';
 import { useChatStreaming } from './use-chat-streaming';
 import { storageService } from '../utils/storage';
 import { toolHistoryApi } from '../services/tool-history-api';
 import { setSessionEditingMessage, setSessionRevertPreview, loadSessionUiState } from '../utils/session-ui-state';
 
-export function useStreamingChat(currentTodos?: Array<{ id: string; content: string; status: string }>) {
+export function useStreamingChat(
+  currentTodos?: Array<{ id: string; content: string; status: string }>,
+  mode: ChatMode = 'agent'
+) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isExecutingTool, setIsExecutingTool] = useState(false);
@@ -164,6 +168,7 @@ export function useStreamingChat(currentTodos?: Array<{ id: string; content: str
     messagesRef,
     currentTodos,
     saveSession: saveCurrentSession,
+    mode,
   });
 
   // Chat streaming hook
@@ -177,6 +182,7 @@ export function useStreamingChat(currentTodos?: Array<{ id: string; content: str
     abortControllerRef,
     executeToolAndContinue,
     saveSession: saveCurrentSession,
+    mode,
   });
 
   const editMessage = useCallback(async (messageId: string, newContent: string, attachments?: ImageAttachment[]) => {

@@ -35,6 +35,14 @@ export class ToolExecutor {
     signal?: AbortSignal,
     onStatusChange?: ToolStatusCallback,
   ): Promise<ToolExecutionResult> {
+    // Check if tool is enabled in current mode
+    if (!this.enabledTools.includes(toolCall.toolName)) {
+      return {
+        success: false,
+        error: `Tool "${toolCall.toolName}" is disabled in the current mode.`,
+      };
+    }
+
     const handler = getToolHandler(toolCall.toolName);
 
     if (!handler) {

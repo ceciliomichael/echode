@@ -3,9 +3,10 @@ import { chatApi } from '../services/chat-api';
 import { useWorkspaceContext } from './use-workspace-context';
 import type { Message } from '../types/chat';
 import type { ChatMessage } from '../types/chat-api';
+import type { ChatMode } from '../types/chat-mode';
 import { hasCompleteToolBlock, extractToolBlocks, trimToFirstCompleteToolBlock } from '../lib/tool-parser';
 import { ToolExecutor } from '../lib/tool-executor';
-import { getAllTools } from '../lib/tool-registry';
+import { getToolsForMode } from '../lib/tool-config';
 import type { ToolExecutionState } from '../types/tool';
 import { createToolExecutionState, updateToolExecutionStatus, generateToolExecutionId } from '../lib/tool-execution-tracker';
 import { fetchDiagnostics, formatDiagnosticsForAI, shouldFetchDiagnostics, isFileModificationTool as checkIsFileModificationTool } from '../utils/diagnostic-utils';
@@ -82,6 +83,7 @@ interface ToolExecutionHookProps {
   messagesRef: React.MutableRefObject<Message[]>;
   currentTodos?: Array<{ id: string; content: string; status: string }>;
   saveSession: () => void;
+  mode: ChatMode;
 }
 
 export function useToolExecution({
@@ -96,16 +98,17 @@ export function useToolExecution({
   updateToolExecution,
   currentTodos = [],
   saveSession,
+  mode,
 }: ToolExecutionHookProps) {
   const workspace = useWorkspaceContext();
 
   // Track diagnostic fix attempts per file to prevent infinite loops
   const diagnosticAttemptsRef = useRef<Record<string, number>>({});
 
-  // Initialize tool executor with enabled tools
+  // Initialize tool executor with mode-aware enabled tools
   const toolExecutorRef = useRef<ToolExecutor | null>(null);
   if (!toolExecutorRef.current) {
-    const enabledTools = getAllTools(false).map(t => t.id);
+    const enabledTools = getToolsForMode(mode, false).map(t => t.id);
     toolExecutorRef.current = new ToolExecutor({
       enabledTools,
       isStoppingRef,
@@ -218,7 +221,8 @@ export function useToolExecution({
           assistantContent,
           toolResultText,
           diagnosticsText,
-          currentTodos
+          currentTodos,
+          mode
         );
         
         // Continue streaming - clear executing tool state
@@ -323,7 +327,7 @@ export function useToolExecution({
         saveSession();
       }
     },
-    [workspace, updateToolExecution, setMessages, setIsExecutingTool, setIsStreaming, isStreamingRef, isStoppingRef, abortControllerRef, sendingMessageRef, currentTodos, messagesRef, saveSession],
+    [workspace, updateToolExecution, setMessages, setIsExecutingTool, setIsStreaming, isStreamingRef, isStoppingRef, abortControllerRef, sendingMessageRef, currentTodos, messagesRef, saveSession, mode],
   );
 
   return { executeToolAndContinue };

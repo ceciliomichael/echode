@@ -6,6 +6,7 @@ import { requestWorkspaceInfo } from '../utils/workspace-info';
 import { useWorkspaceContext } from './use-workspace-context';
 import type { Message, ImageAttachment } from '../types/chat';
 import type { ChatMessage } from '../types/chat-api';
+import type { ChatMode } from '../types/chat-mode';
 import { hasCompleteToolBlock, trimToFirstCompleteToolBlock } from '../lib/tool-parser';
 import { removeThinkBlocks } from '../utils/think-block-parser';
 import { buildChatMessage, getCurrentModel, isVisionCapableModel } from '../utils/vision-utils';
@@ -26,6 +27,7 @@ interface ChatStreamingProps {
     userContent: string
   ) => Promise<void>;
   saveSession: () => void;
+  mode: ChatMode;
 }
 
 export function useChatStreaming({
@@ -38,6 +40,7 @@ export function useChatStreaming({
   abortControllerRef,
   executeToolAndContinue,
   saveSession,
+  mode,
 }: ChatStreamingProps) {
   const workspace = useWorkspaceContext();
 
@@ -89,7 +92,7 @@ export function useChatStreaming({
 
     try {
       const latestWorkspace = window.workspaceContext || workspace;
-      const systemPrompt = getSystemPrompt(latestWorkspace);
+      const systemPrompt = getSystemPrompt(latestWorkspace, mode);
       
       // Use override messages if provided (for edit flow), otherwise use current messages
       const messagesToSend = overrideMessages !== undefined ? overrideMessages : messages;
@@ -294,7 +297,7 @@ export function useChatStreaming({
       // Save session after stream completion
       saveSession();
     }
-  }, [messages, workspace, executeToolAndContinue, setMessages, setIsStreaming, setIsExecutingTool, isStreamingRef, sendingMessageRef, abortControllerRef, saveSession]);
+  }, [messages, workspace, executeToolAndContinue, setMessages, setIsStreaming, setIsExecutingTool, isStreamingRef, sendingMessageRef, abortControllerRef, saveSession, mode]);
 
   return { sendMessage };
 }

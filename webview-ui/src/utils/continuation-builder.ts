@@ -1,6 +1,7 @@
 import type { Message } from '../types/chat';
 import type { ChatMessage } from '../types/chat-api';
 import type { WorkspaceContext } from '../types/workspace';
+import type { ChatMode } from '../types/chat-mode';
 import { getSystemPrompt } from './prompts';
 import { formatToolResultsForHistory } from './tool-result-formatter';
 
@@ -53,9 +54,10 @@ export function buildContinuationHistory(
   assistantContent: string,
   toolResultText: string,
   diagnosticsText: string,
-  currentTodos: TodoItem[]
+  currentTodos: TodoItem[],
+  mode: ChatMode = 'agent'
 ): ChatMessage[] {
-  const systemPrompt = getSystemPrompt(workspace);
+  const systemPrompt = getSystemPrompt(workspace, mode);
 
   const continuationHistory: ChatMessage[] = [
     {

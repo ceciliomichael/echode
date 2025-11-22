@@ -1,11 +1,37 @@
 import type { Tool } from '../types/tool';
 import { getAllToolMetadata, getAllTools as getToolsFromRegistry } from './tool-registry';
+import type { ChatMode } from '../types/chat-mode';
 
 export const AVAILABLE_TOOLS: Tool[] = getToolsFromRegistry(false);
+
+// Fixed exploration-only tools for Plan mode
+const PLAN_MODE_TOOL_IDS = [
+  'read_file',
+  'list_files',
+  'grep_search',
+  'glob_search',
+  'todo_read',
+] as const;
 
 // Re-export getAllTools for external use
 export function getAllTools(defaultEnabled = true): Tool[] {
   return getToolsFromRegistry(defaultEnabled);
+}
+
+/**
+ * Get tools filtered by chat mode
+ * - Agent mode: uses all enabled tools from settings
+ * - Plan mode: fixed exploration tools only (read_file, list_files, grep_search, glob_search, todo_read)
+ */
+export function getToolsForMode(mode: ChatMode, defaultEnabled = true): Tool[] {
+  const allTools = getToolsFromRegistry(defaultEnabled);
+  
+  if (mode === 'agent') {
+    return allTools;
+  }
+  
+  // Plan mode: filter to exploration tools only
+  return allTools.filter(tool => (PLAN_MODE_TOOL_IDS as readonly string[]).includes(tool.id));
 }
 
 export function getToolSystemPrompt(enabledTools: Tool[]): string {

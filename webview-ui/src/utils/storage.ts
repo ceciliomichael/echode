@@ -187,5 +187,16 @@ export const storageService = {
     }
     
     return content.substring(0, maxLength).trim() + '...';
+  },
+
+  getChatMode(): 'agent' | 'plan' {
+    const settings = this.getSettings();
+    return settings.chatMode || 'agent';
+  },
+
+  setChatMode(mode: 'agent' | 'plan'): void {
+    const settings = this.getSettings();
+    settings.chatMode = mode;
+    this.saveSettings(settings);
   }
 };
