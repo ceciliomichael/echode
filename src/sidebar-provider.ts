@@ -227,6 +227,8 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
           await this._historyService.deleteSession(data.sessionId);
           const updatedSessions = await this._historyService.getAllSessions();
           webviewView.webview.postMessage({ type: 'sessionsUpdated', sessions: updatedSessions });
+          // Notify webview that a session was deleted so it can clear the chat if it's the current one
+          webviewView.webview.postMessage({ type: 'sessionDeleted', sessionId: data.sessionId });
           break;
         case 'historyPanelClosed':
           this._isHistoryOpen = false;

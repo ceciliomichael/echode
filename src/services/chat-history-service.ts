@@ -95,6 +95,7 @@ export class ChatHistoryService {
         content TEXT NOT NULL,
         timestamp TEXT NOT NULL,
         tool_executions TEXT DEFAULT NULL,
+        attachments TEXT DEFAULT NULL,
         FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
       );
       
@@ -119,9 +120,13 @@ export class ChatHistoryService {
       // Migration: Add tool_executions column to messages table
       const messageColumns = db.pragma('table_info(messages)') as Array<{ name: string }>;
       const hasToolExecutionsCol = messageColumns.some(col => col.name === 'tool_executions');
+      const hasAttachmentsCol = messageColumns.some(col => col.name === 'attachments');
       
       if (!hasToolExecutionsCol) {
         db.exec('ALTER TABLE messages ADD COLUMN tool_executions TEXT DEFAULT NULL');
+      }
+      if (!hasAttachmentsCol) {
+        db.exec('ALTER TABLE messages ADD COLUMN attachments TEXT DEFAULT NULL');
       }
     } catch (error) {
       console.error('Migration error:', error);
@@ -182,7 +187,7 @@ export class ChatHistoryService {
       }
       
       const messagesStmt = this.db.prepare(`
-        SELECT id, role, content, timestamp, tool_executions
+        SELECT id, role, content, timestamp, tool_executions, attachments
         FROM messages
         WHERE session_id = ?
         ORDER BY timestamp ASC
@@ -194,9 +199,10 @@ export class ChatHistoryService {
         content: string;
         timestamp: string;
         tool_executions?: string | null;
+        attachments?: string | null;
       }>;
       
-      // Parse tool_executions JSON into the expected structure
+      // Parse tool_executions and attachments JSON into the expected structure
       const mappedMessages = messages.map(m => ({
         id: m.id,
         role: m.role,
@@ -204,6 +210,9 @@ export class ChatHistoryService {
         timestamp: m.timestamp,
         toolExecutions: m.tool_executions
           ? (JSON.parse(m.tool_executions) as Array<[string, ToolExecutionState]>)
+          : undefined,
+        attachments: m.attachments
+          ? JSON.parse(m.attachments)
           : undefined,
       }));
       
@@ -277,8 +286,8 @@ export class ChatHistoryService {
         
         // Insert messages
         const insertMessageStmt = this.db.prepare(`
-          INSERT INTO messages (id, session_id, role, content, timestamp, tool_executions)
-          VALUES (?, ?, ?, ?, ?, ?)
+          INSERT INTO messages (id, session_id, role, content, timestamp, tool_executions, attachments)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
         `);
         
         for (const message of session.messages) {
@@ -287,13 +296,19 @@ export class ChatHistoryService {
             ? JSON.stringify(message.toolExecutions)
             : null;
           
+          // Serialize attachments to JSON if present
+          const attachmentsJson = (message as any).attachments
+            ? JSON.stringify((message as any).attachments)
+            : null;
+          
           insertMessageStmt.run(
             message.id,
             session.id,
             message.role,
             message.content,
             message.timestamp,
-            toolExecutionsJson
+            toolExecutionsJson,
+            attachmentsJson
           );
         }
         

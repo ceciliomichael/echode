@@ -1,10 +1,13 @@
 import { useState, useRef, useEffect, type KeyboardEvent, type FormEvent, type ChangeEvent } from 'react';
 import { ArrowUp, Paperclip, Square } from 'lucide-react';
 import { TodoBlock } from './todo-block';
+import { AttachmentPreview } from './attachment-preview';
 import type { TodoTask } from '../../types/todo';
+import type { ImageAttachment } from '../../types/chat';
+import { processImageFiles } from '../../utils/image-utils';
 
 interface ChatInputProps {
-  onSendMessage: (message: string) => void;
+  onSendMessage: (message: string, attachments?: ImageAttachment[]) => void;
   disabled?: boolean;
   isStreaming?: boolean;
   onStop?: () => void;
@@ -13,7 +16,9 @@ interface ChatInputProps {
 
 export function ChatInput({ onSendMessage, disabled = false, isStreaming = false, onStop, todos = [] }: ChatInputProps) {
   const [input, setInput] = useState('');
+  const [attachments, setAttachments] = useState<ImageAttachment[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -25,8 +30,9 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (input.trim() && !disabled) {
-      onSendMessage(input.trim());
+      onSendMessage(input.trim(), attachments.length > 0 ? attachments : undefined);
       setInput('');
+      setAttachments([]);
     }
   };
 
@@ -39,6 +45,37 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
       e.preventDefault();
       handleSubmit(e);
     }
+  };
+
+  const handleAttachmentClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const remainingSlots = 3 - attachments.length;
+    if (remainingSlots <= 0) return;
+
+    const { attachments: newAttachments, errors } = await processImageFiles(files, remainingSlots);
+    
+    if (errors.length > 0) {
+      console.error('Image processing errors:', errors);
+    }
+
+    if (newAttachments.length > 0) {
+      setAttachments(prev => [...prev, ...newAttachments]);
+    }
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -67,32 +104,79 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
         aria-label="Chat input area"
       >
         <form onSubmit={handleSubmit} className="flex flex-col gap-0 p-1">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+            multiple
+            onChange={handleFileChange}
+            className="hidden"
+            aria-label="Upload images"
+          />
           <div className="w-full px-1.5 pt-1.5">
-            <div className="flex flex-wrap items-center gap-1 h-[28px]">
-              <button
-                type="button"
-                disabled={disabled}
-                className="text-xs border border-dashed rounded-md px-2 py-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{
-                  color: 'var(--vscode-descriptionForeground)',
-                  borderColor: 'var(--vscode-input-border)',
-                  backgroundColor: 'transparent'
-                }}
-                onMouseEnter={(e) => {
-                  if (!disabled) {
-                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.4)';
-                    e.currentTarget.style.boxShadow = '0 0 0 1px rgba(255, 255, 255, 0.3)';
-                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--vscode-input-border)';
-                  e.currentTarget.style.boxShadow = 'none';
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }}
-              >
-                + No Attachments
-              </button>
+            <div className="flex flex-wrap items-center gap-1 min-h-[28px]">
+              {attachments.length === 0 ? (
+                <button
+                  type="button"
+                  onClick={handleAttachmentClick}
+                  disabled={disabled}
+                  className="text-xs border border-dashed rounded-md px-2 py-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{
+                    color: 'var(--vscode-descriptionForeground)',
+                    borderColor: 'var(--vscode-input-border)',
+                    backgroundColor: 'transparent'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!disabled) {
+                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+                      e.currentTarget.style.boxShadow = '0 0 0 1px rgba(255, 255, 255, 0.3)';
+                      e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--vscode-input-border)';
+                    e.currentTarget.style.boxShadow = 'none';
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
+                >
+                  + No Attachments
+                </button>
+              ) : (
+                <>
+                  <AttachmentPreview
+                    attachments={attachments}
+                    onRemove={handleRemoveAttachment}
+                    disabled={disabled}
+                  />
+                  {attachments.length < 3 && (
+                    <button
+                      type="button"
+                      onClick={handleAttachmentClick}
+                      disabled={disabled}
+                      className="text-xs border border-dashed rounded-md px-2 py-1 flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{
+                        color: 'var(--vscode-descriptionForeground)',
+                        borderColor: 'var(--vscode-input-border)',
+                        backgroundColor: 'transparent'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!disabled) {
+                          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+                          e.currentTarget.style.boxShadow = '0 0 0 1px rgba(255, 255, 255, 0.3)';
+                          e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = 'var(--vscode-input-border)';
+                        e.currentTarget.style.boxShadow = 'none';
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
+                    >
+                      + Add
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           </div>
 
@@ -117,9 +201,11 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                disabled={disabled}
+                onClick={handleAttachmentClick}
+                disabled={disabled || attachments.length >= 3}
                 className="transition-opacity hover:opacity-70 p-1 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ color: 'var(--vscode-foreground)' }}
+                title={attachments.length >= 3 ? 'Maximum 3 attachments' : 'Attach images'}
               >
                 <Paperclip className="w-3.5 h-3.5" />
               </button>

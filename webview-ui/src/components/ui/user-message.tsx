@@ -1,19 +1,21 @@
 import { useRef, useState } from 'react';
 import { Undo2 } from 'lucide-react';
 import { MessageEditForm } from './message-edit-form';
+import type { ImageAttachment } from '../../types/chat';
 
 interface UserMessageProps {
   content: string;
   messageId: string;
-  onEdit: (messageId: string, newContent: string) => void;
+  onEdit: (messageId: string, newContent: string, attachments?: ImageAttachment[]) => void;
   onUpdate: (messageId: string, newContent: string) => void;
   isEditing: boolean;
   onEditStart: (messageId: string) => void;
   onEditCancel: () => void;
   onRevert?: (messageId: string) => void;
+  attachments?: ImageAttachment[];
 }
 
-export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert }: UserMessageProps) {
+export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, attachments }: UserMessageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -36,8 +38,8 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
     }
   };
 
-  const handleSubmit = (newContent: string) => {
-    onEdit(messageId, newContent);
+  const handleSubmit = (newContent: string, attachments?: ImageAttachment[]) => {
+    onEdit(messageId, newContent, attachments);
   };
 
   const handleSave = (newContent: string) => {
@@ -52,6 +54,7 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
           onSubmit={handleSubmit}
           onCancel={onEditCancel}
           onSave={handleSave}
+          attachments={attachments}
         />
       </div>
     );

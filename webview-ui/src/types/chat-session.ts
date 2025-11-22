@@ -1,4 +1,5 @@
 import type { ToolExecutionState } from './tool';
+import type { ImageAttachment } from './chat';
 
 export interface ChatSessionMessage {
   id: string;
@@ -7,6 +8,7 @@ export interface ChatSessionMessage {
   timestamp: string | Date;
   toolExecutions?: Array<[string, ToolExecutionState]>;
   hidden?: boolean;
+  attachments?: ImageAttachment[];
 }
 
 export interface ChatSession {

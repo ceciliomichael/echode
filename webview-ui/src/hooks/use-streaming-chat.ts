@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Message } from '../types/chat';
+import type { Message, ImageAttachment } from '../types/chat';
 import type { ToolExecutionState } from '../types/tool';
 import type { ChatSession } from '../types/chat-session';
 import { useToolExecution } from './use-tool-execution';
@@ -97,6 +97,7 @@ export function useStreamingChat(currentTodos?: Array<{ id: string; content: str
           content: msg.content,
           timestamp: new Date(msg.timestamp),
           hidden: msg.hidden,
+          attachments: msg.attachments,
           // Deserialize toolExecutions array back to Map and fix stale 'executing' states
           toolExecutions: msg.toolExecutions ? new Map(
             msg.toolExecutions.map(([id, execution]) => {
@@ -110,6 +111,16 @@ export function useStreamingChat(currentTodos?: Array<{ id: string; content: str
             })
           ) : undefined,
         })));
+      } else if (message.type === 'sessionDeleted' && message.sessionId) {
+        // Clear chat if the deleted session is the current one
+        if (currentSessionIdRef.current === message.sessionId) {
+          setMessages([]);
+          currentSessionIdRef.current = null;
+          setCurrentSessionId(null);
+          storageService.clearCurrentSessionId();
+          setEditingMessageId(null);
+          setRevertPreviewMessageId(null);
+        }
       }
     };
 
@@ -168,7 +179,7 @@ export function useStreamingChat(currentTodos?: Array<{ id: string; content: str
     saveSession: saveCurrentSession,
   });
 
-  const editMessage = useCallback(async (messageId: string, newContent: string) => {
+  const editMessage = useCallback(async (messageId: string, newContent: string, attachments?: ImageAttachment[]) => {
     const messageIndex = messages.findIndex(msg => msg.id === messageId);
     if (messageIndex === -1) {return;}
 
@@ -214,8 +225,8 @@ export function useStreamingChat(currentTodos?: Array<{ id: string; content: str
     // Step 5: Clear all messages subsequent to the one being edited (Cursor-style)
     setMessages(truncatedMessages);
 
-    // Step 6: Send the new message with explicit message history
-    await sendMessage(newContent, truncatedMessages);
+    // Step 6: Send the new message with explicit message history and attachments
+    await sendMessage(newContent, attachments, truncatedMessages);
   }, [messages, sendMessage, ensureSessionId]);
 
   const clearChat = useCallback(() => {

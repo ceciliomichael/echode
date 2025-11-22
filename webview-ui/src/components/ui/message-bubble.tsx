@@ -1,10 +1,10 @@
-import type { Message } from '../../types/chat';
+import type { Message, ImageAttachment } from '../../types/chat';
 import { UserMessage } from './user-message';
 import { AssistantMessage } from './assistant-message';
 
 interface MessageBubbleProps {
   message: Message;
-  onEdit?: (messageId: string, newContent: string) => void;
+  onEdit?: (messageId: string, newContent: string, attachments?: ImageAttachment[]) => void;
   onUpdate?: (messageId: string, newContent: string) => void;
   isEditing?: boolean;
   onEditStart?: (messageId: string) => void;
@@ -25,6 +25,7 @@ export function MessageBubble({ message, onEdit, onUpdate, isEditing, onEditStar
         onEditStart={onEditStart || (() => {})}
         onEditCancel={onEditCancel || (() => {})}
         onRevert={onRevert}
+        attachments={message.attachments}
       />
     );
   }

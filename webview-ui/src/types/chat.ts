@@ -2,6 +2,13 @@ import type { ToolExecutionState } from './tool';
 
 export type MessageRole = 'user' | 'assistant';
 
+export interface ImageAttachment {
+  data: string; // base64 encoded image data
+  mimeType: string; // e.g., 'image/jpeg', 'image/png'
+  size: number; // file size in bytes
+  name?: string; // original filename
+}
+
 export interface Message {
   id: string;
   role: MessageRole;
@@ -9,4 +16,5 @@ export interface Message {
   timestamp: Date;
   toolExecutions?: Map<string, ToolExecutionState>;
   hidden?: boolean;
+  attachments?: ImageAttachment[];
 }

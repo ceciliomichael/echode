@@ -4,10 +4,11 @@ import { chatApi } from '../services/chat-api';
 import { getSystemPrompt } from '../utils/prompts';
 import { requestWorkspaceInfo } from '../utils/workspace-info';
 import { useWorkspaceContext } from './use-workspace-context';
-import type { Message } from '../types/chat';
+import type { Message, ImageAttachment } from '../types/chat';
 import type { ChatMessage } from '../types/chat-api';
 import { hasCompleteToolBlock, trimToFirstCompleteToolBlock } from '../lib/tool-parser';
 import { removeThinkBlocks } from '../utils/think-block-parser';
+import { buildChatMessage, getCurrentModel, isVisionCapableModel } from '../utils/vision-utils';
 
 interface ChatStreamingProps {
   messages: Message[];
@@ -40,7 +41,7 @@ export function useChatStreaming({
 }: ChatStreamingProps) {
   const workspace = useWorkspaceContext();
 
-  const sendMessage = useCallback(async (content: string, overrideMessages?: Message[]) => {
+  const sendMessage = useCallback(async (content: string, attachments?: ImageAttachment[], overrideMessages?: Message[]) => {
     // Prevent starting new stream if already streaming
     if (isStreamingRef.current) {
       console.warn('[Chat] Already streaming, ignoring new message request');
@@ -65,6 +66,7 @@ export function useChatStreaming({
       role: 'user',
       content,
       timestamp: new Date(),
+      attachments,
     };
     setMessages((prev) => [...prev, userMessage]);
     
@@ -92,6 +94,13 @@ export function useChatStreaming({
       // Use override messages if provided (for edit flow), otherwise use current messages
       const messagesToSend = overrideMessages !== undefined ? overrideMessages : messages;
       
+      // Check if current model supports vision
+      const currentModel = getCurrentModel();
+      const modelSupportsVision = isVisionCapableModel(currentModel);
+      
+      console.log('[Chat] Model info:', { currentModel, modelSupportsVision });
+      console.log('[Chat] User message has attachments:', attachments?.length || 0);
+      
       // Build chat history with system prompt + all messages + tool results
       const chatHistory: ChatMessage[] = [
         {
@@ -105,10 +114,14 @@ export function useChatStreaming({
         // Strip <think> and <thinking> blocks from message content before adding to chat history
         const contentWithoutThinking = removeThinkBlocks(msg.content);
         
-        chatHistory.push({
-          role: msg.role,
-          content: contentWithoutThinking,
-        });
+        // Build message with vision support if available
+        const chatMessage = buildChatMessage(
+          msg.role,
+          contentWithoutThinking,
+          msg.attachments,
+          modelSupportsVision
+        );
+        chatHistory.push(chatMessage);
         
         // If this message has tool executions, add them as context
         if (msg.toolExecutions && msg.toolExecutions.size > 0) {
@@ -159,16 +172,19 @@ export function useChatStreaming({
         }
       }
       
-      // Add current user message
+      // Add current user message with attachments
       const hasToolResults = messagesToSend.some(msg => msg.toolExecutions && msg.toolExecutions.size > 0);
       const instruction = hasToolResults
         ? '\n\n[INSTRUCTION: You have tool execution results in your context (marked with <tool_results>). Use these results - do NOT make assumptions about file content. If you read a file, use the EXACT content provided in the tool results for your edits. Execute this request while strictly following your system prompt rules, tool protocols, response formats, and user-specific guidelines.]'
         : '\n\n[INSTRUCTION: Execute this request while strictly following your system prompt rules, tool protocols, response formats, and user-specific guidelines. Maintain consistency throughout your response.]';
       
-      chatHistory.push({
-        role: 'user',
-        content: content + instruction,
-      });
+      const finalUserMessage = buildChatMessage(
+        'user',
+        content + instruction,
+        attachments,
+        modelSupportsVision
+      );
+      chatHistory.push(finalUserMessage);
 
       const abortController = new AbortController();
       abortControllerRef.current = abortController;

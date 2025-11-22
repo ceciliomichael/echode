@@ -7,6 +7,7 @@ import { HistoryDropdown } from './history-dropdown';
 import { useStreamingChat } from '../../hooks/use-streaming-chat';
 import { useTodo } from '../../hooks/use-todo';
 import type { TodoTask } from '../../types/todo';
+import type { ImageAttachment } from '../../types/chat';
 
 export function ChatContainer() {
   const { tasks, updateTodos, clearTodos } = useTodo();
@@ -196,8 +197,8 @@ export function ChatContainer() {
     lastMessageCountRef.current = currentMessageCount;
   }, [visibleMessages, isStreaming, isExecutingTool, isAutoScrollEnabled]);
 
-  const handleSendMessage = async (content: string) => {
-    await sendMessage(content);
+  const handleSendMessage = async (content: string, attachments?: ImageAttachment[]) => {
+    await sendMessage(content, attachments);
     // Force scroll to bottom when user sends a message
     setIsAutoScrollEnabled(true);
     setTimeout(() => scrollToBottom({ behavior: 'smooth' }), 50);
@@ -218,9 +219,9 @@ export function ChatContainer() {
     await handleRevertPreview(messageId);
   };
 
-  const handleEdit = async (messageId: string, newContent: string) => {
+  const handleEdit = async (messageId: string, newContent: string, attachments?: ImageAttachment[]) => {
     // editMessage already clears editingMessageId internally
-    await editMessage(messageId, newContent);
+    await editMessage(messageId, newContent, attachments);
   };
 
   const handleUpdate = (messageId: string, newContent: string) => {
