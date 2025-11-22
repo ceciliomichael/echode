@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { MessageBubble } from '../ui/message-bubble';
 import { ChatInput } from '../ui/chat-input';
 import { ChatEmptyState } from '../ui/chat-empty-state';
@@ -28,9 +28,62 @@ export function ChatContainer() {
     handleCancelRevert,
   } = useStreamingChat(tasks);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const lastMessageCountRef = useRef(0);
+  const lastScrollTopRef = useRef(0);
+  const isAutoScrollEnabledRef = useRef(isAutoScrollEnabled);
 
   // Filter out hidden messages (tool result feedback messages)
   const visibleMessages = messages.filter(msg => !msg.hidden);
+
+  // Track first message ID for session load detection
+  const firstMessageId = useMemo(() => {
+    return messages.length > 0 ? messages[0]?.id : null;
+  }, [messages]);
+
+  // Scroll to bottom helper
+  const scrollToBottom = (options?: { behavior?: 'auto' | 'smooth' }) => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight,
+        behavior: options?.behavior || 'smooth'
+      });
+    }
+  };
+
+  // Check if user is near bottom
+  const isNearBottom = () => {
+    if (!scrollContainerRef.current) return false;
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+    const distanceToBottom = scrollHeight - scrollTop - clientHeight;
+    return distanceToBottom < 40;
+  };
+
+  // Handle scroll event to track user scroll position
+  const handleScroll = () => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const { scrollTop } = container;
+    const previousScrollTop = lastScrollTopRef.current;
+    const isScrollingUp = scrollTop < previousScrollTop;
+
+    lastScrollTopRef.current = scrollTop;
+
+    if (isScrollingUp) {
+      if (isAutoScrollEnabled) {
+        setIsAutoScrollEnabled(false);
+      }
+      return;
+    }
+
+    if (isNearBottom()) {
+      if (!isAutoScrollEnabled) {
+        setIsAutoScrollEnabled(true);
+      }
+    }
+  };
 
   // Extract todos from tool executions (any status: pending, executing, completed)
   useEffect(() => {
@@ -107,8 +160,63 @@ export function ChatContainer() {
     return () => window.removeEventListener('message', handleMessage);
   }, [clearChat, clearTodos]);
 
+  useEffect(() => {
+    isAutoScrollEnabledRef.current = isAutoScrollEnabled;
+  }, [isAutoScrollEnabled]);
+
+  // Scroll editing message into view when edit mode starts
+  useEffect(() => {
+    if (editingMessageId && scrollContainerRef.current) {
+      // Wait for edit form to render, then scroll into view
+      setTimeout(() => {
+        const editingElement = scrollContainerRef.current?.querySelector(
+          `[data-message-id="${editingMessageId}"]`
+        );
+        if (editingElement) {
+          editingElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+          });
+        }
+      }, 50);
+    }
+  }, [editingMessageId]);
+
+  // Auto-scroll when messages change (new messages or streaming updates)
+  useEffect(() => {
+    const currentMessageCount = visibleMessages.length;
+    const previousMessageCount = lastMessageCountRef.current;
+    const hasNewMessage = currentMessageCount > previousMessageCount;
+    const isStreamingUpdate =
+      currentMessageCount === previousMessageCount && (isStreaming || isExecutingTool);
+
+    if (currentMessageCount > 0) {
+      requestAnimationFrame(() => {
+        if (!isAutoScrollEnabledRef.current) return;
+        if (!isNearBottom()) return;
+        scrollToBottom({ behavior: hasNewMessage || !isStreamingUpdate ? 'smooth' : 'auto' });
+      });
+    }
+
+    lastMessageCountRef.current = currentMessageCount;
+  }, [visibleMessages, isStreaming, isExecutingTool, isAutoScrollEnabled]);
+
+  // Scroll to bottom when session loads (but not if editing a message)
+  useEffect(() => {
+    if (firstMessageId && visibleMessages.length > 0 && !editingMessageId) {
+      // Delay state update to avoid cascading renders
+      setTimeout(() => {
+        setIsAutoScrollEnabled(true);
+        scrollToBottom({ behavior: 'auto' });
+      }, 100);
+    }
+  }, [firstMessageId, visibleMessages.length, editingMessageId]);
+
   const handleSendMessage = async (content: string) => {
     await sendMessage(content);
+    // Force scroll to bottom when user sends a message
+    setIsAutoScrollEnabled(true);
+    setTimeout(() => scrollToBottom({ behavior: 'smooth' }), 50);
   };
 
   const handleCancel = async () => {
@@ -151,7 +259,11 @@ export function ChatContainer() {
       )}
 
       <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--vscode-sideBar-background)' }}>
-        <div className="flex-1 overflow-y-auto py-2 px-1">
+        <div 
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto py-2 px-1"
+        >
           {visibleMessages.length === 0 ? (
             <ChatEmptyState />
           ) : (
@@ -173,6 +285,8 @@ export function ChatContainer() {
                   />
                 );
               })}
+              {/* Bottom spacer for comfortable spacing above chat input */}
+              <div className="h-4 sm:h-6 lg:h-8" aria-hidden="true" />
             </div>
           )}
         </div>

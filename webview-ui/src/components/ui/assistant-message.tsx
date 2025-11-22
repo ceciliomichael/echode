@@ -92,8 +92,10 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
           const nextToken = index < visibleTokens.length - 1 ? visibleTokens[index + 1] : null;
           const isPrevThink = prevToken?.type === 'think';
           
-          // Much smaller margin after think blocks (like paragraph spacing), normal margin otherwise
-          const marginTop = index === 0 ? '0' : isPrevThink ? '0.25rem' : '0.75rem';
+          // Margin logic: negative margin for text after think (close together), small margin for tool after think, normal margin otherwise
+          const marginTop = index === 0 ? '0' : 
+            isPrevThink ? (token.type === 'text' ? '-0.25rem' : '0.25rem') : 
+            '0.75rem';
           
           if (token.type === 'think') {
             return (

@@ -46,17 +46,19 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
 
   if (isEditing) {
     return (
-      <MessageEditForm
-        initialContent={content}
-        onSubmit={handleSubmit}
-        onCancel={onEditCancel}
-        onSave={handleSave}
-      />
+      <div data-message-id={messageId}>
+        <MessageEditForm
+          initialContent={content}
+          onSubmit={handleSubmit}
+          onCancel={onEditCancel}
+          onSave={handleSave}
+        />
+      </div>
     );
   }
 
   return (
-    <div className="flex w-full px-2">
+    <div className="flex w-full px-2" data-message-id={messageId}>
       <div
         ref={containerRef}
         onClick={handleMessageClick}

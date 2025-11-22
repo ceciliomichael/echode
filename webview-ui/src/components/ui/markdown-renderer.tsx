@@ -11,7 +11,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: Mark
   const markdownComponents = useMemo(() => ({
     h1: ({ ...props }) => (
       <h1 
-        className="text-lg font-bold mt-6 mb-3 pb-2 border-b" 
+        className="text-lg font-bold mt-1 mb-3 pb-2 border-b" 
         style={{ 
           color: 'var(--vscode-editor-foreground)',
           borderColor: 'var(--vscode-input-border)'
@@ -21,35 +21,35 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: Mark
     ),
     h2: ({ ...props }) => (
       <h2 
-        className="text-base font-bold mt-5 mb-2" 
+        className="text-base font-bold mt-1 mb-2" 
         style={{ color: 'var(--vscode-editor-foreground)' }} 
         {...props} 
       />
     ),
     h3: ({ ...props }) => (
       <h3 
-        className="text-sm font-bold mt-4 mb-2" 
+        className="text-sm font-bold mt-1 mb-2" 
         style={{ color: 'var(--vscode-editor-foreground)' }} 
         {...props} 
       />
     ),
     h4: ({ ...props }) => (
       <h4 
-        className="text-sm font-semibold mt-3 mb-1" 
+        className="text-sm font-semibold mt-1 mb-1" 
         style={{ color: 'var(--vscode-editor-foreground)' }} 
         {...props} 
       />
     ),
     h5: ({ ...props }) => (
       <h5 
-        className="text-sm font-semibold mt-3 mb-1" 
+        className="text-sm font-semibold mt-1 mb-1" 
         style={{ color: 'var(--vscode-editor-foreground)', opacity: 0.9 }} 
         {...props} 
       />
     ),
     h6: ({ ...props }) => (
       <h6 
-        className="text-xs font-semibold mt-2 mb-1 uppercase tracking-wide" 
+        className="text-xs font-semibold mt-1 mb-1 uppercase tracking-wide" 
         style={{ color: 'var(--vscode-editor-foreground)', opacity: 0.7 }} 
         {...props} 
       />

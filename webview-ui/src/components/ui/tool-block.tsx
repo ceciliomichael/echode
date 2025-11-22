@@ -1,5 +1,5 @@
 import {
-  Minus,
+  Loader,
   X,
   Folder,
   Search,
@@ -181,8 +181,8 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
       return {
         displayName: fileName,
         fullPath: path,
-        icon: isExecuting ? Minus : iconConfig.icon,
-        iconColor: iconConfig.color,
+        icon: isExecuting ? Loader : iconConfig.icon,
+        iconColor: isExecuting ? 'var(--vscode-charts-blue)' : iconConfig.color,
         isSpinning: isExecuting,
       };
     }
@@ -193,7 +193,7 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
       return {
         displayName: displayPath,
         fullPath: path || '',
-        icon: isExecuting ? Minus : Folder,
+        icon: isExecuting ? Loader : Folder,
         iconColor: 'var(--vscode-charts-blue)',
         isSpinning: isExecuting,
       };
@@ -206,8 +206,8 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
       return {
         displayName: truncatedQuery ? `Search: ${truncatedQuery}` : 'Search',
         fullPath: path || '',
-        icon: isExecuting ? Minus : Search,
-        iconColor: 'var(--vscode-editor-foreground)',
+        icon: isExecuting ? Loader : Search,
+        iconColor: isExecuting ? 'var(--vscode-charts-blue)' : 'var(--vscode-editor-foreground)',
         isSpinning: isExecuting,
       };
     }
@@ -218,8 +218,8 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
       return {
         displayName: fileName,
         fullPath: path || '',
-        icon: isExecuting ? Minus : Trash2,
-        iconColor: 'var(--vscode-errorForeground)',
+        icon: isExecuting ? Loader : Trash2,
+        iconColor: isExecuting ? 'var(--vscode-charts-blue)' : 'var(--vscode-errorForeground)',
         isSpinning: isExecuting,
       };
     }
@@ -231,8 +231,8 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
       return {
         displayName: fileName,
         fullPath: path,
-        icon: isExecuting ? Minus : iconConfig.icon,
-        iconColor: iconConfig.color,
+        icon: isExecuting ? Loader : iconConfig.icon,
+        iconColor: isExecuting ? 'var(--vscode-charts-blue)' : iconConfig.color,
         isSpinning: isExecuting,
       };
     }
@@ -242,8 +242,8 @@ const ToolBlockComponent = ({ toolCall, isConnectedTop = false, isConnectedBotto
     return {
       displayName: metadata?.name || toolCall.toolName,
       fullPath: '',
-        icon: isExecuting ? Minus : (metadata?.icon || getFileIconConfig('').icon),
-      iconColor: 'var(--vscode-editor-foreground)',
+        icon: isExecuting ? Loader : (metadata?.icon || getFileIconConfig('').icon),
+      iconColor: isExecuting ? 'var(--vscode-charts-blue)' : 'var(--vscode-editor-foreground)',
       isSpinning: isExecuting,
     };
   }, [toolCall.parameters.path, toolCall.parameters.query, toolCall.toolName, toolCall.status, isStreaming]);

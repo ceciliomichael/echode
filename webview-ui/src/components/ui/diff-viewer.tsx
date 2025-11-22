@@ -226,13 +226,14 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
           overflowY: 'auto',
         }}
       >
-        {diffLines.map((line, idx) => {
+        <div style={{ minWidth: '100%', width: 'max-content' }}>
+          {diffLines.map((line, idx) => {
           // Handle collapsed section indicator
           if (line.type === 'collapsed') {
             return (
               <div
                 key={idx}
-                className="flex items-center justify-center py-1"
+                className="flex items-center justify-center py-1 w-full"
                 style={{
                   backgroundColor: 'var(--vscode-editor-background)',
                   color: 'var(--vscode-descriptionForeground)',
@@ -275,12 +276,10 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
           return (
             <div
               key={idx}
-              className={`flex items-start ${viewOnly ? '' : 'border-l-2'}`}
+              className={`flex items-start w-full ${viewOnly ? '' : 'border-l-2'}`}
               style={{
                 backgroundColor: bgColor,
                 borderColor: borderColor,
-                minWidth: 'fit-content',
-                width: '100%',
               }}
             >
               {/* Line Number */}
@@ -334,6 +333,7 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
             </div>
           );
         })}
+        </div>
       </div>
     </div>
   );
