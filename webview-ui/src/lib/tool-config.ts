@@ -25,7 +25,7 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
     .join('\n');
 
   const hasFileTools = enabledTools.some((tool) =>
-    ['write_to_file', 'read_file', 'list_files', 'grep_search', 'glob_search', 'edit_file', 'multi_edit', 'delete_file'].includes(tool.id),
+    ['write_to_file', 'read_file', 'list_files', 'grep_search', 'glob_search', 'apply_diff', 'delete_file'].includes(tool.id),
   );
 
   const fileOperationPolicy = hasFileTools
@@ -33,19 +33,19 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
 
 <file_operations>
 **Critical Rules:**
-1. **ALWAYS read_file before edit_file** - Never modify without seeing current content
-2. **edit_file is PRIMARY editing tool** - Simple find-and-replace (copy exact strings)
-3. **Copy EXACT text** - Include all whitespace, indentation, line breaks exactly as shown
-4. **Include enough context** - Make old_string unique (appears once in file)
-5. **NEVER reuse old_string** - If edit fails, read_file again and copy fresh exact text
+1. **ALWAYS read_file before apply_diff** - Never modify without seeing current content
+2. **apply_diff is PRIMARY editing tool** - Apply unified diff patches to modify files
+3. **Use proper diff format** - Generate unified diffs with context lines
+4. **Include line numbers** - Specify exact line ranges for changes
+5. **NEVER guess content** - If apply fails, read_file again and verify exact content
 6. **DIRECTORY vs FILE detection** - Paths WITHOUT file extensions (no dot after last slash) are DIRECTORIES
 
 **Directory/File Detection (MANDATORY):**
 - **DIRECTORY**: No extension after last / (e.g., src/app, src/routes, api, components/ui)
-  - ❌ NEVER call read_file or edit_file on these paths
+  - ❌ NEVER call read_file or apply_diff on these paths
   - ✅ ALWAYS use list_files first, then read_file on specific files from the listing
 - **FILE**: Has extension (e.g., src/app.ts, api/route.tsx, README.md)
-  - ✅ Use read_file/edit_file directly
+  - ✅ Use read_file/apply_diff directly
 
 **Examples:**
 ❌ WRONG - calling read_file on directory:
@@ -61,27 +61,22 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
 - **read_file**: View file content with line numbers. Defaults to first 100 lines. Use ONLY for paths WITH extensions
 - **grep_search**: Search file content. Use specific queries + includes filter for file types
 - **glob_search**: Find files by pattern (e.g., *.ts, **/*.json). Fast file discovery
-- **edit_file**: PRIMARY EDITING TOOL - Find and replace exact strings (single change)
-- **multi_edit**: BATCH EDITING TOOL - Apply multiple non-overlapping edits to one file atomically
-- **write_to_file**: New files or complete rewrites only. Use edit_file for modifications
+- **apply_diff**: PRIMARY EDITING TOOL - Apply unified diff patches to modify files
+- **write_to_file**: New files or complete rewrites only. Use apply_diff for modifications
 - **delete_file**: Only when explicitly requested
 
 **Workflows:**
 - **Explore directory**: list_files (e.g., src/app) → read_file on specific files
-- **Single change**: read_file → copy EXACT text → edit_file (old_string + new_string)
-- **Multiple changes (same file)**: read_file → identify all edits → multi_edit (edits array)
-- **Find & modify**: grep_search → read_file → edit_file or multi_edit
-- **Large files**: grep_search (get line #) → read_file with custom offset/limit → edit_file
+- **Single or multiple changes**: read_file → identify changes → apply_diff (unified diff format)
+- **Find & modify**: grep_search → read_file → apply_diff
+- **Large files**: grep_search (get line #) → read_file with custom offset/limit → apply_diff
 
 **Common Mistakes:**
 - ❌ read_file on src/app (no extension) → ✅ list_files on src/app, then read_file on src/app/page.tsx
 - ❌ Retry read_file after "Cannot read directory" error → ✅ Use list_files on that path immediately
 - ❌ Modify without reading → ✅ Always read_file first
-- ❌ Normalize/clean whitespace when copying → ✅ Copy EXACT text including all spaces/tabs
-- ❌ Edit fails, retry same old_string → ✅ read_file again, copy fresh exact text
-- ❌ Single line that repeats (e.g., "return null;") → ✅ Include surrounding lines for uniqueness
-- ❌ Overlapping edits in multi_edit → ✅ Use single edit_file OR sequence edits properly
-- ❌ multi_edit error "Edit N: ..." but retry all edits → ✅ Fix only that specific edit
+- ❌ Invalid diff format → ✅ Use proper unified diff format with +++ and --- headers
+- ❌ Wrong line numbers in diff → ✅ read_file again, verify exact line numbers
 - ❌ Broad grep "function" → ✅ Specific "handleSubmit" or "UserController"
 </file_operations>`
     : '';

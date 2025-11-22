@@ -1,23 +1,6 @@
 import type { ToolCall, ParsedToolBlock } from '../types/tool';
 
 /**
- * Valid tool names - used to distinguish tool blocks from parameter tags
- */
-const VALID_TOOL_NAMES = new Set([
-  'read_file',
-  'write_to_file',
-  'list_files',
-  'grep_search',
-  'glob_search',
-  'delete_file',
-  'edit_file',
-  'multi_edit',
-  'todo_write',
-  'todo_read',
-  'apply_diff'
-]);
-
-/**
  * Centralized regex pattern for tool blocks
  * Format: <function_call><tool_name>TOOL_NAME</tool_name><param>value</param>...</function_call>
  * 
@@ -38,16 +21,65 @@ function parseXMLParameters(content: string): Record<string, unknown> {
   const parameters: Record<string, unknown> = {};
   
   // First pass: Extract all COMPLETE parameter tags (with closing tags)
-  // Use greedy match to handle cases where content contains the closing tag string
-  const completeParamRegex = /<([\w_-]+)>([\s\S]*)<\/\1>/g;
+  // Use balanced tag matching to handle content that contains tag-like strings
+  // Example: <content></div></content> should extract "</div>" not stop at first ">"
+  // This prevents the greedy regex bug where content like "</parameter_name>" inside
+  // the actual code would be incorrectly treated as the closing tag
+  const paramNameRegex = /<([\w_-]+)>/g;
   let match: RegExpExecArray | null;
+  const processedParams = new Set<string>();
   
-  while ((match = completeParamRegex.exec(content)) !== null) {
+  while ((match = paramNameRegex.exec(content)) !== null) {
     const paramName = match[1];
-    // Don't trim for old_string/new_string/content/edits - preserve exact whitespace for code
-    const shouldPreserveWhitespace = ['old_string', 'new_string', 'content', 'edits'].includes(paramName);
-    const paramValue = shouldPreserveWhitespace ? match[2] : match[2].trim();
-    parameters[paramName] = parseParamValue(paramValue, shouldPreserveWhitespace);
+    const contentStart = match.index + match[0].length;
+    
+    // Skip if already processed (handles duplicate tags)
+    if (processedParams.has(paramName)) {
+      continue;
+    }
+    
+    // Find matching closing tag using balanced counting
+    // This handles cases where the content itself contains "</paramName>"
+    const closingTag = `</${paramName}>`;
+    const openingTag = `<${paramName}>`;
+    let depth = 1; // We've already seen one opening tag
+    let pos = contentStart;
+    let closingPos = -1;
+    
+    while (pos < content.length && depth > 0) {
+      const nextOpening = content.indexOf(openingTag, pos);
+      const nextClosing = content.indexOf(closingTag, pos);
+      
+      // No more tags found
+      if (nextClosing === -1) {
+        break;
+      }
+      
+      // Found closing tag before any opening tag (or no opening tag)
+      if (nextOpening === -1 || nextClosing < nextOpening) {
+        depth--;
+        if (depth === 0) {
+          closingPos = nextClosing;
+          break;
+        }
+        pos = nextClosing + closingTag.length;
+      } else {
+        // Found opening tag before closing tag
+        depth++;
+        pos = nextOpening + openingTag.length;
+      }
+    }
+    
+    if (closingPos !== -1) {
+      const paramValue = content.slice(contentStart, closingPos);
+      
+      // Don't trim for old_string/new_string/content/edits/diff - preserve exact whitespace for code
+      const shouldPreserveWhitespace = ['old_string', 'new_string', 'content', 'edits', 'diff'].includes(paramName);
+      const finalValue = shouldPreserveWhitespace ? paramValue : paramValue.trim();
+      
+      parameters[paramName] = parseParamValue(finalValue, shouldPreserveWhitespace);
+      processedParams.add(paramName);
+    }
   }
   
   // Second pass: Extract PARTIAL/UNCLOSED tags (streaming content)
@@ -226,11 +258,8 @@ export function parseToolBlock(content: string): ParsedToolBlock | null {
   const innerContent = match[1];
   const parsed = parseToolBlockInternal(innerContent, match[0]);
   
-  // Validate this is a real tool name
-  if (parsed && !VALID_TOOL_NAMES.has(parsed.toolName)) {
-    return null;
-  }
-
+  // Allow all tool names to pass through - validation happens at execution time
+  // This ensures invalid tools return proper error messages to the AI instead of aborting
   return parsed;
 }
 
@@ -299,9 +328,9 @@ export function trimToLastCompleteToolBlock(content: string): string {
   regex.lastIndex = 0;
   match = regex.exec(contentWithoutThinkBlocks);
   while (match !== null) {
-    // Parse and validate tool name
+    // Parse tool name
     const parsed = parseToolBlockInternal(match[1], match[0]);
-    if (parsed && VALID_TOOL_NAMES.has(parsed.toolName)) {
+    if (parsed) {
       lastToolBlockEnd = match.index + match[0].length;
     }
     match = regex.exec(contentWithoutThinkBlocks);
@@ -316,9 +345,9 @@ export function trimToLastCompleteToolBlock(content: string): string {
     originalRegex.lastIndex = 0;
     originalMatch = originalRegex.exec(content);
     while (originalMatch !== null) {
-      // Parse to validate tool name
+      // Parse tool name
       const parsed = parseToolBlockInternal(originalMatch[1], originalMatch[0]);
-      if (parsed && VALID_TOOL_NAMES.has(parsed.toolName)) {
+      if (parsed) {
         originalMatches.push({
           index: originalMatch.index,
           length: originalMatch[0].length,
@@ -363,8 +392,8 @@ export function trimToFirstCompleteToolBlock(content: string): string {
   
   while (match !== null) {
     const parsed = parseToolBlockInternal(match[1], match[0]);
-    if (parsed && VALID_TOOL_NAMES.has(parsed.toolName)) {
-      // Found a valid tool - map back to original content
+    if (parsed) {
+      // Found a tool - map back to original content
       const originalRegex = new RegExp(TOOL_BLOCK_REGEX.source, 'g');
       let originalMatch: RegExpExecArray | null;
       
@@ -373,7 +402,7 @@ export function trimToFirstCompleteToolBlock(content: string): string {
       
       while (originalMatch !== null) {
         const originalParsed = parseToolBlockInternal(originalMatch[1], originalMatch[0]);
-        if (originalParsed && VALID_TOOL_NAMES.has(originalParsed.toolName)) {
+        if (originalParsed) {
           return content.slice(0, originalMatch.index + originalMatch[0].length);
         }
         originalMatch = originalRegex.exec(content);
@@ -468,8 +497,8 @@ export function extractToolBlocks(content: string): ParsedToolBlock[] {
     const innerContent = match[1];
     const parsed = parseToolBlockInternal(innerContent, match[0]);
     
-    // Only process if this is a valid tool name
-    if (parsed && VALID_TOOL_NAMES.has(parsed.toolName)) {
+    // Allow all tool names to pass through
+    if (parsed) {
       toolBlocks.push(parsed);
     }
     

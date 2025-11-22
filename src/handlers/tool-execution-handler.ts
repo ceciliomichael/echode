@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { defaultRegistry } from '../services/tools/tool-registry';
-import { ReadFileTool, WriteFileTool, ListFilesTool, GrepSearchTool, GlobSearchTool, DeleteFileTool, EditFileTool, MultiEditTool, ApplyDiffTool, TodoWriteTool, TodoReadTool } from '../services/tools';
+import { ReadFileTool, WriteFileTool, ListFilesTool, GrepSearchTool, GlobSearchTool, DeleteFileTool, ApplyDiffTool, TodoWriteTool, TodoReadTool } from '../services/tools';
 
 // Register tools
 defaultRegistry.registerTool(new ReadFileTool());
@@ -9,8 +9,6 @@ defaultRegistry.registerTool(new ListFilesTool());
 defaultRegistry.registerTool(new GrepSearchTool());
 defaultRegistry.registerTool(new GlobSearchTool());
 defaultRegistry.registerTool(new DeleteFileTool());
-defaultRegistry.registerTool(new EditFileTool());
-defaultRegistry.registerTool(new MultiEditTool());
 defaultRegistry.registerTool(new ApplyDiffTool());
 defaultRegistry.registerTool(new TodoWriteTool());
 defaultRegistry.registerTool(new TodoReadTool());

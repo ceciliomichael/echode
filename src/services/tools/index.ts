@@ -4,8 +4,6 @@ export { ListFilesTool } from './list-files-tool';
 export { GrepSearchTool } from './grep-search-tool';
 export { GlobSearchTool } from './glob-search-tool';
 export { DeleteFileTool } from './delete-file-tool';
-export { EditFileTool } from './edit-file-tool';
-export { MultiEditTool } from './multi-edit-tool';
 export { ApplyDiffTool } from './apply-diff-tool';
 export { TodoWriteTool } from './todo-write-tool';
 export { TodoReadTool } from './todo-read-tool';

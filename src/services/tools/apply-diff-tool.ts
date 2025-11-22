@@ -130,9 +130,26 @@ function parseDiffBlocks(diffContent: string): { blocks: ParsedBlock[]; error?: 
   }
 
   if (blocks.length === 0) {
+    // Try to provide helpful feedback on what's wrong
+    let hint = '';
+    if (diffContent.includes('<<<')) {
+      hint = '\n\nFound <<<, but block format is incorrect. ';
+      if (!diffContent.includes('<<<<<<<')) {
+        hint += 'Use exactly 7 "<" characters (found fewer).';
+      } else if (!diffContent.includes('-------')) {
+        hint += 'Missing "-------" separator (7 dashes).';
+      } else if (!diffContent.includes('=======')) {
+        hint += 'Missing "=======" separator (7 equals).';
+      } else if (!diffContent.includes('>>>>>>>')) {
+        hint += 'Missing ">>>>>>>" closing tag (7 ">" characters).';
+      }
+    } else {
+      hint = '\n\nNo SEARCH/REPLACE block markers found at all. Did you mean to use edit_file instead?';
+    }
+    
     return {
       blocks: [],
-      error: `DIFF_FORMAT_INVALID: No valid SEARCH/REPLACE blocks found.
+      error: `DIFF_FORMAT_INVALID: No valid SEARCH/REPLACE blocks found.${hint}
 
 Expected format:
 <<<<<<< SEARCH
@@ -144,14 +161,113 @@ Expected format:
 >>>>>>> REPLACE
 
 Make sure to:
-1. Use exactly 7 '<' and '>' characters
-2. Include '-------' separator after SEARCH header
-3. Include '=======' separator between search and replace
-4. Match exact whitespace in search content`,
+1. Use exactly 7 '<' and '>' characters for markers
+2. Include '-------' separator (7 dashes) after SEARCH header
+3. Include '=======' separator (7 equals) between search and replace
+4. Include closing '>>>>>>> REPLACE' tag
+5. :start_line: is optional but recommended
+
+Your diff content (first 300 chars):
+\`\`\`
+${diffContent.substring(0, 300)}${diffContent.length > 300 ? '...' : ''}
+\`\`\``,
     };
   }
 
   return { blocks };
+}
+
+/**
+ * Validate search blocks to prevent common mistakes that cause loops
+ */
+function validateSearchBlocks(blocks: ParsedBlock[], filePath: string): { valid: boolean; error?: string } {
+  for (const block of blocks) {
+    const searchText = block.searchText;
+    
+    // Check if search text looks like it was copied from a read_file result with line numbers
+    // Pattern: "1 | content" or "10 | content" at start of lines
+    const hasLineNumbers = /^\d+ \| /m.test(searchText);
+    if (hasLineNumbers) {
+      return {
+        valid: false,
+        error: `SEARCH_TEXT_ERROR: Block ${block.index} contains line numbers ("X | content" format).
+
+This happens when you copy from read_file output without removing the line numbers.
+
+Your search text:
+\`\`\`
+${searchText}
+\`\`\`
+
+FIX: Remove the "X | " line number prefix from each line. The search text should contain ONLY the actual file content, not the line numbers that read_file displays.
+
+Example - WRONG:
+<<<<<<< SEARCH
+10 | const x = 1;
+11 | const y = 2;
+=======
+
+Example - CORRECT:
+<<<<<<< SEARCH
+const x = 1;
+const y = 2;
+=======`,
+      };
+    }
+    
+    // Check for very short/generic search text that's unlikely to be unique
+    const trimmedSearch = searchText.trim();
+    if (trimmedSearch.length < 3) {
+      return {
+        valid: false,
+        error: `SEARCH_TEXT_ERROR: Block ${block.index} has very short search text (${trimmedSearch.length} characters).
+
+Search text must be specific enough to uniquely identify the location to change. Very short text like "${trimmedSearch}" could match many places in the file.
+
+Use read_file to find a unique section of code to search for, preferably at least a full line or statement.`,
+      };
+    }
+    
+    // Check if search text is just whitespace
+    if (trimmedSearch.length === 0) {
+      return {
+        valid: false,
+        error: `SEARCH_TEXT_ERROR: Block ${block.index} has empty search text.
+
+You must specify what content to search for. Use read_file on ${filePath} to see the current content, then copy the exact text you want to replace.`,
+      };
+    }
+    
+    // Check if search text looks like it contains error messages or diagnostic output
+    const errorPatterns = [
+      /SEARCH_TEXT_ERROR:/i,
+      /APPLY_DIFF_FAILED:/i,
+      /SEARCH block \d+ not found/i,
+      /Your SEARCH text:/i,
+      /Actual file content/i,
+      /Next steps:/i,
+    ];
+    
+    for (const pattern of errorPatterns) {
+      if (pattern.test(searchText)) {
+        return {
+          valid: false,
+          error: `SEARCH_TEXT_ERROR: Block ${block.index} appears to contain an error message, not actual file content.
+
+Your search text:
+\`\`\`
+${searchText.substring(0, 200)}...
+\`\`\`
+
+This looks like you copied text from a previous error message instead of from the actual file.
+
+FIX: Use read_file on ${filePath} to get the actual file content, then copy the exact code you want to replace (not error messages).`,
+        };
+      }
+    }
+  }
+  
+  return { valid: true };
 }
 
 export class ApplyDiffTool implements ITool {
@@ -185,6 +301,13 @@ export class ApplyDiffTool implements ITool {
 
     const blocks = parseResult.blocks;
     console.log(`[APPLY_DIFF] Parsed ${blocks.length} SEARCH/REPLACE block(s)`);
+
+    // Validate blocks to prevent common mistakes
+    const validationResult = validateSearchBlocks(blocks, filePath);
+    if (!validationResult.valid) {
+      console.log('[APPLY_DIFF] ERROR: Validation failed');
+      return { success: false, error: validationResult.error };
+    }
 
     try {
       const workspaceRoot = getWorkspaceRoot();
@@ -281,9 +404,54 @@ export class ApplyDiffTool implements ITool {
           
           console.log(`[APPLY_DIFF] Block ${block.index}: Applied successfully`);
         } else {
-          const errorMsg = block.startLineHint
-            ? `Search content not found near line ${block.startLineHint}. The file content may have changed. Use read_file to verify current content and update your search text.`
-            : 'Search content not found in file. Use read_file to verify current content and copy exact text for search.';
+          // Provide detailed error with file context
+          let errorMsg: string;
+          let contextLines: string = '';
+          
+          if (block.startLineHint !== undefined && block.startLineHint > 0) {
+            // Show actual content near the hint
+            const contextStart = Math.max(0, block.startLineHint - 1 - 3);
+            const contextEnd = Math.min(lines.length, block.startLineHint - 1 + searchLines.length + 3);
+            const contextArray = lines.slice(contextStart, contextEnd);
+            contextLines = contextArray.map((line, idx) => `${contextStart + idx + 1} | ${line}`).join('\n');
+            
+            errorMsg = `SEARCH block ${block.index} not found near line ${block.startLineHint}.
+
+Your SEARCH text:
+\`\`\`
+${block.searchText}
+\`\`\`
+
+Actual file content near line ${block.startLineHint}:
+\`\`\`
+${contextLines}
+\`\`\`
+
+The search text doesn't match the file. Possible issues:
+1. Content has changed since you last read the file
+2. Whitespace/indentation doesn't match exactly
+3. Line ${block.startLineHint} is not where this code is located
+
+Next steps:
+- Use read_file to see current content with line numbers
+- Copy the EXACT text from read_file output (including whitespace)
+- Verify the :start_line: points to the first line of your search text`;
+          } else {
+            // No hint provided - search entire file failed
+            errorMsg = `SEARCH block ${block.index} not found anywhere in the file.
+
+Your SEARCH text:
+\`\`\`
+${block.searchText}
+\`\`\`
+
+This text doesn't exist in ${filePath}.
+
+Next steps:
+- Use read_file on ${filePath} to see actual content
+- Copy EXACT text from the file (watch for whitespace/indentation)
+- Include a :start_line: hint with the line number from read_file`;
+          }
           
           blockResults.push({
             index: block.index,
@@ -299,13 +467,13 @@ export class ApplyDiffTool implements ITool {
       if (appliedCount === 0) {
         const errors = blockResults
           .filter(r => !r.applied)
-          .map(r => `Block ${r.index}: ${r.error}`)
-          .join('\n\n');
+          .map(r => r.error)
+          .join('\n\n---\n\n');
         
         console.log('[APPLY_DIFF] ERROR: No blocks applied');
         return {
           success: false,
-          error: `APPLY_DIFF_FAILED: Could not apply any SEARCH/REPLACE blocks.\n\n${errors}`,
+          error: `APPLY_DIFF_FAILED: None of the ${blocks.length} SEARCH/REPLACE block(s) could be applied to ${filePath}.\n\n${errors}\n\n⚠️ CRITICAL: Do NOT retry with the same search text. The file content is different than what you're searching for. You MUST use read_file first to see the current state.`,
         };
       }
 
@@ -349,11 +517,26 @@ export class ApplyDiffTool implements ITool {
       // Prepare warning for partial application
       let warning: string | undefined;
       if (appliedCount < blocks.length) {
+        const successfulBlocks = blockResults.filter(r => r.applied).map(r => r.index);
         const failedBlocks = blockResults
           .filter(r => !r.applied)
-          .map(r => `Block ${r.index}: ${r.error}`)
-          .join('\n');
-        warning = `Partial application: ${appliedCount}/${blocks.length} blocks applied.\n\nFailed blocks:\n${failedBlocks}`;
+          .map(r => r.error)
+          .join('\n\n---\n\n');
+        warning = `⚠️ PARTIAL SUCCESS: Applied ${appliedCount}/${blocks.length} blocks to ${filePath}.
+
+✅ Successfully applied blocks: ${successfulBlocks.join(', ')}
+❌ Failed blocks: ${blockResults.filter(r => !r.applied).map(r => r.index).join(', ')}
+
+IMPORTANT: The file HAS been modified by the successful blocks.
+
+Failed blocks:
+${failedBlocks}
+
+Next steps:
+1. Use read_file on ${filePath} to see the CURRENT state (after successful changes)
+2. Find the correct location and content for the failed blocks
+3. Create a NEW apply_diff with ONLY the failed blocks, using updated search text
+4. Do NOT retry the successful blocks (${successfulBlocks.join(', ')}) - they already worked!`;
       }
 
       console.log('[APPLY_DIFF] ==================== SUCCESS ====================');

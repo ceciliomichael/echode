@@ -20,6 +20,8 @@ registerToolPlugin({
     description: 'Apply multiple SEARCH/REPLACE code edits in a file with fuzzy matching',
     aiDescription: `ROBUST MULTI-EDIT TOOL - Apply multiple precise SEARCH/REPLACE blocks in a single file using line hints and fuzzy matching.
 
+🚨 CRITICAL: ALWAYS call read_file BEFORE using apply_diff. NEVER retry failed diffs with the same search text - read the file again first!
+
 **When to use:**
 - Making multiple related changes in ONE file (more efficient than multiple edit_file calls)
 - You have line numbers from read_file and want to use them as hints
@@ -148,16 +150,23 @@ export function add(a: number, b: number): number {
 - Don't put extra whitespace in markers
 
 **APPLY_DIFF_FAILED: Search content not found**:
-- Your search text doesn't match the file (even with fuzzy matching)
-- Call read_file again to see current content
-- Copy EXACTLY what read_file shows (including all whitespace)
-- If file changed since you read it, get fresh content
+⚠️ CRITICAL: DO NOT RETRY with the same search text!
+- The error message shows what your search text was and what the actual file content is
+- They don't match - your search text is wrong or outdated
+- REQUIRED next step: Call read_file to see CURRENT content with line numbers
+- Copy EXACTLY what read_file shows (character-for-character including whitespace)
+- Use the line numbers from read_file for :start_line: hints
 
 **Partial application warning**:
-- Some blocks applied, some failed
-- Check the blockResults to see which ones failed
-- Failed blocks will have error messages explaining why
-- Re-run with just the failed blocks after fixing search text
+⚠️ IMPORTANT: The file WAS modified by successful blocks
+- Some blocks applied successfully, some failed
+- The error shows which blocks succeeded (✅) and which failed (❌)
+- The file now contains changes from successful blocks
+- REQUIRED next steps:
+  1. Call read_file to see the CURRENT state (after successful changes)
+  2. Create NEW apply_diff with ONLY the failed blocks
+  3. Use updated search text from the current file state
+  4. DO NOT include successful blocks again - they already worked!
 
 **Best practices:**
 1. ALWAYS call read_file first to get line numbers

@@ -8,11 +8,6 @@ export type ContentToken =
   | { type: 'text'; content: string; index: number };
 
 /**
- * Valid tool names for detection
- */
-const VALID_TOOL_NAMES = ['read_file', 'write_to_file', 'list_files', 'grep_search', 'glob_search', 'delete_file', 'edit_file', 'multi_edit', 'todo_write', 'todo_read', 'apply_diff'];
-
-/**
  * Parse XML-style parameters from tool block content
  * Handles both complete and partial/unclosed tags during streaming
  */
@@ -260,7 +255,8 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
           const parameters = parseXMLParameters(innerContent);
           const toolName = parameters.tool_name as string;
           
-          if (toolName && typeof toolName === 'string' && VALID_TOOL_NAMES.includes(toolName)) {
+          // Allow all tool names - validation happens at execution time
+          if (toolName && typeof toolName === 'string') {
             // Remove tool_name from parameters
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { tool_name, ...actualParameters } = parameters;
@@ -309,7 +305,8 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
           const parameters = parseXMLParameters(innerContent);
           const toolName = parameters.tool_name as string;
           
-          if (toolName && typeof toolName === 'string' && VALID_TOOL_NAMES.includes(toolName)) {
+          // Allow all tool names - validation happens at execution time
+          if (toolName && typeof toolName === 'string') {
             // Remove tool_name from parameters
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { tool_name, ...actualParameters } = parameters;
