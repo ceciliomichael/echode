@@ -119,6 +119,11 @@ export const storageService = {
     return settings.systemPrompt || '';
   },
 
+  getEnabledTools(): import('../types/api-settings').Tool[] | undefined {
+    const settings = this.getSettings();
+    return settings.enabledTools;
+  },
+
   getCurrentSessionId(): string | null {
     try {
       return localStorage.getItem(CURRENT_SESSION_KEY);

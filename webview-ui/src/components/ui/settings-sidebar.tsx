@@ -1,8 +1,8 @@
-import { Settings, FileText } from 'lucide-react';
+import { Settings, FileText, Wrench } from 'lucide-react';
 
 interface SettingsSidebarProps {
-  activeTab: 'api' | 'system';
-  onTabChange: (tab: 'api' | 'system') => void;
+  activeTab: 'api' | 'system' | 'tools';
+  onTabChange: (tab: 'api' | 'system' | 'tools') => void;
 }
 
 export function SettingsSidebar({ activeTab, onTabChange }: SettingsSidebarProps) {
@@ -66,6 +66,28 @@ export function SettingsSidebar({ activeTab, onTabChange }: SettingsSidebarProps
           >
             <FileText size={14} strokeWidth={1.5} />
             <span className="font-medium">System Prompt</span>
+          </button>
+          <button
+            onClick={() => onTabChange('tools')}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs rounded-lg transition-all border"
+            style={{
+              backgroundColor: activeTab === 'tools' ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent',
+              color: activeTab === 'tools' ? 'var(--vscode-list-activeSelectionForeground)' : 'var(--vscode-foreground)',
+              borderColor: activeTab === 'tools' ? 'var(--vscode-focusBorder)' : 'transparent'
+            }}
+            onMouseEnter={(e) => {
+              if (activeTab !== 'tools') {
+                e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (activeTab !== 'tools') {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }
+            }}
+          >
+            <Wrench size={14} strokeWidth={1.5} />
+            <span className="font-medium">Tools</span>
           </button>
         </nav>
       </div>

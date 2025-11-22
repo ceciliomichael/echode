@@ -3,9 +3,11 @@ import { SettingsSidebar } from '../ui/settings-sidebar';
 import { SettingsDropdown } from '../ui/settings-dropdown';
 import { ApiConfigTab } from './api-config-tab';
 import { SystemPromptTab } from './system-prompt-tab';
+import { ToolsTab } from './tools-tab';
 import { useModelFetcher } from '../../hooks/use-model-fetcher';
 import { useProviderSettings } from '../../hooks/use-provider-settings';
-import type { ApiSettings } from '../../types/api-settings';
+import { getAllTools } from '../../lib/tool-config';
+import type { ApiSettings, Tool } from '../../types/api-settings';
 
 interface SetupPageProps {
   initialSettings: ApiSettings;
@@ -15,7 +17,10 @@ interface SetupPageProps {
 
 export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
   const [systemPrompt, setSystemPrompt] = useState(initialSettings.systemPrompt || '');
-  const [activeTab, setActiveTab] = useState<'api' | 'system'>('api');
+  const [enabledTools, setEnabledTools] = useState<Tool[]>(
+    initialSettings.enabledTools || getAllTools(true)
+  );
+  const [activeTab, setActiveTab] = useState<'api' | 'system' | 'tools'>('api');
   const [showDropdown, setShowDropdown] = useState(false);
 
   const {
@@ -47,10 +52,11 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
     clearCache();
   }, [provider, currentSettings.customUrl, currentSettings.apiKey, clearCache]);
 
-  // Sync system prompt with initial settings
+  // Sync system prompt and tools with initial settings
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       setSystemPrompt(initialSettings.systemPrompt || '');
+      setEnabledTools(initialSettings.enabledTools || getAllTools(true));
     }, 0);
     return () => clearTimeout(timeoutId);
   }, [initialSettings]);
@@ -61,10 +67,11 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
       onSave({
         ...buildSettings(),
         systemPrompt,
+        enabledTools,
       });
     }, 500);
     return () => clearTimeout(timeoutId);
-  }, [provider, currentSettings, model, systemPrompt, onSave, buildSettings]);
+  }, [provider, currentSettings, model, systemPrompt, enabledTools, onSave, buildSettings]);
 
   const handleModelDropdownOpen = () => {
     // VS Code LM doesn't require API key
@@ -96,14 +103,14 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
           className="flex items-center px-4 sm:px-5 h-12 sm:h-14 border-b shrink-0"
           style={{
             borderColor: 'var(--vscode-panel-border)',
-            backgroundColor: 'var(--vscode-editor-background)'
+            backgroundColor: 'var(--vscode-editor-background)',
           }}
         >
           <h1
             className="text-sm sm:text-base font-semibold"
             style={{ color: 'var(--vscode-foreground)' }}
           >
-            {activeTab === 'api' ? 'API Configuration' : 'System Prompt'}
+            {activeTab === 'api' ? 'API Configuration' : activeTab === 'system' ? 'System Prompt' : 'Tool Configuration'}
           </h1>
         </div>
 
@@ -131,6 +138,10 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
 
           {activeTab === 'system' && (
             <SystemPromptTab value={systemPrompt} onChange={setSystemPrompt} />
+          )}
+
+          {activeTab === 'tools' && (
+            <ToolsTab enabledTools={enabledTools} onChange={setEnabledTools} />
           )}
         </div>
       </div>

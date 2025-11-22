@@ -1,5 +1,13 @@
 export type Provider = 'anthropic' | 'openai' | 'openai-compatible' | 'vscode-lm';
 
+export interface Tool {
+  id: string;
+  name: string;
+  description: string;
+  aiDescription?: string;
+  enabled: boolean;
+}
+
 export interface ApiSettings {
   provider: Provider;
   customBaseUrl?: string;
@@ -24,6 +32,7 @@ export interface ApiSettings {
   openaiCompatibleTemperature: number;
   vscodeLmTemperature: number;
   systemPrompt?: string;
+  enabledTools?: Tool[];
 }
 
 export const DEFAULT_API_SETTINGS: ApiSettings = {

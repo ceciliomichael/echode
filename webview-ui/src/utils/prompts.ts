@@ -95,12 +95,14 @@ ${workspaceLevelRules}${workspaceLevelRules && userLevelRules ? '\n\n' : ''}${us
 </user_specific_rules>`
     : '';
 
-  // Add tool configuration
-  const enabledTools = getAllTools(true); // Enable all tools by default
-  const toolsSection = enabledTools.length > 0
+  // Add tool configuration - use saved enabled tools or default to all enabled
+  const savedTools = storageService.getEnabledTools();
+  const enabledTools = savedTools || getAllTools(true);
+  const activeTools = enabledTools.filter(tool => tool.enabled);
+  const toolsSection = activeTools.length > 0
     ? `
 <tools>
-${getToolSystemPrompt(enabledTools)}
+${getToolSystemPrompt(activeTools)}
 </tools>`
     : '';
 
