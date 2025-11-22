@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MessageBubble } from '../ui/message-bubble';
 import { ChatInput } from '../ui/chat-input';
 import { ChatEmptyState } from '../ui/chat-empty-state';
@@ -36,11 +36,6 @@ export function ChatContainer() {
 
   // Filter out hidden messages (tool result feedback messages)
   const visibleMessages = messages.filter(msg => !msg.hidden);
-
-  // Track first message ID for session load detection
-  const firstMessageId = useMemo(() => {
-    return messages.length > 0 ? messages[0]?.id : null;
-  }, [messages]);
 
   // Scroll to bottom helper
   const scrollToBottom = (options?: { behavior?: 'auto' | 'smooth' }) => {
@@ -200,17 +195,6 @@ export function ChatContainer() {
 
     lastMessageCountRef.current = currentMessageCount;
   }, [visibleMessages, isStreaming, isExecutingTool, isAutoScrollEnabled]);
-
-  // Scroll to bottom when session loads (but not if editing a message)
-  useEffect(() => {
-    if (firstMessageId && visibleMessages.length > 0 && !editingMessageId) {
-      // Delay state update to avoid cascading renders
-      setTimeout(() => {
-        setIsAutoScrollEnabled(true);
-        scrollToBottom({ behavior: 'auto' });
-      }, 100);
-    }
-  }, [firstMessageId, visibleMessages.length, editingMessageId]);
 
   const handleSendMessage = async (content: string) => {
     await sendMessage(content);

@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import { ITool, ToolExecutionResult } from './tool.interface';
 import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
-import { DiagnosticsService, type CapturedDiagnostic } from '../diagnostics-service';
 
 export class EditFileTool implements ITool {
   name = 'edit_file';
@@ -119,21 +118,6 @@ export class EditFileTool implements ITool {
       await vscode.workspace.fs.writeFile(uri, contentBytes);
       console.log('[EDIT_FILE] File written successfully');
 
-      // Capture diagnostics after file write
-      const diagnosticsService = DiagnosticsService.getInstance();
-      let diagnostics: CapturedDiagnostic[] = [];
-      if (diagnosticsService.isEnabled()) {
-        try {
-          diagnostics = await diagnosticsService.captureDiagnosticsForFile(absolutePath, {
-            delay: diagnosticsService.getConfig('delay', 800),
-            timeout: diagnosticsService.getConfig('timeout', 5000),
-          });
-          console.log(`[EDIT_FILE] Captured ${diagnostics.length} diagnostics`);
-        } catch (diagError) {
-          console.warn('[EDIT_FILE] Failed to capture diagnostics:', diagError);
-        }
-      }
-
       // Truncate for return if too large
       const MAX_CONTENT_SIZE = 1024 * 512; // 512KB
       let returnOriginal = originalContent;
@@ -151,13 +135,13 @@ export class EditFileTool implements ITool {
         success: true,
         data: {
           path: filePath,
+          absolutePath,
           originalContent: returnOriginal,
           newContent: returnNew,
           truncated,
           oldStringLength: oldString.length,
           newStringLength: newString.length,
           changeInSize: newString.length - oldString.length,
-          diagnostics,
         },
       };
     } catch (error) {

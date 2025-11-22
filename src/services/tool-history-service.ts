@@ -30,6 +30,7 @@ export class ToolHistoryService {
         
         case 'edit_file':
         case 'multi_edit':
+        case 'apply_diff':
           return await this.undoEditFile(data, workspacePath);
         
         case 'delete_file':
@@ -110,6 +111,7 @@ export class ToolHistoryService {
         
         case 'edit_file':
         case 'multi_edit':
+        case 'apply_diff':
           return await this.redoEditFile(data, workspacePath);
         
         case 'delete_file':

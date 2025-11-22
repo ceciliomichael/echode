@@ -7,6 +7,7 @@ import { getMainWebviewHtml, getSettingsHtml } from './utils/html-generator';
 import { getWorkspaceFiles, getAgentsConfig } from './utils/workspace-scanner';
 import { ChatHistoryService } from './services/chat-history-service';
 import { ToolHistoryService } from './services/tool-history-service';
+import { DiagnosticsService } from './services/diagnostics-service';
 import type { ToolExecutionState } from './types/tool-execution';
 
 /**
@@ -230,6 +231,9 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
         case 'historyPanelClosed':
           this._isHistoryOpen = false;
           break;
+        case 'fetchDiagnostics':
+          await this.handleDiagnosticsFetch(data, webviewView);
+          break;
         case 'undoToolExecutions':
           const workspaceForToolUndo = vscode.workspace.workspaceFolders;
           if (workspaceForToolUndo && workspaceForToolUndo.length > 0) {
@@ -297,5 +301,43 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
           break;
       }
     });
+  }
+
+  /**
+   * Handle diagnostics fetch request from webview
+   */
+  private async handleDiagnosticsFetch(
+    data: { requestId: string; filePath: string; absolutePath: string },
+    webviewView: vscode.WebviewView
+  ): Promise<void> {
+    try {
+      const diagnosticsService = DiagnosticsService.getInstance();
+      const diagnostics: unknown[] = [];
+      
+      if (diagnosticsService.isEnabled()) {
+        try {
+          const captured = await diagnosticsService.captureDiagnosticsForFile(data.absolutePath, {
+            delay: diagnosticsService.getConfig('delay', 500),
+            timeout: diagnosticsService.getConfig('timeout', 1000),
+          });
+          diagnostics.push(...captured);
+        } catch (diagError) {
+          console.warn('[DiagnosticsFetch] Failed to capture diagnostics:', diagError);
+        }
+      }
+
+      webviewView.webview.postMessage({
+        type: 'diagnosticsFetched',
+        requestId: data.requestId,
+        diagnostics,
+      });
+    } catch (error) {
+      console.error('[DiagnosticsFetch] Error:', error);
+      webviewView.webview.postMessage({
+        type: 'diagnosticsFetched',
+        requestId: data.requestId,
+        diagnostics: [],
+      });
+    }
   }
 }

@@ -1,30 +1,32 @@
 export function LoadingDots() {
   return (
-    <div className="flex gap-0.5 py-0.5">
-      <div
-        className="w-1 h-1 rounded-full animate-bounce"
+    <>
+      <style>
+        {`
+          @keyframes wave-shine {
+            0% {
+              background-position: 200% 0;
+            }
+            100% {
+              background-position: -100% 0;
+            }
+          }
+        `}
+      </style>
+      <span
+        className="text-sm"
         style={{
-          backgroundColor: 'var(--vscode-editor-foreground)',
-          opacity: 0.6,
-          animationDelay: '0ms'
+          background:
+            'linear-gradient(90deg, var(--vscode-descriptionForeground) 0%, var(--vscode-descriptionForeground) 40%, var(--vscode-foreground) 50%, var(--vscode-descriptionForeground) 60%, var(--vscode-descriptionForeground) 100%)',
+          backgroundSize: '300% 100%',
+          WebkitBackgroundClip: 'text',
+          backgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          animation: 'wave-shine 2s linear infinite',
         }}
-      />
-      <div
-        className="w-1 h-1 rounded-full animate-bounce"
-        style={{
-          backgroundColor: 'var(--vscode-editor-foreground)',
-          opacity: 0.6,
-          animationDelay: '150ms'
-        }}
-      />
-      <div
-        className="w-1 h-1 rounded-full animate-bounce"
-        style={{
-          backgroundColor: 'var(--vscode-editor-foreground)',
-          opacity: 0.6,
-          animationDelay: '300ms'
-        }}
-      />
-    </div>
+      >
+        Executing
+      </span>
+    </>
   );
 }

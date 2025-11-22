@@ -10,13 +10,13 @@ export interface CapturedDiagnostic {
 }
 
 export interface DiagnosticsOptions {
-  /** Delay in ms to wait for language server analysis (default: 800) */
+  /** Delay in ms to wait for language server analysis (default: 500) */
   delay?: number;
   /** Open document if closed to trigger language server (default: true) */
   ensureOpen?: boolean;
   /** Include only specific severities (default: Error and Warning) */
   severities?: vscode.DiagnosticSeverity[];
-  /** Maximum time to wait for diagnostics (default: 5000ms) */
+  /** Maximum time to wait for diagnostics (default: 1000ms) */
   timeout?: number;
 }
 
@@ -45,13 +45,13 @@ export class DiagnosticsService {
     options: DiagnosticsOptions = {}
   ): Promise<CapturedDiagnostic[]> {
     const {
-      delay = 800,
+      delay = 500,
       ensureOpen = true,
       severities = [
         vscode.DiagnosticSeverity.Error,
         vscode.DiagnosticSeverity.Warning,
       ],
-      timeout = 5000,
+      timeout = 1000,
     } = options;
 
     try {

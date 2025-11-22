@@ -1,6 +1,5 @@
 import { useCallback, useRef } from 'react';
 import { chatApi } from '../services/chat-api';
-import { getSystemPrompt } from '../utils/prompts';
 import { useWorkspaceContext } from './use-workspace-context';
 import type { Message } from '../types/chat';
 import type { ChatMessage } from '../types/chat-api';
@@ -9,6 +8,67 @@ import { ToolExecutor } from '../lib/tool-executor';
 import { getAllTools } from '../lib/tool-registry';
 import type { ToolExecutionState } from '../types/tool';
 import { createToolExecutionState, updateToolExecutionStatus, generateToolExecutionId } from '../lib/tool-execution-tracker';
+import { fetchDiagnostics, formatDiagnosticsForAI, shouldFetchDiagnostics, isFileModificationTool as checkIsFileModificationTool } from '../utils/diagnostic-utils';
+import { buildContinuationHistory } from '../utils/continuation-builder';
+import { executeToolWithStopCheck } from '../utils/tool-execution-helpers';
+
+/**
+ * Helper to fetch and format diagnostics for a tool execution
+ */
+async function fetchAndFormatDiagnostics(
+  executedTool: { toolName: string; result?: { success: boolean; data?: unknown } } | undefined,
+  completedState: ToolExecutionState,
+  assistantMessageId: string,
+  toolExecutionId: string,
+  updateToolExecution: (messageId: string, toolExecutionId: string, state: ToolExecutionState) => void,
+  diagnosticAttemptsRef: React.MutableRefObject<Record<string, number>>
+): Promise<string> {
+  if (!executedTool?.result?.success || !('data' in executedTool.result) || !executedTool.result.data) {
+    return '';
+  }
+
+  const data = executedTool.result.data as Record<string, unknown>;
+  const filePath = (data.path as string) || 'unknown';
+  const absolutePath = data.absolutePath as string;
+
+  if (!shouldFetchDiagnostics(executedTool.toolName) || !absolutePath) {
+    return '';
+  }
+
+  // Update status to fetching_diagnostics
+  const fetchingState = { ...completedState, status: 'fetching_diagnostics' as const };
+  updateToolExecution(assistantMessageId, toolExecutionId, fetchingState);
+
+  console.log(`[ToolExecution] Fetching diagnostics for ${filePath}...`);
+
+  // Fetch diagnostics from backend
+  const diagnostics = await fetchDiagnostics(filePath, absolutePath);
+
+  // Update state with diagnostics
+  const finalState = { ...completedState, diagnostics };
+  updateToolExecution(assistantMessageId, toolExecutionId, finalState);
+
+  // Handle diagnostic results
+  if (diagnostics && diagnostics.length > 0) {
+    const isModificationTool = checkIsFileModificationTool(executedTool.toolName);
+    const maxIterations = 3;
+    
+    if (isModificationTool) {
+      const currentAttempts = (diagnosticAttemptsRef.current[filePath] || 0) + 1;
+      diagnosticAttemptsRef.current[filePath] = currentAttempts;
+      return formatDiagnosticsForAI(diagnostics, filePath, isModificationTool, currentAttempts, maxIterations);
+    }
+    
+    return formatDiagnosticsForAI(diagnostics, filePath, isModificationTool, 0, maxIterations);
+  } else {
+    // No diagnostics found - reset attempts counter
+    if (diagnosticAttemptsRef.current[filePath]) {
+      console.log(`[Diagnostics] No errors found for ${filePath} - resetting attempt counter`);
+      delete diagnosticAttemptsRef.current[filePath];
+    }
+    return '';
+  }
+}
 
 interface ToolExecutionHookProps {
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
@@ -101,56 +161,11 @@ export function useToolExecution({
         }
         
         // Execute the specific tool directly
-        let result;
-        try {
-          const toolResult = await toolExecutorRef.current.execute({
-            toolName: toolBlock.toolName,
-            parameters: toolBlock.parameters,
-            status: 'executing'
-          });
-
-          // Check if stopped during execution
-          if (isStoppingRef.current) {
-            result = {
-              executedToolCalls: [{
-                toolName: toolBlock.toolName,
-                parameters: toolBlock.parameters,
-                status: 'aborted' as const,
-                result: { success: false, error: 'Stopped by user' }
-              }],
-              toolResults: [],
-              wasStopped: true
-            };
-          } else {
-            // Normal tool result
-            result = {
-              executedToolCalls: [{
-                toolName: toolBlock.toolName,
-                parameters: toolBlock.parameters,
-                status: toolResult.success ? ('completed' as const) : ('error' as const),
-                result: toolResult
-              }],
-              toolResults: [
-                toolResult.success 
-                  ? `Tool: ${toolBlock.toolName}\nResult: ${JSON.stringify(toolResult.data, null, 2)}`
-                  : `Tool: ${toolBlock.toolName}\nError: ${toolResult.error}`
-              ],
-              wasStopped: false
-            };
-          }
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          result = {
-            executedToolCalls: [{
-              toolName: toolBlock.toolName,
-              parameters: toolBlock.parameters,
-              status: 'error' as const,
-              result: { success: false, error: errorMessage }
-            }],
-            toolResults: [`Tool: ${toolBlock.toolName}\nError: ${errorMessage}`],
-            wasStopped: false
-          };
-        }
+        const result = await executeToolWithStopCheck(
+          toolExecutorRef.current,
+          toolBlock,
+          isStoppingRef
+        );
         
         if (result.wasStopped) {
           // Update to aborted status
@@ -170,179 +185,41 @@ export function useToolExecution({
         
         // Get the execution result from tool executor
         const executedTool = result.executedToolCalls[0];
+        let completedState = executionState;
         if (executedTool) {
-          // Update tool execution state
-          const finalState = updateToolExecutionStatus(
+          // Update tool execution state with result - show in dropdown immediately
+          completedState = updateToolExecutionStatus(
             executionState,
             executedTool.status,
             executedTool.result
           );
-          updateToolExecution(assistantMessageId, toolExecutionId, finalState);
+          updateToolExecution(assistantMessageId, toolExecutionId, completedState);
         }
         
         // Format tool results for AI context
         const toolResultText = result.toolResults.join('\n\n');
         
-        // Check if tool result contains diagnostics
-        let diagnosticsText = '';
-        if (executedTool?.result?.success && 'data' in executedTool.result && executedTool.result.data) {
-          const data = executedTool.result.data as Record<string, unknown>;
-          const filePath = data.path as string || 'unknown';
-          
-          if (data.diagnostics && Array.isArray(data.diagnostics) && data.diagnostics.length > 0) {
-            const diagnostics = data.diagnostics as Array<{
-              line: number;
-              severity: string;
-              message: string;
-              source?: string;
-              code?: string | number;
-            }>;
-            
-            const diagnosticLines = diagnostics.map((d) => {
-              const source = d.source ? ` (${d.source})` : '';
-              const code = d.code ? ` [${d.code}]` : '';
-              return `- Line ${d.line}: [${d.severity}] ${d.message}${code}${source}`;
-            });
-            
-            // Check if this is a file modification tool (not read_file)
-            const isModificationTool = executedTool.toolName === 'edit_file' || 
-                                      executedTool.toolName === 'write_to_file' ||
-                                      executedTool.toolName === 'multi_edit';
-            
-            let instruction = '';
-            if (isModificationTool) {
-              // Track diagnostic attempts per file for modification tools
-              const maxIterations = 3; // TODO: Get from settings when available
-              const currentAttempts = (diagnosticAttemptsRef.current[filePath] || 0) + 1;
-              diagnosticAttemptsRef.current[filePath] = currentAttempts;
-              
-              // Adjust instruction based on iteration count
-              if (currentAttempts < maxIterations) {
-                instruction = `[INSTRUCTION: The file you just modified has lint/compile errors. Review the diagnostics above and use edit_file or multi_edit to fix them. This is attempt ${currentAttempts}/${maxIterations}.]`;
-              } else if (currentAttempts === maxIterations) {
-                instruction = `[INSTRUCTION: The file still has lint/compile errors. This is your final attempt (${currentAttempts}/${maxIterations}). Review carefully and fix all issues.]`;
-              } else {
-                instruction = `[NOTE: Maximum fix attempts (${maxIterations}) reached for this file. Diagnostics are shown for your reference, but you should acknowledge and move forward unless the user requests further fixes.]`;
-              }
-            } else {
-              // For read_file, just show diagnostics without iteration tracking
-              instruction = `[NOTE: This file has ${diagnostics.length} lint/compile error(s). Consider these when analyzing or modifying the file.]`;
-            }
-            
-            diagnosticsText = `\n\n<file_diagnostics>
-File: ${filePath}
-Issues detected${isModificationTool ? ' after your edit' : ''} (${diagnostics.length} total):
-
-${diagnosticLines.join('\n')}
-
-${instruction}
-</file_diagnostics>`;
-          } else {
-            // No diagnostics found - reset attempts counter for this file (successful fix)
-            if (diagnosticAttemptsRef.current[filePath]) {
-              console.log(`[Diagnostics] No errors found for ${filePath} - resetting attempt counter`);
-              delete diagnosticAttemptsRef.current[filePath];
-            }
-          }
-        }
+        // Fetch diagnostics after showing result
+        const diagnosticsText = await fetchAndFormatDiagnostics(
+          executedTool,
+          completedState,
+          assistantMessageId,
+          toolExecutionId,
+          updateToolExecution,
+          diagnosticAttemptsRef
+        );
         
-        // Continue chat with tool results
-        const latestWorkspace = window.workspaceContext || workspace;
-        const systemPrompt = getSystemPrompt(latestWorkspace);
-        
-        const continuationHistory: ChatMessage[] = [
-          {
-            role: 'system',
-            content: systemPrompt,
-          },
-        ];
-        
-        // Get CURRENT messages from ref (not stale parameter)
-        const currentMessages = messagesRef.current;
-        
-        // Add previous messages WITH their tool results
-        for (const msg of currentMessages) {
-          continuationHistory.push({
-            role: msg.role,
-            content: msg.content,
-          });
-          
-          // Include previous tool execution results
-          if (msg.toolExecutions && msg.toolExecutions.size > 0) {
-            const toolResults: string[] = [];
-            msg.toolExecutions.forEach((execution) => {
-              if (execution.status === 'completed' && execution.result) {
-                if (execution.result.success) {
-                  const data = execution.result.data as Record<string, unknown>;
-                  let formattedResult = '';
-                  
-                  if (execution.toolName === 'read_file') {
-                    formattedResult = `File: ${data.path as string}\n${data.content as string}`;
-                  } else if (execution.toolName === 'grep_search') {
-                    formattedResult = `Query: ${data.query as string}\nFound ${data.totalMatches as number} matches in ${data.filesWithMatches as number} files`;
-                    if (data.results && Array.isArray(data.results) && data.results.length > 0) {
-                      formattedResult += '\n' + data.results.slice(0, 5).map((r: Record<string, unknown>) => 
-                        `${r.file as string}: ${(r.matches as unknown[]).length} matches`
-                      ).join('\n');
-                    }
-                  } else if (execution.toolName === 'list_files') {
-                    const directories = data.directories as Array<{ name: string }> | undefined;
-                    const files = data.files as Array<{ name: string }> | undefined;
-                    formattedResult = `Directory: ${data.path as string}\nDirectories: ${directories?.map(d => d.name).join(', ') || 'none'}\nFiles: ${files?.map(f => f.name).join(', ') || 'none'}`;
-                  } else {
-                    formattedResult = JSON.stringify(data);
-                  }
-                  
-                  toolResults.push(`[${execution.toolName}]\n${formattedResult}`);
-                } else {
-                  toolResults.push(`[${execution.toolName} ERROR]\n${execution.result.error}`);
-                }
-              }
-            });
-            
-            if (toolResults.length > 0) {
-              continuationHistory.push({
-                role: 'user',
-                content: `<previous_tool_results>\n${toolResults.join('\n\n---\n\n')}\n</previous_tool_results>`,
-              });
-            }
-          }
-        }
-        
-        // Add current user message and assistant response
-        continuationHistory.push({
-          role: 'user',
-          content: userContent,
-        });
-        continuationHistory.push({
-          role: 'assistant',
-          content: assistantContent,
-        });
-        
-        // Add current todo list context if exists and has incomplete tasks
-        let todoContext = '';
-        if (currentTodos.length > 0) {
-          const pendingTasks = currentTodos.filter(t => t.status === 'pending').map(t => `- ${t.content}`).join('\n');
-          const inProgressTasks = currentTodos.filter(t => t.status === 'in_progress').map(t => `- ${t.content}`).join('\n');
-          const completedTasks = currentTodos.filter(t => t.status === 'completed').map(t => `- ${t.content}`).join('\n');
-          
-          // Only send todo context if there are incomplete tasks
-          const hasIncompleteTasks = pendingTasks || inProgressTasks;
-          
-          if (hasIncompleteTasks) {
-            todoContext = '\n\n<current_todo_list>\n';
-            if (pendingTasks) todoContext += `Pending:\n${pendingTasks}\n\n`;
-            if (inProgressTasks) todoContext += `In Progress:\n${inProgressTasks}\n\n`;
-            if (completedTasks) todoContext += `Completed:\n${completedTasks}\n`;
-            todoContext += '</current_todo_list>\n\n[INSTRUCTION: The current todo list is provided above. Keep track of task progress and update the todo list using the todo_write tool when tasks are completed or new tasks need to be added. Always maintain the todo list to reflect the current state of work.]';
-          }
-        }
-        
-        // Add the CURRENT tool execution result
-        continuationHistory.push({
-          role: 'user',
-          content: `Tool execution results:\n${toolResultText}${todoContext}${diagnosticsText}\n\n[INSTRUCTION: Process these tool results and continue your response. You have access to previous tool results in <previous_tool_results> tags. Maintain all system prompt rules, tool protocols, and formatting requirements. Stay focused on the original user request.]`,
-        });
+        // Build continuation history for chat
+        const latestWorkspace = (window.workspaceContext || workspace)!;
+        const continuationHistory = buildContinuationHistory(
+          latestWorkspace,
+          messagesRef.current,
+          userContent,
+          assistantContent,
+          toolResultText,
+          diagnosticsText,
+          currentTodos
+        );
         
         // Continue streaming - clear executing tool state
         setIsExecutingTool(false);

@@ -3,7 +3,7 @@
  * Mirrors webview-ui/src/types/tool.ts for backend use
  */
 
-export type ToolStatus = 'pending' | 'executing' | 'completed' | 'error' | 'aborted';
+export type ToolStatus = 'pending' | 'executing' | 'completed' | 'error' | 'aborted' | 'fetching_diagnostics';
 
 export interface ToolExecutionResult {
   success: boolean;

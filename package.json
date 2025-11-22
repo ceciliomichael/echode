@@ -137,6 +137,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.70.0",
     "better-sqlite3": "^11.10.0",
+    "fastest-levenshtein": "^1.0.16",
     "openai": "^6.9.1",
     "remark-gfm": "^4.0.1"
   }

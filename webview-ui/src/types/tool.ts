@@ -2,7 +2,7 @@
  * Tool execution types for echode extension
  */
 
-export type ToolStatus = 'pending' | 'executing' | 'completed' | 'error' | 'aborted';
+export type ToolStatus = 'pending' | 'executing' | 'completed' | 'error' | 'aborted' | 'fetching_diagnostics';
 
 export interface Tool {
   id: string;
@@ -73,4 +73,6 @@ export interface ToolExecutionState {
   startedAt: number;
   completedAt?: number;
   diagnosticAttempts?: number;
+  diagnostics?: CapturedDiagnostic[];
+  isFetchingDiagnostics?: boolean;
 }

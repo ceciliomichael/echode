@@ -13,7 +13,8 @@ const VALID_TOOL_NAMES = new Set([
   'edit_file',
   'multi_edit',
   'todo_write',
-  'todo_read'
+  'todo_read',
+  'apply_diff'
 ]);
 
 /**

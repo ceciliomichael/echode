@@ -149,7 +149,7 @@ const ThinkBlockComponent = ({
 
 
   return (
-    <div>
+    <div className="group/think">
       <style>
         {`
           @keyframes wave-shine {
@@ -167,7 +167,7 @@ const ThinkBlockComponent = ({
         <button
           type="button"
           onClick={() => setIsExpanded(!isExpanded)}
-          className="inline-flex items-center gap-1 transition-colors group"
+          className="inline-flex items-center gap-1 transition-colors"
           style={{
             color: 'var(--vscode-descriptionForeground)',
             outline: 'none'
@@ -202,7 +202,7 @@ const ThinkBlockComponent = ({
             <ChevronDown className="w-3.5 h-3.5 transition-all duration-200" strokeWidth={1.5} />
           ) : (
             <ChevronRight
-              className={`w-3.5 h-3.5 transition-all duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+              className={`w-3.5 h-3.5 transition-all duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 group-hover/think:opacity-100'}`}
               strokeWidth={1.5}
             />
           )}

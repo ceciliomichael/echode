@@ -10,7 +10,7 @@ export type ContentToken =
 /**
  * Valid tool names for detection
  */
-const VALID_TOOL_NAMES = ['read_file', 'write_to_file', 'list_files', 'grep_search', 'glob_search', 'delete_file', 'edit_file', 'multi_edit', 'todo_write', 'todo_read'];
+const VALID_TOOL_NAMES = ['read_file', 'write_to_file', 'list_files', 'grep_search', 'glob_search', 'delete_file', 'edit_file', 'multi_edit', 'todo_write', 'todo_read', 'apply_diff'];
 
 /**
  * Parse XML-style parameters from tool block content
