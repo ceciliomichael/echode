@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { ITool, ToolExecutionResult } from './tool.interface';
 import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
+import { DiagnosticsService, type CapturedDiagnostic } from '../diagnostics-service';
 
 export class ReadFileTool implements ITool {
   name = 'read_file';
@@ -55,6 +56,21 @@ export class ReadFileTool implements ITool {
         const selectedLines = lines.slice(defaultStart, defaultEnd);
         const formattedContent = this.formatWithLineNumbers(selectedLines, defaultStart + 1);
 
+        // Capture diagnostics for the file
+        const diagnosticsService = DiagnosticsService.getInstance();
+        let diagnostics: CapturedDiagnostic[] = [];
+        if (diagnosticsService.isEnabled()) {
+          try {
+            diagnostics = await diagnosticsService.captureDiagnosticsForFile(absolutePath, {
+              delay: diagnosticsService.getConfig('delay', 800),
+              timeout: diagnosticsService.getConfig('timeout', 5000),
+            });
+            console.log(`[READ_FILE] Captured ${diagnostics.length} diagnostics`);
+          } catch (diagError) {
+            console.warn('[READ_FILE] Failed to capture diagnostics:', diagError);
+          }
+        }
+
         return {
           success: true,
           data: {
@@ -63,6 +79,7 @@ export class ReadFileTool implements ITool {
             startLine: defaultStart + 1,
             endLine: defaultEnd,
             totalLines,
+            diagnostics,
           },
         };
       }
@@ -74,6 +91,21 @@ export class ReadFileTool implements ITool {
       const selectedLines = lines.slice(start, end);
       const formattedContent = this.formatWithLineNumbers(selectedLines, start + 1);
 
+      // Capture diagnostics for the file
+      const diagnosticsService = DiagnosticsService.getInstance();
+      let diagnostics: CapturedDiagnostic[] = [];
+      if (diagnosticsService.isEnabled()) {
+        try {
+          diagnostics = await diagnosticsService.captureDiagnosticsForFile(absolutePath, {
+            delay: diagnosticsService.getConfig('delay', 800),
+            timeout: diagnosticsService.getConfig('timeout', 5000),
+          });
+          console.log(`[READ_FILE] Captured ${diagnostics.length} diagnostics`);
+        } catch (diagError) {
+          console.warn('[READ_FILE] Failed to capture diagnostics:', diagError);
+        }
+      }
+
       return {
         success: true,
         data: {
@@ -82,6 +114,7 @@ export class ReadFileTool implements ITool {
           startLine: start + 1,
           endLine: end,
           totalLines,
+          diagnostics,
         },
       };
     } catch (error) {

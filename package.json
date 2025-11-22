@@ -71,6 +71,37 @@
           "group": "navigation@3"
         }
       ]
+    },
+    "configuration": {
+      "title": "Echode",
+      "properties": {
+        "echode.diagnostics.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable automatic diagnostics capture after AI file edits/creations to detect lint and compile errors"
+        },
+        "echode.diagnostics.delay": {
+          "type": "number",
+          "default": 800,
+          "minimum": 100,
+          "maximum": 5000,
+          "description": "Delay in milliseconds to wait for language server analysis after file write (default: 800ms)"
+        },
+        "echode.diagnostics.maxIterations": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Maximum number of automatic fix attempts per file when diagnostics are detected (default: 3)"
+        },
+        "echode.diagnostics.timeout": {
+          "type": "number",
+          "default": 5000,
+          "minimum": 1000,
+          "maximum": 15000,
+          "description": "Maximum time in milliseconds to wait for diagnostics collection (default: 5000ms)"
+        }
+      }
     }
   },
   "scripts": {

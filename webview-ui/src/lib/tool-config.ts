@@ -96,21 +96,38 @@ REQUIRED XML format:
 <parameter_name>value</parameter_name>
 </function_call>
 
+**CRITICAL XML RULES:**
+1. **ONE opening tag per call**: Never output <function_call> twice
+2. **ALWAYS close with </function_call>**: Every opening tag needs a closing tag
+3. **No nested function_call tags**: Never put <function_call> inside another <function_call>
+4. **Sequential calls**: Close previous call before opening next one
+
 Parameter types:
 - Primitives: Direct value
 - Arrays/Objects: JSON format (e.g., <files>[...]</files>)
 
-Examples:
+✅ CORRECT - Single opening tag:
 <function_call><tool_name>read_file</tool_name><path>src/app.ts</path></function_call>
-<function_call><tool_name>write_to_file</tool_name><path>file.ts</path><content>code</content></function_call>
+
+✅ CORRECT - Multiple sequential calls (each properly closed):
+<function_call><tool_name>read_file</tool_name><path>file1.ts</path></function_call>
+<function_call><tool_name>read_file</tool_name><path>file2.ts</path></function_call>
+
+❌ WRONG - Duplicate opening tag:
+<function_call>
+<function_call>
+<tool_name>read_file</tool_name>
+
+❌ WRONG - Missing closing tag:
+<function_call><tool_name>read_file</tool_name><path>file.ts</path>
+<function_call><tool_name>grep_search</tool_name>
 
 FORBIDDEN formats (will fail):
 - <tool_name>{JSON}</tool_name>
 - Control tokens: <|tool_call_begin|>
 - Markdown: \`\`\`tool:name
 - Colons: <tool:name>
-
-Always close tags properly with </function_call>.
+- Duplicate tags: <function_call><function_call>
 </tool_format>
 
 <available_tools>

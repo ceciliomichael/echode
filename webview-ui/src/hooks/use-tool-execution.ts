@@ -39,6 +39,9 @@ export function useToolExecution({
 }: ToolExecutionHookProps) {
   const workspace = useWorkspaceContext();
 
+  // Track diagnostic fix attempts per file to prevent infinite loops
+  const diagnosticAttemptsRef = useRef<Record<string, number>>({});
+
   // Initialize tool executor with enabled tools
   const toolExecutorRef = useRef<ToolExecutor | null>(null);
   if (!toolExecutorRef.current) {
@@ -180,6 +183,69 @@ export function useToolExecution({
         // Format tool results for AI context
         const toolResultText = result.toolResults.join('\n\n');
         
+        // Check if tool result contains diagnostics
+        let diagnosticsText = '';
+        if (executedTool?.result?.success && 'data' in executedTool.result && executedTool.result.data) {
+          const data = executedTool.result.data as Record<string, unknown>;
+          const filePath = data.path as string || 'unknown';
+          
+          if (data.diagnostics && Array.isArray(data.diagnostics) && data.diagnostics.length > 0) {
+            const diagnostics = data.diagnostics as Array<{
+              line: number;
+              severity: string;
+              message: string;
+              source?: string;
+              code?: string | number;
+            }>;
+            
+            const diagnosticLines = diagnostics.map((d) => {
+              const source = d.source ? ` (${d.source})` : '';
+              const code = d.code ? ` [${d.code}]` : '';
+              return `- Line ${d.line}: [${d.severity}] ${d.message}${code}${source}`;
+            });
+            
+            // Check if this is a file modification tool (not read_file)
+            const isModificationTool = executedTool.toolName === 'edit_file' || 
+                                      executedTool.toolName === 'write_to_file' ||
+                                      executedTool.toolName === 'multi_edit';
+            
+            let instruction = '';
+            if (isModificationTool) {
+              // Track diagnostic attempts per file for modification tools
+              const maxIterations = 3; // TODO: Get from settings when available
+              const currentAttempts = (diagnosticAttemptsRef.current[filePath] || 0) + 1;
+              diagnosticAttemptsRef.current[filePath] = currentAttempts;
+              
+              // Adjust instruction based on iteration count
+              if (currentAttempts < maxIterations) {
+                instruction = `[INSTRUCTION: The file you just modified has lint/compile errors. Review the diagnostics above and use edit_file or multi_edit to fix them. This is attempt ${currentAttempts}/${maxIterations}.]`;
+              } else if (currentAttempts === maxIterations) {
+                instruction = `[INSTRUCTION: The file still has lint/compile errors. This is your final attempt (${currentAttempts}/${maxIterations}). Review carefully and fix all issues.]`;
+              } else {
+                instruction = `[NOTE: Maximum fix attempts (${maxIterations}) reached for this file. Diagnostics are shown for your reference, but you should acknowledge and move forward unless the user requests further fixes.]`;
+              }
+            } else {
+              // For read_file, just show diagnostics without iteration tracking
+              instruction = `[NOTE: This file has ${diagnostics.length} lint/compile error(s). Consider these when analyzing or modifying the file.]`;
+            }
+            
+            diagnosticsText = `\n\n<file_diagnostics>
+File: ${filePath}
+Issues detected${isModificationTool ? ' after your edit' : ''} (${diagnostics.length} total):
+
+${diagnosticLines.join('\n')}
+
+${instruction}
+</file_diagnostics>`;
+          } else {
+            // No diagnostics found - reset attempts counter for this file (successful fix)
+            if (diagnosticAttemptsRef.current[filePath]) {
+              console.log(`[Diagnostics] No errors found for ${filePath} - resetting attempt counter`);
+              delete diagnosticAttemptsRef.current[filePath];
+            }
+          }
+        }
+        
         // Continue chat with tool results
         const latestWorkspace = window.workspaceContext || workspace;
         const systemPrompt = getSystemPrompt(latestWorkspace);
@@ -275,7 +341,7 @@ export function useToolExecution({
         // Add the CURRENT tool execution result
         continuationHistory.push({
           role: 'user',
-          content: `Tool execution results:\n${toolResultText}${todoContext}\n\n[INSTRUCTION: Process these tool results and continue your response. You have access to previous tool results in <previous_tool_results> tags. Maintain all system prompt rules, tool protocols, and formatting requirements. Stay focused on the original user request.]`,
+          content: `Tool execution results:\n${toolResultText}${todoContext}${diagnosticsText}\n\n[INSTRUCTION: Process these tool results and continue your response. You have access to previous tool results in <previous_tool_results> tags. Maintain all system prompt rules, tool protocols, and formatting requirements. Stay focused on the original user request.]`,
         });
         
         // Continue streaming - clear executing tool state

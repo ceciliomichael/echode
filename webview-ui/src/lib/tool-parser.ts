@@ -253,9 +253,12 @@ export function hasCompleteToolBlock(content: string): boolean {
   }
 
   // Remove <think> and <thinking> blocks before checking for tool blocks
-  const contentWithoutThinkBlocks = content
+  let contentWithoutThinkBlocks = content
     .replace(/<think>[\s\S]*?<\/think>/g, '')
     .replace(/<thinking>[\s\S]*?<\/thinking>/g, '');
+  
+  // Clean up AI formatting mistakes
+  contentWithoutThinkBlocks = cleanToolCallContent(contentWithoutThinkBlocks);
 
   // Use extractToolBlocks to ensure we can actually parse complete tool blocks
   const toolBlocks = extractToolBlocks(contentWithoutThinkBlocks);
@@ -272,10 +275,13 @@ export function trimToLastCompleteToolBlock(content: string): string {
   }
 
   // Remove <think> blocks before processing
-  const contentWithoutThinkBlocks = content.replace(
+  let contentWithoutThinkBlocks = content.replace(
     /<think>[\s\S]*?<\/think>/g,
     '',
   );
+  
+  // Clean up AI formatting mistakes
+  contentWithoutThinkBlocks = cleanToolCallContent(contentWithoutThinkBlocks);
 
   // Find all complete tool blocks
   const toolBlocks = extractToolBlocks(contentWithoutThinkBlocks);
@@ -339,10 +345,13 @@ export function trimToFirstCompleteToolBlock(content: string): string {
   }
 
   // Remove <think> blocks before processing
-  const contentWithoutThinkBlocks = content.replace(
+  let contentWithoutThinkBlocks = content.replace(
     /<think>[\s\S]*?<\/think>/g,
     '',
   );
+  
+  // Clean up AI formatting mistakes
+  contentWithoutThinkBlocks = cleanToolCallContent(contentWithoutThinkBlocks);
 
   // Find first valid tool block
   const regex = new RegExp(TOOL_BLOCK_REGEX.source, 'g');
@@ -377,15 +386,78 @@ export function trimToFirstCompleteToolBlock(content: string): string {
 }
 
 /**
+ * Clean up common AI mistakes in tool call formatting
+ * Handles cases like duplicate opening tags: <function_call><function_call>
+ */
+function cleanToolCallContent(content: string): string {
+  let cleaned = content;
+  let hadErrors = false;
+  
+  // Remove duplicate opening <function_call> tags
+  // Pattern: <function_call>\s*<function_call> -> <function_call>
+  const duplicateOpenings = cleaned.match(/<function_call>\s*<function_call>/g);
+  if (duplicateOpenings) {
+    console.log(`[ToolParser] 🔧 Fixed ${duplicateOpenings.length} duplicate opening tag(s)`);
+    hadErrors = true;
+    cleaned = cleaned.replace(
+      /<function_call>\s*<function_call>/g,
+      '<function_call>'
+    );
+  }
+  
+  // Remove duplicate closing </function_call> tags
+  const duplicateClosings = cleaned.match(/<\/function_call>\s*<\/function_call>/g);
+  if (duplicateClosings) {
+    console.log(`[ToolParser] 🔧 Fixed ${duplicateClosings.length} duplicate closing tag(s)`);
+    hadErrors = true;
+    cleaned = cleaned.replace(
+      /<\/function_call>\s*<\/function_call>/g,
+      '</function_call>'
+    );
+  }
+  
+  // Fix cases where AI forgot to close previous tag and opened a new one
+  // Pattern: <function_call>...(no closing tag)...<function_call> -> </function_call><function_call>
+  // Look for: <function_call>...content...<function_call> where middle content has <tool_name>
+  let unclosedFixed = 0;
+  cleaned = cleaned.replace(
+    /(<function_call>[\s\S]*?<tool_name>[\s\S]*?<\/tool_name>[\s\S]*?)(<function_call>)/g,
+    (match, firstBlock, secondTag) => {
+      // Check if firstBlock already has a closing tag
+      if (firstBlock.includes('</function_call>')) {
+        return match; // Already properly closed
+      }
+      // Add closing tag before opening new one
+      unclosedFixed++;
+      return firstBlock + '</function_call>\n' + secondTag;
+    }
+  );
+  
+  if (unclosedFixed > 0) {
+    console.log(`[ToolParser] 🔧 Fixed ${unclosedFixed} unclosed tag(s) before new opening`);
+    hadErrors = true;
+  }
+  
+  if (hadErrors) {
+    console.log('[ToolParser] ⚠️  AI generated malformed XML - automatically corrected');
+  }
+  
+  return cleaned;
+}
+
+/**
  * Extracts all complete tool blocks from content
  * Excludes tool blocks that are inside <think> tags
  */
 export function extractToolBlocks(content: string): ParsedToolBlock[] {
   // Remove all <think>...</think> blocks to prevent tool execution inside them
-  const contentWithoutThinkBlocks = content.replace(
+  let contentWithoutThinkBlocks = content.replace(
     /<think>[\s\S]*?<\/think>/g,
     '',
   );
+  
+  // Clean up common AI formatting mistakes
+  contentWithoutThinkBlocks = cleanToolCallContent(contentWithoutThinkBlocks);
 
   const toolBlocks: ParsedToolBlock[] = [];
   let match: RegExpExecArray | null;

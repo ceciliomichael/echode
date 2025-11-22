@@ -55,6 +55,15 @@ export interface ListFilesParameters {
   path: string;
 }
 
+export interface CapturedDiagnostic {
+  line: number;
+  character: number;
+  severity: 'Error' | 'Warning' | 'Information' | 'Hint';
+  message: string;
+  source?: string;
+  code?: string | number;
+}
+
 export interface ToolExecutionState {
   toolExecutionId: string;
   toolName: string;
@@ -63,4 +72,5 @@ export interface ToolExecutionState {
   result?: ToolExecutionResult;
   startedAt: number;
   completedAt?: number;
+  diagnosticAttempts?: number;
 }

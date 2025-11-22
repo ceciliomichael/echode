@@ -28,6 +28,10 @@ export class ToolHistoryService {
         case 'write_to_file':
           return await this.undoWriteFile(data, workspacePath);
         
+        case 'edit_file':
+        case 'multi_edit':
+          return await this.undoEditFile(data, workspacePath);
+        
         case 'delete_file':
           return await this.undoDeleteFile(data, workspacePath);
         
@@ -104,6 +108,10 @@ export class ToolHistoryService {
         case 'write_to_file':
           return await this.redoWriteFile(data, workspacePath);
         
+        case 'edit_file':
+        case 'multi_edit':
+          return await this.redoEditFile(data, workspacePath);
+        
         case 'delete_file':
           return await this.redoDeleteFile(data, workspacePath);
         
@@ -177,6 +185,19 @@ export class ToolHistoryService {
     if (action === 'created') {
       // File was created, delete it
       try {
+        // Close the file tab if it's open
+        const openEditor = vscode.window.visibleTextEditors.find(
+          (editor) => editor.document.uri.toString() === uri.toString()
+        );
+        
+        if (openEditor) {
+          // Close the editor tab
+          await vscode.window.showTextDocument(openEditor.document, openEditor.viewColumn);
+          await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+          console.log(`[ToolHistory] Closed tab for deleted file: ${filePath}`);
+        }
+        
+        // Delete the file
         await vscode.workspace.fs.delete(uri, { recursive: false, useTrash: false });
         
         // Clean up empty directories that were created
@@ -204,6 +225,32 @@ export class ToolHistoryService {
     }
 
     return { success: true };
+  }
+
+  /**
+   * Undo edit_file or multi_edit operation
+   */
+  private async undoEditFile(
+    data: Record<string, unknown>,
+    workspacePath: string
+  ): Promise<{ success: boolean; error?: string }> {
+    const filePath = data.path as string;
+    const originalContent = data.originalContent as string;
+
+    const absolutePath = path.join(workspacePath, filePath);
+    const uri = vscode.Uri.file(absolutePath);
+
+    try {
+      // Restore original content
+      const contentBytes = Buffer.from(originalContent, 'utf8');
+      await vscode.workspace.fs.writeFile(uri, contentBytes);
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to restore file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      };
+    }
   }
 
   /**
@@ -275,6 +322,7 @@ export class ToolHistoryService {
   ): Promise<{ success: boolean; error?: string }> {
     const filePath = data.path as string;
     const newContent = data.newContent as string;
+    const action = data.action as string;
 
     const absolutePath = path.join(workspacePath, filePath);
     const uri = vscode.Uri.file(absolutePath);
@@ -291,11 +339,53 @@ export class ToolHistoryService {
 
       const contentBytes = Buffer.from(newContent, 'utf8');
       await vscode.workspace.fs.writeFile(uri, contentBytes);
+      
+      // If file was originally created, reopen it in editor (matches diagnostics flow)
+      if (action === 'created') {
+        try {
+          const document = await vscode.workspace.openTextDocument(uri);
+          await vscode.window.showTextDocument(document, {
+            preview: false,
+            preserveFocus: true,
+          });
+          console.log(`[ToolHistory] Reopened recreated file: ${filePath}`);
+        } catch (error) {
+          console.warn(`[ToolHistory] Could not reopen file: ${filePath}`, error);
+          // Don't fail the redo if we can't open the file
+        }
+      }
+      
       return { success: true };
     } catch (error) {
       return {
         success: false,
         error: `Failed to redo write file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      };
+    }
+  }
+
+  /**
+   * Redo edit_file or multi_edit operation
+   */
+  private async redoEditFile(
+    data: Record<string, unknown>,
+    workspacePath: string
+  ): Promise<{ success: boolean; error?: string }> {
+    const filePath = data.path as string;
+    const newContent = data.newContent as string;
+
+    const absolutePath = path.join(workspacePath, filePath);
+    const uri = vscode.Uri.file(absolutePath);
+
+    try {
+      // Re-apply new content
+      const contentBytes = Buffer.from(newContent, 'utf8');
+      await vscode.workspace.fs.writeFile(uri, contentBytes);
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to redo edit file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
   }

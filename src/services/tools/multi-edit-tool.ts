@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { ITool, ToolExecutionResult } from './tool.interface';
 import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
+import { DiagnosticsService, type CapturedDiagnostic } from '../diagnostics-service';
 
 interface Edit {
   id?: string;
@@ -146,6 +147,21 @@ export class MultiEditTool implements ITool {
       await vscode.workspace.fs.writeFile(uri, contentBytes);
       console.log('[MULTI_EDIT] File written successfully');
 
+      // Capture diagnostics after file write
+      const diagnosticsService = DiagnosticsService.getInstance();
+      let diagnostics: CapturedDiagnostic[] = [];
+      if (diagnosticsService.isEnabled()) {
+        try {
+          diagnostics = await diagnosticsService.captureDiagnosticsForFile(absolutePath, {
+            delay: diagnosticsService.getConfig('delay', 800),
+            timeout: diagnosticsService.getConfig('timeout', 5000),
+          });
+          console.log(`[MULTI_EDIT] Captured ${diagnostics.length} diagnostics`);
+        } catch (diagError) {
+          console.warn('[MULTI_EDIT] Failed to capture diagnostics:', diagError);
+        }
+      }
+
       // Truncate for return if too large
       const MAX_CONTENT_SIZE = 1024 * 512; // 512KB
       let returnOriginal = originalContent;
@@ -167,6 +183,7 @@ export class MultiEditTool implements ITool {
           newContent: returnNew,
           truncated,
           edits: editResults,
+          diagnostics,
         },
       };
     } catch (error) {

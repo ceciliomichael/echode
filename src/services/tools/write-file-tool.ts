@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { ITool, ToolExecutionResult } from './tool.interface';
 import { getWorkspaceRoot, resolveAbsolutePath, getCreatedDirectories } from './utils/workspace-utils';
+import { DiagnosticsService, type CapturedDiagnostic } from '../diagnostics-service';
 
 export class WriteFileTool implements ITool {
   name = 'write_to_file';
@@ -156,6 +157,21 @@ export class WriteFileTool implements ITool {
         console.log('[WRITE_FILE] WARNING: Could not verify written file:', verifyError);
       }
 
+      // Capture diagnostics after file write
+      const diagnosticsService = DiagnosticsService.getInstance();
+      let diagnostics: CapturedDiagnostic[] = [];
+      if (diagnosticsService.isEnabled()) {
+        try {
+          diagnostics = await diagnosticsService.captureDiagnosticsForFile(absolutePath, {
+            delay: diagnosticsService.getConfig('delay', 800),
+            timeout: diagnosticsService.getConfig('timeout', 5000),
+          });
+          console.log(`[WRITE_FILE] Captured ${diagnostics.length} diagnostics`);
+        } catch (diagError) {
+          console.warn('[WRITE_FILE] Failed to capture diagnostics:', diagError);
+        }
+      }
+
       console.log('[WRITE_FILE] ==================== SUCCESS ====================');
       return {
         success: true,
@@ -165,6 +181,7 @@ export class WriteFileTool implements ITool {
           oldContent: oldContent,
           newContent: content,
           createdDirectories: fileExisted ? [] : createdDirectories,
+          diagnostics,
         },
       };
     } catch (error) {
