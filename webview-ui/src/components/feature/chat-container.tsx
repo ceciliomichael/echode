@@ -317,19 +317,13 @@ export function ChatContainer() {
               {visibleMessages.map((message, index) => {
                 const isLastAssistantMessage = index === visibleMessages.length - 1 && message.role === 'assistant';
                 
-                // Hide copy button if this assistant message immediately follows a hidden user message in full messages list
-                const fullIndex = messages.findIndex(m => m.id === message.id);
-                const previousMessage = fullIndex > 0 ? messages[fullIndex - 1] : null;
-                
-                // Also hide copy button if message contains interactive plan tools
+                // Only hide copy button for interactive plan navigation tools
                 const hasPlanTool = message.role === 'assistant' && message.toolExecutions && 
                   Array.from(message.toolExecutions.values()).some(
                     exec => exec.toolName === 'plan_navigator' || exec.toolName === 'plan_handoff'
                   );
 
-                const shouldShowCopy = message.role === 'assistant' && 
-                  !(previousMessage?.hidden && previousMessage.role === 'user') && 
-                  !hasPlanTool;
+                const shouldShowCopy = message.role === 'assistant' && !hasPlanTool;
                 
                 return (
                   <MessageBubble
