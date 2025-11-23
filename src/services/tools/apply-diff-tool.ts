@@ -423,14 +423,12 @@ class MultiSearchReplaceDiffStrategy implements DiffStrategy {
             }
 
             if (searchContent === replaceContent) {
+                // When search and replace are identical, treat as successful no-op
+                // This allows verification that content exists without making changes
                 diffResults.push({
-                    success: false,
-                    error:
-                        `Search and replace content are identical - no changes would be made\n\n` +
-                        `Debug Info:\n` +
-                        `- Search and replace must be different to make changes\n` +
-                        `- Use read_file to verify the content you want to change`,
+                    success: true,
                 });
+                appliedCount++;
                 continue;
             }
 

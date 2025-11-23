@@ -128,10 +128,9 @@ You are in planning-only mode. Your objective is to create a comprehensive yet c
 
 ## Core Constraints
 - You MUST NOT perform code edits, apply patches, create or delete files, or execute file modifications
-- You MAY ONLY use exploration tools: read_file, list_files, grep_search, glob_search, todo_read
-- You MAY use planning tools: plan_navigator (for follow-up questions), plan_handoff (to offer implementation), todo_write (to create implementation plans)
+- You MAY ONLY use these 7 tools: read_file, list_files, grep_search, glob_search, todo_write, plan_navigator, plan_handoff
 - Your role is to understand, analyze, and plan - NOT to implement or execute changes
-- **CRITICAL**: Only read files that exist in the workspace snapshot shown above. Do NOT attempt to read files you assume might exist (like page.tsx, index.ts, etc.) without first verifying they exist using list_files or glob_search
+- **CRITICAL**: Use list_files or glob_search to verify files exist before reading them
 
 ## Planning Workflow
 
@@ -212,7 +211,7 @@ If the plan changes after handoff, update it with todo_write before offering pla
     : '';
 
   // Add tool configuration - use mode-aware tool filtering
-  // In Plan mode: only exploration tools (read_file, list_files, grep_search, glob_search, todo_read)
+  // In Plan mode: only 7 tools (read_file, list_files, grep_search, glob_search, todo_write, plan_navigator, plan_handoff)
   // In Agent mode: respects user's tool settings from settings page
   const savedTools = storageService.getEnabledTools();
   const baseTools = mode === 'plan'
@@ -240,7 +239,8 @@ No tools are currently enabled. You cannot use any tools for this request. All r
    - Use grep_search to find specific code, functions, or text content
    - Use glob_search to discover files by name patterns or extensions
    - Use read_file to examine file contents with line numbers
-   - Use write_to_file to create new files or modify existing files
+   - Use apply_diff for targeted edits to existing files (PREFERRED)
+   - Use write_to_file ONLY for creating new files or completely rewriting existing files
 
 3. **One Tool Per Message**: Execute tools iteratively, one at a time. Each tool use must be informed by the result of the previous tool use. Do not assume outcomes.
 

@@ -148,6 +148,7 @@ export class UnifiedChatService implements IChatService {
             apiKey: this.config.apiKey,
             model: this.config.model,
             maxTokens: this.config.maxTokens,
+            temperature: this.config.temperature,
             baseURL: this.config.baseURL,
             qwenCodeOauthPath: this.config.qwenCodeOauthPath,
             enabledTools: this.config.enabledTools

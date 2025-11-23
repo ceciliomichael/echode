@@ -70,6 +70,7 @@ export class AnthropicProvider implements ILLMProvider {
       const stream = await client.messages.create({
         model: settings.model,
         max_tokens: settings.maxTokens,
+        temperature: settings.temperature ?? 1.0,
         messages: conversationMessages,
         system: systemContent,
         stream: true,

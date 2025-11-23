@@ -30,16 +30,18 @@ export function buildTodoContext(todos: TodoItem[]): string {
     .map((t) => `- ${t.content}`)
     .join('\n');
 
-  const hasIncompleteTasks = pendingTasks || inProgressTasks;
-
-  if (!hasIncompleteTasks) return '';
-
   let todoContext = '\n\n<current_todo_list>\n';
   if (pendingTasks) todoContext += `Pending:\n${pendingTasks}\n\n`;
   if (inProgressTasks) todoContext += `In Progress:\n${inProgressTasks}\n\n`;
   if (completedTasks) todoContext += `Completed:\n${completedTasks}\n`;
-  todoContext +=
-    '</current_todo_list>\n\n[INSTRUCTION: The current todo list is provided above. Keep track of task progress and update the todo list using the todo_write tool when tasks are completed or new tasks need to be added. Always maintain the todo list to reflect the current state of work.]';
+  todoContext += '</current_todo_list>\n\n';
+  
+  const hasIncompleteTasks = pendingTasks || inProgressTasks;
+  if (hasIncompleteTasks) {
+    todoContext += '[INSTRUCTION: The current todo list is provided above. Keep track of task progress and update the todo list using the todo_write tool when tasks are completed or new tasks need to be added. Always maintain the todo list to reflect the current state of work.]';
+  } else {
+    todoContext += '[INSTRUCTION: All tasks in the todo list are now completed. The todo list accurately reflects the current state - do NOT update it again unless the user requests new tasks or changes.]';
+  }
 
   return todoContext;
 }

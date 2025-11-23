@@ -7,6 +7,7 @@ export interface ChatServiceConfig {
   apiKey: string;
   model: string;
   maxTokens: number;
+  temperature: number;
   baseURL: string;
   qwenCodeOauthPath?: string;
   enabledTools?: Array<{ id: string; enabled: boolean }>;

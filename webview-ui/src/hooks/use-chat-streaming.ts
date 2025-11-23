@@ -217,7 +217,7 @@ export function useChatStreaming({
       console.log('[STREAMING] Starting stream...');
       let chunkCount = 0;
       
-      for await (const chunk of chatApi.streamChat(chatHistory, abortController.signal)) {
+      for await (const chunk of chatApi.streamChat(chatHistory, abortController.signal, mode)) {
         chunkCount++;
         console.log(`[STREAMING] Chunk #${chunkCount}:`, chunk);
         

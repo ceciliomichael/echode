@@ -10,7 +10,6 @@ const PLAN_MODE_TOOL_IDS = [
   'list_files',
   'grep_search',
   'glob_search',
-  'todo_read',
   'todo_write',
   'plan_navigator',
   'plan_handoff',
@@ -24,7 +23,7 @@ export function getAllTools(defaultEnabled = true): Tool[] {
 /**
  * Get tools filtered by chat mode
  * - Agent mode: uses all enabled tools from settings
- * - Plan mode: fixed exploration tools + planning tools (read_file, list_files, grep_search, glob_search, todo_read, todo_write, plan_navigator, plan_handoff)
+ * - Plan mode: fixed 7 tools (read_file, list_files, grep_search, glob_search, todo_write, plan_navigator, plan_handoff)
  */
 export function getToolsForMode(mode: ChatMode, defaultEnabled = true): Tool[] {
   const allTools = getToolsFromRegistry(defaultEnabled);
@@ -66,7 +65,11 @@ These are the ONLY tools you may use. Do not invent or hallucinate other tool na
     .join('\n');
 
   const hasFileTools = enabledTools.some((tool) =>
-    ['write_to_file', 'read_file', 'list_files', 'grep_search', 'glob_search', 'delete_file'].includes(tool.id),
+    ['write_to_file', 'apply_diff', 'read_file', 'list_files', 'grep_search', 'glob_search', 'delete_file'].includes(tool.id),
+  );
+  
+  const hasEditingTools = enabledTools.some((tool) =>
+    ['write_to_file', 'apply_diff'].includes(tool.id),
   );
 
   const fileOperationPolicy = hasFileTools
@@ -75,16 +78,18 @@ These are the ONLY tools you may use. Do not invent or hallucinate other tool na
 <file_operations>
 **Critical Rules:**
 1. **ALWAYS read_file before editing** - Never modify without seeing current content
-2. **write_to_file is PRIMARY editing tool** - Use for creating new files or modifying existing ones
-3. **NEVER guess content** - Always read_file first to verify exact content
-4. **DIRECTORY vs FILE detection** - Paths WITHOUT file extensions (no dot after last slash) are DIRECTORIES
+${hasEditingTools ? `2. **apply_diff is PRIMARY editing tool** - Use for ALL targeted edits to existing files
+3. **write_to_file for new files or full rewrites** - Use only when creating new files or completely rewriting existing ones
+4. **NEVER guess content** - Always read_file first to verify exact content
+5. **DIRECTORY vs FILE detection** - Paths WITHOUT file extensions (no dot after last slash) are DIRECTORIES` : `2. **NEVER guess content** - Always read_file first to verify exact content
+3. **DIRECTORY vs FILE detection** - Paths WITHOUT file extensions (no dot after last slash) are DIRECTORIES`}
 
 **Directory/File Detection (MANDATORY):**
 - **DIRECTORY**: No extension after last / (e.g., src/app, src/routes, api, components/ui)
-  - ❌ NEVER call read_file or write_to_file on these paths
+  - ❌ NEVER call read_file${hasEditingTools ? ' or write_to_file' : ''} on these paths
   - ✅ ALWAYS use list_files first, then read_file on specific files from the listing
 - **FILE**: Has extension (e.g., src/app.ts, api/route.tsx, README.md)
-  - ✅ Use read_file/write_to_file directly
+  - ✅ Use read_file${hasEditingTools ? '/write_to_file' : ''} directly
 
 **Examples:**
 ❌ WRONG - calling read_file on directory:
@@ -99,15 +104,17 @@ These are the ONLY tools you may use. Do not invent or hallucinate other tool na
 - **list_files**: List directory contents. Use for paths WITHOUT extensions
 - **read_file**: View file content with line numbers. Defaults to first 100 lines. Use ONLY for paths WITH extensions
 - **grep_search**: Smart content search. For non-regex queries it uses semantic-lite matching on tokens and phrases; use specific names or short descriptions plus includes filters for file types. Set isRegex=true only when you need strict regex.
-- **glob_search**: Smart file search. Use real glob patterns (e.g., *.ts, **/*.json) for precise matches, or natural-language patterns (no *, ?, [], {}) for fuzzy path search by concept.
-- **write_to_file**: PRIMARY EDITING TOOL - Create new files or modify existing ones
-- **delete_file**: Only when explicitly requested
+- **glob_search**: Smart file search. Use real glob patterns (e.g., *.ts, **/*.json) for precise matches, or natural-language patterns (no *, ?, [], {}) for fuzzy path search by concept.${hasEditingTools ? `
+- **apply_diff**: PRIMARY EDITING TOOL - Use for ALL targeted edits to existing files (preferred over write_to_file)
+- **write_to_file**: Use ONLY for creating new files or completely rewriting existing files
+- **delete_file**: Only when explicitly requested` : ''}
 
 **Workflows:**
-- **Explore directory**: list_files (e.g., src/app) → read_file on specific files
-- **Single or multiple changes**: read_file → identify changes → write_to_file
-- **Find & modify**: grep_search → read_file → write_to_file
-- **Large files**: grep_search (get line #) → read_file with custom offset/limit → write_to_file
+- **Explore directory**: list_files (e.g., src/app) → read_file on specific files${hasEditingTools ? `
+- **Edit existing file**: read_file → identify changes → apply_diff (preferred) or write_to_file (full rewrite only)
+- **Create new file**: write_to_file
+- **Find & modify**: grep_search → read_file → apply_diff
+- **Large files**: grep_search (get line #) → read_file with custom offset/limit → apply_diff` : ''}
 
 **Common Mistakes:**
 - ❌ read_file on src/app (no extension) → ✅ list_files on src/app, then read_file on src/app/page.tsx

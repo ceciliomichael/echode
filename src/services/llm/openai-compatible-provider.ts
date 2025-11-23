@@ -26,7 +26,7 @@ export class OpenAICompatibleProvider implements ILLMProvider {
           content: m.content
         })) as OpenAI.ChatCompletionMessageParam[],
         max_tokens: settings.maxTokens,
-        temperature: 0.7,
+        temperature: settings.temperature ?? 0.7,
         stream: true,
       });
 
