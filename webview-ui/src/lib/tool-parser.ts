@@ -515,3 +515,67 @@ export function extractFirstToolBlock(content: string): ParsedToolBlock | null {
   const blocks = extractToolBlocks(content);
   return blocks.length > 0 ? blocks[0] : null;
 }
+
+/**
+ * Check if a tool is parallelizable (read-only, non-blocking)
+ */
+export function isParallelizableTool(toolName: string): boolean {
+  const parallelizableTools = [
+    'read_file',
+    'list_files',
+    'grep_search',
+    'glob_search',
+    'todo_read',
+  ];
+  return parallelizableTools.includes(toolName);
+}
+
+/**
+ * Extract multiple consecutive parallelizable tool blocks from the start of content
+ * Stops when encountering a non-parallelizable tool or non-tool content
+ */
+export function extractParallelizableToolBlocks(content: string): ParsedToolBlock[] {
+  const allBlocks = extractToolBlocks(content);
+  const parallelBlocks: ParsedToolBlock[] = [];
+  
+  // Find the position of the first tool block
+  if (allBlocks.length === 0) {
+    return [];
+  }
+  
+  // Check if content starts with tool blocks (allowing whitespace)
+  const trimmedContent = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+  const startsWithToolBlock = trimmedContent.startsWith('<function_call>');
+  
+  if (!startsWithToolBlock) {
+    // If content doesn't start with a tool block, only execute first tool
+    return allBlocks.length > 0 && isParallelizableTool(allBlocks[0].toolName) 
+      ? [allBlocks[0]] 
+      : [];
+  }
+  
+  // Extract consecutive parallelizable tool blocks from the start
+  for (const block of allBlocks) {
+    if (!isParallelizableTool(block.toolName)) {
+      // Stop at the first non-parallelizable tool
+      break;
+    }
+    
+    // Check if this block is consecutive (no non-tool content between blocks)
+    if (parallelBlocks.length > 0) {
+      const lastBlock = parallelBlocks[parallelBlocks.length - 1];
+      const lastBlockEnd = content.indexOf(lastBlock.rawContent) + lastBlock.rawContent.length;
+      const currentBlockStart = content.indexOf(block.rawContent);
+      const contentBetween = content.slice(lastBlockEnd, currentBlockStart).trim();
+      
+      // If there's non-whitespace content between blocks, stop
+      if (contentBetween.length > 0) {
+        break;
+      }
+    }
+    
+    parallelBlocks.push(block);
+  }
+  
+  return parallelBlocks;
+}

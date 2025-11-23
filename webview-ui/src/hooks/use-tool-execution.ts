@@ -4,7 +4,7 @@ import { useWorkspaceContext } from './use-workspace-context';
 import type { Message } from '../types/chat';
 import type { ChatMessage } from '../types/chat-api';
 import type { ChatMode } from '../types/chat-mode';
-import { hasCompleteToolBlock, extractToolBlocks, trimToFirstCompleteToolBlock } from '../lib/tool-parser';
+import { hasCompleteToolBlock, extractToolBlocks, trimToFirstCompleteToolBlock, extractParallelizableToolBlocks } from '../lib/tool-parser';
 import { ToolExecutor } from '../lib/tool-executor';
 import { getToolsForMode } from '../lib/tool-config';
 import type { ToolExecutionState } from '../types/tool';
@@ -69,6 +69,68 @@ async function fetchAndFormatDiagnostics(
     }
     return '';
   }
+}
+
+/**
+ * Fetch diagnostics for multiple files in parallel
+ */
+async function fetchAndFormatDiagnosticsParallel(
+  executedTools: Array<{ toolName: string; result?: { success: boolean; data?: unknown }; state: ToolExecutionState }>,
+  assistantMessageId: string,
+  updateToolExecution: (messageId: string, toolExecutionId: string, state: ToolExecutionState) => void,
+  diagnosticAttemptsRef: React.MutableRefObject<Record<string, number>>
+): Promise<string[]> {
+  console.log(`[ToolExecution] Fetching diagnostics for ${executedTools.length} files in parallel...`);
+  
+  const diagnosticsPromises = executedTools.map(async ({ toolName, result, state }) => {
+    if (!result?.success || !('data' in result) || !result.data) {
+      return '';
+    }
+
+    const data = result.data as Record<string, unknown>;
+    const filePath = (data.path as string) || 'unknown';
+    const absolutePath = data.absolutePath as string;
+
+    if (!shouldFetchDiagnostics(toolName) || !absolutePath) {
+      return '';
+    }
+
+    // Update status to fetching_diagnostics
+    const fetchingState = { ...state, status: 'fetching_diagnostics' as const };
+    updateToolExecution(assistantMessageId, state.toolExecutionId, fetchingState);
+
+    // Fetch diagnostics from backend
+    const diagnostics = await fetchDiagnostics(filePath, absolutePath);
+
+    // Update state with diagnostics
+    const finalState = { ...state, diagnostics };
+    updateToolExecution(assistantMessageId, state.toolExecutionId, finalState);
+
+    // Handle diagnostic results
+    if (diagnostics && diagnostics.length > 0) {
+      const isModificationTool = checkIsFileModificationTool(toolName);
+      const maxIterations = 3;
+      
+      if (isModificationTool) {
+        const currentAttempts = (diagnosticAttemptsRef.current[filePath] || 0) + 1;
+        diagnosticAttemptsRef.current[filePath] = currentAttempts;
+        return formatDiagnosticsForAI(diagnostics, filePath, isModificationTool, currentAttempts, maxIterations);
+      }
+      
+      return formatDiagnosticsForAI(diagnostics, filePath, isModificationTool, 0, maxIterations);
+    } else {
+      // No diagnostics found - reset attempts counter
+      if (diagnosticAttemptsRef.current[filePath]) {
+        console.log(`[Diagnostics] No errors found for ${filePath} - resetting attempt counter`);
+        delete diagnosticAttemptsRef.current[filePath];
+      }
+      return '';
+    }
+  });
+
+  const results = await Promise.all(diagnosticsPromises);
+  console.log(`[ToolExecution] Completed parallel diagnostics fetch for ${executedTools.length} files`);
+  return results.filter(r => r.length > 0);
 }
 
 interface ToolExecutionHookProps {
@@ -142,6 +204,163 @@ export function useToolExecution({
           return;
         }
         
+        // Check if we can execute multiple tools in parallel
+        // Only execute in parallel if we're at the first tool and there are consecutive parallelizable tools
+        const shouldExecuteInParallel = toolIndex === 0;
+        const parallelizableBlocks = shouldExecuteInParallel ? extractParallelizableToolBlocks(assistantContent) : [];
+        const canExecuteInParallel = parallelizableBlocks.length > 1;
+        
+        if (canExecuteInParallel) {
+          console.log(`[ToolExecution] Detected ${parallelizableBlocks.length} parallelizable tools, executing in parallel...`);
+          
+          // Create execution states for all parallel tools
+          const executionStates = parallelizableBlocks.map((block, idx) => {
+            const execId = generateToolExecutionId(assistantMessageId, idx);
+            const state = createToolExecutionState(
+              execId,
+              block.toolName,
+              block.parameters
+            );
+            updateToolExecution(assistantMessageId, execId, state);
+            return { block, state, execId };
+          });
+          
+          // Check if stopped before execution
+          if (isStoppingRef.current) {
+            executionStates.forEach(({ state, execId }) => {
+              const abortedState = updateToolExecutionStatus(state, 'aborted', {
+                success: false,
+                error: 'Stopped by user'
+              });
+              updateToolExecution(assistantMessageId, execId, abortedState);
+            });
+            setIsExecutingTool(false);
+            return;
+          }
+          
+          // Execute all tools in parallel using the tool executor
+          const parallelResult = await toolExecutorRef.current.executeToolBlocksInParallel(parallelizableBlocks);
+          
+          if (parallelResult.wasStopped) {
+            executionStates.forEach(({ state, execId }) => {
+              const abortedState = updateToolExecutionStatus(state, 'aborted', {
+                success: false,
+                error: 'Stopped by user'
+              });
+              updateToolExecution(assistantMessageId, execId, abortedState);
+            });
+            setIsExecutingTool(false);
+            return;
+          }
+          
+          // Update all tool execution states with results
+          const completedStates = parallelResult.executedToolCalls.map((executedTool, idx) => {
+            const { state, execId } = executionStates[idx];
+            const completedState = updateToolExecutionStatus(
+              state,
+              executedTool.status,
+              executedTool.result
+            );
+            updateToolExecution(assistantMessageId, execId, completedState);
+            return { toolName: executedTool.toolName, result: executedTool.result, state: completedState };
+          });
+          
+          // Fetch diagnostics in parallel for all modified files
+          const diagnosticsTexts = await fetchAndFormatDiagnosticsParallel(
+            completedStates,
+            assistantMessageId,
+            updateToolExecution,
+            diagnosticAttemptsRef
+          );
+          
+          // Format tool results for AI context
+          const toolResultText = parallelResult.toolResults.join('\n\n');
+          const diagnosticsText = diagnosticsTexts.join('\n\n');
+          
+          // Build continuation history for chat
+          const latestWorkspace = (window.workspaceContext || workspace)!;
+          const continuationHistory = buildContinuationHistory(
+            latestWorkspace,
+            messagesRef.current,
+            userContent,
+            assistantContent,
+            toolResultText,
+            diagnosticsText,
+            currentTodos,
+            mode
+          );
+          
+          // Continue streaming with results from parallel execution
+          setIsExecutingTool(false);
+          
+          const newAbortController = new AbortController();
+          abortControllerRef.current = newAbortController;
+          
+          let continuationContent = assistantContent;
+          let pendingUpdate = false;
+          
+          const updateUI = () => {
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantMessageId
+                  ? { ...msg, content: continuationContent }
+                  : msg
+              )
+            );
+            pendingUpdate = false;
+          };
+          
+          for await (const chunk of chatApi.streamChat(
+            continuationHistory,
+            newAbortController.signal
+          )) {
+            if (newAbortController.signal.aborted) {
+              break;
+            }
+            
+            continuationContent += chunk;
+            
+            // Check for another tool block in the new content only
+            const newContent = continuationContent.slice(assistantContent.length);
+            if (hasCompleteToolBlock(newContent)) {
+              const trimmedContinuation = assistantContent + trimToFirstCompleteToolBlock(newContent);
+              continuationContent = trimmedContinuation;
+              
+              if (pendingUpdate) {
+                updateUI();
+              } else {
+                updateUI();
+              }
+              
+              // Abort and execute next tool (starting from the index after parallel batch)
+              newAbortController.abort();
+              setIsExecutingTool(true);
+              await executeToolAndContinue(
+                continuationContent,
+                assistantMessageId,
+                continuationHistory,
+                messagesToSend,
+                userContent,
+                parallelizableBlocks.length // Continue from after the parallel batch
+              );
+              return;
+            }
+            
+            if (!pendingUpdate) {
+              pendingUpdate = true;
+              requestAnimationFrame(updateUI);
+            }
+          }
+          
+          // Final update
+          if (pendingUpdate) {
+            updateUI();
+          }
+          
+          return; // Exit after parallel execution
+        }
+        
+        // Single tool execution path (existing logic)
         // Generate tool execution ID with correct index
         const toolExecutionId = generateToolExecutionId(assistantMessageId, toolIndex);
         
