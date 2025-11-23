@@ -177,7 +177,7 @@ Issues detected after your edit (${diagnostics.length} total):
 
 ${lines.join('\n')}
 
-[INSTRUCTION: The file you just modified has lint/compile errors. Review the diagnostics above and use edit_file or multi_edit to fix them. This is an opportunity to correct the issues before proceeding.]
+[INSTRUCTION: The file you just modified has lint/compile errors. Review the diagnostics above and use write_to_file to fix them. This is an opportunity to correct the issues before proceeding.]
 </file_diagnostics>`;
   }
 

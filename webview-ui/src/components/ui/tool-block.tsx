@@ -19,7 +19,9 @@ const ToolBlockComponent = ({
   isConnectedBottom = false,
   isStreaming = false,
 }: ToolBlockProps) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  // Planning tools should auto-expand to show interactive elements
+  const isPlanningTool = toolCall.toolName === 'plan_navigator' || toolCall.toolName === 'plan_handoff';
+  const [isExpanded, setIsExpanded] = useState(isPlanningTool);
 
   // Get status display
   const statusConfig = useMemo(

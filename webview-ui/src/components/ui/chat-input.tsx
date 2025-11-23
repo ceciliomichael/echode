@@ -123,7 +123,7 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
                 <button
                   type="button"
                   onClick={handleAttachmentClick}
-                  disabled={disabled}
+                  disabled={disabled || isStreaming}
                   className="text-xs border border-dashed rounded-md px-2 py-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
                     color: 'var(--vscode-descriptionForeground)',
@@ -131,7 +131,7 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
                     backgroundColor: 'transparent'
                   }}
                   onMouseEnter={(e) => {
-                    if (!disabled) {
+                    if (!disabled && !isStreaming) {
                       e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.4)';
                       e.currentTarget.style.boxShadow = '0 0 0 1px rgba(255, 255, 255, 0.3)';
                       e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
@@ -156,7 +156,7 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
                     <button
                       type="button"
                       onClick={handleAttachmentClick}
-                      disabled={disabled}
+                      disabled={disabled || isStreaming}
                       className="text-xs border border-dashed rounded-md px-2 py-1 flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{
                         color: 'var(--vscode-descriptionForeground)',
@@ -164,7 +164,7 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
                         backgroundColor: 'transparent'
                       }}
                       onMouseEnter={(e) => {
-                        if (!disabled) {
+                        if (!disabled && !isStreaming) {
                           e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.4)';
                           e.currentTarget.style.boxShadow = '0 0 0 1px rgba(255, 255, 255, 0.3)';
                           e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
@@ -206,7 +206,7 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
               <button
                 type="button"
                 onClick={handleAttachmentClick}
-                disabled={disabled || attachments.length >= 3}
+                disabled={disabled || isStreaming || attachments.length >= 3}
                 className="transition-opacity hover:opacity-70 p-1 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ color: 'var(--vscode-foreground)' }}
                 title={attachments.length >= 3 ? 'Maximum 3 attachments' : 'Attach images'}

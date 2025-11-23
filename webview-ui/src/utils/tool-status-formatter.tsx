@@ -28,8 +28,6 @@ export function getToolStatusDisplay(
       executingText = 'Reading';
     } else if (toolName === 'write_to_file') {
       executingText = 'Writing';
-    } else if (toolName === 'edit_file' || toolName === 'multi_edit' || toolName === 'apply_diff') {
-      executingText = 'Editing';
     } else if (toolName === 'delete_file') {
       executingText = 'Deleting';
     } else if (toolName === 'list_files') {
@@ -38,6 +36,10 @@ export function getToolStatusDisplay(
       executingText = 'Searching';
     } else if (toolName === 'todo_write' || toolName === 'todo_read') {
       executingText = 'Processing';
+    } else if (toolName === 'plan_navigator') {
+      executingText = 'Asking';
+    } else if (toolName === 'plan_handoff') {
+      executingText = 'Ready';
     }
 
     return (
@@ -87,13 +89,8 @@ export function getToolStatusDisplay(
     return 'Read';
   }
 
-  // edit_file, multi_edit, apply_diff, write_to_file: show diff stats with color
-  if (
-    toolName === 'edit_file' ||
-    toolName === 'multi_edit' ||
-    toolName === 'apply_diff' ||
-    toolName === 'write_to_file'
-  ) {
+  // write_to_file: show diff stats with color
+  if (toolName === 'write_to_file') {
     if (toolCall.result?.success && toolCall.result.data) {
       const data = toolCall.result.data as {
         oldContent?: string | null;

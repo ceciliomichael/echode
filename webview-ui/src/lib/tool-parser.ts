@@ -73,8 +73,8 @@ function parseXMLParameters(content: string): Record<string, unknown> {
     if (closingPos !== -1) {
       const paramValue = content.slice(contentStart, closingPos);
       
-      // Don't trim for old_string/new_string/content/edits/diff - preserve exact whitespace for code
-      const shouldPreserveWhitespace = ['old_string', 'new_string', 'content', 'edits', 'diff'].includes(paramName);
+      // Don't trim for old_string/new_string/content/edits/diff/blocks - preserve exact whitespace for code
+      const shouldPreserveWhitespace = ['old_string', 'new_string', 'content', 'edits', 'diff', 'blocks'].includes(paramName);
       const finalValue = shouldPreserveWhitespace ? paramValue : paramValue.trim();
       
       parameters[paramName] = parseParamValue(finalValue, shouldPreserveWhitespace);

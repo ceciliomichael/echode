@@ -11,6 +11,9 @@ const PLAN_MODE_TOOL_IDS = [
   'grep_search',
   'glob_search',
   'todo_read',
+  'todo_write',
+  'plan_navigator',
+  'plan_handoff',
 ] as const;
 
 // Re-export getAllTools for external use
@@ -21,7 +24,7 @@ export function getAllTools(defaultEnabled = true): Tool[] {
 /**
  * Get tools filtered by chat mode
  * - Agent mode: uses all enabled tools from settings
- * - Plan mode: fixed exploration tools only (read_file, list_files, grep_search, glob_search, todo_read)
+ * - Plan mode: fixed exploration tools + planning tools (read_file, list_files, grep_search, glob_search, todo_read, todo_write, plan_navigator, plan_handoff)
  */
 export function getToolsForMode(mode: ChatMode, defaultEnabled = true): Tool[] {
   const allTools = getToolsFromRegistry(defaultEnabled);
@@ -51,7 +54,7 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
     .join('\n');
 
   const hasFileTools = enabledTools.some((tool) =>
-    ['write_to_file', 'read_file', 'list_files', 'grep_search', 'glob_search', 'apply_diff', 'delete_file'].includes(tool.id),
+    ['write_to_file', 'read_file', 'list_files', 'grep_search', 'glob_search', 'delete_file'].includes(tool.id),
   );
 
   const fileOperationPolicy = hasFileTools
@@ -59,19 +62,17 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
 
 <file_operations>
 **Critical Rules:**
-1. **ALWAYS read_file before apply_diff** - Never modify without seeing current content
-2. **apply_diff is PRIMARY editing tool** - Apply unified diff patches to modify files
-3. **Use proper diff format** - Generate unified diffs with context lines
-4. **Include line numbers** - Specify exact line ranges for changes
-5. **NEVER guess content** - If apply fails, read_file again and verify exact content
-6. **DIRECTORY vs FILE detection** - Paths WITHOUT file extensions (no dot after last slash) are DIRECTORIES
+1. **ALWAYS read_file before editing** - Never modify without seeing current content
+2. **write_to_file is PRIMARY editing tool** - Use for creating new files or modifying existing ones
+3. **NEVER guess content** - Always read_file first to verify exact content
+4. **DIRECTORY vs FILE detection** - Paths WITHOUT file extensions (no dot after last slash) are DIRECTORIES
 
 **Directory/File Detection (MANDATORY):**
 - **DIRECTORY**: No extension after last / (e.g., src/app, src/routes, api, components/ui)
-  - ❌ NEVER call read_file or apply_diff on these paths
+  - ❌ NEVER call read_file or write_to_file on these paths
   - ✅ ALWAYS use list_files first, then read_file on specific files from the listing
 - **FILE**: Has extension (e.g., src/app.ts, api/route.tsx, README.md)
-  - ✅ Use read_file/apply_diff directly
+  - ✅ Use read_file/write_to_file directly
 
 **Examples:**
 ❌ WRONG - calling read_file on directory:
@@ -85,24 +86,21 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
 **Tool Quick Ref:**
 - **list_files**: List directory contents. Use for paths WITHOUT extensions
 - **read_file**: View file content with line numbers. Defaults to first 100 lines. Use ONLY for paths WITH extensions
-- **grep_search**: Search file content. Use specific queries + includes filter for file types
-- **glob_search**: Find files by pattern (e.g., *.ts, **/*.json). Fast file discovery
-- **apply_diff**: PRIMARY EDITING TOOL - Apply unified diff patches to modify files
-- **write_to_file**: New files or complete rewrites only. Use apply_diff for modifications
+- **grep_search**: Smart content search. For non-regex queries it uses semantic-lite matching on tokens and phrases; use specific names or short descriptions plus includes filters for file types. Set isRegex=true only when you need strict regex.
+- **glob_search**: Smart file search. Use real glob patterns (e.g., *.ts, **/*.json) for precise matches, or natural-language patterns (no *, ?, [], {}) for fuzzy path search by concept.
+- **write_to_file**: PRIMARY EDITING TOOL - Create new files or modify existing ones
 - **delete_file**: Only when explicitly requested
 
 **Workflows:**
 - **Explore directory**: list_files (e.g., src/app) → read_file on specific files
-- **Single or multiple changes**: read_file → identify changes → apply_diff (unified diff format)
-- **Find & modify**: grep_search → read_file → apply_diff
-- **Large files**: grep_search (get line #) → read_file with custom offset/limit → apply_diff
+- **Single or multiple changes**: read_file → identify changes → write_to_file
+- **Find & modify**: grep_search → read_file → write_to_file
+- **Large files**: grep_search (get line #) → read_file with custom offset/limit → write_to_file
 
 **Common Mistakes:**
 - ❌ read_file on src/app (no extension) → ✅ list_files on src/app, then read_file on src/app/page.tsx
 - ❌ Retry read_file after "Cannot read directory" error → ✅ Use list_files on that path immediately
 - ❌ Modify without reading → ✅ Always read_file first
-- ❌ Invalid diff format → ✅ Use proper unified diff format with +++ and --- headers
-- ❌ Wrong line numbers in diff → ✅ read_file again, verify exact line numbers
 - ❌ Broad grep "function" → ✅ Specific "handleSubmit" or "UserController"
 </file_operations>`
     : '';
@@ -213,9 +211,12 @@ Returns:
 Next steps:
 - To explore "components" → <function_call><tool_name>list_files</tool_name><path>src/app/components</path></function_call>
 - To read "page.tsx" → <function_call><tool_name>read_file</tool_name><path>src/app/page.tsx</path></function_call>`,
-      grep_search: `<function_call>
+      grep_search: `Smart content search.
+
+Natural-language (semantic-lite, default):
+<function_call>
 <tool_name>grep_search</tool_name>
-<query>function</query>
+<query>job content moderation pending rejected</query>
 <path>src</path>
 </function_call>
 
@@ -226,9 +227,9 @@ With regex:
 <isRegex>true</isRegex>
 <includes>["**/*.ts"]</includes>
 </function_call>`,
-      glob_search: `Find files by glob pattern. Faster than grep_search when you know the file pattern.
+      glob_search: `Smart file discovery.
 
-Single pattern:
+Glob pattern (precise):
 <function_call>
 <tool_name>glob_search</tool_name>
 <pattern>*.ts</pattern>
@@ -242,12 +243,11 @@ Multiple patterns:
 <path>src/components</path>
 </function_call>
 
-Advanced with sorting:
+Natural-language fuzzy path (no *, ?, [], {}):
 <function_call>
 <tool_name>glob_search</tool_name>
-<pattern>**/*.json</pattern>
-<sortBy>size</sortBy>
-<sortOrder>desc</sortOrder>
+<pattern>job content moderation</pattern>
+<path>src</path>
 </function_call>
 
 Returns:

@@ -22,12 +22,27 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
   // Tokenize content into stable segments
   const tokens = useMemo(() => tokenizeContent(content, messageId), [content, messageId]);
 
-  // Filter out only empty text tokens (keep incomplete tool blocks to show loading dots)
+  // Filter out empty text tokens and incomplete tool blocks
   const visibleTokens = useMemo(() => {
     return tokens.filter(token => {
       // Filter empty text
       if (token.type === 'text' && token.content.trim() === '') {
         return false;
+      }
+      // Filter incomplete tool blocks - don't show until fully streamed
+      if (token.type === 'tool' && !token.isClosed) {
+        return false;
+      }
+      // For file modification tools, also check if path parameter is present
+      if (token.type === 'tool') {
+        const isFileModificationTool = token.toolName === 'write_file';
+        if (isFileModificationTool) {
+          const path = token.parameters.path as string | undefined;
+          // Hide if path is missing or empty
+          if (!path || path.trim() === '') {
+            return false;
+          }
+        }
       }
       return true;
     });
@@ -164,6 +179,20 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
         {/* Show loading dots when waiting for response after tool or think block */}
         {isStreaming && (
           (() => {
+            // Check if there are filtered tool blocks (incomplete or missing path)
+            const hasFilteredToolBlocks = tokens.some(token => {
+              if (token.type !== 'tool') return false;
+              // Check if this tool was filtered out
+              if (!token.isClosed) return true;
+              // Check if path is missing for file modification tools
+              const isFileModificationTool = token.toolName === 'write_file';
+              if (isFileModificationTool) {
+                const path = token.parameters.path as string | undefined;
+                return !path || path.trim() === '';
+              }
+              return false;
+            });
+            
             // If there are visible tokens, check the last one
             if (visibleTokens.length > 0) {
               const lastToken = visibleTokens[visibleTokens.length - 1];
@@ -189,8 +218,17 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                   </div>
                 );
               }
+              
+              // Case 3: Has filtered tool blocks after visible content - show loading dots
+              if (hasFilteredToolBlocks) {
+                return (
+                  <div className="mt-2" style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
+                    <LoadingDots />
+                  </div>
+                );
+              }
             } else if (tokens.length > 0) {
-              // Case 3: Have tokens but all filtered (incomplete tool blocks) - show loading dots
+              // Case 4: Have tokens but all filtered (incomplete tool blocks) - show loading dots
               return (
                 <div style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
                   <LoadingDots />

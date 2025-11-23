@@ -55,7 +55,7 @@ export function formatDiagnosticsForAI(
   let instruction = '';
   if (isFileModificationTool) {
     if (currentAttempts < maxIterations) {
-      instruction = `[INSTRUCTION: The file you just modified has lint/compile errors. Review the diagnostics above and use edit_file or multi_edit to fix them. This is attempt ${currentAttempts}/${maxIterations}.]`;
+      instruction = `[INSTRUCTION: The file you just modified has lint/compile errors. Review the diagnostics above and use write_to_file to fix them. This is attempt ${currentAttempts}/${maxIterations}.]`;
     } else if (currentAttempts === maxIterations) {
       instruction = `[INSTRUCTION: The file still has lint/compile errors. This is your final attempt (${currentAttempts}/${maxIterations}). Review carefully and fix all issues.]`;
     } else {
@@ -80,9 +80,7 @@ ${instruction}
  */
 export function shouldFetchDiagnostics(toolName: string): boolean {
   return (
-    toolName === 'edit_file' ||
     toolName === 'write_to_file' ||
-    toolName === 'multi_edit' ||
     toolName === 'read_file'
   );
 }
@@ -91,9 +89,5 @@ export function shouldFetchDiagnostics(toolName: string): boolean {
  * Check if tool is a file modification tool
  */
 export function isFileModificationTool(toolName: string): boolean {
-  return (
-    toolName === 'edit_file' ||
-    toolName === 'write_to_file' ||
-    toolName === 'multi_edit'
-  );
+  return toolName === 'write_to_file';
 }

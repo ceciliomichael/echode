@@ -44,7 +44,7 @@ export function useChatStreaming({
 }: ChatStreamingProps) {
   const workspace = useWorkspaceContext();
 
-  const sendMessage = useCallback(async (content: string, attachments?: ImageAttachment[], overrideMessages?: Message[]) => {
+  const sendMessage = useCallback(async (content: string, attachments?: ImageAttachment[], overrideMessages?: Message[], isHidden: boolean = false) => {
     // Prevent starting new stream if already streaming
     if (isStreamingRef.current) {
       console.warn('[Chat] Already streaming, ignoring new message request');
@@ -70,6 +70,7 @@ export function useChatStreaming({
       content,
       timestamp: new Date(),
       attachments,
+      hidden: isHidden,
     };
     setMessages((prev) => [...prev, userMessage]);
     

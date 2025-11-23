@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect, type KeyboardEvent, type FormEvent, type ChangeEvent } from 'react';
 import { ArrowUp, Paperclip } from 'lucide-react';
 import { AttachmentPreview } from './attachment-preview';
+import { ModeDropdown } from './mode-dropdown';
 import type { ImageAttachment } from '../../types/chat';
+import type { ChatMode } from '../../types/chat-mode';
 import { processImageFiles } from '../../utils/image-utils';
 
 interface MessageEditFormProps {
@@ -10,9 +12,11 @@ interface MessageEditFormProps {
   onCancel: () => void;
   onSave?: (content: string) => void;
   attachments?: ImageAttachment[];
+  mode?: ChatMode;
+  onModeChange?: (mode: ChatMode) => void;
 }
 
-export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, attachments }: MessageEditFormProps) {
+export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, attachments, mode, onModeChange }: MessageEditFormProps) {
   const [editContent, setEditContent] = useState(initialContent);
   const [editAttachments, setEditAttachments] = useState<ImageAttachment[]>(attachments || []);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -202,6 +206,14 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
               >
                 <Paperclip className="w-3.5 h-3.5" />
               </button>
+              {mode && onModeChange && (
+                <ModeDropdown
+                  mode={mode}
+                  onModeChange={onModeChange}
+                  disabled={false}
+                  direction="down"
+                />
+              )}
             </div>
 
             <div className="flex items-center gap-2">

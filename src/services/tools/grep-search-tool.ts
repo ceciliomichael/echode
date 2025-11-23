@@ -3,6 +3,8 @@ import * as path from 'path';
 import { ITool, ToolExecutionResult } from './tool.interface';
 import { getDefaultGrepExcludes } from '../../constants/excluded-patterns';
 import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
+import { scoreTextMatch } from '../search/text-matcher';
+import { SearchIndexService } from '../search/search-index-service';
 
 interface FileMatchResult {
   file: string;
@@ -18,6 +20,16 @@ interface FileMatchResult {
 interface SkippedFile {
   file: string;
   reason: 'binary' | 'tooLarge' | 'regexError' | 'permissionDenied';
+}
+
+type GrepMatchMode = 'exact' | 'tokens' | 'fuzzyTokens' | 'semanticLite' | 'auto';
+
+interface RankedMatch {
+  line: number;
+  column: number;
+  text: string;
+  matchText: string;
+  score?: number;
 }
 
 export class GrepSearchTool implements ITool {
@@ -39,6 +51,14 @@ export class GrepSearchTool implements ITool {
     const wholeWord = (parameters.wholeWord as boolean) ?? false;
     const multiline = (parameters.multiline as boolean) ?? false;
     const dotAll = (parameters.dotAll as boolean) ?? false;
+    const rawMatchMode = parameters.matchMode as string | undefined;
+    const matchMode = normalizeGrepMatchMode(rawMatchMode);
+    const minTokenCoverageParam = parameters.minTokenCoverage;
+    const minTokenCoverage = typeof minTokenCoverageParam === 'number' ? minTokenCoverageParam : 0.6;
+    const fuzzyThresholdParam = parameters.fuzzyThreshold;
+    const fuzzyThreshold = typeof fuzzyThresholdParam === 'number' ? fuzzyThresholdParam : 0.8;
+    const rankResultsParam = parameters.rankResults;
+    const rankResults = typeof rankResultsParam === 'boolean' ? rankResultsParam : true;
     
     // Limits
     const maxResults = (parameters.maxResults as number) || 1000;
@@ -62,6 +82,7 @@ export class GrepSearchTool implements ITool {
       }
 
       const absoluteSearchPath = searchPath ? resolveAbsolutePath(searchPath, workspaceRoot) : workspaceRoot;
+      const indexService = SearchIndexService.getInstance(workspaceRoot);
 
       // Prepare regex pattern with enhanced features
       let searchPattern: RegExp;
@@ -105,11 +126,23 @@ export class GrepSearchTool implements ITool {
         };
       }
 
-      // Build file search patterns
+      const effectiveMode: GrepMatchMode = isRegex ? 'exact' : matchMode === 'auto' ? 'semanticLite' : matchMode;
+      const semanticOptions = {
+        minTokenCoverage,
+        fuzzyThreshold,
+        allowFuzzy: effectiveMode === 'fuzzyTokens' || effectiveMode === 'semanticLite',
+        requireAllTokens: effectiveMode === 'tokens',
+        weightCoverage: 0.4,
+        weightFuzzy: 0.3,
+        weightOrder: 0.15,
+        weightProximity: 0.15,
+        exactBonus: 0.1,
+        maxCandidateWords: 64,
+      } as const;
+
       const includePattern = includes.length > 0 ? `{${includes.join(',')}}` : '**/*';
       const excludePattern = `{${excludes.join(',')}}`;
 
-      // Find files (respects .gitignore via VS Code settings)
       const files = await vscode.workspace.findFiles(
         new vscode.RelativePattern(absoluteSearchPath, includePattern),
         excludePattern,
@@ -145,6 +178,9 @@ export class GrepSearchTool implements ITool {
           const fileContent = await vscode.workspace.fs.readFile(fileUri);
           const content = Buffer.from(fileContent).toString('utf8');
 
+          const relativePath = path.relative(workspaceRoot, fileUri.fsPath);
+          indexService.indexDocument(relativePath, content);
+
           // Check for binary content (contains null bytes)
           if (content.includes('\u0000')) {
             skippedFiles.push({
@@ -155,12 +191,7 @@ export class GrepSearchTool implements ITool {
           }
 
           const lines = content.split('\n');
-          const fileMatches: Array<{
-            line: number;
-            column: number;
-            text: string;
-            matchText: string;
-          }> = [];
+          const fileMatches: RankedMatch[] = [];
 
           let fileMatchCount = 0;
 
@@ -170,23 +201,59 @@ export class GrepSearchTool implements ITool {
             }
 
             const lineText = lines[i];
-            const matches = Array.from(lineText.matchAll(searchPattern));
 
-            for (const match of matches) {
-              if (totalMatches >= maxResults || fileMatchCount >= maxMatchesPerFile) {
-                break;
+            if (effectiveMode === 'exact') {
+              const regexMatches = Array.from(lineText.matchAll(searchPattern));
+
+              for (const match of regexMatches) {
+                if (totalMatches >= maxResults || fileMatchCount >= maxMatchesPerFile) {
+                  break;
+                }
+
+                const startLine = Math.max(0, i - beforeContext);
+                const endLine = Math.min(lines.length - 1, i + afterContext);
+                const contextText = lines.slice(startLine, endLine + 1).join('\n');
+
+                fileMatches.push({
+                  line: i + 1,
+                  column: match.index ?? 0,
+                  text: beforeContext > 0 || afterContext > 0 ? contextText : lineText,
+                  matchText: match[0],
+                });
+
+                fileMatchCount++;
+                totalMatches++;
               }
-
-              // Get context lines
+            } else {
               const startLine = Math.max(0, i - beforeContext);
               const endLine = Math.min(lines.length - 1, i + afterContext);
-              const contextText = lines.slice(startLine, endLine + 1).join('\n');
+              const contextText = beforeContext > 0 || afterContext > 0
+                ? lines.slice(startLine, endLine + 1).join('\n')
+                : lineText;
+
+              const scored = scoreTextMatch(query, contextText, {
+                minTokenCoverage: semanticOptions.minTokenCoverage,
+                fuzzyThreshold: semanticOptions.fuzzyThreshold,
+                allowFuzzy: semanticOptions.allowFuzzy,
+                requireAllTokens: semanticOptions.requireAllTokens,
+                weightCoverage: semanticOptions.weightCoverage,
+                weightFuzzy: semanticOptions.weightFuzzy,
+                weightOrder: semanticOptions.weightOrder,
+                weightProximity: semanticOptions.weightProximity,
+                exactBonus: semanticOptions.exactBonus,
+                maxCandidateWords: semanticOptions.maxCandidateWords,
+              });
+
+              if (!scored) {
+                continue;
+              }
 
               fileMatches.push({
                 line: i + 1,
-                column: match.index ?? 0,
-                text: beforeContext > 0 || afterContext > 0 ? contextText : lineText,
-                matchText: match[0],
+                column: 0,
+                text: contextText,
+                matchText: query,
+                score: scored.score,
               });
 
               fileMatchCount++;
@@ -195,10 +262,26 @@ export class GrepSearchTool implements ITool {
           }
 
           if (fileMatches.length > 0) {
-            const relativePath = path.relative(workspaceRoot, fileUri.fsPath);
+            if (effectiveMode !== 'exact' && rankResults) {
+              fileMatches.sort((left, right) => {
+                const leftScore = left.score ?? 0;
+                const rightScore = right.score ?? 0;
+                if (leftScore === rightScore) {
+                  return 0;
+                }
+                return rightScore - leftScore;
+              });
+            }
+
+            const exportedMatches = fileMatches.map((match) => ({
+              line: match.line,
+              column: match.column,
+              text: match.text,
+              matchText: match.matchText,
+            }));
             results.push({
               file: relativePath,
-              matches: fileMatches,
+              matches: exportedMatches,
               truncated: fileMatchCount >= maxMatchesPerFile,
             });
             fileMatchCounts.set(relativePath, fileMatchCount);
@@ -244,4 +327,16 @@ export class GrepSearchTool implements ITool {
       };
     }
   }
+}
+
+function normalizeGrepMatchMode(value: unknown): GrepMatchMode {
+  if (typeof value !== 'string') {
+    return 'auto';
+  }
+
+  if (value === 'exact' || value === 'tokens' || value === 'fuzzyTokens' || value === 'semanticLite' || value === 'auto') {
+    return value;
+  }
+
+  return 'auto';
 }

@@ -19,37 +19,47 @@ registerToolPlugin({
     id: 'write_to_file',
     name: 'Write File',
     description: 'Create NEW files or complete rewrites only',
-    aiDescription: `Write entire TEXT file content from scratch. **Strictly text-only, with safety guards.**
+    aiDescription: `## write_to_file
+Description: Request to write content to a file. This tool is primarily used for **creating new files** or for scenarios where a **complete rewrite of an existing file is intentionally required**. If the file exists, it will be overwritten. If it doesn't exist, it will be created. This tool will automatically create any directories needed to write the file.
 
-**Use ONLY for:**
-- Creating brand new TEXT files (source code, config, docs)
-- Complete file rewrites (replacing 100% of content)
+Parameters:
+- path: (required) The path of the file to write to (relative to workspace)
+- content: (required) The content to write to the file. When performing a full rewrite of an existing file or creating a new one, ALWAYS provide the COMPLETE intended content of the file, without any truncation or omissions. You MUST include ALL parts of the file, even if they haven't been modified. Do NOT include line numbers in the content though, just the actual content of the file.
 
-**DO NOT use for:**
-- ❌ Binary files (.png, .jpg, .ico, .zip, etc.) → BLOCKED by tool
-- ❌ Files with null bytes or control characters → BLOCKED by tool
-- ❌ Modifying existing files → Use patch_file instead
-- ❌ Updating parts of a file → Use patch_file instead
-- ❌ Files >5MB → BLOCKED by tool
-
-**Safety features:**
-- Rejects binary file extensions automatically
-- Detects and blocks binary/non-text content
-- Verifies written file is readable text
-- Size limit: 5MB maximum
-
-**Example (new file):**
+Usage:
 <function_call>
 <tool_name>write_to_file</tool_name>
-<path>src/new-feature.ts</path>
-<content>export function newFeature() {
-  return 'Hello';
-}</content>
+<path>File path here</path>
+<content>
+Your file content here
+</content>
 </function_call>
 
-**After creating:** Call read_file to verify the file was created correctly and is readable.
+Example: Requesting to write to config.json
+<function_call>
+<tool_name>write_to_file</tool_name>
+<path>config.json</path>
+<content>
+{
+  "apiEndpoint": "https://api.example.com",
+  "theme": {
+    "primaryColor": "#007bff",
+    "secondaryColor": "#6c757d"
+  },
+  "features": {
+    "darkMode": true,
+    "notifications": true
+  }
+}
+</content>
+</function_call>
 
-**Rule of thumb:** If file exists and you're not rewriting 90%+ → use patch_file`,
+IMPORTANT: Tool Safety and Usage Guidelines:
+- Use for creating NEW files or modifying existing files
+- Binary files (.png, .jpg, .ico, .zip, etc.) are BLOCKED automatically
+- Files with null bytes or control characters are BLOCKED automatically
+- Maximum file size: 5MB
+- After creating a new file, use read_file to verify it was created correctly`,
     icon: FilePlus,
     usage: 'Create NEW files only - use patch_file for modifications',
     formatExample: '<function_call>\n<tool_name>write_to_file</tool_name>\n<path>src/new-file.ts</path>\n<content>// new file content</content>\n</function_call>',

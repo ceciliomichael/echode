@@ -1,5 +1,6 @@
 import type { ToolCall, ToolExecutionResult } from '../types/tool';
-import { getToolHandler, type ToolStatusCallback } from './tool-registry';
+import type { ChatMode } from '../types/chat-mode';
+import { getToolHandler, type ToolStatusCallback, isToolRegistered } from './tool-registry';
 import { extractFirstToolBlock } from './tool-parser';
 
 export interface ToolCallExecutionResult {
@@ -16,15 +17,18 @@ export interface ToolCallExecutionResult {
 export interface ToolExecutorOptions {
   enabledTools: string[];
   isStoppingRef: { current: boolean };
+  mode: ChatMode;
 }
 
 export class ToolExecutor {
   private enabledTools: string[];
   private isStoppingRef: { current: boolean };
+  private mode: ChatMode;
 
   constructor(options: ToolExecutorOptions) {
     this.enabledTools = options.enabledTools;
     this.isStoppingRef = options.isStoppingRef;
+    this.mode = options.mode;
   }
 
   /**
@@ -35,11 +39,22 @@ export class ToolExecutor {
     signal?: AbortSignal,
     onStatusChange?: ToolStatusCallback,
   ): Promise<ToolExecutionResult> {
-    // Check if tool is enabled in current mode
-    if (!this.enabledTools.includes(toolCall.toolName)) {
+    // Check if tool is registered (exists in the system)
+    if (!isToolRegistered(toolCall.toolName)) {
       return {
         success: false,
-        error: `Tool "${toolCall.toolName}" is disabled in the current mode.`,
+        error: `Invalid tool: ${toolCall.toolName}. This tool is not registered.`,
+      };
+    }
+
+    // Check if tool is enabled in current mode
+    if (!this.enabledTools.includes(toolCall.toolName)) {
+      const errorMessage = this.mode === 'plan'
+        ? `You are currently in Plan mode and are not allowed to use this tool: ${toolCall.toolName}.`
+        : `Tool "${toolCall.toolName}" is disabled in the current configuration.`;
+      return {
+        success: false,
+        error: errorMessage,
       };
     }
 
@@ -48,7 +63,7 @@ export class ToolExecutor {
     if (!handler) {
       return {
         success: false,
-        error: `Unknown tool: ${toolCall.toolName}`,
+        error: `Invalid tool: ${toolCall.toolName}. This tool is not registered.`,
       };
     }
 

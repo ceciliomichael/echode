@@ -1,4 +1,5 @@
 import type { Message, ImageAttachment } from '../../types/chat';
+import type { ChatMode } from '../../types/chat-mode';
 import { UserMessage } from './user-message';
 import { AssistantMessage } from './assistant-message';
 
@@ -11,9 +12,11 @@ interface MessageBubbleProps {
   onEditCancel?: () => void;
   onRevert?: (messageId: string) => void;
   isStreaming?: boolean;
+  mode?: ChatMode;
+  onModeChange?: (mode: ChatMode) => void;
 }
 
-export function MessageBubble({ message, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, isStreaming, showCopy }: MessageBubbleProps & { showCopy?: boolean }) {
+export function MessageBubble({ message, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, isStreaming, showCopy, mode, onModeChange }: MessageBubbleProps & { showCopy?: boolean }) {
   if (message.role === 'user') {
     return (
       <UserMessage
@@ -26,6 +29,8 @@ export function MessageBubble({ message, onEdit, onUpdate, isEditing, onEditStar
         onEditCancel={onEditCancel || (() => {})}
         onRevert={onRevert}
         attachments={message.attachments}
+        mode={mode}
+        onModeChange={onModeChange}
       />
     );
   }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { MessageBubble } from '../ui/message-bubble';
 import { ChatInput } from '../ui/chat-input';
 import { ChatEmptyState } from '../ui/chat-empty-state';
@@ -31,6 +31,7 @@ export function ChatContainer() {
     handleEditCancel,
     handleRevertPreview,
     handleCancelRevert,
+    updateToolResultData,
   } = useStreamingChat(tasks, mode);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
@@ -84,6 +85,20 @@ export function ChatContainer() {
       }
     }
   };
+
+  // Define handleSendMessage before useEffect hooks that use it
+  const handleSendMessage = useCallback(async (content: string, attachments?: ImageAttachment[], isHidden: boolean = false) => {
+    await sendMessage(content, attachments, undefined, isHidden);
+    // Force scroll to bottom when user sends a message
+    setIsAutoScrollEnabled(true);
+    setTimeout(() => scrollToBottom({ behavior: 'smooth' }), 50);
+  }, [sendMessage]);
+
+  // Define handleModeChange before useEffect hooks that use it
+  const handleModeChange = useCallback((newMode: ChatMode) => {
+    setMode(newMode);
+    storageService.setChatMode(newMode);
+  }, []);
 
   // Extract todos from tool executions (any status: pending, executing, completed)
   useEffect(() => {
@@ -149,6 +164,7 @@ export function ChatContainer() {
       if (message.type === 'newChat') {
         clearChat();
         clearTodos();
+        handleModeChange('plan');
       } else if (message.type === 'openHistory') {
         setIsHistoryOpen(true);
       } else if (message.type === 'closeHistory') {
@@ -158,7 +174,55 @@ export function ChatContainer() {
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [clearChat, clearTodos]);
+  }, [clearChat, clearTodos, handleModeChange]);
+
+  // Listen for plan navigator quick questions
+  useEffect(() => {
+    const handleQuickQuestion = (event: Event) => {
+      const custom = event as CustomEvent<{ question: string; selectedIndex: number }>;
+      const question = custom.detail?.question;
+      const selectedIndex = custom.detail?.selectedIndex;
+      if (!question) return;
+      
+      // Update the plan_navigator tool result data with selectedIndex
+      if (selectedIndex !== undefined) {
+        updateToolResultData('plan_navigator', (data) => ({
+          ...(typeof data === 'object' && data !== null ? data : {}),
+          selectedIndex,
+        }));
+      }
+      
+      // Send as hidden message so it doesn't appear as a user bubble
+      void handleSendMessage(question, undefined, true);
+    };
+
+    window.addEventListener('echode:quickQuestion', handleQuickQuestion as EventListener);
+    return () => window.removeEventListener('echode:quickQuestion', handleQuickQuestion as EventListener);
+  }, [handleSendMessage, updateToolResultData]);
+
+  // Listen for plan implementation handoff
+  useEffect(() => {
+    const handleImplementHandoff = async (event: Event) => {
+      const customEvent = event as CustomEvent<{ markAsClicked?: boolean }>;
+      const shouldMarkClicked = customEvent.detail?.markAsClicked;
+      
+      // Mark the plan_handoff tool as clicked in its result data
+      if (shouldMarkClicked) {
+        updateToolResultData('plan_handoff', (data) => ({
+          ...(typeof data === 'object' && data !== null ? data : {}),
+          clicked: true,
+        }));
+      }
+      
+      // Switch to agent mode first
+      handleModeChange('agent');
+      // Send hidden message to AI to start implementing
+      await handleSendMessage('Yes, proceed with the implementation as planned.', undefined, true);
+    };
+
+    window.addEventListener('echode:planImplementHandoff', handleImplementHandoff as EventListener);
+    return () => window.removeEventListener('echode:planImplementHandoff', handleImplementHandoff as EventListener);
+  }, [handleModeChange, handleSendMessage, updateToolResultData]);
 
   useEffect(() => {
     isAutoScrollEnabledRef.current = isAutoScrollEnabled;
@@ -201,13 +265,6 @@ export function ChatContainer() {
     lastMessageCountRef.current = currentMessageCount;
   }, [visibleMessages, isStreaming, isExecutingTool, isAutoScrollEnabled]);
 
-  const handleSendMessage = async (content: string, attachments?: ImageAttachment[]) => {
-    await sendMessage(content, attachments);
-    // Force scroll to bottom when user sends a message
-    setIsAutoScrollEnabled(true);
-    setTimeout(() => scrollToBottom({ behavior: 'smooth' }), 50);
-  };
-
   const handleCancel = async () => {
     // If we're in a revert preview for the current editing message, cancel the revert
     if (revertPreviewMessageId && editingMessageId === revertPreviewMessageId) {
@@ -231,11 +288,6 @@ export function ChatContainer() {
   const handleUpdate = (messageId: string, newContent: string) => {
     updateMessage(messageId, newContent);
     handleEditCancel();
-  };
-
-  const handleModeChange = (newMode: ChatMode) => {
-    setMode(newMode);
-    storageService.setChatMode(newMode);
   };
 
   return (
@@ -264,6 +316,21 @@ export function ChatContainer() {
             <div className="space-y-3">
               {visibleMessages.map((message, index) => {
                 const isLastAssistantMessage = index === visibleMessages.length - 1 && message.role === 'assistant';
+                
+                // Hide copy button if this assistant message immediately follows a hidden user message in full messages list
+                const fullIndex = messages.findIndex(m => m.id === message.id);
+                const previousMessage = fullIndex > 0 ? messages[fullIndex - 1] : null;
+                
+                // Also hide copy button if message contains interactive plan tools
+                const hasPlanTool = message.role === 'assistant' && message.toolExecutions && 
+                  Array.from(message.toolExecutions.values()).some(
+                    exec => exec.toolName === 'plan_navigator' || exec.toolName === 'plan_handoff'
+                  );
+
+                const shouldShowCopy = message.role === 'assistant' && 
+                  !(previousMessage?.hidden && previousMessage.role === 'user') && 
+                  !hasPlanTool;
+                
                 return (
                   <MessageBubble
                     key={message.id}
@@ -275,7 +342,9 @@ export function ChatContainer() {
                     onEditCancel={handleCancel}
                     onRevert={handleRevert}
                     isStreaming={(isStreaming || isExecutingTool) && isLastAssistantMessage}
-                    showCopy={message.role === 'assistant'}
+                    showCopy={shouldShowCopy}
+                    mode={mode}
+                    onModeChange={handleModeChange}
                   />
                 );
               })}

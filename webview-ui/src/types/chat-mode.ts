@@ -1,6 +1,6 @@
 export type ChatMode = 'agent' | 'plan';
 
-export const DEFAULT_CHAT_MODE: ChatMode = 'agent';
+export const DEFAULT_CHAT_MODE: ChatMode = 'plan';
 
 export interface ChatModeOption {
   value: ChatMode;

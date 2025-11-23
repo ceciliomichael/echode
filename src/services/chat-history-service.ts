@@ -96,6 +96,7 @@ export class ChatHistoryService {
         timestamp TEXT NOT NULL,
         tool_executions TEXT DEFAULT NULL,
         attachments TEXT DEFAULT NULL,
+        hidden INTEGER DEFAULT 0,
         FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
       );
       
@@ -121,12 +122,16 @@ export class ChatHistoryService {
       const messageColumns = db.pragma('table_info(messages)') as Array<{ name: string }>;
       const hasToolExecutionsCol = messageColumns.some(col => col.name === 'tool_executions');
       const hasAttachmentsCol = messageColumns.some(col => col.name === 'attachments');
+      const hasHiddenCol = messageColumns.some(col => col.name === 'hidden');
       
       if (!hasToolExecutionsCol) {
         db.exec('ALTER TABLE messages ADD COLUMN tool_executions TEXT DEFAULT NULL');
       }
       if (!hasAttachmentsCol) {
         db.exec('ALTER TABLE messages ADD COLUMN attachments TEXT DEFAULT NULL');
+      }
+      if (!hasHiddenCol) {
+        db.exec('ALTER TABLE messages ADD COLUMN hidden INTEGER DEFAULT 0');
       }
     } catch (error) {
       console.error('Migration error:', error);
@@ -187,7 +192,7 @@ export class ChatHistoryService {
       }
       
       const messagesStmt = this.db.prepare(`
-        SELECT id, role, content, timestamp, tool_executions, attachments
+        SELECT id, role, content, timestamp, tool_executions, attachments, hidden
         FROM messages
         WHERE session_id = ?
         ORDER BY timestamp ASC
@@ -200,6 +205,7 @@ export class ChatHistoryService {
         timestamp: string;
         tool_executions?: string | null;
         attachments?: string | null;
+        hidden?: number;
       }>;
       
       // Parse tool_executions and attachments JSON into the expected structure
@@ -214,6 +220,7 @@ export class ChatHistoryService {
         attachments: m.attachments
           ? JSON.parse(m.attachments)
           : undefined,
+        hidden: m.hidden === 1,
       }));
       
       return {
@@ -286,8 +293,8 @@ export class ChatHistoryService {
         
         // Insert messages
         const insertMessageStmt = this.db.prepare(`
-          INSERT INTO messages (id, session_id, role, content, timestamp, tool_executions, attachments)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO messages (id, session_id, role, content, timestamp, tool_executions, attachments, hidden)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `);
         
         for (const message of session.messages) {
@@ -301,6 +308,9 @@ export class ChatHistoryService {
             ? JSON.stringify((message as any).attachments)
             : null;
           
+          // Convert boolean hidden to integer (SQLite doesn't have boolean)
+          const hiddenInt = (message as any).hidden ? 1 : 0;
+          
           insertMessageStmt.run(
             message.id,
             session.id,
@@ -308,7 +318,8 @@ export class ChatHistoryService {
             message.content,
             message.timestamp,
             toolExecutionsJson,
-            attachmentsJson
+            attachmentsJson,
+            hiddenInt
           );
         }
         

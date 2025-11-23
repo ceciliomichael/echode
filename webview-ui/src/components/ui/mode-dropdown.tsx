@@ -12,9 +12,10 @@ interface ModeDropdownProps {
   mode: ChatMode;
   onModeChange: (mode: ChatMode) => void;
   disabled?: boolean;
+  direction?: 'up' | 'down';
 }
 
-export function ModeDropdown({ mode, onModeChange, disabled = false }: ModeDropdownProps) {
+export function ModeDropdown({ mode, onModeChange, disabled = false, direction = 'up' }: ModeDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -77,10 +78,10 @@ export function ModeDropdown({ mode, onModeChange, disabled = false }: ModeDropd
         <span className="font-medium">{currentOption?.label || 'Agent'}</span>
       </button>
 
-      {/* Dropdown Panel - Opens Upward */}
+      {/* Dropdown Panel */}
       {isOpen && (
         <div
-          className="absolute left-0 bottom-full mb-1 w-52 rounded-lg border p-1.5 z-50"
+          className={`absolute left-0 w-52 rounded-lg border p-1.5 z-50 ${direction === 'down' ? 'top-full mt-1' : 'bottom-full mb-1'}`}
           style={{
             backgroundColor: 'var(--vscode-dropdown-background)',
             borderColor: 'var(--vscode-input-border)',

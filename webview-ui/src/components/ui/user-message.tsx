@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { Undo2 } from 'lucide-react';
 import { MessageEditForm } from './message-edit-form';
 import type { ImageAttachment } from '../../types/chat';
+import type { ChatMode } from '../../types/chat-mode';
 
 interface UserMessageProps {
   content: string;
@@ -13,9 +14,11 @@ interface UserMessageProps {
   onEditCancel: () => void;
   onRevert?: (messageId: string) => void;
   attachments?: ImageAttachment[];
+  mode?: ChatMode;
+  onModeChange?: (mode: ChatMode) => void;
 }
 
-export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, attachments }: UserMessageProps) {
+export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, attachments, mode, onModeChange }: UserMessageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -55,6 +58,8 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
           onCancel={onEditCancel}
           onSave={handleSave}
           attachments={attachments}
+          mode={mode}
+          onModeChange={onModeChange}
         />
       </div>
     );

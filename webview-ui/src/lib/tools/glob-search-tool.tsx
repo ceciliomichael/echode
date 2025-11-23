@@ -20,7 +20,50 @@ registerToolPlugin({
     id: 'glob_search',
     name: 'Glob Search',
     description: 'Find files based on glob patterns',
-    aiDescription: 'Find files matching glob patterns (e.g., *.ts, **/*.tsx, src/**/*.js). Supports multiple patterns, excludes, and sorting.',
+    aiDescription: `## glob_search
+Description: Find files and directories matching glob patterns. Use this tool to discover files by name, extension, or path patterns across your workspace. Ideal for finding files when you know the filename pattern or structure but not the exact location.
+
+Parameters:
+- pattern: (required) Glob pattern(s) to search for (e.g., *.ts, **/*.json, components/**/Button.tsx)
+- path: (optional) Directory to search in (default: workspace root)
+- excludes: (optional) Glob patterns to exclude (e.g., node_modules/**)
+- sortBy: (optional) Sort results by 'name', 'size', or 'extension' (default: name)
+- sortOrder: (optional) Sort order 'asc' or 'desc' (default: asc)
+
+Usage:
+<function_call>
+<tool_name>glob_search</tool_name>
+<pattern>glob pattern</pattern>
+<path>search directory</path>
+</function_call>
+
+Examples:
+
+1. Find all TypeScript files:
+<function_call>
+<tool_name>glob_search</tool_name>
+<pattern>**/*.ts</pattern>
+</function_call>
+
+2. Find all component files in src:
+<function_call>
+<tool_name>glob_search</tool_name>
+<pattern>**/*Component.tsx</pattern>
+<path>src</path>
+</function_call>
+
+3. Find config files with specific extension:
+<function_call>
+<tool_name>glob_search</tool_name>
+<pattern>*.config.{js,ts,json}</pattern>
+</function_call>
+
+IMPORTANT: Pattern Guidelines:
+- Use * to match any characters in a single directory level
+- Use ** to match any characters across multiple directory levels
+- Use {a,b,c} to match multiple alternatives
+- After finding files with glob_search, use read_file to examine specific files
+- For content search (finding code/text), use grep_search instead`,
     icon: FileSearch,
     usage: 'Find files based on glob patterns',
     formatExample: '<function_call>\n<tool_name>glob_search</tool_name>\n<pattern>*.ts</pattern>\n<path>src</path>\n</function_call>',

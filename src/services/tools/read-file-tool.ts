@@ -50,7 +50,7 @@ export class ReadFileTool implements ITool {
       // Apply default 100-line limit when no range specified
       if (offset === undefined && limit === undefined) {
         const defaultStart = 0;
-        const defaultCount = Math.min(100, lines.length);
+        const defaultCount = Math.min(500, lines.length);
         const defaultEnd = Math.min(defaultStart + defaultCount, lines.length);
         const selectedLines = lines.slice(defaultStart, defaultEnd);
         const formattedContent = this.formatWithLineNumbers(selectedLines, defaultStart + 1);

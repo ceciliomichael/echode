@@ -3,15 +3,15 @@ import { getToolRenderer } from '../../lib/tool-registry';
 import { DiffViewer } from './diff-viewer';
 
 /**
- * Strip line numbers from content formatted as "lineNum: content" or "lineNum | content"
+ * Strip line numbers from content formatted as "lineNum: content", "lineNum | content", or "lineNum→content"
  * Used to show clean code in UI while AI sees line numbers
  */
 function stripLineNumbers(content: string): string {
   return content
     .split('\n')
     .map((line) => {
-      // Match "number: " or "number | " at start of line
-      const match = line.match(/^\d+(?:: | \| )(.*)$/);
+      // Match "number: ", "number | ", or "number→" at start of line
+      const match = line.match(/^\d+(?:→|: | \| )(.*)$/);
       return match ? match[1] : line;
     })
     .join('\n');
@@ -58,66 +58,6 @@ export function renderToolResult(
       return (
         <DiffViewer
           oldContent={result.oldContent ?? null}
-          newContent={result.newContent}
-          fileName={fileName}
-        />
-      );
-    }
-  }
-
-  // Special handling for edit_file tool - show diff viewer
-  if (toolName === 'edit_file' && typeof data === 'object' && data !== null) {
-    const result = data as {
-      path?: string;
-      originalContent?: string;
-      newContent?: string;
-      truncated?: boolean;
-    };
-
-    if (result.originalContent !== undefined && result.newContent !== undefined) {
-      return (
-        <DiffViewer
-          oldContent={result.originalContent}
-          newContent={result.newContent}
-          fileName={fileName}
-        />
-      );
-    }
-  }
-
-  // Special handling for multi_edit tool - show diff viewer
-  if (toolName === 'multi_edit' && typeof data === 'object' && data !== null) {
-    const result = data as {
-      path?: string;
-      originalContent?: string;
-      newContent?: string;
-      truncated?: boolean;
-    };
-
-    if (result.originalContent !== undefined && result.newContent !== undefined) {
-      return (
-        <DiffViewer
-          oldContent={result.originalContent}
-          newContent={result.newContent}
-          fileName={fileName}
-        />
-      );
-    }
-  }
-
-  // Special handling for apply_diff tool - show diff viewer
-  if (toolName === 'apply_diff' && typeof data === 'object' && data !== null) {
-    const result = data as {
-      path?: string;
-      originalContent?: string;
-      newContent?: string;
-      truncated?: boolean;
-    };
-
-    if (result.originalContent !== undefined && result.newContent !== undefined) {
-      return (
-        <DiffViewer
-          oldContent={result.originalContent}
           newContent={result.newContent}
           fileName={fileName}
         />

@@ -20,7 +20,54 @@ registerToolPlugin({
     id: 'grep_search',
     name: 'Grep Search',
     description: 'Search for patterns across workspace files',
-    aiDescription: 'Search for text patterns across workspace files with regex support, file filtering, and context lines.',
+    aiDescription: `## grep_search
+Description: Search for text patterns and content across workspace files using regex or plain text queries. Use this tool to locate specific code, functions, classes, or text across your entire codebase or within specific directories.
+
+Parameters:
+- query: (required) The search pattern (text or regex)
+- path: (optional) Directory to search in (default: workspace root)
+- isRegex: (optional) Set to true for regex patterns, false for plain text (default: false)
+- caseSensitive: (optional) Case-sensitive search (default: false)
+- includes: (optional) Glob patterns to filter files (e.g., *.ts, *.tsx, src/**)
+
+Usage:
+<function_call>
+<tool_name>grep_search</tool_name>
+<query>search pattern</query>
+<path>directory</path>
+<isRegex>false</isRegex>
+<caseSensitive>false</caseSensitive>
+</function_call>
+
+Examples:
+
+1. Finding all occurrences of a function name:
+<function_call>
+<tool_name>grep_search</tool_name>
+<query>handleSubmit</query>
+<path>src</path>
+</function_call>
+
+2. Regex search for imports:
+<function_call>
+<tool_name>grep_search</tool_name>
+<query>import.*from.*react</query>
+<path>src</path>
+<isRegex>true</isRegex>
+</function_call>
+
+3. Search in specific file types:
+<function_call>
+<tool_name>grep_search</tool_name>
+<query>interface User</query>
+<includes>*.ts,*.tsx</includes>
+</function_call>
+
+IMPORTANT: Search Strategy:
+- Use specific function/class names for better results (e.g., "handleSubmit" not "function")
+- Set isRegex=true ONLY when you need regex patterns
+- Use includes parameter to limit search to specific file types when appropriate
+- After finding matches, use read_file to examine the full context of the file`,
     icon: Search,
     usage: 'Search for patterns across workspace files',
     formatExample: '<function_call>\n<tool_name>grep_search</tool_name>\n<query>function</query>\n<path>src</path>\n<caseSensitive>false</caseSensitive>\n</function_call>',

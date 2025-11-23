@@ -28,11 +28,6 @@ export class ToolHistoryService {
         case 'write_to_file':
           return await this.undoWriteFile(data, workspacePath);
         
-        case 'edit_file':
-        case 'multi_edit':
-        case 'apply_diff':
-          return await this.undoEditFile(data, workspacePath);
-        
         case 'delete_file':
           return await this.undoDeleteFile(data, workspacePath);
         
@@ -108,11 +103,6 @@ export class ToolHistoryService {
       switch (toolName) {
         case 'write_to_file':
           return await this.redoWriteFile(data, workspacePath);
-        
-        case 'edit_file':
-        case 'multi_edit':
-        case 'apply_diff':
-          return await this.redoEditFile(data, workspacePath);
         
         case 'delete_file':
           return await this.redoDeleteFile(data, workspacePath);
@@ -230,7 +220,7 @@ export class ToolHistoryService {
   }
 
   /**
-   * Undo edit_file or multi_edit operation
+   * Undo file edit operation
    */
   private async undoEditFile(
     data: Record<string, unknown>,
@@ -367,7 +357,7 @@ export class ToolHistoryService {
   }
 
   /**
-   * Redo edit_file or multi_edit operation
+   * Redo file edit operation
    */
   private async redoEditFile(
     data: Record<string, unknown>,

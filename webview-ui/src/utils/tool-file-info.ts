@@ -1,4 +1,4 @@
-import { Loader, Folder, Search, Trash2, type LucideIcon } from 'lucide-react';
+import { Loader, Folder, Search, FileSearch, Trash2, type LucideIcon } from 'lucide-react';
 import type { IconType } from 'react-icons';
 import { getToolMetadata } from '../lib/tool-registry';
 import { getFileIconConfig, extractFileName } from './file-icon-mapper';
@@ -57,6 +57,28 @@ export function getToolFileInfo(
       displayName: truncatedQuery ? `Search: ${truncatedQuery}` : 'Search',
       fullPath: path || '',
       icon: isExecuting ? Loader : Search,
+      iconColor: isExecuting
+        ? 'var(--vscode-charts-blue)'
+        : 'var(--vscode-editor-foreground)',
+      isSpinning: isExecuting,
+    };
+  }
+
+  // Glob search -> Use FileSearch icon
+  if (toolName === 'glob_search') {
+    const pattern = parameters.pattern as string | string[];
+    const patternDisplay = Array.isArray(pattern)
+      ? pattern.length === 1
+        ? pattern[0]
+        : `${pattern.length} patterns`
+      : pattern;
+    const truncatedPattern = patternDisplay && patternDisplay.length > 60 
+      ? patternDisplay.substring(0, 60) + '...' 
+      : patternDisplay;
+    return {
+      displayName: truncatedPattern || 'Glob Search',
+      fullPath: path || '',
+      icon: isExecuting ? Loader : FileSearch,
       iconColor: isExecuting
         ? 'var(--vscode-charts-blue)'
         : 'var(--vscode-editor-foreground)',

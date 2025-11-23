@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { chatApi } from '../services/chat-api';
 import { useWorkspaceContext } from './use-workspace-context';
 import type { Message } from '../types/chat';
@@ -107,13 +107,16 @@ export function useToolExecution({
 
   // Initialize tool executor with mode-aware enabled tools
   const toolExecutorRef = useRef<ToolExecutor | null>(null);
-  if (!toolExecutorRef.current) {
+  
+  // Recreate tool executor when mode changes to refresh enabled tools
+  useEffect(() => {
     const enabledTools = getToolsForMode(mode, false).map(t => t.id);
     toolExecutorRef.current = new ToolExecutor({
       enabledTools,
       isStoppingRef,
+      mode,
     });
-  }
+  }, [mode, isStoppingRef]);
 
   const executeToolAndContinue = useCallback(
     async (
@@ -197,6 +200,15 @@ export function useToolExecution({
             executedTool.result
           );
           updateToolExecution(assistantMessageId, toolExecutionId, completedState);
+        }
+        
+        // Check if this is a planning tool that requires user interaction
+        const isPlanningTool = toolBlock.toolName === 'plan_navigator' || toolBlock.toolName === 'plan_handoff';
+        
+        if (isPlanningTool) {
+          // Stop execution here - wait for user to interact with the tool
+          setIsExecutingTool(false);
+          return;
         }
         
         // Format tool results for AI context

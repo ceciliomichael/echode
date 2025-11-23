@@ -14,9 +14,10 @@ import './tools/list-files-tool.tsx';
 import './tools/grep-search-tool.tsx';
 import './tools/glob-search-tool.tsx';
 import './tools/delete-file-tool.tsx';
-import './tools/apply-diff-tool.tsx';
 import './tools/todo-write-tool.tsx';
 import './tools/todo-read-tool.tsx';
+import './tools/plan-navigator-tool.tsx';
+import './tools/plan-handoff-tool.tsx';
 
 /**
  * Tool status callback for mid-execution updates

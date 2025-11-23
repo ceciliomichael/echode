@@ -36,8 +36,17 @@ export async function handleChatStream(
   activeStreams.set(requestId, abortController);
 
   try {
+    // Clone messages and append system reminder to the last user message
+    const processedMessages = messages.map(m => ({ ...m }));
+    if (processedMessages.length > 0) {
+      const lastMessage = processedMessages[processedMessages.length - 1];
+      if (lastMessage.role === 'user') {
+        lastMessage.content += '\n\n<system_reminder>\nCRITICAL: You must follow all tool usage instructions strictly and accurately.\nDo not hallucinate tool names or parameters.\nBe concise and direct in your response.\n</system_reminder>';
+      }
+    }
+
     const provider = LLMFactory.getProvider(settings.provider);
-    await provider.streamChat(requestId, messages, settings, webview, abortController.signal);
+    await provider.streamChat(requestId, processedMessages, settings, webview, abortController.signal);
   } catch (error) {
     // Only send error if not aborted
     if (error instanceof Error && error.name !== 'AbortError') {

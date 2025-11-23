@@ -105,13 +105,29 @@ export function useStreamingChat(
           // Deserialize toolExecutions array back to Map and fix stale 'executing' states
           toolExecutions: msg.toolExecutions ? new Map(
             msg.toolExecutions.map(([id, execution]) => {
-              // Fix tool executions stuck in 'executing' state from saved history
-              if (execution.status === 'executing' && execution.result) {
-                // If there's a result, determine final status
-                const finalStatus = execution.result.success ? 'completed' : 'error';
-                return [id, { ...execution, status: finalStatus }];
+              let fixedExecution = execution;
+
+              // Ensure planning tools from history always render their interactive UI
+              const isPlanningTool =
+                fixedExecution.toolName === 'plan_navigator' ||
+                fixedExecution.toolName === 'plan_handoff';
+
+              if (isPlanningTool && !fixedExecution.result) {
+                // Synthesize a minimal success result so the renderer can show buttons
+                fixedExecution = {
+                  ...fixedExecution,
+                  result: { success: true, data: {} },
+                };
               }
-              return [id, execution];
+
+              // Fix tool executions stuck in 'executing' state from saved history
+              if (fixedExecution.status === 'executing' && fixedExecution.result) {
+                // If there's a result, determine final status
+                const finalStatus = fixedExecution.result.success ? 'completed' : 'error';
+                fixedExecution = { ...fixedExecution, status: finalStatus };
+              }
+
+              return [id, fixedExecution];
             })
           ) : undefined,
         })));
@@ -364,6 +380,37 @@ export function useStreamingChat(
     }
   }, [revertPreviewMessageId, messages]);
 
+  const updateToolResultData = useCallback((toolName: string, updateFn: (data: unknown) => unknown) => {
+    setMessages(prevMessages => {
+      const newMessages = [...prevMessages];
+      const lastMessage = newMessages[newMessages.length - 1];
+      
+      if (lastMessage?.role === 'assistant' && lastMessage.toolExecutions) {
+        // Create a new Map to trigger React re-render
+        const newToolExecutions = new Map(lastMessage.toolExecutions);
+        
+        for (const [execId, execution] of newToolExecutions.entries()) {
+          if (execution.toolName === toolName && execution.result?.data) {
+            // Update the result data
+            const updatedExecution: ToolExecutionState = {
+              ...execution,
+              result: {
+                ...execution.result,
+                data: updateFn(execution.result.data),
+              },
+            };
+            newToolExecutions.set(execId, updatedExecution);
+          }
+        }
+        
+        // Update the message with new toolExecutions Map
+        lastMessage.toolExecutions = newToolExecutions;
+      }
+      
+      return newMessages;
+    });
+  }, []);
+
   return {
     messages,
     isStreaming,
@@ -381,5 +428,6 @@ export function useStreamingChat(
     handleEditCancel,
     handleRevertPreview,
     handleCancelRevert,
+    updateToolResultData,
   };
 };

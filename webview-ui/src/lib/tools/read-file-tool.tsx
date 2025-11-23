@@ -19,64 +19,33 @@ registerToolPlugin({
     id: 'read_file',
     name: 'Read File',
     description: 'Read file contents - ONLY for paths WITH file extensions (defaults to first 100 lines)',
-    aiDescription: `Read the contents of a file with LINE NUMBERS. **MANDATORY before any patch_file call** - you need current content with line numbers to build accurate patches.
+    aiDescription: `## read_file
+Description: Request to read the contents of a file. The tool outputs line-numbered content (e.g. "1: const x = 1") for easy reference when creating diffs or discussing code. Use line ranges to efficiently read specific portions of large files. Supports text extraction from PDF and DOCX files, but may not handle other binary files properly.
 
-**DEFAULT BEHAVIOR: Reads first 100 lines maximum**
-- If no offset/limit specified → Returns lines 1-100 (or fewer if file is smaller)
-- Use offset/limit to read different sections or more lines
+**DEFAULT BEHAVIOR: Reads first 100 lines maximum.** Use offset/limit parameters to read different sections or more lines.
 
-**CRITICAL: Content includes line numbers in format "lineNum: content"**
-Example output:
-\`\`\`
-1: import React from 'react';
-2: 
-3: export function App() {
-4:   return <div>Hello</div>;
-5: }
-\`\`\`
+Parameters:
+- path: (required) File path WITH extension relative to workspace (e.g., src/app.ts, README.md)
+- offset: (optional) Start line number (default: 1, 1-based)
+- limit: (optional) Number of lines to read (default: 100)
 
-This means:
-- Line 1 is \`import React from 'react';\`
-- Line 3 is \`export function App() {\`
-- Line 4 is \`  return <div>Hello</div>;\` (note the indentation)
+Usage:
+<function_call>
+<tool_name>read_file</tool_name>
+<path>path/to/file.ext</path>
+<offset>start_line</offset>
+<limit>line_count</limit>
+</function_call>
 
-**Use these EXACT line numbers in your patch_file @@ headers!**
+Examples:
 
-**CRITICAL REQUIREMENT:**
-- Path MUST have a file extension (e.g., \`.ts\`, \`.tsx\`, \`.json\`, \`.md\`)
-- If path has NO extension after last \`/\` → Use list_files instead
-
-**When to use:**
-- Before modifying a file (patch_file requires this)
-- To view/analyze code (first 100 lines by default)
-- To find exact line numbers for patches
-- Path must be a FILE (with extension), NOT a directory
-
-**DO NOT use read_file if:**
-- ❌ Path has no extension (e.g., \`src/app\`, \`api\`, \`components/ui\`)
-- ❌ You're not sure if it's a file or directory
-- ❌ You just got "Cannot read directory" error
-
-**Error recovery:**
-If you get "Cannot read directory 'X'" error:
-1. IMMEDIATELY use list_files on that exact path
-2. Find the specific file you need from the listing
-3. THEN call read_file on that file (which will have an extension)
-
-**Parameters:**
-- path: File path WITH extension (not directory)
-- offset: Start line number (default: 1)
-- limit: Number of lines to read (default: 100)
-
-**Returns:** File content with line numbers formatted as "lineNum: content", plus startLine, endLine, totalLines metadata
-
-**Example:**
+1. Reading first 100 lines of a file (default):
 <function_call>
 <tool_name>read_file</tool_name>
 <path>src/app.ts</path>
 </function_call>
 
-Custom range:
+2. Reading custom range (lines 101-150):
 <function_call>
 <tool_name>read_file</tool_name>
 <path>src/large.ts</path>
@@ -84,12 +53,24 @@ Custom range:
 <limit>50</limit>
 </function_call>
 
-More lines (up to 200):
+3. Reading entire small file (up to 500 lines):
 <function_call>
 <tool_name>read_file</tool_name>
-<path>src/medium.ts</path>
-<limit>200</limit>
-</function_call>`,
+<path>config.json</path>
+<limit>500</limit>
+</function_call>
+
+IMPORTANT: You MUST use this Efficient Reading Strategy:
+- You MUST read all related files and implementations together before making changes
+- You MUST obtain all necessary context before proceeding with modifications
+- You MUST use line ranges to read specific portions of large files (>100 lines), rather than reading entire files when not needed
+- File paths MUST have extensions (e.g., .ts, .tsx, .json) - if no extension after last /, use list_files instead
+
+**CRITICAL ERROR RECOVERY:**
+If you receive "Cannot read directory" error:
+1. IMMEDIATELY use list_files on that exact path
+2. Find the specific file you need from the directory listing
+3. THEN call read_file on the file with its full path including extension`,
     icon: FileText,
     usage: 'Read file content - ONLY for paths WITH extensions',
     formatExample: '<function_call>\n<tool_name>read_file</tool_name>\n<path>src/app.ts</path>\n</function_call>',

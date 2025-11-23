@@ -1,5 +1,6 @@
 import type { ApiSettings, Provider } from '../types/api-settings';
 import { DEFAULT_API_SETTINGS } from '../types/api-settings';
+import { DEFAULT_CHAT_MODE } from '../types/chat-mode';
 import type { ChatSession } from '../types/chat-session';
 import type { Message } from '../types/chat';
 
@@ -191,7 +192,7 @@ export const storageService = {
 
   getChatMode(): 'agent' | 'plan' {
     const settings = this.getSettings();
-    return settings.chatMode || 'agent';
+    return settings.chatMode || DEFAULT_CHAT_MODE;
   },
 
   setChatMode(mode: 'agent' | 'plan'): void {

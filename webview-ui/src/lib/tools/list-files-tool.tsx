@@ -20,31 +20,35 @@ registerToolPlugin({
     id: 'list_files',
     name: 'List Files',
     description: 'List directory contents - USE THIS for paths without extensions',
-    aiDescription: `List files and directories in a workspace path. **DEFAULT TOOL for directory paths**.
+    aiDescription: `## list_files
+Description: Request to list files and directories in a specified workspace path. Use this tool to explore directory structures, discover available files, and understand the organization of the codebase.
 
-**Use list_files when:**
-1. Path has NO file extension (e.g., \`src/app\`, \`src/routes\`, \`api\`, \`components/ui\`)
-2. You don't know if a path is a file or directory
-3. You received "Cannot read directory" error from read_file/patch_file
-4. User asks to "explore", "show files in", or "list contents of" a path
+Parameters:
+- path: (required) The directory path to list (relative to workspace root)
 
-**After listing:**
-- Use read_file on specific FILES from the results (e.g., \`src/app/page.tsx\`)
-- NEVER use read_file on the directory path itself
-
-**Example workflow:**
+Usage:
 <function_call>
 <tool_name>list_files</tool_name>
-<path>src/app</path>
+<path>directory/path</path>
 </function_call>
 
-Result shows: page.tsx, layout.tsx, etc.
-
-Then read specific file:
+Example: Listing contents of src directory
 <function_call>
-<tool_name>read_file</tool_name>
-<path>src/app/page.tsx</path>
-</function_call>`,
+<tool_name>list_files</tool_name>
+<path>src</path>
+</function_call>
+
+Example: Listing root directory
+<function_call>
+<tool_name>list_files</tool_name>
+<path>.</path>
+</function_call>
+
+IMPORTANT: When to use list_files:
+- Use list_files for paths WITHOUT file extensions (e.g., src/app, api, components/ui)
+- Use list_files when you receive "Cannot read directory" error from read_file
+- After listing, use read_file on specific FILES from the results (e.g., src/app/page.tsx)
+- NEVER use read_file directly on directory paths - always list_files first, then read_file on individual files`,
     icon: FolderTree,
     usage: 'List directory contents - DEFAULT for extensionless paths',
     formatExample: '<function_call>\n<tool_name>list_files</tool_name>\n<path>src/app</path>\n</function_call>',
