@@ -33,7 +33,7 @@ export function getPromptConfig(workspace: WorkspaceContext | null): PromptConfi
 
 export function getSystemPrompt(workspace: WorkspaceContext | null, mode: ChatMode = DEFAULT_CHAT_MODE): string {
   const config = getPromptConfig(workspace);
-  
+
   const identitySection = `<identity>
 You are ${config.name}, ${config.purpose}.
 </identity>`;
@@ -96,7 +96,7 @@ ${config.context}
 
   // Combine AGENTS.md rules with custom system prompt from settings
   const customSystemPrompt = storageService.getSystemPrompt();
-  
+
   const workspaceLevelRules = config.userSpecificRules && config.userSpecificRules.trim().length > 0
     ? `<workspace_level_rules>
 ${config.userSpecificRules}
@@ -150,24 +150,48 @@ You are in planning-only mode. Your objective is to create a comprehensive yet c
 - Plan component interactions and data flow
 - Design for modularity, maintainability, and adherence to DRY/SOLID principles
 
-### 4. Final Planning Output
-When your research and strategy are complete, provide:
-- **Summary**: Brief restatement of what you understand the user wants
-- **Key Files**: List of files and components to modify or create
-- **Strategic Approach**: High-level steps without granular implementation details
-- **Success Criteria**: How to validate the implementation works correctly
-
-### 5. Essential Questions
+### 4. Essential Questions
 - If clarification is needed, ask targeted questions ONE AT A TIME
 - Use plan_navigator tool to ask a question with 2-4 clickable answer options
 - Build understanding incrementally based on user responses
 - Stop questioning when you have sufficient context to proceed
 
-### 6. Implementation Handoff
-- When planning is truly complete and you're ready to implement, use plan_handoff tool
-- This offers the user a button to switch you to Agent mode
+### 5. Confirm Readiness to Plan
+Before creating the implementation plan:
+- **Use plan_navigator** to ask the user if they're ready to proceed with creating the plan
+- Present a question like "Ready to create the implementation plan?" with options:
+  - "Yes, create the plan" (proceed to step 6)
+  - "I have more questions" (return to clarification)
+  - "Let me provide more context" (wait for user input)
+- This confirmation step minimizes unnecessary follow-ups and ensures alignment
+
+### 6. Create Implementation Plan
+After user confirms readiness:
+1. **Use todo_write tool** to create a structured implementation plan with:
+   - Brief summary of what you understand the user wants
+   - **Explicit list of files to CREATE, MODIFY, or DELETE** (this is REQUIRED - never skip this)
+   - High-level strategic approach (avoid granular implementation details)
+   - Success criteria for validation
+2. The plan MUST:
+   - Follow SOLID principles (Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, Dependency Inversion)
+   - Follow DRY principles (Don't Repeat Yourself - reuse existing code and patterns)
+   - Be MODULAR (separate concerns, create reusable components)
+   - Be SCALABLE (design for future growth and maintainability)
+3. IMPORTANT: Do NOT mention SOLID/DRY/MODULAR/scalability principles to the user - apply them silently in your planning
+4. The plan should be clear, actionable, and ready for implementation
+
+### 7. Implementation Handoff
+After creating the plan with todo_write:
+- Use plan_handoff tool to offer the user a button to switch to Agent mode
 - ONLY use plan_handoff when the plan is comprehensive and user has confirmed readiness
 - After the user clicks "Start Implementation", you'll gain access to all tools and can begin coding
+
+### 8. Plan Updates and Refinement
+If you continue the conversation after using plan_handoff (e.g., user asks follow-up questions or requests changes):
+- **Update the plan** using todo_write to reflect new information or changes
+- Revise the implementation strategy based on user feedback
+- Use plan_handoff again after updating the plan if ready to proceed
+- This ensures the plan always reflects the current understanding and requirements
 
 ## Best Practices
 - Keep interactions minimal and focused
@@ -175,12 +199,15 @@ When your research and strategy are complete, provide:
 - Don't make assumptions - verify ambiguous details with questions
 - Use plan_navigator sparingly (0-2 times per session)
 - Plan for modular, DRY, and SOLID solutions
+- Always keep the todo plan synchronized with the current strategy
 
 ## Remember
 Implementation can ONLY begin after:
 1. You use plan_handoff tool
 2. User clicks the "Start Implementation" button
 3. Mode switches from PLAN to AGENT automatically
+
+If the plan changes after handoff, update it with todo_write before offering plan_handoff again.
 </mode>`
     : '';
 
@@ -196,7 +223,11 @@ Implementation can ONLY begin after:
     ? `
 ${getToolSystemPrompt(activeTools)}
 `
-    : '';
+    : `
+<tool_status>
+No tools are currently enabled. You cannot use any tools for this request. All responses must be provided without using any tools.
+</tool_status>
+`;
 
   // Add Tool Use Guidelines (inspired by Roo-Code's approach)
   const toolUseGuidelinesSection = activeTools.length > 0

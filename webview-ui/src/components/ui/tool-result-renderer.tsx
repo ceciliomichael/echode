@@ -65,6 +65,25 @@ export function renderToolResult(
     }
   }
 
+  // Special handling for apply_diff tool - show diff viewer
+  if (toolName === 'apply_diff' && typeof data === 'object' && data !== null) {
+    const result = data as {
+      path?: string;
+      oldContent?: string | null;
+      newContent?: string;
+    };
+
+    if (result.newContent !== undefined && result.oldContent !== undefined) {
+      return (
+        <DiffViewer
+          oldContent={result.oldContent ?? null}
+          newContent={result.newContent}
+          fileName={fileName}
+        />
+      );
+    }
+  }
+
   // Use registered renderer for other tools
   const renderer = getToolRenderer(toolName);
   if (renderer) {

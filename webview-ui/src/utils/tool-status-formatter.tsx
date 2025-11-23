@@ -40,6 +40,8 @@ export function getToolStatusDisplay(
       executingText = 'Asking';
     } else if (toolName === 'plan_handoff') {
       executingText = 'Ready';
+    } else if (toolName === 'apply_diff') {
+      executingText = 'Editing';
     }
 
     return (
@@ -122,6 +124,40 @@ export function getToolStatusDisplay(
     }
     // Fallback for edit tools without result yet
     return 'Edit';
+  }
+
+  // apply_diff: show diff stats with color
+  if (toolName === 'apply_diff') {
+    if (toolCall.result?.success && toolCall.result.data) {
+      const data = toolCall.result.data as {
+        oldContent?: string | null;
+        newContent?: string;
+      };
+
+      const oldContent = data.oldContent ?? null;
+      const newContent = data.newContent;
+
+      if (newContent !== undefined && oldContent !== undefined) {
+        const { additions, deletions } = calculateDiffStats(oldContent, newContent);
+        return (
+          <span className="flex gap-1.5">
+            {additions > 0 && (
+              <span style={{ color: 'var(--vscode-gitDecoration-addedResourceForeground)' }}>
+                +{additions}
+              </span>
+            )}
+            {deletions > 0 && (
+              <span style={{ color: 'var(--vscode-gitDecoration-deletedResourceForeground)' }}>
+                -{deletions}
+              </span>
+            )}
+            {additions === 0 && deletions === 0 && 'No changes'}
+          </span>
+        );
+      }
+    }
+    // Fallback for apply_diff without result yet
+    return 'Applied';
   }
 
   // todo_write, todo_read: show todo count

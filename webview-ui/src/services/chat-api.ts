@@ -52,6 +52,7 @@ export class ChatApiService {
       model: effectiveModel,
       maxTokens,
       baseURL,
+      enabledTools: settings.enabledTools,
     }, settings.provider);
 
     yield* service.streamChat({ messages, signal });

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { defaultRegistry } from '../services/tools/tool-registry';
-import { ReadFileTool, WriteFileTool, ListFilesTool, GrepSearchTool, GlobSearchTool, DeleteFileTool, TodoWriteTool, TodoReadTool, PlanNavigatorTool, PlanHandoffTool } from '../services/tools';
+import { ReadFileTool, WriteFileTool, ListFilesTool, GrepSearchTool, GlobSearchTool, DeleteFileTool, TodoWriteTool, TodoReadTool, PlanNavigatorTool, PlanHandoffTool, ApplyDiffTool } from '../services/tools';
 
 // Register tools
 defaultRegistry.registerTool(new ReadFileTool());
@@ -13,6 +13,7 @@ defaultRegistry.registerTool(new TodoWriteTool());
 defaultRegistry.registerTool(new TodoReadTool());
 defaultRegistry.registerTool(new PlanNavigatorTool());
 defaultRegistry.registerTool(new PlanHandoffTool());
+defaultRegistry.registerTool(new ApplyDiffTool());
 
 interface ToolExecutionMessage {
   type: 'executeTool';
@@ -44,16 +45,16 @@ export async function handleToolExecution(
     const tool = defaultRegistry.getTool(toolName);
 
     if (!tool) {
-        const response: ToolExecutionResponse = {
-            type: 'toolExecutionResult',
-            requestId,
-            result: {
-              success: false,
-              error: `Unknown tool: ${toolName}`,
-            }
-        };
-        webviewView.webview.postMessage(response);
-        return;
+      const response: ToolExecutionResponse = {
+        type: 'toolExecutionResult',
+        requestId,
+        result: {
+          success: false,
+          error: `Unknown tool: ${toolName}`,
+        }
+      };
+      webviewView.webview.postMessage(response);
+      return;
     }
 
     const result = await tool.execute(parameters);

@@ -18,6 +18,7 @@ import './tools/todo-write-tool.tsx';
 import './tools/todo-read-tool.tsx';
 import './tools/plan-navigator-tool.tsx';
 import './tools/plan-handoff-tool.tsx';
+import './tools/apply-diff-tool.tsx';
 
 /**
  * Tool status callback for mid-execution updates

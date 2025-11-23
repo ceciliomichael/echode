@@ -27,10 +27,11 @@ export async function fetchDiagnostics(
       absolutePath,
     });
 
+    // Fallback timeout slightly longer than backend timeout (2500ms) to allow for message passing
     setTimeout(() => {
       window.removeEventListener('message', messageHandler);
       resolve([]);
-    }, 10000);
+    }, 3000);
   });
 }
 
@@ -81,6 +82,7 @@ ${instruction}
 export function shouldFetchDiagnostics(toolName: string): boolean {
   return (
     toolName === 'write_to_file' ||
+    toolName === 'apply_diff' ||
     toolName === 'read_file'
   );
 }
@@ -89,5 +91,5 @@ export function shouldFetchDiagnostics(toolName: string): boolean {
  * Check if tool is a file modification tool
  */
 export function isFileModificationTool(toolName: string): boolean {
-  return toolName === 'write_to_file';
+  return toolName === 'write_to_file' || toolName === 'apply_diff';
 }

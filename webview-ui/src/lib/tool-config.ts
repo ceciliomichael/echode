@@ -28,23 +28,35 @@ export function getAllTools(defaultEnabled = true): Tool[] {
  */
 export function getToolsForMode(mode: ChatMode, defaultEnabled = true): Tool[] {
   const allTools = getToolsFromRegistry(defaultEnabled);
-  
+
   if (mode === 'agent') {
     return allTools;
   }
-  
+
   // Plan mode: filter to exploration tools only
   return allTools.filter(tool => (PLAN_MODE_TOOL_IDS as readonly string[]).includes(tool.id));
 }
 
 export function getToolSystemPrompt(enabledTools: Tool[]): string {
-  if (enabledTools.length === 0) {return '';}
+  if (enabledTools.length === 0) { return ''; }
 
   const allMetadata = getAllToolMetadata();
+
+  // Create explicit list of available tool IDs
+  const toolIdsList = enabledTools.map(t => `\`${t.id}\``).join(', ');
+  const explicitToolList = `
+<enabled_tools>
+The following tools are AVAILABLE and ENABLED for your use: ${toolIdsList}
+
+These are the ONLY tools you may use. Do not invent or hallucinate other tool names.
+</enabled_tools>
+
+`;
+
   const toolDescriptions = enabledTools
     .map((tool) => {
       const metadata = allMetadata.find((m) => m.id === tool.id);
-      if (!metadata) {return '';}
+      if (!metadata) { return ''; }
 
       const promptDescription = tool.aiDescription || metadata.description;
       return `- **${metadata.id}**: ${promptDescription}
@@ -109,11 +121,30 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
 Use tools to perform workspace operations when necessary.
 
 <tool_format>
-REQUIRED XML format:
+🚨 **MANDATORY XML FORMAT - NO EXCEPTIONS** 🚨
+
+You MUST use ONLY this XML format:
 <function_call>
 <tool_name>TOOL_NAME</tool_name>
 <parameter_name>value</parameter_name>
 </function_call>
+
+**ABSOLUTE RULES:**
+1. **NEVER** use <|tool_call_begin|>, <|tool_calls_section_begin|>, or any |token| format
+2. **NEVER** use functions.tool_name:0 format
+3. **NEVER** use markdown code blocks
+4. **ALWAYS** use <function_call> tags
+5. **ALWAYS** close with </function_call>
+
+✅ **CORRECT FORMAT ONLY:**
+<function_call><tool_name>read_file</tool_name><path>src/app.ts</path></function_call>
+
+❌ **FORBIDDEN FORMATS (WILL FAIL):**
+- <|tool_call_begin|>functions.read_file:0<|tool_call_end|>
+- functions.read_file:0
+- \`\`\`tool:read_file
+- <tool_name>read_file</tool_name>
+- Any format with |tokens|
 
 **CRITICAL XML RULES:**
 1. **ONE opening tag per call**: Never output <function_call> twice
@@ -141,23 +172,24 @@ Parameter types:
 <function_call><tool_name>read_file</tool_name><path>file.ts</path>
 <function_call><tool_name>grep_search</tool_name>
 
-FORBIDDEN formats (will fail):
-- <tool_name>{JSON}</tool_name>
-- Control tokens: <|tool_call_begin|>
-- Markdown: \`\`\`tool:name
-- Colons: <tool:name>
-- Duplicate tags: <function_call><function_call>
+❌ WRONG - Token format:
+<|tool_calls_section_begin|><|tool_call_begin|>functions.read_file:0<|tool_call_end|><|tool_calls_section_end|>
+
+❌ WRONG - Functions format:
+functions.read_file:0
+
+**IF YOU USE ANY FORMAT OTHER THAN THE XML FORMAT SHOWN ABOVE, YOUR TOOL CALLS WILL FAIL!**
 </tool_format>
 
-<available_tools>
+${explicitToolList}<available_tools>
 ${toolDescriptions}${fileOperationPolicy}
 </available_tools>
 
 <tool_usage_examples>
 ${enabledTools
-  .map((tool) => {
-    const examples: Record<string, string> = {
-      read_file: `Read a single file. Defaults to first 100 lines. Use offset/limit for custom ranges.
+      .map((tool) => {
+        const examples: Record<string, string> = {
+          read_file: `Read a single file. Defaults to first 100 lines. Use offset/limit for custom ranges.
 
 Default (first 100 lines):
 <function_call>
@@ -190,14 +222,14 @@ Multiple files (call sequentially):
 <tool_name>read_file</tool_name>
 <path>src/index.ts</path>
 </function_call>`,
-      write_to_file: `<function_call>
+          write_to_file: `<function_call>
 <tool_name>write_to_file</tool_name>
 <path>src/new-component.tsx</path>
 <content>export default function Component() {
   return <div>Hello</div>;
 }</content>
 </function_call>`,
-      list_files: `<function_call>
+          list_files: `<function_call>
 <tool_name>list_files</tool_name>
 <path>src/app</path>
 </function_call>
@@ -211,7 +243,7 @@ Returns:
 Next steps:
 - To explore "components" → <function_call><tool_name>list_files</tool_name><path>src/app/components</path></function_call>
 - To read "page.tsx" → <function_call><tool_name>read_file</tool_name><path>src/app/page.tsx</path></function_call>`,
-      grep_search: `Smart content search.
+          grep_search: `Smart content search.
 
 Natural-language (semantic-lite, default):
 <function_call>
@@ -227,7 +259,7 @@ With regex:
 <isRegex>true</isRegex>
 <includes>["**/*.ts"]</includes>
 </function_call>`,
-      glob_search: `Smart file discovery.
+          glob_search: `Smart file discovery.
 
 Glob pattern (precise):
 <function_call>
@@ -258,15 +290,15 @@ Returns:
     {"path": "src/utils.ts", "name": "utils.ts", "size": 1024, "extension": "ts"}
   ]
 }`,
-      delete_file: `<function_call>
+          delete_file: `<function_call>
 <tool_name>delete_file</tool_name>
 <path>src/old-file.ts</path>
 </function_call>`,
-    };
-    return examples[tool.id] || '';
-  })
-  .filter(Boolean)
-  .join('\n\n')}
+        };
+        return examples[tool.id] || '';
+      })
+      .filter(Boolean)
+      .join('\n\n')}
 </tool_usage_examples>
 
 <tool_execution_workflow>

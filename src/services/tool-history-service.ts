@@ -28,11 +28,11 @@ export class ToolHistoryService {
         case 'write_to_file':
           return await this.undoWriteFile(data, workspacePath);
         
+        case 'apply_diff':
+          return await this.undoApplyDiff(data, workspacePath);
+        
         case 'delete_file':
           return await this.undoDeleteFile(data, workspacePath);
-        
-        case 'patch_file':
-          return await this.undoPatchFile(data, workspacePath);
         
         case 'todo_write':
           // Todos are handled separately in the UI layer
@@ -104,11 +104,11 @@ export class ToolHistoryService {
         case 'write_to_file':
           return await this.redoWriteFile(data, workspacePath);
         
+        case 'apply_diff':
+          return await this.redoApplyDiff(data, workspacePath);
+        
         case 'delete_file':
           return await this.redoDeleteFile(data, workspacePath);
-        
-        case 'patch_file':
-          return await this.redoPatchFile(data, workspacePath);
         
         case 'todo_write':
           // Todos are handled separately in the UI layer
@@ -220,6 +220,32 @@ export class ToolHistoryService {
   }
 
   /**
+   * Undo apply_diff operation
+   */
+  private async undoApplyDiff(
+    data: Record<string, unknown>,
+    workspacePath: string
+  ): Promise<{ success: boolean; error?: string }> {
+    const filePath = data.path as string;
+    const oldContent = data.oldContent as string;
+
+    const absolutePath = path.join(workspacePath, filePath);
+    const uri = vscode.Uri.file(absolutePath);
+
+    try {
+      // Restore original content before diff was applied
+      const contentBytes = Buffer.from(oldContent, 'utf8');
+      await vscode.workspace.fs.writeFile(uri, contentBytes);
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to undo diff for file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      };
+    }
+  }
+
+  /**
    * Undo file edit operation
    */
   private async undoEditFile(
@@ -280,30 +306,6 @@ export class ToolHistoryService {
     }
   }
 
-  /**
-   * Undo patch_file operation
-   */
-  private async undoPatchFile(
-    data: Record<string, unknown>,
-    workspacePath: string
-  ): Promise<{ success: boolean; error?: string }> {
-    const filePath = data.path as string;
-    const originalContent = data.originalContent as string;
-
-    const absolutePath = path.join(workspacePath, filePath);
-    const uri = vscode.Uri.file(absolutePath);
-
-    try {
-      const contentBytes = Buffer.from(originalContent, 'utf8');
-      await vscode.workspace.fs.writeFile(uri, contentBytes);
-      return { success: true };
-    } catch (error) {
-      return {
-        success: false,
-        error: `Failed to restore patched file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      };
-    }
-  }
 
   /**
    * Redo write_to_file operation
@@ -357,6 +359,32 @@ export class ToolHistoryService {
   }
 
   /**
+   * Redo apply_diff operation
+   */
+  private async redoApplyDiff(
+    data: Record<string, unknown>,
+    workspacePath: string
+  ): Promise<{ success: boolean; error?: string }> {
+    const filePath = data.path as string;
+    const newContent = data.newContent as string;
+
+    const absolutePath = path.join(workspacePath, filePath);
+    const uri = vscode.Uri.file(absolutePath);
+
+    try {
+      // Re-apply diff content
+      const contentBytes = Buffer.from(newContent, 'utf8');
+      await vscode.workspace.fs.writeFile(uri, contentBytes);
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to redo diff for file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      };
+    }
+  }
+
+  /**
    * Redo file edit operation
    */
   private async redoEditFile(
@@ -405,30 +433,6 @@ export class ToolHistoryService {
     }
   }
 
-  /**
-   * Redo patch_file operation
-   */
-  private async redoPatchFile(
-    data: Record<string, unknown>,
-    workspacePath: string
-  ): Promise<{ success: boolean; error?: string }> {
-    const filePath = data.path as string;
-    const newContent = data.newContent as string;
-
-    const absolutePath = path.join(workspacePath, filePath);
-    const uri = vscode.Uri.file(absolutePath);
-
-    try {
-      const contentBytes = Buffer.from(newContent, 'utf8');
-      await vscode.workspace.fs.writeFile(uri, contentBytes);
-      return { success: true };
-    } catch (error) {
-      return {
-        success: false,
-        error: `Failed to redo patch file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      };
-    }
-  }
 
   /**
    * Clean up empty directories that were created during file operations

@@ -29,20 +29,22 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
       if (token.type === 'text' && token.content.trim() === '') {
         return false;
       }
-      // Filter incomplete tool blocks - don't show until fully streamed
-      if (token.type === 'tool' && !token.isClosed) {
-        return false;
-      }
-      // For file modification tools, also check if path parameter is present
+      // For file modification tools, show as soon as path parameter is present (even if not fully closed)
       if (token.type === 'tool') {
-        const isFileModificationTool = token.toolName === 'write_file';
+        const isFileModificationTool = token.toolName === 'write_to_file' || token.toolName === 'apply_diff';
         if (isFileModificationTool) {
           const path = token.parameters.path as string | undefined;
-          // Hide if path is missing or empty
-          if (!path || path.trim() === '') {
-            return false;
+          // Show if path is present and not empty, even if tool block is not fully closed
+          if (path && path.trim() !== '') {
+            return true;
           }
+          // Hide if path is missing or empty
+          return false;
         }
+      }
+      // Filter incomplete tool blocks for non-file-modification tools
+      if (token.type === 'tool' && !token.isClosed) {
+        return false;
       }
       return true;
     });
@@ -182,14 +184,14 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
             // Check if there are filtered tool blocks (incomplete or missing path)
             const hasFilteredToolBlocks = tokens.some(token => {
               if (token.type !== 'tool') return false;
-              // Check if this tool was filtered out
-              if (!token.isClosed) return true;
               // Check if path is missing for file modification tools
-              const isFileModificationTool = token.toolName === 'write_file';
+              const isFileModificationTool = token.toolName === 'write_to_file' || token.toolName === 'apply_diff';
               if (isFileModificationTool) {
                 const path = token.parameters.path as string | undefined;
                 return !path || path.trim() === '';
               }
+              // Check if non-file-modification tool was filtered out
+              if (!token.isClosed) return true;
               return false;
             });
             

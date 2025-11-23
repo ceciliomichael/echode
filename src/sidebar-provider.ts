@@ -319,8 +319,8 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
       if (diagnosticsService.isEnabled()) {
         try {
           const captured = await diagnosticsService.captureDiagnosticsForFile(data.absolutePath, {
-            delay: diagnosticsService.getConfig('delay', 500),
-            timeout: diagnosticsService.getConfig('timeout', 1000),
+            delay: diagnosticsService.getConfig('delay', 300),
+            timeout: diagnosticsService.getConfig('timeout', 2500),
           });
           diagnostics.push(...captured);
         } catch (diagError) {

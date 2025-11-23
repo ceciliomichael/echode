@@ -66,7 +66,7 @@ export class UnifiedChatService implements IChatService {
       this.messageHandler = (event: MessageEvent) => {
         const message = event.data;
         const pending = this.pendingStreams.get(message.requestId);
-        
+
         if (!pending) {
           return;
         }
@@ -77,7 +77,7 @@ export class UnifiedChatService implements IChatService {
             pending.controller.enqueue(message.chunk);
             break;
           }
-          
+
           case 'chatStreamComplete': {
             // Stream complete
             pending.controller.close();
@@ -85,7 +85,7 @@ export class UnifiedChatService implements IChatService {
             this.pendingStreams.delete(message.requestId);
             break;
           }
-          
+
           case 'chatStreamError': {
             // Stream error - use controller.error() to properly propagate errors
             const error = new Error(message.error);
@@ -96,7 +96,7 @@ export class UnifiedChatService implements IChatService {
           }
         }
       };
-      
+
       window.addEventListener('message', this.messageHandler);
     }
   }
@@ -110,7 +110,7 @@ export class UnifiedChatService implements IChatService {
     }
 
     const requestId = ++this.requestCounter;
-    
+
     // Create a ReadableStream for streaming chunks
     const stream = new ReadableStream<string>({
       start: (controller) => {
@@ -148,7 +148,8 @@ export class UnifiedChatService implements IChatService {
             apiKey: this.config.apiKey,
             model: this.config.model,
             maxTokens: this.config.maxTokens,
-            baseURL: this.config.baseURL
+            baseURL: this.config.baseURL,
+            enabledTools: this.config.enabledTools
           }
         });
 

@@ -1,5 +1,6 @@
-import { Wrench } from 'lucide-react';
+import { Wrench, RotateCcw } from 'lucide-react';
 import { getAllToolMetadata } from '../../lib/tool-registry';
+import { getAllTools } from '../../lib/tool-config';
 import type { Tool } from '../../types/api-settings';
 
 interface ToolsTabProps {
@@ -42,6 +43,12 @@ export function ToolsTab({ enabledTools, onChange }: ToolsTabProps) {
     return tool ? tool.enabled : false;
   };
 
+  const handleClearAllSettings = () => {
+    // Reset all tools to default state (all enabled)
+    const defaultTools = getAllTools(true);
+    onChange(defaultTools);
+  };
+
   return (
     <div className="max-w-4xl">
       <div className="mb-6 sm:mb-8">
@@ -58,6 +65,22 @@ export function ToolsTab({ enabledTools, onChange }: ToolsTabProps) {
         >
           Enable or disable tools that the AI can use during conversations. Disabled tools will not be available to the AI assistant.
         </p>
+      </div>
+
+      <div className="mb-4 sm:mb-6">
+        <button
+          onClick={handleClearAllSettings}
+          className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm transition-all hover:opacity-80"
+          style={{
+            backgroundColor: 'var(--vscode-button-secondaryBackground)',
+            color: 'var(--vscode-button-secondaryForeground)',
+            border: '1px solid var(--vscode-button-border)',
+          }}
+          aria-label="Clear all tool settings"
+        >
+          <RotateCcw size={14} strokeWidth={1.5} />
+          Clear All Settings
+        </button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">

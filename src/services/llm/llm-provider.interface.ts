@@ -12,6 +12,7 @@ export interface ChatStreamSettings {
   maxTokens: number;
   baseURL: string;
   temperature?: number;
+  enabledTools?: Array<{ id: string; enabled: boolean }>;
 }
 
 export interface ILLMProvider {

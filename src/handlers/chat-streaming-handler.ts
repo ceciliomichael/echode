@@ -41,7 +41,18 @@ export async function handleChatStream(
     if (processedMessages.length > 0) {
       const lastMessage = processedMessages[processedMessages.length - 1];
       if (lastMessage.role === 'user') {
-        lastMessage.content += '\n\n<system_reminder>\nCRITICAL: You must follow all tool usage instructions strictly and accurately.\nDo not hallucinate tool names or parameters.\nBe concise and direct in your response.\n</system_reminder>';
+        // Get enabled tools from settings
+        const enabledTools = settings.enabledTools?.filter(t => t.enabled) || [];
+        const enabledToolNames = enabledTools.map(t => `\`${t.id}\``).join(', ') || '';
+        
+        let toolsMessage = '';
+        if (enabledTools.length === 0) {
+          toolsMessage = '\nNo tools are currently enabled. You cannot use any tools for this request.';
+        } else {
+          toolsMessage = `\nENABLED TOOLS: ${enabledToolNames}\nThese are the ONLY tools you can use. Do not attempt to use any other tools.`;
+        }
+
+        lastMessage.content += `\n\n<system_reminder>\nCRITICAL: You must follow all tool usage instructions strictly and accurately.${toolsMessage}\n🚨 TOOL FORMAT: Use ONLY <function_call><tool_name>tool_name</tool_name><param>value</param></function_call> format - NEVER use |tokens| or functions.tool:0 format!\nBe concise and direct in your response.\n</system_reminder>`;
       }
     }
 

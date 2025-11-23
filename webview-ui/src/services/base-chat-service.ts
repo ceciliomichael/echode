@@ -8,6 +8,7 @@ export interface ChatServiceConfig {
   model: string;
   maxTokens: number;
   baseURL: string;
+  enabledTools?: Array<{ id: string; enabled: boolean }>;
 }
 
 /**
