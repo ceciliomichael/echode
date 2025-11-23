@@ -22,9 +22,9 @@ export class OpenAIProvider implements ILLMProvider {
       const stream = await client.chat.completions.create({
         model: settings.model,
         messages: messages.map(m => ({
-          role: m.role as 'system' | 'user' | 'assistant',
+          role: m.role,
           content: m.content
-        })),
+        })) as OpenAI.ChatCompletionMessageParam[],
         max_tokens: settings.maxTokens,
         temperature: 0.7,
         stream: true,

@@ -1,8 +1,16 @@
 import * as vscode from 'vscode';
 
+export interface ChatMessageContent {
+  type: 'text' | 'image_url';
+  text?: string;
+  image_url?: {
+    url: string;
+  };
+}
+
 export interface ChatMessage {
   role: string;
-  content: string;
+  content: string | ChatMessageContent[];
 }
 
 export interface ChatStreamSettings {

@@ -2,31 +2,14 @@ import type { ImageAttachment } from '../types/chat';
 import type { ChatMessage, ChatMessageContent } from '../types/chat-api';
 
 /**
- * List of models that support vision/image inputs
- * This list should be updated as new vision models become available
- */
-const VISION_CAPABLE_MODELS = [
-  'gpt-4-vision',
-  'gpt-4-turbo',
-  'gpt-4o',
-  'gpt-4o-mini',
-  'claude-3',
-  'claude-3-opus',
-  'claude-3-sonnet',
-  'claude-3-haiku',
-  'claude-3-5-sonnet',
-  'gemini-pro-vision',
-  'gemini-1.5',
-];
-
-/**
  * Check if a model supports vision/image inputs
+ * Note: Always returns true to allow vision on all models
+ * If a model doesn't support vision, the API will handle it gracefully
  */
-export function isVisionCapableModel(modelName: string): boolean {
-  const lowerModel = modelName.toLowerCase();
-  return VISION_CAPABLE_MODELS.some(visionModel => 
-    lowerModel.includes(visionModel.toLowerCase())
-  );
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function isVisionCapableModel(_modelName: string): boolean {
+  // Enable vision for all models - let the API handle unsupported models
+  return true;
 }
 
 /**

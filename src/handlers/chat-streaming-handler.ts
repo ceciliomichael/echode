@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { LLMFactory } from '../services/llm/llm-factory';
-import { ChatMessage, ChatStreamSettings } from '../services/llm/llm-provider.interface';
+import { ChatMessage, ChatMessageContent, ChatStreamSettings } from '../services/llm/llm-provider.interface';
 
 interface ChatStreamRequest {
   requestId: number;
@@ -52,7 +52,19 @@ export async function handleChatStream(
           toolsMessage = `\nENABLED TOOLS: ${enabledToolNames}\nThese are the ONLY tools you can use. Do not attempt to use any other tools.`;
         }
 
-        lastMessage.content += `\n\n<system_reminder>\nCRITICAL: You must follow all tool usage instructions strictly and accurately.${toolsMessage}\n🚨 TOOL FORMAT: Use ONLY <function_call><tool_name>tool_name</tool_name><param>value</param></function_call> format - NEVER use |tokens| or functions.tool:0 format!\nBe concise and direct in your response.\n</system_reminder>`;
+        const systemReminder = `\n\n<system_reminder>\nCRITICAL: You must follow all tool usage instructions strictly and accurately.${toolsMessage}\n🚨 TOOL FORMAT: Use ONLY <function_call><tool_name>tool_name</tool_name><param>value</param></function_call> format - NEVER use |tokens| or functions.tool:0 format!\nBe concise and direct in your response.\n</system_reminder>`;
+
+        // Handle multimodal content (text + images) properly
+        if (Array.isArray(lastMessage.content)) {
+          // Find the text content and append system reminder
+          const textContent = lastMessage.content.find(c => c.type === 'text');
+          if (textContent && textContent.text !== undefined) {
+            textContent.text += systemReminder;
+          }
+        } else {
+          // Simple string content
+          lastMessage.content += systemReminder;
+        }
       }
     }
 

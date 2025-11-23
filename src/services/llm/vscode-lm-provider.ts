@@ -26,12 +26,24 @@ export class VSCodeLMProvider implements ILLMProvider {
 
       // Convert messages to LanguageModelChatMessage format
       const chatMessages = messages.map(msg => {
-        if (msg.role === 'system') {
-          return vscode.LanguageModelChatMessage.User(msg.content);
-        } else if (msg.role === 'user') {
-          return vscode.LanguageModelChatMessage.User(msg.content);
+        // Extract text content (VS Code LM API doesn't support images yet)
+        let textContent: string;
+        if (typeof msg.content === 'string') {
+          textContent = msg.content;
         } else {
-          return vscode.LanguageModelChatMessage.Assistant(msg.content);
+          // Extract text from multimodal content
+          textContent = msg.content
+            .filter(c => c.type === 'text' && c.text)
+            .map(c => c.text)
+            .join('\n') || '';
+        }
+        
+        if (msg.role === 'system') {
+          return vscode.LanguageModelChatMessage.User(textContent);
+        } else if (msg.role === 'user') {
+          return vscode.LanguageModelChatMessage.User(textContent);
+        } else {
+          return vscode.LanguageModelChatMessage.Assistant(textContent);
         }
       });
 

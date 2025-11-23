@@ -114,9 +114,14 @@ export function useStreamingChat(
 
               if (isPlanningTool && !fixedExecution.result) {
                 // Synthesize a minimal success result so the renderer can show buttons
+                // For plan_navigator, preserve parameters as data so question/options persist
+                const preservedData = fixedExecution.toolName === 'plan_navigator'
+                  ? { question: fixedExecution.parameters.question, options: fixedExecution.parameters.options }
+                  : {};
+                
                 fixedExecution = {
                   ...fixedExecution,
-                  result: { success: true, data: {} },
+                  result: { success: true, data: preservedData },
                 };
               }
 
