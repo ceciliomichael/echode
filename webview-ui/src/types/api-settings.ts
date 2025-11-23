@@ -1,4 +1,4 @@
-export type Provider = 'anthropic' | 'openai' | 'openai-compatible' | 'vscode-lm';
+export type Provider = 'anthropic' | 'openai' | 'openai-compatible' | 'vscode-lm' | 'qwen-code';
 
 export interface Tool {
   id: string;
@@ -18,19 +18,23 @@ export interface ApiSettings {
   anthropicApiKey?: string;
   openaiApiKey?: string;
   openaiCompatibleApiKey?: string;
+  qwenCodeOauthPath?: string;
   model: string;
   anthropicModel?: string;
   openaiModel?: string;
   openaiCompatibleModel?: string;
   vscodeLmModel?: string;
+  qwenCodeModel?: string;
   anthropicMaxTokens: number;
   openaiMaxTokens: number;
   openaiCompatibleMaxTokens: number;
   vscodeLmMaxTokens: number;
+  qwenCodeMaxTokens: number;
   anthropicTemperature: number;
   openaiTemperature: number;
   openaiCompatibleTemperature: number;
   vscodeLmTemperature: number;
+  qwenCodeTemperature: number;
   systemPrompt?: string;
   enabledTools?: Tool[];
   chatMode?: 'agent' | 'plan';
@@ -46,15 +50,18 @@ export const DEFAULT_API_SETTINGS: ApiSettings = {
   anthropicApiKey: '',
   openaiApiKey: '',
   openaiCompatibleApiKey: '',
+  qwenCodeOauthPath: '',
   model: '',
   anthropicMaxTokens: 8192,
   openaiMaxTokens: 4096,
   openaiCompatibleMaxTokens: 4096,
   vscodeLmMaxTokens: 4096,
+  qwenCodeMaxTokens: 65536,
   anthropicTemperature: 0.0,
   openaiTemperature: 0.0,
   openaiCompatibleTemperature: 0.0,
   vscodeLmTemperature: 1.0,
+  qwenCodeTemperature: 0.0,
   systemPrompt: '',
 };
 
@@ -78,6 +85,11 @@ export const PROVIDER_DEFAULTS = {
     baseUrl: '',
     maxTokens: 4096,
     temperature: 1.0,
+  },
+  'qwen-code': {
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    maxTokens: 65536,
+    temperature: 0.0,
   },
 } as const;
 

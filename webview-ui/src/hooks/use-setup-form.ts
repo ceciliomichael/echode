@@ -18,18 +18,22 @@ export function useSetupForm(
   const [openaiModel, setOpenaiModel] = useState(initialSettings.openaiModel || '');
   const [openaiCompatibleModel, setOpenaiCompatibleModel] = useState(initialSettings.openaiCompatibleModel || '');
   const [vscodeLmModel, setVscodeLmModel] = useState(initialSettings.vscodeLmModel || '');
+  const [qwenCodeModel, setQwenCodeModel] = useState(initialSettings.qwenCodeModel || '');
   const [apiKey, setApiKey] = useState(initialSettings.apiKey);
   const [anthropicApiKey, setAnthropicApiKey] = useState(initialSettings.anthropicApiKey || initialSettings.apiKey || '');
   const [openaiApiKey, setOpenaiApiKey] = useState(initialSettings.openaiApiKey || initialSettings.apiKey || '');
   const [openaiCompatibleApiKey, setOpenaiCompatibleApiKey] = useState(initialSettings.openaiCompatibleApiKey || initialSettings.apiKey || '');
+  const [qwenCodeOauthPath, setQwenCodeOauthPath] = useState(initialSettings.qwenCodeOauthPath || '');
   const [anthropicMaxTokens, setAnthropicMaxTokens] = useState(initialSettings.anthropicMaxTokens);
   const [openaiMaxTokens, setOpenaiMaxTokens] = useState(initialSettings.openaiMaxTokens);
   const [openaiCompatibleMaxTokens, setOpenaiCompatibleMaxTokens] = useState(initialSettings.openaiCompatibleMaxTokens);
   const [vscodeLmMaxTokens, setVscodeLmMaxTokens] = useState(initialSettings.vscodeLmMaxTokens);
+  const [qwenCodeMaxTokens, setQwenCodeMaxTokens] = useState(initialSettings.qwenCodeMaxTokens);
   const [anthropicTemperature, setAnthropicTemperature] = useState(initialSettings.anthropicTemperature);
   const [openaiTemperature, setOpenaiTemperature] = useState(initialSettings.openaiTemperature);
   const [openaiCompatibleTemperature, setOpenaiCompatibleTemperature] = useState(initialSettings.openaiCompatibleTemperature);
   const [vscodeLmTemperature, setVscodeLmTemperature] = useState(initialSettings.vscodeLmTemperature);
+  const [qwenCodeTemperature, setQwenCodeTemperature] = useState(initialSettings.qwenCodeTemperature);
   const [systemPrompt, setSystemPrompt] = useState(initialSettings.systemPrompt || '');
 
   // Restore model when provider changes
@@ -41,11 +45,13 @@ export function useSetupForm(
         ? openaiModel 
         : provider === 'openai-compatible'
         ? openaiCompatibleModel
+        : provider === 'qwen-code'
+        ? qwenCodeModel
         : vscodeLmModel;
       setModel(savedModel);
     }, 0);
     return () => clearTimeout(timeoutId);
-  }, [provider, anthropicModel, openaiModel, openaiCompatibleModel, vscodeLmModel]);
+  }, [provider, anthropicModel, openaiModel, openaiCompatibleModel, qwenCodeModel, vscodeLmModel]);
 
   // Sync with initial settings
   useEffect(() => {
@@ -59,18 +65,22 @@ export function useSetupForm(
       setOpenaiModel(initialSettings.openaiModel || '');
       setOpenaiCompatibleModel(initialSettings.openaiCompatibleModel || '');
       setVscodeLmModel(initialSettings.vscodeLmModel || '');
+      setQwenCodeModel(initialSettings.qwenCodeModel || '');
       setApiKey(initialSettings.apiKey);
       setAnthropicApiKey(initialSettings.anthropicApiKey || initialSettings.apiKey || '');
       setOpenaiApiKey(initialSettings.openaiApiKey || initialSettings.apiKey || '');
       setOpenaiCompatibleApiKey(initialSettings.openaiCompatibleApiKey || initialSettings.apiKey || '');
+      setQwenCodeOauthPath(initialSettings.qwenCodeOauthPath || '');
       setAnthropicMaxTokens(initialSettings.anthropicMaxTokens);
       setOpenaiMaxTokens(initialSettings.openaiMaxTokens);
       setOpenaiCompatibleMaxTokens(initialSettings.openaiCompatibleMaxTokens);
       setVscodeLmMaxTokens(initialSettings.vscodeLmMaxTokens);
+      setQwenCodeMaxTokens(initialSettings.qwenCodeMaxTokens);
       setAnthropicTemperature(initialSettings.anthropicTemperature);
       setOpenaiTemperature(initialSettings.openaiTemperature);
       setOpenaiCompatibleTemperature(initialSettings.openaiCompatibleTemperature);
       setVscodeLmTemperature(initialSettings.vscodeLmTemperature);
+      setQwenCodeTemperature(initialSettings.qwenCodeTemperature);
       setSystemPrompt(initialSettings.systemPrompt || '');
     }, 0);
     return () => clearTimeout(timeoutId);
@@ -122,24 +132,28 @@ export function useSetupForm(
         openaiModel: updatedOpenaiModel,
         openaiCompatibleModel: updatedOpenaiCompatibleModel,
         vscodeLmModel: updatedVscodeLmModel,
+        qwenCodeModel,
         apiKey: currentApiKey, 
         anthropicApiKey,
         openaiApiKey,
         openaiCompatibleApiKey,
+        qwenCodeOauthPath,
         anthropicMaxTokens, 
         openaiMaxTokens, 
         openaiCompatibleMaxTokens,
         vscodeLmMaxTokens,
+        qwenCodeMaxTokens,
         anthropicTemperature,
         openaiTemperature,
         openaiCompatibleTemperature,
         vscodeLmTemperature,
+        qwenCodeTemperature,
         systemPrompt 
       });
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [provider, anthropicCustomUrl, openaiCustomUrl, openaiCompatibleCustomUrl, model, anthropicModel, openaiModel, openaiCompatibleModel, vscodeLmModel, apiKey, anthropicApiKey, openaiApiKey, openaiCompatibleApiKey, anthropicMaxTokens, openaiMaxTokens, openaiCompatibleMaxTokens, vscodeLmMaxTokens, anthropicTemperature, openaiTemperature, openaiCompatibleTemperature, vscodeLmTemperature, systemPrompt, onSave]);
+  }, [provider, anthropicCustomUrl, openaiCustomUrl, openaiCompatibleCustomUrl, model, anthropicModel, openaiModel, openaiCompatibleModel, vscodeLmModel, qwenCodeModel, apiKey, anthropicApiKey, openaiApiKey, openaiCompatibleApiKey, qwenCodeOauthPath, anthropicMaxTokens, openaiMaxTokens, openaiCompatibleMaxTokens, vscodeLmMaxTokens, qwenCodeMaxTokens, anthropicTemperature, openaiTemperature, openaiCompatibleTemperature, vscodeLmTemperature, qwenCodeTemperature, systemPrompt, onSave]);
 
   // Handle provider change with model persistence
   const handleProviderChange = (newProvider: Provider) => {
@@ -152,6 +166,8 @@ export function useSetupForm(
       setOpenaiCompatibleModel(model);
     } else if (provider === 'vscode-lm') {
       setVscodeLmModel(model);
+    } else if (provider === 'qwen-code') {
+      setQwenCodeModel(model);
     }
     
     setProvider(newProvider);

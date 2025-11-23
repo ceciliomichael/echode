@@ -9,7 +9,10 @@ interface ToolsTabProps {
 }
 
 export function ToolsTab({ enabledTools, onChange }: ToolsTabProps) {
-  const allToolsMetadata = getAllToolMetadata();
+  // Filter out plan-specific tools that are fixed for Plan mode
+  const allToolsMetadata = getAllToolMetadata().filter(
+    (metadata) => metadata.id !== 'plan_navigator' && metadata.id !== 'plan_handoff'
+  );
 
   const handleToggle = (toolId: string) => {
     const toolExists = enabledTools.find(t => t.id === toolId);

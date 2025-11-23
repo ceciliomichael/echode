@@ -7,6 +7,7 @@ interface ProviderSettings {
   model: string;
   maxTokens: number;
   temperature: number;
+  qwenCodeOauthPath?: string;
 }
 
 export function useProviderSettings(initialSettings: ApiSettings) {
@@ -21,6 +22,7 @@ export function useProviderSettings(initialSettings: ApiSettings) {
   const [openaiModel, setOpenaiModel] = useState(initialSettings.openaiModel || '');
   const [openaiCompatibleModel, setOpenaiCompatibleModel] = useState(initialSettings.openaiCompatibleModel || '');
   const [vscodeLmModel, setVscodeLmModel] = useState(initialSettings.vscodeLmModel || '');
+  const [qwenCodeModel, setQwenCodeModel] = useState(initialSettings.qwenCodeModel || '');
   
   const [anthropicApiKey, setAnthropicApiKey] = useState(initialSettings.anthropicApiKey || initialSettings.apiKey || '');
   const [openaiApiKey, setOpenaiApiKey] = useState(initialSettings.openaiApiKey || initialSettings.apiKey || '');
@@ -30,11 +32,15 @@ export function useProviderSettings(initialSettings: ApiSettings) {
   const [openaiMaxTokens, setOpenaiMaxTokens] = useState(initialSettings.openaiMaxTokens);
   const [openaiCompatibleMaxTokens, setOpenaiCompatibleMaxTokens] = useState(initialSettings.openaiCompatibleMaxTokens);
   const [vscodeLmMaxTokens, setVscodeLmMaxTokens] = useState(initialSettings.vscodeLmMaxTokens);
+  const [qwenCodeMaxTokens, setQwenCodeMaxTokens] = useState(initialSettings.qwenCodeMaxTokens);
   
   const [anthropicTemperature, setAnthropicTemperature] = useState(initialSettings.anthropicTemperature);
   const [openaiTemperature, setOpenaiTemperature] = useState(initialSettings.openaiTemperature);
   const [openaiCompatibleTemperature, setOpenaiCompatibleTemperature] = useState(initialSettings.openaiCompatibleTemperature);
   const [vscodeLmTemperature, setVscodeLmTemperature] = useState(initialSettings.vscodeLmTemperature);
+  const [qwenCodeTemperature, setQwenCodeTemperature] = useState(initialSettings.qwenCodeTemperature);
+  
+  const [qwenCodeOauthPath, setQwenCodeOauthPath] = useState(initialSettings.qwenCodeOauthPath || '');
 
   const [model, setModel] = useState(initialSettings.model);
 
@@ -43,8 +49,9 @@ export function useProviderSettings(initialSettings: ApiSettings) {
     customUrl: provider === 'anthropic' ? anthropicCustomUrl : provider === 'openai' ? openaiCustomUrl : provider === 'openai-compatible' ? openaiCompatibleCustomUrl : '',
     apiKey: provider === 'anthropic' ? anthropicApiKey : provider === 'openai' ? openaiApiKey : provider === 'openai-compatible' ? openaiCompatibleApiKey : '',
     model,
-    maxTokens: provider === 'anthropic' ? anthropicMaxTokens : provider === 'openai' ? openaiMaxTokens : provider === 'openai-compatible' ? openaiCompatibleMaxTokens : vscodeLmMaxTokens,
-    temperature: provider === 'anthropic' ? anthropicTemperature : provider === 'openai' ? openaiTemperature : provider === 'openai-compatible' ? openaiCompatibleTemperature : vscodeLmTemperature,
+    maxTokens: provider === 'anthropic' ? anthropicMaxTokens : provider === 'openai' ? openaiMaxTokens : provider === 'openai-compatible' ? openaiCompatibleMaxTokens : provider === 'qwen-code' ? qwenCodeMaxTokens : vscodeLmMaxTokens,
+    temperature: provider === 'anthropic' ? anthropicTemperature : provider === 'openai' ? openaiTemperature : provider === 'openai-compatible' ? openaiCompatibleTemperature : provider === 'qwen-code' ? qwenCodeTemperature : vscodeLmTemperature,
+    qwenCodeOauthPath: provider === 'qwen-code' ? qwenCodeOauthPath : undefined,
   };
 
   // Sync with initial settings
@@ -59,6 +66,7 @@ export function useProviderSettings(initialSettings: ApiSettings) {
       setOpenaiModel(initialSettings.openaiModel || '');
       setOpenaiCompatibleModel(initialSettings.openaiCompatibleModel || '');
       setVscodeLmModel(initialSettings.vscodeLmModel || '');
+      setQwenCodeModel(initialSettings.qwenCodeModel || '');
       setAnthropicApiKey(initialSettings.anthropicApiKey || initialSettings.apiKey || '');
       setOpenaiApiKey(initialSettings.openaiApiKey || initialSettings.apiKey || '');
       setOpenaiCompatibleApiKey(initialSettings.openaiCompatibleApiKey || initialSettings.apiKey || '');
@@ -66,10 +74,13 @@ export function useProviderSettings(initialSettings: ApiSettings) {
       setOpenaiMaxTokens(initialSettings.openaiMaxTokens);
       setOpenaiCompatibleMaxTokens(initialSettings.openaiCompatibleMaxTokens);
       setVscodeLmMaxTokens(initialSettings.vscodeLmMaxTokens);
+      setQwenCodeMaxTokens(initialSettings.qwenCodeMaxTokens);
       setAnthropicTemperature(initialSettings.anthropicTemperature);
       setOpenaiTemperature(initialSettings.openaiTemperature);
       setOpenaiCompatibleTemperature(initialSettings.openaiCompatibleTemperature);
       setVscodeLmTemperature(initialSettings.vscodeLmTemperature);
+      setQwenCodeTemperature(initialSettings.qwenCodeTemperature);
+      setQwenCodeOauthPath(initialSettings.qwenCodeOauthPath || '');
     }, 0);
     return () => clearTimeout(timeoutId);
   }, [initialSettings]);
@@ -88,6 +99,8 @@ export function useProviderSettings(initialSettings: ApiSettings) {
       setOpenaiCompatibleModel(currentModel);
     } else if (provider === 'vscode-lm') {
       setVscodeLmModel(currentModel);
+    } else if (provider === 'qwen-code') {
+      setQwenCodeModel(currentModel);
     }
     
     // Determine the saved model for the new provider BEFORE any state updates
@@ -101,6 +114,8 @@ export function useProviderSettings(initialSettings: ApiSettings) {
       savedModelForNewProvider = openaiCompatibleModel;
     } else if (newProvider === 'vscode-lm') {
       savedModelForNewProvider = vscodeLmModel;
+    } else if (newProvider === 'qwen-code') {
+      savedModelForNewProvider = qwenCodeModel;
     }
     
     // Switch to new provider
@@ -129,6 +144,8 @@ export function useProviderSettings(initialSettings: ApiSettings) {
       setOpenaiCompatibleMaxTokens(value);
     } else if (provider === 'vscode-lm') {
       setVscodeLmMaxTokens(value);
+    } else if (provider === 'qwen-code') {
+      setQwenCodeMaxTokens(value);
     }
   };
 
@@ -141,6 +158,8 @@ export function useProviderSettings(initialSettings: ApiSettings) {
       setOpenaiCompatibleTemperature(value);
     } else if (provider === 'vscode-lm') {
       setVscodeLmTemperature(value);
+    } else if (provider === 'qwen-code') {
+      setQwenCodeTemperature(value);
     }
   };
 
@@ -154,12 +173,17 @@ export function useProviderSettings(initialSettings: ApiSettings) {
     }
   };
 
+  const handleQwenCodeOauthPathChange = (value: string) => {
+    setQwenCodeOauthPath(value);
+  };
+
   // Build complete settings object
   const buildSettings = (): ApiSettings => {
     let updatedAnthropicModel = anthropicModel;
     let updatedOpenaiModel = openaiModel;
     let updatedOpenaiCompatibleModel = openaiCompatibleModel;
     let updatedVscodeLmModel = vscodeLmModel;
+    let updatedQwenCodeModel = qwenCodeModel;
     
     if (provider === 'anthropic') {
       updatedAnthropicModel = model;
@@ -169,6 +193,8 @@ export function useProviderSettings(initialSettings: ApiSettings) {
       updatedOpenaiCompatibleModel = model;
     } else if (provider === 'vscode-lm') {
       updatedVscodeLmModel = model;
+    } else if (provider === 'qwen-code') {
+      updatedQwenCodeModel = model;
     }
     
     return {
@@ -183,19 +209,23 @@ export function useProviderSettings(initialSettings: ApiSettings) {
       openaiModel: updatedOpenaiModel,
       openaiCompatibleModel: updatedOpenaiCompatibleModel,
       vscodeLmModel: updatedVscodeLmModel,
+      qwenCodeModel: updatedQwenCodeModel,
       // Generic apiKey mirrors active provider-specific key (VS Code LM uses empty string)
       apiKey: currentSettings.apiKey,
       anthropicApiKey,
       openaiApiKey,
       openaiCompatibleApiKey,
+      qwenCodeOauthPath,
       anthropicMaxTokens,
       openaiMaxTokens,
       openaiCompatibleMaxTokens,
       vscodeLmMaxTokens,
+      qwenCodeMaxTokens,
       anthropicTemperature,
       openaiTemperature,
       openaiCompatibleTemperature,
       vscodeLmTemperature,
+      qwenCodeTemperature,
     };
   };
 
@@ -209,6 +239,7 @@ export function useProviderSettings(initialSettings: ApiSettings) {
     handleMaxTokensChange,
     handleTemperatureChange,
     handleApiKeyChange,
+    handleQwenCodeOauthPathChange,
     buildSettings,
     allSettings: {
       anthropicCustomUrl,
@@ -218,17 +249,21 @@ export function useProviderSettings(initialSettings: ApiSettings) {
       openaiModel,
       openaiCompatibleModel,
       vscodeLmModel,
+      qwenCodeModel,
       anthropicApiKey,
       openaiApiKey,
       openaiCompatibleApiKey,
+      qwenCodeOauthPath,
       anthropicMaxTokens,
       openaiMaxTokens,
       openaiCompatibleMaxTokens,
       vscodeLmMaxTokens,
+      qwenCodeMaxTokens,
       anthropicTemperature,
       openaiTemperature,
       openaiCompatibleTemperature,
       vscodeLmTemperature,
+      qwenCodeTemperature,
     },
   };
 }

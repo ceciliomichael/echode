@@ -4,7 +4,7 @@ import OpenAI from 'openai';
 
 interface ModelFetchRequest {
   requestId: number;
-  provider: 'anthropic' | 'openai' | 'openai-compatible' | 'vscode-lm';
+  provider: 'anthropic' | 'openai' | 'openai-compatible' | 'vscode-lm' | 'qwen-code';
   apiKey: string;
   baseURL: string;
 }
@@ -29,6 +29,8 @@ export async function handleModelFetch(
       models = await fetchOpenAIModels(apiKey, baseURL, provider);
     } else if (provider === 'vscode-lm') {
       models = await fetchVSCodeLMModels();
+    } else if (provider === 'qwen-code') {
+      models = await fetchQwenCodeModels();
     } else {
       throw new Error(`Unknown provider: ${provider}`);
     }
@@ -131,4 +133,11 @@ async function fetchVSCodeLMModels(): Promise<string[]> {
   } catch (error) {
     throw new Error(`VS Code LM Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
+}
+
+/**
+ * Fetch available Qwen Code models (static list)
+ */
+async function fetchQwenCodeModels(): Promise<string[]> {
+  return ['qwen3-coder-plus', 'qwen3-coder-flash'];
 }

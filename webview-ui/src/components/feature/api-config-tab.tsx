@@ -7,6 +7,7 @@ interface ApiConfigTabProps {
   provider: Provider;
   customBaseUrl: string;
   apiKey: string;
+  qwenCodeOauthPath?: string;
   model: string;
   maxTokens: number;
   temperature: number;
@@ -15,6 +16,7 @@ interface ApiConfigTabProps {
   onProviderChange: (value: Provider) => void;
   onCustomBaseUrlChange: (value: string) => void;
   onApiKeyChange: (value: string) => void;
+  onQwenCodeOauthPathChange?: (value: string) => void;
   onModelChange: (value: string) => void;
   onMaxTokensChange: (value: number) => void;
   onTemperatureChange: (value: number) => void;
@@ -26,6 +28,7 @@ export function ApiConfigTab({
   provider,
   customBaseUrl,
   apiKey,
+  qwenCodeOauthPath,
   model,
   maxTokens,
   temperature,
@@ -34,6 +37,7 @@ export function ApiConfigTab({
   onProviderChange,
   onCustomBaseUrlChange,
   onApiKeyChange,
+  onQwenCodeOauthPathChange,
   onModelChange,
   onMaxTokensChange,
   onTemperatureChange,
@@ -46,9 +50,11 @@ export function ApiConfigTab({
         provider={provider}
         customBaseUrl={customBaseUrl}
         apiKey={apiKey}
+        qwenCodeOauthPath={qwenCodeOauthPath}
         onProviderChange={onProviderChange}
         onCustomBaseUrlChange={onCustomBaseUrlChange}
         onApiKeyChange={onApiKeyChange}
+        onQwenCodeOauthPathChange={onQwenCodeOauthPathChange}
       />
 
       <ModelConfigSection

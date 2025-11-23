@@ -16,6 +16,7 @@ export class ChatApiService {
     let effectiveModel = '';
     let maxTokens = 0;
     let baseURL = '';
+    let qwenCodeOauthPath: string | undefined;
 
     if (settings.provider === 'anthropic') {
       effectiveApiKey = settings.anthropicApiKey || settings.apiKey || '';
@@ -32,6 +33,13 @@ export class ChatApiService {
       effectiveModel = settings.openaiCompatibleModel || settings.model;
       maxTokens = settings.openaiCompatibleMaxTokens;
       baseURL = settings.openaiCompatibleCustomUrl?.trim() || getProviderDefaults('openai-compatible').baseUrl;
+    } else if (settings.provider === 'qwen-code') {
+      // Qwen Code: uses OAuth, no API key
+      effectiveApiKey = '';
+      effectiveModel = settings.qwenCodeModel || settings.model;
+      maxTokens = settings.qwenCodeMaxTokens;
+      baseURL = getProviderDefaults('qwen-code').baseUrl;
+      qwenCodeOauthPath = settings.qwenCodeOauthPath || '~/.qwen/oauth_creds.json';
     } else {
       // VS Code LM: no apiKey/baseURL, provider-specific model/maxTokens
       effectiveApiKey = '';
@@ -40,8 +48,8 @@ export class ChatApiService {
       baseURL = '';
     }
 
-    // VS Code LM doesn't require API key, others do
-    const requiresApiKey = settings.provider !== 'vscode-lm';
+    // VS Code LM and Qwen Code don't require API key, others do
+    const requiresApiKey = settings.provider !== 'vscode-lm' && settings.provider !== 'qwen-code';
     if ((requiresApiKey && !effectiveApiKey) || !effectiveModel) {
       throw new Error('API configuration not available. Please configure your API settings in the header settings.');
     }
@@ -52,6 +60,7 @@ export class ChatApiService {
       model: effectiveModel,
       maxTokens,
       baseURL,
+      qwenCodeOauthPath,
       enabledTools: settings.enabledTools,
     }, settings.provider);
 

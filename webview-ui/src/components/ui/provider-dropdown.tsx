@@ -12,6 +12,7 @@ const PROVIDER_OPTIONS: { value: Provider; label: string }[] = [
   { value: 'openai', label: 'OpenAI' },
   { value: 'openai-compatible', label: 'OpenAI Compatible' },
   { value: 'vscode-lm', label: 'VS Code LM (Copilot)' },
+  { value: 'qwen-code', label: 'Qwen Code' },
 ];
 
 export function ProviderDropdown({ value, onChange }: ProviderDropdownProps) {

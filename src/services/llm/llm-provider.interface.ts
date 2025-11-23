@@ -14,12 +14,13 @@ export interface ChatMessage {
 }
 
 export interface ChatStreamSettings {
-  provider: 'anthropic' | 'openai' | 'openai-compatible' | 'vscode-lm';
+  provider: 'anthropic' | 'openai' | 'openai-compatible' | 'vscode-lm' | 'qwen-code';
   apiKey: string;
   model: string;
   maxTokens: number;
   baseURL: string;
   temperature?: number;
+  qwenCodeOauthPath?: string;
   enabledTools?: Array<{ id: string; enabled: boolean }>;
 }
 

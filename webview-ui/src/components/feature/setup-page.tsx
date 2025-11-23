@@ -33,6 +33,7 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
     handleMaxTokensChange,
     handleTemperatureChange,
     handleApiKeyChange,
+    handleQwenCodeOauthPathChange,
     buildSettings,
   } = useProviderSettings(initialSettings);
 
@@ -74,8 +75,8 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
   }, [provider, currentSettings, model, systemPrompt, enabledTools, onSave, buildSettings]);
 
   const handleModelDropdownOpen = () => {
-    // VS Code LM doesn't require API key
-    if (provider === 'vscode-lm' || currentSettings.apiKey) {
+    // VS Code LM and Qwen Code don't require API key
+    if (provider === 'vscode-lm' || provider === 'qwen-code' || currentSettings.apiKey) {
       fetchModels();
     }
   };
@@ -120,6 +121,7 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
               provider={provider}
               customBaseUrl={currentSettings.customUrl}
               apiKey={currentSettings.apiKey}
+              qwenCodeOauthPath={currentSettings.qwenCodeOauthPath}
               model={model}
               maxTokens={currentSettings.maxTokens}
               temperature={currentSettings.temperature}
@@ -128,6 +130,7 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
               onProviderChange={handleProviderChange}
               onCustomBaseUrlChange={handleCustomUrlChange}
               onApiKeyChange={handleApiKeyChange}
+              onQwenCodeOauthPathChange={handleQwenCodeOauthPathChange}
               onModelChange={setModel}
               onMaxTokensChange={handleMaxTokensChange}
               onTemperatureChange={handleTemperatureChange}

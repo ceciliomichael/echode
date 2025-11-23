@@ -20,8 +20,8 @@ export function useModelFetcher(
   }, []);
 
   const fetchModels = useCallback((force = false) => {
-    // VS Code LM doesn't require API key, skip check for it
-    if (!window.vscode || (provider !== 'vscode-lm' && !apiKey)) {
+    // VS Code LM and Qwen Code don't require API key, skip check for them
+    if (!window.vscode || (provider !== 'vscode-lm' && provider !== 'qwen-code' && !apiKey)) {
       setLoadingModels(false);
       setModels([]);
       return;

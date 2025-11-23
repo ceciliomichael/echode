@@ -8,7 +8,7 @@ import type { IChatService, ChatServiceConfig, StreamChatParams } from './base-c
 export class UnifiedChatService implements IChatService {
   private static instance: UnifiedChatService | null = null;
   private config: ChatServiceConfig;
-  private provider: 'anthropic' | 'openai' | 'openai-compatible' | 'vscode-lm';
+  private provider: 'anthropic' | 'openai' | 'openai-compatible' | 'vscode-lm' | 'qwen-code';
   private requestCounter = 0;
   private pendingStreams = new Map<number, {
     controller: ReadableStreamDefaultController<string>;
@@ -17,7 +17,7 @@ export class UnifiedChatService implements IChatService {
   }>();
   private messageHandler: ((event: MessageEvent) => void) | null = null;
 
-  private constructor(config: ChatServiceConfig, provider: 'anthropic' | 'openai' | 'openai-compatible' | 'vscode-lm' = 'openai-compatible') {
+  private constructor(config: ChatServiceConfig, provider: 'anthropic' | 'openai' | 'openai-compatible' | 'vscode-lm' | 'qwen-code' = 'openai-compatible') {
     this.config = config;
     this.provider = provider;
     this.setupMessageListener();
@@ -26,7 +26,7 @@ export class UnifiedChatService implements IChatService {
   /**
    * Get or create singleton instance
    */
-  public static getInstance(config: ChatServiceConfig, provider: 'anthropic' | 'openai' | 'openai-compatible' | 'vscode-lm' = 'openai-compatible'): UnifiedChatService {
+  public static getInstance(config: ChatServiceConfig, provider: 'anthropic' | 'openai' | 'openai-compatible' | 'vscode-lm' | 'qwen-code' = 'openai-compatible'): UnifiedChatService {
     if (!UnifiedChatService.instance) {
       UnifiedChatService.instance = new UnifiedChatService(config, provider);
     } else {
@@ -149,6 +149,7 @@ export class UnifiedChatService implements IChatService {
             model: this.config.model,
             maxTokens: this.config.maxTokens,
             baseURL: this.config.baseURL,
+            qwenCodeOauthPath: this.config.qwenCodeOauthPath,
             enabledTools: this.config.enabledTools
           }
         });

@@ -75,6 +75,9 @@ export class AnthropicProvider implements ILLMProvider {
         stream: true,
       });
 
+      // Track full content for custom APIs that might return cumulative content
+      let fullContent = '';
+
       for await (const event of stream) {
         // Check for abort
         if (signal.aborted) {
@@ -83,11 +86,22 @@ export class AnthropicProvider implements ILLMProvider {
         
         // Extract text deltas from content blocks
         if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-          webview.webview.postMessage({
-            type: 'chatStreamChunk',
-            requestId,
-            chunk: event.delta.text
-          });
+          const text = event.delta.text;
+          
+          // Handle both delta and cumulative content (for custom base URLs)
+          let newText = text;
+          if (text.startsWith(fullContent)) {
+            newText = text.substring(fullContent.length);
+          }
+          fullContent = text;
+
+          if (newText) {
+            webview.webview.postMessage({
+              type: 'chatStreamChunk',
+              requestId,
+              chunk: newText
+            });
+          }
         }
       }
 
