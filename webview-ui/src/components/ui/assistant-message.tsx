@@ -139,7 +139,54 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
             // Merge token data with execution state if available
             const executionState = toolExecutions?.get(token.toolExecutionId);
             
-            // Normal tool rendering (batch files are already split into individual tokens by tokenizer)
+            // Special handling: Split multi-file read_file results into separate tool blocks
+            if (token.toolName === 'read_file' && executionState?.result?.success && executionState.result.data) {
+              const resultData = executionState.result.data as Record<string, unknown>;
+              
+              // Check if this is a multi-file result
+              if ('files' in resultData && Array.isArray(resultData.files) && resultData.files.length > 1) {
+                const files = resultData.files as Array<{ path: string; content: string; startLine?: number; endLine?: number; totalLines?: number }>;
+                
+                // Render each file as a separate tool block
+                return (
+                  <>
+                    {files.map((file, fileIdx) => {
+                      const fileToolExecutionId = `${token.toolExecutionId}-file-${fileIdx}`;
+                      const fileExecutionState = toolExecutions?.get(fileToolExecutionId);
+                      
+                      const fileToolCall: ToolCall = {
+                        toolName: token.toolName,
+                        parameters: { path: file.path, ...token.parameters },
+                        status: fileExecutionState?.status || 'completed',
+                        result: fileExecutionState?.result || {
+                          success: true,
+                          data: file
+                        },
+                        toolExecutionId: fileToolExecutionId,
+                      };
+                      
+                      const isLastFile = fileIdx === files.length - 1;
+                      const fileMarginTop = fileIdx === 0 ? toolMarginTop : 0;
+                      const fileIsConnectedTop = fileIdx > 0 || isConnectedTop;
+                      const fileIsConnectedBottom = !isLastFile || isConnectedBottom;
+                      
+                      return (
+                        <div key={`tool-${messageId}-${token.index}-file-${fileIdx}`} style={{ marginTop: fileMarginTop, paddingLeft: '0.5rem', paddingRight: '0.5rem' }}>
+                          <ToolBlock 
+                            toolCall={fileToolCall}
+                            isConnectedTop={fileIsConnectedTop}
+                            isConnectedBottom={fileIsConnectedBottom}
+                            isStreaming={false}
+                          />
+                        </div>
+                      );
+                    })}
+                  </>
+                );
+              }
+            }
+            
+            // Normal tool rendering (single file or other tools)
             const toolCall: ToolCall = {
               toolName: token.toolName,
               // Prioritize execution parameters as they are authoritative during execution
@@ -203,6 +250,32 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
               // Do NOT show if executing (ToolBlock shows status) or incomplete
               if (lastToken.type === 'tool' && lastToken.isClosed) {
                 const status = toolExecutions?.get(lastToken.toolExecutionId)?.status;
+                
+                // Special check for multi-file read_file: wait for all files to complete diagnostics
+                const executionState = toolExecutions?.get(lastToken.toolExecutionId);
+                if (lastToken.toolName === 'read_file' && executionState?.result?.success && executionState.result.data) {
+                  const resultData = executionState.result.data as Record<string, unknown>;
+                  if ('files' in resultData && Array.isArray(resultData.files) && resultData.files.length > 1) {
+                    // Check if all split file executions are done with diagnostics
+                    const files = resultData.files as Array<unknown>;
+                    const allFilesCompleted = files.every((_, fileIdx) => {
+                      const fileStatus = toolExecutions?.get(`${lastToken.toolExecutionId}-file-${fileIdx}`)?.status;
+                      return fileStatus === 'completed' || fileStatus === 'error' || fileStatus === 'aborted';
+                    });
+                    
+                    if (allFilesCompleted) {
+                      return (
+                        <div className="mt-2" style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
+                          <LoadingDots />
+                        </div>
+                      );
+                    }
+                    // Still linting, don't show loading dots yet
+                    return null;
+                  }
+                }
+                
+                // Normal single-tool case
                 if (status === 'completed' || status === 'error' || status === 'aborted') {
                   return (
                     <div className="mt-2" style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>

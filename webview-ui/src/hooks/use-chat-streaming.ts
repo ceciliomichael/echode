@@ -138,8 +138,17 @@ export function useChatStreaming({
                 let formattedResult = '';
                 
                 if (execution.toolName === 'read_file') {
-                  // For read_file, include the actual file content
-                  formattedResult = `File: ${data.path as string}\n${data.content as string}`;
+                  // For read_file, handle both single and multiple files
+                  if ('files' in data && Array.isArray(data.files)) {
+                    // Multiple files case
+                    const files = data.files as Array<{ path: string; content: string }>;
+                    formattedResult = files.map(f => `File: ${f.path}\n${f.content}`).join('\n\n---\n\n');
+                  } else if ('content' in data && 'path' in data) {
+                    // Single file case
+                    formattedResult = `File: ${data.path as string}\n${data.content as string}`;
+                  } else {
+                    formattedResult = JSON.stringify(data);
+                  }
                 } else if (execution.toolName === 'grep_search') {
                   // For grep, show matches concisely
                   formattedResult = `Query: ${data.query as string}\nFound ${data.totalMatches as number} matches in ${data.filesWithMatches as number} files`;

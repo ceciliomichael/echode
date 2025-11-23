@@ -27,6 +27,30 @@ export function renderToolResult(
 ): ReactNode {
   // Special handling for read_file - show view-only viewer
   if (toolName === 'read_file' && typeof data === 'object' && data !== null) {
+    // Handle multiple files
+    if ('files' in data && Array.isArray((data as { files: unknown[] }).files)) {
+      const multiResult = data as { files: Array<{ content: string; path: string; startLine?: number; endLine?: number }> };
+      return (
+        <div className="space-y-4">
+          {multiResult.files.map((file, index) => {
+            const cleanContent = stripLineNumbers(file.content);
+            return (
+              <DiffViewer
+                key={index}
+                oldContent={undefined}
+                newContent={cleanContent}
+                fileName={file.path}
+                viewOnly={true}
+                startLineNumber={file.startLine || 1}
+                endLineNumber={file.endLine}
+              />
+            );
+          })}
+        </div>
+      );
+    }
+    
+    // Handle single file
     const result = data as { content?: string; startLine?: number; endLine?: number };
     if (result.content !== undefined) {
       // Strip line numbers from content for clean UI display (AI sees them, user doesn't)

@@ -434,14 +434,82 @@ export function useToolExecution({
         const toolResultText = result.toolResults.join('\n\n');
         
         // Fetch diagnostics after showing result
-        const diagnosticsText = await fetchAndFormatDiagnostics(
-          executedTool,
-          completedState,
-          assistantMessageId,
-          toolExecutionId,
-          updateToolExecution,
-          diagnosticAttemptsRef
-        );
+        // Check if this is a multi-file read_file result
+        let diagnosticsText = '';
+        if (executedTool?.toolName === 'read_file' && executedTool.result?.success && executedTool.result.data) {
+          const resultData = executedTool.result.data as Record<string, unknown>;
+          if ('files' in resultData && Array.isArray(resultData.files) && resultData.files.length > 1) {
+            // Multi-file result - create separate tool execution states for each file
+            const files = resultData.files as Array<{ path: string; absolutePath?: string; content: string; startLine?: number; endLine?: number; totalLines?: number }>;
+            
+            // Create tool execution entries for each file so they can show "Linting" status
+            files.forEach((file, fileIdx) => {
+              const fileToolExecutionId = `${toolExecutionId}-file-${fileIdx}`;
+              const fileState: ToolExecutionState = {
+                toolExecutionId: fileToolExecutionId,
+                toolName: 'read_file',
+                parameters: { path: file.path },
+                status: 'completed',
+                result: {
+                  success: true,
+                  data: file
+                },
+                startedAt: completedState.startedAt,
+                completedAt: completedState.completedAt,
+              };
+              updateToolExecution(assistantMessageId, fileToolExecutionId, fileState);
+            });
+            
+            // Now fetch diagnostics for all files in parallel
+            const diagnosticsPromises = files.map(async (file, fileIdx) => {
+              const fileToolExecutionId = `${toolExecutionId}-file-${fileIdx}`;
+              const fileData = { path: file.path, absolutePath: file.absolutePath };
+              const fileState: ToolExecutionState = {
+                toolExecutionId: fileToolExecutionId,
+                toolName: 'read_file',
+                parameters: { path: file.path },
+                status: 'completed',
+                result: {
+                  success: true,
+                  data: file
+                },
+                startedAt: completedState.startedAt,
+                completedAt: completedState.completedAt,
+              };
+              
+              return fetchAndFormatDiagnostics(
+                { toolName: 'read_file', result: { success: true, data: fileData } },
+                fileState,
+                assistantMessageId,
+                fileToolExecutionId,
+                updateToolExecution,
+                diagnosticAttemptsRef
+              );
+            });
+            const diagnosticsResults = await Promise.all(diagnosticsPromises);
+            diagnosticsText = diagnosticsResults.filter(d => d.length > 0).join('\n\n');
+          } else {
+            // Single file result - use normal diagnostics fetch
+            diagnosticsText = await fetchAndFormatDiagnostics(
+              executedTool,
+              completedState,
+              assistantMessageId,
+              toolExecutionId,
+              updateToolExecution,
+              diagnosticAttemptsRef
+            );
+          }
+        } else {
+          // Not read_file or other tool - use normal diagnostics fetch
+          diagnosticsText = await fetchAndFormatDiagnostics(
+            executedTool,
+            completedState,
+            assistantMessageId,
+            toolExecutionId,
+            updateToolExecution,
+            diagnosticAttemptsRef
+          );
+        }
         
         // Build continuation history for chat
         const latestWorkspace = (window.workspaceContext || workspace)!;
