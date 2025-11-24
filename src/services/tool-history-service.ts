@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import type { ToolExecutionState } from '../types/tool-execution';
 import { getCreatedDirectories } from './tools/utils/workspace-utils';
+import { TodoWriteTool } from './tools/todo-write-tool';
 
 /**
  * Service for managing tool execution history and undo operations
@@ -35,8 +36,7 @@ export class ToolHistoryService {
           return await this.undoDeleteFile(data, workspacePath);
         
         case 'todo_write':
-          // Todos are handled separately in the UI layer
-          return { success: true };
+          return await this.undoTodoWrite(data);
         
         // Read-only tools don't need undo
         case 'read_file':
@@ -111,8 +111,7 @@ export class ToolHistoryService {
           return await this.redoDeleteFile(data, workspacePath);
         
         case 'todo_write':
-          // Todos are handled separately in the UI layer
-          return { success: true };
+          return await this.redoTodoWrite(data);
         
         // Read-only tools don't need redo
         case 'read_file':
@@ -442,6 +441,53 @@ export class ToolHistoryService {
     }
   }
 
+
+  /**
+   * Undo todo_write operation
+   */
+  private async undoTodoWrite(
+    data: Record<string, unknown>
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const oldTasks = data.oldTasks as unknown;
+      const sessionKey = 'default';
+      
+      // Restore old state (null means clear todos)
+      TodoWriteTool.undoTodoWrite(
+        oldTasks === null || oldTasks === undefined ? null : oldTasks as any[],
+        sessionKey
+      );
+      
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to undo todo_write: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      };
+    }
+  }
+
+  /**
+   * Redo todo_write operation
+   */
+  private async redoTodoWrite(
+    data: Record<string, unknown>
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const tasks = data.tasks as any[];
+      const sessionKey = 'default';
+      
+      // Restore new state
+      TodoWriteTool.redoTodoWrite(tasks, sessionKey);
+      
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to redo todo_write: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      };
+    }
+  }
 
   /**
    * Clean up empty directories that were created during file operations

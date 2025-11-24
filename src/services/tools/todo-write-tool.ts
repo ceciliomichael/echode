@@ -56,6 +56,10 @@ export class TodoWriteTool implements ITool {
 
       // Store tasks (using 'default' as session key for now)
       const sessionKey = 'default';
+      
+      // Capture old state for undo
+      const oldTasks = todoStorage.get(sessionKey) || null;
+      
       todoStorage.set(sessionKey, tasks);
 
       return {
@@ -63,6 +67,7 @@ export class TodoWriteTool implements ITool {
         data: {
           message: `Updated todo list with ${tasks.length} task(s)`,
           tasks,
+          oldTasks, // Include old state for undo
         },
       };
     } catch (error) {
@@ -81,6 +86,22 @@ export class TodoWriteTool implements ITool {
   // Static method to clear todos
   static clearTodos(sessionKey: string = 'default'): void {
     todoStorage.delete(sessionKey);
+  }
+
+  // Static method to undo a todo_write operation
+  static undoTodoWrite(oldTasks: TodoTask[] | null, sessionKey: string = 'default'): void {
+    if (oldTasks === null) {
+      // No previous state, clear todos
+      todoStorage.delete(sessionKey);
+    } else {
+      // Restore previous state
+      todoStorage.set(sessionKey, oldTasks);
+    }
+  }
+
+  // Static method to redo a todo_write operation
+  static redoTodoWrite(tasks: TodoTask[], sessionKey: string = 'default'): void {
+    todoStorage.set(sessionKey, tasks);
   }
 }
 
