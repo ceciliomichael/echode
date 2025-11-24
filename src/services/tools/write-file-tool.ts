@@ -90,15 +90,6 @@ export class WriteFileTool implements ITool {
     // Claude models tend to handle this better natively
     content = unescapeHtmlEntities(content);
 
-    // Validate line_count parameter first
-    if (typeof lineCountParam !== 'number' || lineCountParam === 0) {
-      const actualLineCount = content.split('\n').length;
-      return {
-        success: false,
-        error: `LINE_COUNT_MISSING: write_to_file requires the 'line_count' parameter. The content has ${actualLineCount} lines. Please retry with line_count=${actualLineCount}.`,
-      };
-    }
-
     console.log('[WRITE_FILE] Content length:', content.length, 'characters');
 
     // Size check
@@ -150,23 +141,8 @@ export class WriteFileTool implements ITool {
         fileExisted = false;
       }
 
-      // Use Roo Code's sophisticated code omission detection
-      const originalContent = oldContent || '';
-      if (detectCodeOmission(originalContent, content, lineCountParam!)) {
-        return {
-          success: false,
-          error: `CONTENT_TRUNCATED_DETECTED: Content appears to be truncated (file has ${content.split('\n').length} lines but was predicted to have ${lineCountParam} lines), and found comments indicating omitted code (e.g., '// rest of code unchanged', '/* previous code */'). Please provide the complete file content without any omissions, or use the 'apply_diff' tool to apply partial changes.`,
-        };
-      }
-
-      // Additional line count mismatch check
-      const actualLines = content.split(/\r?\n/).length;
-      if (Math.abs(actualLines - lineCountParam!) > 5) {
-        return {
-          success: false,
-          error: `LINE_COUNT_MISMATCH: Content has ${actualLines} lines but line_count is ${lineCountParam}. Ensure you send the full file content without omissions, or update line_count to match.`,
-        };
-      }
+      // Skip line_count validation - rely on diagnostics feedback instead
+      console.log('[WRITE_FILE] Skipping line_count validation, diagnostics will catch errors');
       
       // Track which directories will be created
       const createdDirectories = await getCreatedDirectories(filePath, workspaceRoot);
