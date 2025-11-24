@@ -1,5 +1,6 @@
 import type { ImageAttachment } from '../types/chat';
 import type { ChatMessage, ChatMessageContent } from '../types/chat-api';
+import { storageService } from './storage';
 
 /**
  * Check if a model supports vision/image inputs
@@ -71,12 +72,23 @@ export function buildChatMessage(
 }
 
 /**
- * Get the current model name from settings
- * This is a placeholder - should be replaced with actual settings retrieval
+ * Get the current model name from settings based on active provider
  */
 export function getCurrentModel(): string {
-  // TODO: Get from actual settings/config
-  // For now, return a default that will be overridden by actual implementation
-  const state = window.vscode?.getState() as { model?: string } | undefined;
-  return state?.model || 'gpt-4o';
+  const settings = storageService.getSettings();
+  
+  // Return provider-specific model
+  if (settings.provider === 'anthropic') {
+    return settings.anthropicModel || settings.model || 'claude-3-5-sonnet-20241022';
+  } else if (settings.provider === 'openai') {
+    return settings.openaiModel || settings.model || 'gpt-4o';
+  } else if (settings.provider === 'openai-compatible') {
+    return settings.openaiCompatibleModel || settings.model || 'gpt-4o';
+  } else if (settings.provider === 'vscode-lm') {
+    return settings.vscodeLmModel || settings.model || 'gpt-4o';
+  } else if (settings.provider === 'qwen-code') {
+    return settings.qwenCodeModel || settings.model || 'qwen3-coder-plus';
+  }
+  
+  return settings.model || 'gpt-4o';
 }

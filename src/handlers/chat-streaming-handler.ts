@@ -52,7 +52,7 @@ export async function handleChatStream(
           toolsMessage = `\nENABLED TOOLS: ${enabledToolNames}\nThese are the ONLY tools you can use. Do not attempt to use any other tools.`;
         }
 
-        const systemReminder = `\n\n<system_reminder>\nCRITICAL: You must follow all tool usage instructions strictly and accurately.${toolsMessage}\n🚨 TOOL FORMAT: Use ONLY <function_call><tool_name>tool_name</tool_name><param>value</param></function_call> format - NEVER use |tokens| or functions.tool:0 format!\nBe concise and direct in your response.\n</system_reminder>`;
+        const systemReminder = `\n\n<system_reminder>\nCRITICAL: You must follow all tool usage instructions strictly and accurately.${toolsMessage}\n🚨 TOOL FORMAT: Use ONLY <function_call><tool_name>tool_name</tool_name><param>value</param></function_call> format\n🚫 NEVER use = inside tags! <tool_name=value> is WRONG! Use <tool_name>value</tool_name>\n❌ FORBIDDEN: <tool_name=list_files> ✅ CORRECT: <tool_name>list_files</tool_name>\nNEVER use |tokens| or functions.tool:0 format!\nBe concise and direct in your response.\n</system_reminder>`;
 
         // Handle multimodal content (text + images) properly
         if (Array.isArray(lastMessage.content)) {

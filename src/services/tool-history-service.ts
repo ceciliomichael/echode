@@ -177,16 +177,25 @@ export class ToolHistoryService {
     if (action === 'created') {
       // File was created, delete it
       try {
-        // Close the file tab if it's open
-        const openEditor = vscode.window.visibleTextEditors.find(
-          (editor) => editor.document.uri.toString() === uri.toString()
-        );
+        // Close ALL tabs for this file (not just visible editors)
+        const targetUri = uri.toString();
+        const tabsToClose: vscode.Tab[] = [];
         
-        if (openEditor) {
-          // Close the editor tab
-          await vscode.window.showTextDocument(openEditor.document, openEditor.viewColumn);
-          await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
-          console.log(`[ToolHistory] Closed tab for deleted file: ${filePath}`);
+        for (const tabGroup of vscode.window.tabGroups.all) {
+          for (const tab of tabGroup.tabs) {
+            const tabInput = tab.input;
+            if (tabInput && typeof tabInput === 'object' && 'uri' in tabInput && tabInput.uri) {
+              if (tabInput.uri.toString() === targetUri) {
+                tabsToClose.push(tab);
+              }
+            }
+          }
+        }
+        
+        // Close all found tabs
+        if (tabsToClose.length > 0) {
+          await vscode.window.tabGroups.close(tabsToClose);
+          console.log(`[ToolHistory] Closed ${tabsToClose.length} tab(s) for deleted file: ${filePath}`);
         }
         
         // Delete the file

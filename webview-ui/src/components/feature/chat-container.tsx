@@ -33,6 +33,7 @@ export function ChatContainer() {
     handleCancelRevert,
     updateToolResultData,
   } = useStreamingChat(tasks, mode);
+  const autoStartImplementationRef = useRef(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -202,7 +203,7 @@ export function ChatContainer() {
 
   // Listen for plan implementation handoff
   useEffect(() => {
-    const handleImplementHandoff = async (event: Event) => {
+    const handleImplementHandoff = (event: Event) => {
       const customEvent = event as CustomEvent<{ markAsClicked?: boolean }>;
       const shouldMarkClicked = customEvent.detail?.markAsClicked;
       
@@ -216,13 +217,30 @@ export function ChatContainer() {
       
       // Switch to agent mode first
       handleModeChange('agent');
-      // Send hidden message to AI to start implementing
-      await handleSendMessage('Yes, proceed with the implementation as planned.', undefined, true);
+      
+      // Flag that implementation should auto-start after mode switches to agent
+      autoStartImplementationRef.current = true;
     };
 
     window.addEventListener('echode:planImplementHandoff', handleImplementHandoff as EventListener);
     return () => window.removeEventListener('echode:planImplementHandoff', handleImplementHandoff as EventListener);
-  }, [handleModeChange, handleSendMessage, updateToolResultData]);
+  }, [handleModeChange, updateToolResultData]);
+
+  // Auto-start implementation after mode switches to Agent
+  // This effect runs AFTER React re-renders with mode='agent', ensuring
+  // that sendMessage uses the Agent-mode system prompt and tools
+  useEffect(() => {
+    if (mode !== 'agent' || !autoStartImplementationRef.current) {
+      return;
+    }
+
+    autoStartImplementationRef.current = false;
+
+    // Use setTimeout to avoid calling setState synchronously within effect
+    setTimeout(() => {
+      void handleSendMessage('Yes, proceed with the implementation as planned.', undefined, true);
+    }, 0);
+  }, [mode, handleSendMessage]);
 
   useEffect(() => {
     isAutoScrollEnabledRef.current = isAutoScrollEnabled;

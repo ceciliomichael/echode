@@ -84,9 +84,10 @@ Always explore before modifying unfamiliar code.
 
   const formattingRulesSection = `
 <response_format>
-- Markdown: Code blocks, bold, lists.
-- Concise: Direct answers, no fluff.
-- Structure: Headings, short paragraphs.
+- Use markdown formatting: headings, bold, lists
+- Use code blocks ONLY for actual code snippets, never for regular text or explanations
+- Keep responses concise and direct
+- Structure with clear headings and short paragraphs
 </response_format>`;
 
   const workspaceSection = `
@@ -208,7 +209,30 @@ Implementation can ONLY begin after:
 
 If the plan changes after handoff, update it with todo_write before offering plan_handoff again.
 </mode>`
-    : '';
+    : `
+<mode>
+Current mode: AGENT
+
+You are in full implementation mode. You can now read, write, edit, and delete files to implement the planned changes.
+
+## Core Capabilities
+- You have access to ALL enabled tools including file modification tools
+- You can create new files, edit existing files, and delete files as needed
+- You should follow the implementation plan if one exists
+- Always read files before editing them to understand current content
+
+## Implementation Workflow
+1. **Understand the task**: Review any existing plan or user requirements
+2. **Explore context**: Use read_file, list_files, grep_search to understand the codebase
+3. **Implement changes**: Use write_to_file, apply_diff, or other tools to make changes
+4. **Verify**: Ensure changes are correct and complete
+
+## Key Principles
+- Read before you write - always check current file content first
+- Make focused, incremental changes
+- Follow existing code patterns and style
+- Test your changes when possible
+</mode>`;
 
   // Add tool configuration - use mode-aware tool filtering
   // In Plan mode: only 7 tools (read_file, list_files, grep_search, glob_search, todo_write, plan_navigator, plan_handoff)
@@ -230,8 +254,41 @@ No tools are currently enabled. You cannot use any tools for this request. All r
 
   // Add Tool Use Guidelines (inspired by Roo-Code's approach)
   const toolUseGuidelinesSection = activeTools.length > 0
-    ? `
+    ? (mode === 'plan'
+      ? `
 <tool_use_guidelines>
+🚫 **CRITICAL XML RULE: NEVER use = in tags. Use <tool_name>value</tool_name> NOT <tool_name=value>** 🚫
+
+1. **Assess Information Needs**: Before using any tool, determine what information you already have and what you need to proceed with the task.
+
+2. **Use Exploration Tools**: Select the most effective exploration tool for each step:
+   - Use list_files for directory exploration (paths without extensions)
+   - Use grep_search to find specific code, functions, or text content
+   - Use glob_search to discover files by name patterns or extensions
+   - Use read_file to examine file contents with line numbers
+
+3. **Use Planning Tools**: Once you understand the context:
+   - Use todo_write to create or update the structured implementation plan
+   - Use plan_navigator to collect user feedback or choices during planning
+   - Use plan_handoff to offer switching to Agent mode after the plan is confirmed
+
+4. **One Tool Per Message**: Execute tools iteratively, one at a time. Each tool use must be informed by the result of the previous tool use. Do not assume outcomes.
+
+5. **Wait for Results**: ALWAYS wait for tool results after each tool use before proceeding. Never assume success without explicit confirmation.
+
+6. **Iterative Planning Approach**: Proceed step-by-step:
+   - Refine your understanding based on tool results
+   - Update or adjust the plan as needed
+   - Do NOT perform code edits or file modifications yourself; your role is planning only.
+
+7. **NEVER Echo Tool Instructions**: Do NOT repeat, quote, or display tool format instructions, XML syntax examples, or section headers like "Tool Format" in your responses. Only USE tools, never explain their format to the user.
+
+By waiting for and carefully considering results after each tool use, you can make informed decisions and produce a strong implementation plan.
+</tool_use_guidelines>`
+      : `
+<tool_use_guidelines>
+🚫 **CRITICAL XML RULE: NEVER use = in tags. Use <tool_name>value</tool_name> NOT <tool_name=value>** 🚫
+
 1. **Assess Information Needs**: Before using any tool, determine what information you already have and what you need to proceed with the task.
 
 2. **Choose Appropriate Tools**: Select the most effective tool for each step:
@@ -239,8 +296,7 @@ No tools are currently enabled. You cannot use any tools for this request. All r
    - Use grep_search to find specific code, functions, or text content
    - Use glob_search to discover files by name patterns or extensions
    - Use read_file to examine file contents with line numbers
-   - Use apply_diff for targeted edits to existing files (PREFERRED)
-   - Use write_to_file ONLY for creating new files or completely rewriting existing files
+   - For all other tools, consult the <available_tools> section and follow their specific rules.
 
 3. **One Tool Per Message**: Execute tools iteratively, one at a time. Each tool use must be informed by the result of the previous tool use. Do not assume outcomes.
 
@@ -258,8 +314,10 @@ No tools are currently enabled. You cannot use any tools for this request. All r
    - Adapt your approach based on new information or unexpected results
    - Ensure each action builds correctly on previous ones
 
+7. **NEVER Echo Tool Instructions**: Do NOT repeat, quote, or display tool format instructions, XML syntax examples, or section headers like "Tool Format" in your responses. Only USE tools, never explain their format to the user.
+
 By waiting for and carefully considering results after each tool use, you can make informed decisions and ensure accuracy throughout your work.
-</tool_use_guidelines>`
+</tool_use_guidelines>`)
     : '';
 
   return `${identitySection}${thinkingProtocol}${behaviorSection}${developmentWorkflow}${formattingRulesSection}${workspaceSection}${userRulesSection}${modeSection}${toolUseGuidelinesSection}${toolsSection}`;

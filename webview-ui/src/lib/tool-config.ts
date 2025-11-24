@@ -130,34 +130,47 @@ Use tools to perform workspace operations when necessary.
 <tool_format>
 🚨 **MANDATORY XML FORMAT - NO EXCEPTIONS** 🚨
 
+🚫 **CRITICAL: NEVER USE = IN XML TAGS** 🚫
+❌ WRONG: <tool_name=list_files>
+✅ CORRECT: <tool_name>list_files</tool_name>
+
 You MUST use ONLY this XML format:
 <function_call>
 <tool_name>TOOL_NAME</tool_name>
 <parameter_name>value</parameter_name>
 </function_call>
 
-**ABSOLUTE RULES:**
-1. **NEVER** use <|tool_call_begin|>, <|tool_calls_section_begin|>, or any |token| format
-2. **NEVER** use functions.tool_name:0 format
-3. **NEVER** use markdown code blocks
-4. **ALWAYS** use <function_call> tags
-5. **ALWAYS** close with </function_call>
+⚠️ **DO NOT USE XML ATTRIBUTES - Values go BETWEEN tags, NOT after =** ⚠️
 
-✅ **CORRECT FORMAT ONLY:**
+**ABSOLUTE RULES:**
+1. 🚫 **NEVER EVER use = inside tags** - <tool_name=value> is FORBIDDEN - use <tool_name>value</tool_name>
+2. **NEVER** use <|tool_call_begin|>, <|tool_calls_section_begin|>, or any |token| format
+3. **NEVER** use functions.tool_name:0 format
+4. **NEVER** use markdown code blocks
+5. **ALWAYS** use <function_call> tags
+6. **ALWAYS** close with </function_call>
+
+✅ **CORRECT FORMAT ONLY (value BETWEEN tags):**
 <function_call><tool_name>read_file</tool_name><path>src/app.ts</path></function_call>
+
+✅ **CORRECT - tool name goes BETWEEN <tool_name> and </tool_name>:**
+<function_call><tool_name>list_files</tool_name><path>.</path></function_call>
 
 ❌ **FORBIDDEN FORMATS (WILL FAIL):**
 - <|tool_call_begin|>functions.read_file:0<|tool_call_end|>
 - functions.read_file:0
 - \`\`\`tool:read_file
 - <tool_name>read_file</tool_name>
+- <tool_name=read_file> (XML attributes are FORBIDDEN)
+- <function_call><tool_name=read_file></tool_name> (NEVER use = in tags)
 - Any format with |tokens|
 
 **CRITICAL XML RULES:**
-1. **ONE opening tag per call**: Never output <function_call> twice
-2. **ALWAYS close with </function_call>**: Every opening tag needs a closing tag
-3. **No nested function_call tags**: Never put <function_call> inside another <function_call>
-4. **Sequential calls**: Close previous call before opening next one
+1. **NO XML ATTRIBUTES**: NEVER use = inside tags. Use <tool_name>value</tool_name> NOT <tool_name=value>
+2. **ONE opening tag per call**: Never output <function_call> twice
+3. **ALWAYS close with </function_call>**: Every opening tag needs a closing tag
+4. **No nested function_call tags**: Never put <function_call> inside another <function_call>
+5. **Sequential calls**: Close previous call before opening next one
 
 Parameter types:
 - Primitives: Direct value
@@ -185,7 +198,16 @@ Parameter types:
 ❌ WRONG - Functions format:
 functions.read_file:0
 
+❌ WRONG - XML attributes (THIS IS THE MOST COMMON ERROR - DO NOT DO THIS):
+<function_call><tool_name=list_files></tool_name><path>.</path></function_call>
+THIS WILL FAIL! Use <tool_name>list_files</tool_name> instead!
+
+❌ WRONG - Another attribute example (FORBIDDEN):
+<function_call><tool_name=read_file></tool_name><path=src/app.ts></path></function_call>
+
 **IF YOU USE ANY FORMAT OTHER THAN THE XML FORMAT SHOWN ABOVE, YOUR TOOL CALLS WILL FAIL!**
+**CRITICAL: Tags must contain values between opening and closing, NOT as attributes with =**
+**REMEMBER: <tag>value</tag> is CORRECT, <tag=value> is WRONG and will cause errors!**
 </tool_format>
 
 ${explicitToolList}<available_tools>
