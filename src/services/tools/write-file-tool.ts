@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { ITool, ToolExecutionResult } from './tool.interface';
+import type { ITool, ToolExecutionResult } from './tool.interface';
+import { unescapeHtmlEntities } from '../../utils/text-normalization';
+import { detectCodeOmission } from '../../utils/detect-code-omission';
 import { getWorkspaceRoot, resolveAbsolutePath, getCreatedDirectories } from './utils/workspace-utils';
 
 export class WriteFileTool implements ITool {
@@ -48,7 +50,8 @@ export class WriteFileTool implements ITool {
 
   async execute(parameters: Record<string, unknown>): Promise<ToolExecutionResult> {
     const filePath = parameters.path as string;
-    const content = parameters.content;
+    const lineCountParam = parameters.line_count as number | undefined;
+    const rawContent = parameters.content;
 
     console.log('[WRITE_FILE] ==================== START ====================');
     console.log('[WRITE_FILE] Target file:', filePath);
@@ -58,17 +61,41 @@ export class WriteFileTool implements ITool {
       return { success: false, error: 'File path is required' };
     }
 
-    if (content === undefined) {
+    if (rawContent === undefined) {
       console.log('[WRITE_FILE] ERROR: No content provided');
       return { success: false, error: 'Content is required' };
     }
 
     // Type guard: content must be a string
-    if (typeof content !== 'string') {
-      console.log('[WRITE_FILE] ERROR: Content is not a string, got type:', typeof content);
+    if (typeof rawContent !== 'string') {
+      console.log('[WRITE_FILE] ERROR: Content is not a string, got type:', typeof rawContent);
       return {
         success: false,
-        error: `CONTENT_TYPE_INVALID: write_to_file requires content as plain text string, got ${typeof content}. Serialize or format as text first.`,
+        error: `CONTENT_TYPE_INVALID: write_to_file requires content as plain text string, got ${typeof rawContent}. Serialize or format as text first.`,
+      };
+    }
+
+    let content = rawContent as string;
+
+    // Strip surrounding code fences if present (```), similar to Roo Code behavior
+    if (content.startsWith('```')) {
+      content = content.split('\n').slice(1).join('\n');
+    }
+
+    if (content.endsWith('```')) {
+      content = content.split('\n').slice(0, -1).join('\n');
+    }
+
+    // Unescape HTML entities (smart quotes, etc.) for non-Claude models
+    // Claude models tend to handle this better natively
+    content = unescapeHtmlEntities(content);
+
+    // Validate line_count parameter first
+    if (typeof lineCountParam !== 'number' || lineCountParam === 0) {
+      const actualLineCount = content.split('\n').length;
+      return {
+        success: false,
+        error: `LINE_COUNT_MISSING: write_to_file requires the 'line_count' parameter. The content has ${actualLineCount} lines. Please retry with line_count=${actualLineCount}.`,
       };
     }
 
@@ -121,6 +148,24 @@ export class WriteFileTool implements ITool {
       } catch {
         // File doesn't exist, this is a new file
         fileExisted = false;
+      }
+
+      // Use Roo Code's sophisticated code omission detection
+      const originalContent = oldContent || '';
+      if (detectCodeOmission(originalContent, content, lineCountParam!)) {
+        return {
+          success: false,
+          error: `CONTENT_TRUNCATED_DETECTED: Content appears to be truncated (file has ${content.split('\n').length} lines but was predicted to have ${lineCountParam} lines), and found comments indicating omitted code (e.g., '// rest of code unchanged', '/* previous code */'). Please provide the complete file content without any omissions, or use the 'apply_diff' tool to apply partial changes.`,
+        };
+      }
+
+      // Additional line count mismatch check
+      const actualLines = content.split(/\r?\n/).length;
+      if (Math.abs(actualLines - lineCountParam!) > 5) {
+        return {
+          success: false,
+          error: `LINE_COUNT_MISMATCH: Content has ${actualLines} lines but line_count is ${lineCountParam}. Ensure you send the full file content without omissions, or update line_count to match.`,
+        };
       }
       
       // Track which directories will be created

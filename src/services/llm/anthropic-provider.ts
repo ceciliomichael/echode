@@ -76,33 +76,20 @@ export class AnthropicProvider implements ILLMProvider {
         stream: true,
       });
 
-      // Track full content for custom APIs that might return cumulative content
-      let fullContent = '';
-
       for await (const event of stream) {
         // Check for abort
         if (signal.aborted) {
           break;
         }
         
-        // Extract text deltas from content blocks
+        // Extract text deltas from content blocks - Anthropic ALWAYS sends deltas
         if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
           const text = event.delta.text;
-          
-          // Handle both delta and cumulative content (for custom base URLs)
-          let newText = text;
-          if (text.startsWith(fullContent)) {
-            newText = text.substring(fullContent.length);
-          }
-          fullContent = text;
-
-          if (newText) {
-            webview.webview.postMessage({
-              type: 'chatStreamChunk',
-              requestId,
-              chunk: newText
-            });
-          }
+          webview.webview.postMessage({
+            type: 'chatStreamChunk',
+            requestId,
+            chunk: text
+          });
         }
       }
 

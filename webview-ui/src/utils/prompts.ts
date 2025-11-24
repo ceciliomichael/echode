@@ -2,31 +2,24 @@ import type { WorkspaceContext } from '../types/workspace';
 import { storageService } from './storage';
 import { getAllTools, getToolSystemPrompt, getToolsForMode } from '../lib/tool-config';
 import { type ChatMode, DEFAULT_CHAT_MODE } from '../types/chat-mode';
+import {
+  getMarkdownFormattingSection,
+  getSystemInfoSection,
+  getCapabilitiesSection,
+  getObjectiveSection,
+  getRulesSection,
+} from './prompt-sections';
 
 export interface PromptConfig {
   name: string;
   purpose: string;
-  context: string;
   userSpecificRules: string | null;
-}
-
-function buildWorkspaceContext(workspace: WorkspaceContext | null): string {
-  if (!workspace) {
-    return 'No workspace is currently open.';
-  }
-
-  const fileList = workspace.files.length > 0
-    ? `\n\nFiles currently in workspace:\n${workspace.files.join('\n')}`
-    : '\n\nNo files found in workspace.';
-
-  return `Workspace: ${workspace.name}\nDirectory: ${workspace.path}${fileList}`;
 }
 
 export function getPromptConfig(workspace: WorkspaceContext | null): PromptConfig {
   return {
     name: 'Echo',
     purpose: 'AI coding assistant for Visual Studio Code',
-    context: buildWorkspaceContext(workspace),
     userSpecificRules: workspace?.agentsConfig || null
   };
 }
@@ -34,94 +27,31 @@ export function getPromptConfig(workspace: WorkspaceContext | null): PromptConfi
 export function getSystemPrompt(workspace: WorkspaceContext | null, mode: ChatMode = DEFAULT_CHAT_MODE): string {
   const config = getPromptConfig(workspace);
 
-  const identitySection = `<identity>
-You are ${config.name}, ${config.purpose}.
-</identity>`;
-
-  const thinkingProtocol = `
-<planning_protocol>
-Engage in brief internal chain of thought reasoning before responding.
-
-1. Deconstruct: Core intent, requirements, constraints.
-2. Analyze: Information available/needed, assumptions.
-3. Formulate: Optimal strategy, pitfalls, validation.
-4. Self-reflect: Certainty, limitations, need for clarification.
-
-CRITICAL: Reason through problems first. Be honest about uncertainty. Ask for clarification if needed.
-</planning_protocol>`;
-
-  const behaviorSection = `
-<core_behavior>
-Primary function: AI coding assistant.
-
-Capabilities: Code analysis, debugging, refactoring, testing, documentation, image analysis.
-
-Principles:
-- Accuracy: Base on context, no assumptions.
-- Clarity: Clear, actionable guidance.
-- Consistency: Follow workspace patterns.
-- Efficiency: Optimize for productivity.
-
-Self-awareness:
-- I cannot execute code directly.
-- I use tools to interact with the workspace.
-- I acknowledge uncertainty and learn from context.
-- I ask clarifying questions when uncertain.
-</core_behavior>`;
-
-  const developmentWorkflow = `
-<development_workflow>
-Follow this workflow for coding tasks:
-
-1. DECONSTRUCT: Parse requirements, identify task type.
-2. EXPLORE: Use glob_search/grep_search/list_files/read_file to understand context.
-3. PLAN: Formulate strategy, identify files to modify.
-4. EXECUTE: Implement changes using tools.
-5. VERIFY: Review changes for correctness.
-
-Always explore before modifying unfamiliar code.
-</development_workflow>`;
-
-  const formattingRulesSection = `
-<response_format>
-- Use markdown formatting: headings, bold, lists
-- Use code blocks ONLY for actual code snippets, never for regular text or explanations
-- Keep responses concise and direct
-- Structure with clear headings and short paragraphs
-</response_format>`;
-
-  const workspaceSection = `
-<workspace_context>
-${config.context}
-
-IMPORTANT: The file list above is the COMPLETE snapshot of files in the workspace. Do NOT attempt to read, reference, or assume the existence of ANY files not listed above. If you need to check if a file exists, use list_files or glob_search first. Never use read_file on files not shown in the workspace snapshot.
-</workspace_context>`;
+  // Identity and role definition
+  const identitySection = `You are ${config.name}, ${config.purpose}.\n\nYou are a skilled software engineer with extensive knowledge in many programming languages, frameworks, design patterns, and best practices.`;
 
   // Combine AGENTS.md rules with custom system prompt from settings
   const customSystemPrompt = storageService.getSystemPrompt();
 
+  // Build user-specific rules section
   const workspaceLevelRules = config.userSpecificRules && config.userSpecificRules.trim().length > 0
-    ? `<workspace_level_rules>
-${config.userSpecificRules}
-</workspace_level_rules>`
+    ? `====\n\nWORKSPACE-LEVEL RULES\n\n${config.userSpecificRules}`
     : '';
 
   const userLevelRules = customSystemPrompt && customSystemPrompt.trim().length > 0
-    ? `<user_level_rules>
-${customSystemPrompt}
-</user_level_rules>`
+    ? `====\n\nUSER-LEVEL CUSTOM INSTRUCTIONS\n\n${customSystemPrompt}`
     : '';
 
   const userRulesSection = (workspaceLevelRules || userLevelRules)
-    ? `
-<user_specific_rules>
-${workspaceLevelRules}${workspaceLevelRules && userLevelRules ? '\n\n' : ''}${userLevelRules}
-</user_specific_rules>`
+    ? `\n${workspaceLevelRules}${workspaceLevelRules && userLevelRules ? '\n\n' : ''}${userLevelRules}`
     : '';
 
   // Add mode-specific behavior section
   const modeSection = mode === 'plan'
     ? `
+====
+
+**MODE: PLAN**
 <mode>
 Current mode: PLAN
 
@@ -320,5 +250,20 @@ By waiting for and carefully considering results after each tool use, you can ma
 </tool_use_guidelines>`)
     : '';
 
-  return `${identitySection}${thinkingProtocol}${behaviorSection}${developmentWorkflow}${formattingRulesSection}${workspaceSection}${userRulesSection}${modeSection}${toolUseGuidelinesSection}${toolsSection}`;
+  // Build the complete system prompt using Roo Code's modular structure
+  return `${identitySection}
+
+${getMarkdownFormattingSection()}
+
+${getSystemInfoSection(workspace)}
+
+${getCapabilitiesSection(workspace)}
+
+${getRulesSection(workspace)}
+
+${getObjectiveSection()}
+${userRulesSection}
+${modeSection}
+${toolUseGuidelinesSection}
+${toolsSection}`.trim();
 }

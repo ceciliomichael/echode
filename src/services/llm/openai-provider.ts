@@ -30,32 +30,20 @@ export class OpenAIProvider implements ILLMProvider {
         stream: true,
       });
 
-      // Track full content for APIs that return cumulative content instead of deltas
-      let fullContent = '';
-
       for await (const chunk of stream) {
         // Check for abort
         if (signal.aborted) {
           break;
         }
         
-        // Extract content from delta
+        // Extract content from delta - OpenAI ALWAYS sends deltas, not cumulative
         const content = chunk.choices[0]?.delta?.content;
         if (content) {
-          // Handle both delta and cumulative content (for custom base URLs)
-          let newText = content;
-          if (content.startsWith(fullContent)) {
-            newText = content.substring(fullContent.length);
-          }
-          fullContent = content;
-
-          if (newText) {
-            webview.webview.postMessage({
-              type: 'chatStreamChunk',
-              requestId,
-              chunk: newText
-            });
-          }
+          webview.webview.postMessage({
+            type: 'chatStreamChunk',
+            requestId,
+            chunk: content
+          });
         }
       }
 

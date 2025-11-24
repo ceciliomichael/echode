@@ -25,6 +25,7 @@ Description: Request to list files and directories in a specified workspace path
 
 Parameters:
 - path: (required) The directory path to list (relative to workspace root)
+- recursive: (optional) If 'true', list all files under this directory recursively. Defaults to false (top-level only).
 
 Usage:
 <function_call>
@@ -48,7 +49,8 @@ IMPORTANT: When to use list_files:
 - Use list_files for paths WITHOUT file extensions (e.g., src/app, api, components/ui)
 - Use list_files when you receive "Cannot read directory" error from read_file
 - After listing, use read_file on specific FILES from the results (e.g., src/app/page.tsx)
-- NEVER use read_file directly on directory paths - always list_files first, then read_file on individual files`,
+- NEVER use read_file directly on directory paths - always list_files first, then read_file on individual files
+- Very large directories may be truncated to the first 200 files for performance`,
     icon: FolderTree,
     usage: 'List directory contents - DEFAULT for extensionless paths',
     formatExample: '<function_call>\n<tool_name>list_files</tool_name>\n<path>src/app</path>\n</function_call>',

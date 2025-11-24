@@ -22,10 +22,17 @@ registerToolPlugin({
         aiDescription: `## apply_diff
 Description: This is the PREFERRED and DEFAULT method for making ANY targeted modifications to existing files. Request to apply PRECISE, TARGETED edits to an existing file by searching for specific sections of content and replacing them. Use this tool for ALL modifications to existing files unless the file is being completely rewritten or heavily refactored to be shorter.
 
-You can perform multiple distinct search and replace operations within a single \`apply_diff\` call by providing multiple SEARCH/REPLACE blocks in the \`diff\` parameter. This is the preferred way to make several targeted changes efficiently.
+**CRITICAL PREREQUISITE - YOU MUST DO THIS FIRST:**
+Before EVERY apply_diff call, you MUST use read_file to get the current, exact file content. The SEARCH blocks must match the file content EXACTLY (100% match including all whitespace, tabs, and line endings). Working from memory or assumptions will cause the diff to fail.
+
+WORKFLOW:
+1. FIRST: Use read_file to get exact current content of the file
+2. THEN: Create your SEARCH blocks by copying the EXACT text from the read_file output (including exact whitespace/indentation)
+3. FINALLY: Call apply_diff with your precise SEARCH/REPLACE blocks
+
+You can perform multiple distinct search and replace operations within a single apply_diff call by providing multiple SEARCH/REPLACE blocks in the diff parameter. This is the preferred way to make several targeted changes efficiently.
 
 The SEARCH section must exactly match existing content including whitespace and indentation.
-If you're not confident in the exact content to search for, use the read_file tool first to get the exact content.
 When applying the diffs, be extra careful to remember to change any closing brackets or other syntax that may be affected by the diff farther down in the file.
 ALWAYS make as many changes in a single 'apply_diff' request as possible using multiple SEARCH/REPLACE blocks
 

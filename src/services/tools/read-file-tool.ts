@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
-import { ITool, ToolExecutionResult } from './tool.interface';
+import * as path from 'path';
+import type { ITool, ToolExecutionResult } from './tool.interface';
 import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
+import { addLineNumbers } from '../../utils/line-number-utils';
 
 export class ReadFileTool implements ITool {
   name = 'read_file';
@@ -89,23 +91,23 @@ export class ReadFileTool implements ITool {
 
       const fileContent = await vscode.workspace.fs.readFile(uri);
       const content = Buffer.from(fileContent).toString('utf8');
-      const lines = content.split('\n');
+      const lines = content.split(/\r?\n/);
       const totalLines = lines.length;
 
-      // Apply default 100-line limit when no range specified
+      // Apply default 500-line limit when no range specified
       if (offset === undefined && limit === undefined) {
         const defaultStart = 0;
         const defaultCount = Math.min(500, lines.length);
         const defaultEnd = Math.min(defaultStart + defaultCount, lines.length);
         const selectedLines = lines.slice(defaultStart, defaultEnd);
-        const formattedContent = this.formatWithLineNumbers(selectedLines, defaultStart + 1);
+        const numberedContent = addLineNumbers(selectedLines.join('\n'), defaultStart + 1);
 
         return {
           success: true,
           data: {
             path: filePath,
             absolutePath,
-            content: formattedContent,
+            content: numberedContent.trimEnd(), // Remove trailing newline added by addLineNumbers
             startLine: defaultStart + 1,
             endLine: defaultEnd,
             totalLines,
@@ -118,14 +120,14 @@ export class ReadFileTool implements ITool {
       const count = limit || lines.length;
       const end = Math.min(start + count, lines.length);
       const selectedLines = lines.slice(start, end);
-      const formattedContent = this.formatWithLineNumbers(selectedLines, start + 1);
+      const numberedContent = addLineNumbers(selectedLines.join('\n'), start + 1);
 
       return {
         success: true,
         data: {
           path: filePath,
           absolutePath,
-          content: formattedContent,
+          content: numberedContent.trimEnd(), // Remove trailing newline added by addLineNumbers
           startLine: start + 1,
           endLine: end,
           totalLines,

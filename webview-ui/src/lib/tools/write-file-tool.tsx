@@ -33,6 +33,7 @@ If the file exists, it will be overwritten. If it doesn't exist, it will be crea
 Parameters:
 - path: (required) The path of the file to write to (relative to workspace)
 - content: (required) The content to write to the file. When performing a full rewrite of an existing file or creating a new one, ALWAYS provide the COMPLETE intended content of the file, without any truncation or omissions. You MUST include ALL parts of the file, even if they haven't been modified. Do NOT include line numbers in the content though, just the actual content of the file.
+- line_count: (optional but strongly recommended) The total number of lines in the content you are writing. This is used to detect truncation or omissions. Compute it by counting lines in your final content (after all edits) and pass that exact count.
 
 Usage:
 <function_call>

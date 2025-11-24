@@ -19,7 +19,23 @@ registerToolPlugin({
     id: 'todo_write',
     name: 'Todo Write',
     description: 'Write and manage todo list tasks',
-    aiDescription: 'CRITICAL: Each task MUST have exactly 3 fields: "id" (string), "content" (string), "status" ("pending"|"in_progress"|"completed"). Example: {"id":"1","content":"Fix bug","status":"pending"}. Keep content concise (under 80 chars). Use sequential numeric IDs ("1", "2", "3").',
+    aiDescription: `You can update the todo list in two ways:
+
+1. JSON tasks array (preferred when editing specific tasks):
+   - Each task MUST have exactly 3 fields: "id" (string), "content" (string), "status" ("pending"|"in_progress"|"completed").
+   - Example: [{"id":"1","content":"Fix bug","status":"pending"}]
+   - Keep content concise (under 80 chars). Use sequential numeric IDs ("1", "2", "3").
+
+2. Markdown checklist via a todos string (similar to Roo Code update_todo_list):
+   - Provide a markdown checklist where:
+     - "[ ] task" = pending
+     - "[-] task" or "[~] task" = in_progress
+     - "[x] task" or "[X] task" = completed
+   - Example:
+     - [ ] Implement auth
+     - [x] Set up CI
+
+If both tasks and todos are provided, tasks takes precedence.`,
     icon: ListChecks,
     usage: 'Manage session todo list by writing tasks',
     formatExample: '<function_call>\n<tool_name>todo_write</tool_name>\n<tasks>[{"id":"1","content":"Implement auth","status":"pending"},{"id":"2","content":"Add tests","status":"in_progress"}]</tasks>\n</function_call>',

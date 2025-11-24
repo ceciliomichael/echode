@@ -3,6 +3,7 @@ import * as path from 'path';
 import { distance } from 'fastest-levenshtein';
 import { ITool, ToolExecutionResult } from './tool.interface';
 import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
+import { unescapeHtmlEntities } from '../../utils/text-normalization';
 
 // ==========================================
 // Interfaces
@@ -78,22 +79,6 @@ function normalizeString(str: string, options: NormalizeOptions = DEFAULT_OPTION
     }
 
     return normalized;
-}
-
-function unescapeHtmlEntities(text: string): string {
-    if (!text) {return text;}
-
-    return text
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/&apos;/g, "'")
-        .replace(/&#91;/g, "[")
-        .replace(/&#93;/g, "]")
-        .replace(/&lsqb;/g, "[")
-        .replace(/&rsqb;/g, "]")
-        .replace(/&amp;/g, "&");
 }
 
 function addLineNumbers(content: string, startLine: number = 1): string {
@@ -423,12 +408,14 @@ class MultiSearchReplaceDiffStrategy implements DiffStrategy {
             }
 
             if (searchContent === replaceContent) {
-                // When search and replace are identical, treat as successful no-op
-                // This allows verification that content exists without making changes
                 diffResults.push({
-                    success: true,
+                    success: false,
+                    error:
+                        `Search and replace content are identical - no changes would be made\n\n` +
+                        `Debug Info:\n` +
+                        `- Search and replace must be different to make changes\n` +
+                        `- Use read_file to verify the content you want to change`,
                 });
-                appliedCount++;
                 continue;
             }
 
@@ -580,13 +567,13 @@ class MultiSearchReplaceDiffStrategy implements DiffStrategy {
     }
 }
 
-// ==========================================
 // ApplyDiffTool
 // ==========================================
 
 export class ApplyDiffTool implements ITool {
     name = 'apply_diff';
     private diffStrategy = new MultiSearchReplaceDiffStrategy();
+    private applyDiffFailureCounts = new Map<string, number>();
 
     async execute(parameters: Record<string, unknown>): Promise<ToolExecutionResult> {
         const filePath = parameters.path as string;
@@ -631,21 +618,27 @@ export class ApplyDiffTool implements ITool {
             );
 
             if (!diffResult.success) {
+                const currentCount = (this.applyDiffFailureCounts.get(absolutePath) ?? 0) + 1;
+                this.applyDiffFailureCounts.set(absolutePath, currentCount);
                 let formattedError = "";
                 if (diffResult.failParts && diffResult.failParts.length > 0) {
                     for (const failPart of diffResult.failParts) {
                         if (failPart.success) {continue;}
                         const errorDetails = failPart.details ? JSON.stringify(failPart.details, null, 2) : "";
-                        formattedError += `<error_details>\n${failPart.error}${errorDetails ? `\n\nDetails:\n${errorDetails}` : ""}\n</error_details>\n`;
+                        formattedError = `<error_details>\n${failPart.error}${errorDetails ? `\n\nDetails:\n${errorDetails}` : ""}\n</error_details>`;
                     }
                 } else {
                     const errorDetails = diffResult.details ? JSON.stringify(diffResult.details, null, 2) : "";
                     formattedError = `Unable to apply diff to file: ${absolutePath}\n\n<error_details>\n${diffResult.error}${errorDetails ? `\n\nDetails:\n${errorDetails}` : ""}\n</error_details>`;
                 }
+                if (currentCount >= 2) {
+                    formattedError += "\n\n<notice>apply_diff has failed multiple times for this file. Switch to write_to_file to rewrite the entire file instead.</notice>";
+                }
                 return { success: false, error: formattedError };
             }
 
-            // Write new content
+            // Reset failure counter on success and write new content
+            this.applyDiffFailureCounts.delete(absolutePath);
             if (diffResult.content) {
                 await vscode.workspace.fs.writeFile(uri, Buffer.from(diffResult.content, 'utf8'));
             }

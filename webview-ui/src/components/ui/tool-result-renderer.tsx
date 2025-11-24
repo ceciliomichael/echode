@@ -3,15 +3,17 @@ import { getToolRenderer } from '../../lib/tool-registry';
 import { DiffViewer } from './diff-viewer';
 
 /**
- * Strip line numbers from content formatted as "lineNum: content", "lineNum | content", or "lineNum→content"
+ * Strip line numbers from content formatted as "lineNum | content"
  * Used to show clean code in UI while AI sees line numbers
+ * Format from read_file: "  1 | content" (with padding spaces)
  */
 function stripLineNumbers(content: string): string {
   return content
     .split('\n')
     .map((line) => {
-      // Match "number: ", "number | ", or "number→" at start of line
-      const match = line.match(/^\d+(?:→|: | \| )(.*)$/);
+      // Match line numbers with format: "  123 | content" or "1 | content"
+      // The \s* handles variable padding, \d+ matches line number, \s+\|\s+ matches " | "
+      const match = line.match(/^\s*\d+\s+\|\s+(.*)$/);
       return match ? match[1] : line;
     })
     .join('\n');

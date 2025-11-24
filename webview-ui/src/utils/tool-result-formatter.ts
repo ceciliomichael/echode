@@ -15,7 +15,17 @@ export function formatToolResultsForHistory(
         let formattedResult = '';
 
         if (execution.toolName === 'read_file') {
-          formattedResult = `File: ${data.path as string}\n${data.content as string}`;
+          // Include totalLines so AI knows the line_count for write_to_file
+          const totalLines = data.totalLines as number;
+          const startLine = data.startLine as number;
+          const endLine = data.endLine as number;
+          
+          let header = `File: ${data.path as string} (${totalLines} lines total)`;
+          if (startLine !== 1 || endLine !== totalLines) {
+            header += ` [showing lines ${startLine}-${endLine}]`;
+          }
+          
+          formattedResult = `${header}\n${data.content as string}`;
         } else if (execution.toolName === 'grep_search') {
           formattedResult = `Query: ${data.query as string}\nFound ${data.totalMatches as number} matches in ${data.filesWithMatches as number} files`;
           if (data.results && Array.isArray(data.results) && data.results.length > 0) {

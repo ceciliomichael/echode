@@ -21,34 +21,41 @@ registerToolPlugin({
     name: 'Grep Search',
     description: 'Search for patterns across workspace files',
     aiDescription: `## grep_search
-Description: Search for text patterns and content across workspace files using regex or plain text queries. Use this tool to locate specific code, functions, classes, or text across your entire codebase or within specific directories.
+Description: Search for text across workspace files. Use this as your primary "search_files" tool to locate functions, symbols, and text inside code.
+
+Recommended simple usage (most cases):
+- Always provide:
+  - query: the exact name or phrase you are looking for (function, component, variable, etc.)
+  - path: the NARROWEST directory that contains the relevant code (e.g. src, src/app, src/components)
+- Optionally provide:
+  - includes: file globs (e.g. *.ts,*.tsx,*.js) to restrict search
+- Leave advanced flags (match modes, semantic options) at their defaults unless you have a VERY specific reason.
 
 Parameters:
-- query: (required) The search pattern (text or regex)
-- path: (optional) Directory to search in (default: workspace root)
-- isRegex: (optional) Set to true for regex patterns, false for plain text (default: false)
-- caseSensitive: (optional) Case-sensitive search (default: false)
-- includes: (optional) Glob patterns to filter files (e.g., *.ts, *.tsx, src/**)
+- query: (required) Search text. By default treated as plain text, not regex.
+- path: (optional) Directory to search in (default: workspace root).
+- isRegex: (optional) true to interpret query as regex, false for plain text (default: false). ONLY use true when you explicitly need regex.
+- caseSensitive: (optional) Case-sensitive search (default: smart case: if query has uppercase, search is case-sensitive; otherwise case-insensitive).
+- includes: (optional) Glob patterns to filter files (e.g., *.ts,*.tsx,src/**).
 
-Usage:
+Usage (XML-style call):
 <function_call>
 <tool_name>grep_search</tool_name>
-<query>search pattern</query>
-<path>directory</path>
+<query>handleSubmit</query>
+<path>src</path>
 <isRegex>false</isRegex>
-<caseSensitive>false</caseSensitive>
 </function_call>
 
 Examples:
 
-1. Finding all occurrences of a function name:
+1. Find all references to a function in src:
 <function_call>
 <tool_name>grep_search</tool_name>
 <query>handleSubmit</query>
 <path>src</path>
 </function_call>
 
-2. Regex search for imports:
+2. Regex search for React imports:
 <function_call>
 <tool_name>grep_search</tool_name>
 <query>import.*from.*react</query>
@@ -56,18 +63,20 @@ Examples:
 <isRegex>true</isRegex>
 </function_call>
 
-3. Search in specific file types:
+3. Search only TypeScript files:
 <function_call>
 <tool_name>grep_search</tool_name>
 <query>interface User</query>
+<path>src</path>
 <includes>*.ts,*.tsx</includes>
 </function_call>
 
-IMPORTANT: Search Strategy:
-- Use specific function/class names for better results (e.g., "handleSubmit" not "function")
-- Set isRegex=true ONLY when you need regex patterns
-- Use includes parameter to limit search to specific file types when appropriate
-- After finding matches, use read_file to examine the full context of the file`,
+IMPORTANT search strategy:
+- Prefer exact identifiers (component names, function names, type names) over generic words.
+- Narrow path as much as possible to the relevant area of the project.
+- Use includes to limit to relevant file types.
+- Avoid regex unless truly required; plain text is more robust.
+- After locating matches, use read_file on the specific file(s) to inspect full context before editing.`,
     icon: Search,
     usage: 'Search for patterns across workspace files',
     formatExample: '<function_call>\n<tool_name>grep_search</tool_name>\n<query>function</query>\n<path>src</path>\n<caseSensitive>false</caseSensitive>\n</function_call>',

@@ -16,7 +16,7 @@ interface MessageBubbleProps {
   onModeChange?: (mode: ChatMode) => void;
 }
 
-export function MessageBubble({ message, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, isStreaming, showCopy, mode, onModeChange }: MessageBubbleProps & { showCopy?: boolean }) {
+export function MessageBubble({ message, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, isStreaming, mode, onModeChange }: MessageBubbleProps) {
   if (message.role === 'user') {
     return (
       <UserMessage
@@ -40,7 +40,6 @@ export function MessageBubble({ message, onEdit, onUpdate, isEditing, onEditStar
       content={message.content} 
       messageId={message.id}
       isStreaming={isStreaming}
-      showCopy={showCopy}
       toolExecutions={message.toolExecutions}
     />
   );

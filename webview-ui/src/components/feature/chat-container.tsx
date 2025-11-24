@@ -335,14 +335,6 @@ export function ChatContainer() {
               {visibleMessages.map((message, index) => {
                 const isLastAssistantMessage = index === visibleMessages.length - 1 && message.role === 'assistant';
                 
-                // Only hide copy button for interactive plan navigation tools
-                const hasPlanTool = message.role === 'assistant' && message.toolExecutions && 
-                  Array.from(message.toolExecutions.values()).some(
-                    exec => exec.toolName === 'plan_navigator' || exec.toolName === 'plan_handoff'
-                  );
-
-                const shouldShowCopy = message.role === 'assistant' && !hasPlanTool;
-                
                 return (
                   <MessageBubble
                     key={message.id}
@@ -354,7 +346,6 @@ export function ChatContainer() {
                     onEditCancel={handleCancel}
                     onRevert={handleRevert}
                     isStreaming={(isStreaming || isExecutingTool) && isLastAssistantMessage}
-                    showCopy={shouldShowCopy}
                     mode={mode}
                     onModeChange={handleModeChange}
                   />
