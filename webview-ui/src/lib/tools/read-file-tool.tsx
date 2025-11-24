@@ -33,7 +33,7 @@ Parameters:
 - offset: (optional) Start line number (default: 1, 1-based) - applies to all files
 - limit: (optional) Number of lines to read (default: 100) - applies to all files
 
-Usage:
+Usage Format (CRITICAL - Follow XML syntax exactly):
 <function_call>
 <tool_name>read_file</tool_name>
 <path1>path/to/file1.ext</path1>
@@ -41,6 +41,12 @@ Usage:
 <offset>start_line</offset>
 <limit>line_count</limit>
 </function_call>
+
+IMPORTANT XML SYNTAX RULES:
+- Each path MUST be on its own line with proper closing tags: </path1>, </path2>, etc.
+- NEVER put multiple paths in a single parameter
+- NEVER use backslashes in closing tags (correct: </path1>, incorrect: <\\path1>)
+- Each file path goes in its own numbered parameter (path1, path2, path3, etc.)
 
 Examples:
 

@@ -78,12 +78,9 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
         {visibleTokens.map((token, index) => {
           const prevToken = index > 0 ? visibleTokens[index - 1] : null;
           const nextToken = index < visibleTokens.length - 1 ? visibleTokens[index + 1] : null;
-          const isPrevThink = prevToken?.type === 'think';
           
-          // Margin logic: negative margin for text after think (close together), small margin for tool after think, normal margin otherwise
-          const marginTop = index === 0 ? '0' : 
-            isPrevThink ? (token.type === 'text' ? '-0.25rem' : '0.25rem') : 
-            '0.75rem';
+          // Margin logic: consistent spacing for all content types
+          const marginTop = index === 0 ? '0' : '0.75rem';
           
           if (token.type === 'think') {
             return (

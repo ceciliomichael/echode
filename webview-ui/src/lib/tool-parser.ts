@@ -468,6 +468,18 @@ function cleanToolCallContent(content: string): string {
     hadErrors = true;
   }
   
+  // Fix malformed closing tags with backslashes: <\param> -> </param>
+  // This catches the specific error where AI uses <\path1> instead of </path1>
+  const backslashClosings = cleaned.match(/<\\[\w_-]+>/g);
+  if (backslashClosings) {
+    console.log(`[ToolParser] 🔧 Fixed ${backslashClosings.length} backslash closing tag(s) (e.g., <\\path1> -> </path1>)`);
+    hadErrors = true;
+    cleaned = cleaned.replace(
+      /<\\([\w_-]+)>/g,
+      '</$1>'
+    );
+  }
+  
   if (hadErrors) {
     console.log('[ToolParser] ⚠️  AI generated malformed XML - automatically corrected');
   }
