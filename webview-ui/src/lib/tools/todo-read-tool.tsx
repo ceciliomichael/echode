@@ -22,7 +22,7 @@ registerToolPlugin({
     aiDescription: 'Read the current todo list to see all tasks and their status.',
     icon: ListChecks,
     usage: 'Read the current session todo list',
-    formatExample: '<function_call>\n<tool_name>todo_read</tool_name>\n</function_call>',
+    formatExample: '<function_calls>\n<invoke name="todo_read">\n</invoke>\n</function_calls>',
   },
   handler: {
     execute: executeTodoRead,

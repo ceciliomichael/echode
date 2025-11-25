@@ -8,34 +8,44 @@ export type ContentToken =
   | { type: 'text'; content: string; index: number };
 
 /**
- * Parse XML-style parameters from tool block content
+ * Parse XML-style parameters from invoke block content
+ * New format: <parameter name="paramName">value</parameter>
  * Handles both complete and partial/unclosed tags during streaming
  */
 function parseXMLParameters(content: string): Record<string, unknown> {
   const parameters: Record<string, unknown> = {};
   
-  // First pass: Extract all COMPLETE parameter tags (with closing tags)
-  // Use greedy match to handle cases where content contains the closing tag string
-  const completeParamRegex = /<([\w_-]+)>([\s\S]*)<\/\1>/g;
+  // First pass: Extract all COMPLETE parameter tags with name attribute
+  // Format: <parameter name="paramName">value</parameter>
+  const paramRegex = /<parameter\s+name=["']([^"']+)["']>([\s\S]*?)<\/parameter>/g;
   let match: RegExpExecArray | null;
+  const processedParams = new Set<string>();
   
-  while ((match = completeParamRegex.exec(content)) !== null) {
+  while ((match = paramRegex.exec(content)) !== null) {
     const paramName = match[1];
+    const paramValue = match[2];
+    
+    // Skip if already processed (handles duplicate tags)
+    if (processedParams.has(paramName)) {
+      continue;
+    }
+    
     // Parameters that should ALWAYS be treated as raw strings (never parsed as JSON/numbers)
     const isRawStringParam = ['old_string', 'new_string', 'content', 'diff', 'edits'].includes(paramName);
     // Strip only leading/trailing newlines (AI adds newline after opening tag), preserve internal whitespace
-    const paramValue = isRawStringParam 
-      ? match[2].replace(/^\n/, '').replace(/\n$/, '') 
-      : match[2].trim();
+    const finalValue = isRawStringParam 
+      ? paramValue.replace(/^\n/, '').replace(/\n$/, '') 
+      : paramValue.trim();
     // Skip parseParamValue for raw string params - they should never be converted to objects
-    parameters[paramName] = isRawStringParam ? paramValue : parseParamValue(paramValue);
+    parameters[paramName] = isRawStringParam ? finalValue : parseParamValue(finalValue);
+    processedParams.add(paramName);
   }
   
-  // Second pass: Extract PARTIAL/UNCLOSED tags (streaming content)
-  const openingTagRegex = /<([\w_-]+)>/g;
+  // Second pass: Extract PARTIAL/UNCLOSED parameter tags (streaming content)
+  const openingParamRegex = /<parameter\s+name=["']([^"']+)["']>/g;
   const openingTags: Array<{name: string; pos: number}> = [];
   
-  while ((match = openingTagRegex.exec(content)) !== null) {
+  while ((match = openingParamRegex.exec(content)) !== null) {
     openingTags.push({ name: match[1], pos: match.index + match[0].length });
   }
   
@@ -45,7 +55,7 @@ function parseXMLParameters(content: string): Record<string, unknown> {
     if (parameters[tag.name] !== undefined) continue;
     
     // Extract partial content from opening tag
-    const closingTag = `</${tag.name}>`;
+    const closingTag = '</parameter>';
     const closingPos = content.indexOf(closingTag, tag.pos);
     
     // If no closing tag found, this is streaming content
@@ -131,10 +141,15 @@ function extractCompleteJsonObjects(partialArray: string): unknown[] {
 }
 
 /**
- * Find the next tool block start position (function_call tag)
+ * Regex to extract invoke blocks with tool name from attribute
+ */
+const INVOKE_BLOCK_REGEX = /<invoke\s+name=["']([^"']+)["']>([\s\S]*?)<\/invoke>/;
+
+/**
+ * Find the next tool block start position (function_calls tag)
  */
 function findNextToolStart(content: string, fromPosition: number): number {
-  const pos = content.indexOf('<function_call>', fromPosition);
+  const pos = content.indexOf('<function_calls>', fromPosition);
   return pos !== -1 ? pos : -1;
 }
 
@@ -243,8 +258,8 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
     }
     // Process tool block
     else if (blockType === 'tool') {
-      const openingTag = '<function_call>';
-      const closingTag = '</function_call>';
+      const openingTag = '<function_calls>';
+      const closingTag = '</function_calls>';
       
       const contentStart = toolStart + openingTag.length;
       const closeMarker = content.indexOf(closingTag, contentStart);
@@ -256,43 +271,44 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
         const rawContent = content.slice(toolStart, closeMarker + closingTagLength);
         
         try {
-          const parameters = parseXMLParameters(innerContent);
-          const toolName = parameters.tool_name as string;
-          
-          // Allow all tool names - validation happens at execution time
-          if (toolName && typeof toolName === 'string') {
-            // Remove tool_name from parameters
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { tool_name, ...actualParameters } = parameters;
+          // Extract invoke block with tool name from attribute
+          const invokeMatch = innerContent.match(INVOKE_BLOCK_REGEX);
+          if (invokeMatch) {
+            const toolName = invokeMatch[1];
+            const invokeContent = invokeMatch[2];
+            const parameters = parseXMLParameters(invokeContent);
             
-            // Special handling for read_file with files array
-            if (toolName === 'read_file' && actualParameters.files && Array.isArray(actualParameters.files)) {
-              // Create individual tool tokens for each file in the array
-              (actualParameters.files as Array<unknown>).forEach((file: unknown, fileIdx: number) => {
-                if (typeof file === 'object' && file !== null && 'path' in file) {
-                  tokens.push({
-                    type: 'tool',
-                    toolName,
-                    parameters: { path: (file as { path: string }).path, ...(file as Record<string, unknown>) },
-                    rawContent: `<function_call><tool_name>${toolName}</tool_name><path>${(file as { path: string }).path}</path></function_call>`,
-                    index: tokenIndex++,
-                    isClosed: true,
-                    toolExecutionId: `${messageId}-tool-${toolIndex}-file-${fileIdx}`
-                  });
-                }
-              });
-              toolIndex++;
-            } else {
-              // Regular single tool token
-              tokens.push({
-                type: 'tool',
-                toolName,
-                parameters: actualParameters,
-                rawContent,
-                index: tokenIndex++,
-                isClosed: true,
-                toolExecutionId: `${messageId}-tool-${toolIndex++}`
-              });
+            // Allow all tool names - validation happens at execution time
+            if (toolName && typeof toolName === 'string') {
+              // Special handling for read_file with files array
+              if (toolName === 'read_file' && parameters.files && Array.isArray(parameters.files)) {
+                // Create individual tool tokens for each file in the array
+                (parameters.files as Array<unknown>).forEach((file: unknown, fileIdx: number) => {
+                  if (typeof file === 'object' && file !== null && 'path' in file) {
+                    tokens.push({
+                      type: 'tool',
+                      toolName,
+                      parameters: { path: (file as { path: string }).path, ...(file as Record<string, unknown>) },
+                      rawContent: `<function_calls><invoke name="${toolName}"><parameter name="path">${(file as { path: string }).path}</parameter></invoke></function_calls>`,
+                      index: tokenIndex++,
+                      isClosed: true,
+                      toolExecutionId: `${messageId}-tool-${toolIndex}-file-${fileIdx}`
+                    });
+                  }
+                });
+                toolIndex++;
+              } else {
+                // Regular single tool token
+                tokens.push({
+                  type: 'tool',
+                  toolName,
+                  parameters,
+                  rawContent,
+                  index: tokenIndex++,
+                  isClosed: true,
+                  toolExecutionId: `${messageId}-tool-${toolIndex++}`
+                });
+              }
             }
           }
           position = closeMarker + closingTagLength;
@@ -306,43 +322,65 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
         const rawContent = content.slice(toolStart);
         
         try {
-          const parameters = parseXMLParameters(innerContent);
-          const toolName = parameters.tool_name as string;
-          
-          // Allow all tool names - validation happens at execution time
-          if (toolName && typeof toolName === 'string') {
-            // Remove tool_name from parameters
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { tool_name, ...actualParameters } = parameters;
+          // Try to extract invoke block (may be partial during streaming)
+          const invokeMatch = innerContent.match(INVOKE_BLOCK_REGEX);
+          if (invokeMatch) {
+            const toolName = invokeMatch[1];
+            const invokeContent = invokeMatch[2];
+            const parameters = parseXMLParameters(invokeContent);
             
-            // Special handling for read_file with files array during streaming
-            if (toolName === 'read_file' && actualParameters.files && Array.isArray(actualParameters.files)) {
-              // Create individual tool tokens for each complete file in the array
-              (actualParameters.files as Array<unknown>).forEach((file: unknown, fileIdx: number) => {
-                if (typeof file === 'object' && file !== null && 'path' in file) {
-                  tokens.push({
-                    type: 'tool',
-                    toolName,
-                    parameters: { path: (file as { path: string }).path, ...(file as Record<string, unknown>) },
-                    rawContent: `<function_call><tool_name>${toolName}</tool_name><path>${(file as { path: string }).path}</path></function_call>`,
-                    index: tokenIndex++,
-                    isClosed: false,
-                    toolExecutionId: `${messageId}-tool-${toolIndex}-file-${fileIdx}`
-                  });
-                }
-              });
-              toolIndex++;
-            } else {
-              // Regular single tool token
-              tokens.push({
-                type: 'tool',
-                toolName,
-                parameters: actualParameters,
-                rawContent,
-                index: tokenIndex++,
-                isClosed: false,
-                toolExecutionId: `${messageId}-tool-${toolIndex++}`
-              });
+            // Allow all tool names - validation happens at execution time
+            if (toolName && typeof toolName === 'string') {
+              // Special handling for read_file with files array during streaming
+              if (toolName === 'read_file' && parameters.files && Array.isArray(parameters.files)) {
+                // Create individual tool tokens for each complete file in the array
+                (parameters.files as Array<unknown>).forEach((file: unknown, fileIdx: number) => {
+                  if (typeof file === 'object' && file !== null && 'path' in file) {
+                    tokens.push({
+                      type: 'tool',
+                      toolName,
+                      parameters: { path: (file as { path: string }).path, ...(file as Record<string, unknown>) },
+                      rawContent: `<function_calls><invoke name="${toolName}"><parameter name="path">${(file as { path: string }).path}</parameter></invoke></function_calls>`,
+                      index: tokenIndex++,
+                      isClosed: false,
+                      toolExecutionId: `${messageId}-tool-${toolIndex}-file-${fileIdx}`
+                    });
+                  }
+                });
+                toolIndex++;
+              } else {
+                // Regular single tool token
+                tokens.push({
+                  type: 'tool',
+                  toolName,
+                  parameters,
+                  rawContent,
+                  index: tokenIndex++,
+                  isClosed: false,
+                  toolExecutionId: `${messageId}-tool-${toolIndex++}`
+                });
+              }
+            }
+          } else {
+            // Try to extract partial invoke opening tag for streaming
+            const partialInvokeMatch = innerContent.match(/<invoke\s+name=["']([^"']+)["']>/);
+            if (partialInvokeMatch) {
+              const toolName = partialInvokeMatch[1];
+              const invokeContentStart = partialInvokeMatch.index! + partialInvokeMatch[0].length;
+              const partialInvokeContent = innerContent.slice(invokeContentStart);
+              const parameters = parseXMLParameters(partialInvokeContent);
+              
+              if (toolName && typeof toolName === 'string') {
+                tokens.push({
+                  type: 'tool',
+                  toolName,
+                  parameters,
+                  rawContent,
+                  index: tokenIndex++,
+                  isClosed: false,
+                  toolExecutionId: `${messageId}-tool-${toolIndex++}`
+                });
+              }
             }
           }
         } catch {
@@ -356,18 +394,18 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
     else {
       let remainingText = content.slice(position);
       
-      // Hide incomplete function_call tag markers during streaming (e.g., "<", "<f", "<func", "<function", etc.)
+      // Hide incomplete function_calls tag markers during streaming (e.g., "<", "<f", "<func", "<function_", etc.)
       // This prevents flashing when AI is still typing the opening tag
-      // Check if remaining text ends with partial function_call tag
+      // Check if remaining text ends with partial function_calls tag
       let hasIncompleteTag = false;
-      const functionCallTag = 'function_call';
+      const functionCallsTag = 'function_calls';
       
       if (remainingText.endsWith('<')) {
         hasIncompleteTag = true;
       } else {
-        // Check for partial <function_call>
-        for (let i = 1; i <= functionCallTag.length; i++) {
-          const partial = `<${functionCallTag.slice(0, i)}`;
+        // Check for partial <function_calls>
+        for (let i = 1; i <= functionCallsTag.length; i++) {
+          const partial = `<${functionCallsTag.slice(0, i)}`;
           if (remainingText.endsWith(partial)) {
             hasIncompleteTag = true;
             break;

@@ -93,12 +93,12 @@ ${hasEditingTools ? `2. **apply_diff is PRIMARY editing tool** - Use for ALL tar
 
 **Examples:**
 ❌ WRONG - calling read_file on directory:
-<function_call><tool_name>read_file</tool_name><path>src/app</path></function_call>
+<function_calls><invoke name="read_file"><parameter name="path">src/app</parameter></invoke></function_calls>
 
 ✅ CORRECT - list directory first, then read specific file:
-<function_call><tool_name>list_files</tool_name><path>src/app</path></function_call>
+<function_calls><invoke name="list_files"><parameter name="path">src/app</parameter></invoke></function_calls>
 (sees: page.tsx, layout.tsx, etc.)
-<function_call><tool_name>read_file</tool_name><path>src/app/page.tsx</path></function_call>
+<function_calls><invoke name="read_file"><parameter name="path">src/app/page.tsx</parameter></invoke></function_calls>
 
 **Tool Quick Ref:**
 - **list_files**: List directory contents. Use for paths WITHOUT extensions
@@ -130,84 +130,61 @@ Use tools to perform workspace operations when necessary.
 <tool_format>
 🚨 **MANDATORY XML FORMAT - NO EXCEPTIONS** 🚨
 
-🚫 **CRITICAL: NEVER USE = IN XML TAGS** 🚫
-❌ WRONG: <tool_name=list_files>
-✅ CORRECT: <tool_name>list_files</tool_name>
-
 You MUST use ONLY this XML format:
-<function_call>
-<tool_name>TOOL_NAME</tool_name>
-<parameter_name>value</parameter_name>
-</function_call>
-
-⚠️ **DO NOT USE XML ATTRIBUTES - Values go BETWEEN tags, NOT after =** ⚠️
+<function_calls>
+<invoke name="TOOL_NAME">
+<parameter name="param_name">value</parameter>
+</invoke>
+</function_calls>
 
 **ABSOLUTE RULES:**
-1. 🚫 **NEVER EVER use = inside tags** - <tool_name=value> is FORBIDDEN - use <tool_name>value</tool_name>
-2. **NEVER** use <|tool_call_begin|>, <|tool_calls_section_begin|>, or any |token| format
-3. **NEVER** use functions.tool_name:0 format
-4. **NEVER** use markdown code blocks
-5. **ALWAYS** use <function_call> tags
-6. **ALWAYS** close with </function_call>
+1. **ALWAYS** wrap tool calls in <function_calls> tags
+2. **ALWAYS** use <invoke name="TOOL_NAME"> with the tool name as an attribute
+3. **ALWAYS** use <parameter name="param_name"> with the parameter name as an attribute
+4. **NEVER** use <|tool_call_begin|>, <|tool_calls_section_begin|>, or any |token| format
+5. **NEVER** use functions.tool_name:0 format
+6. **NEVER** use markdown code blocks for tool calls
 
-✅ **CORRECT FORMAT ONLY (value BETWEEN tags):**
-<function_call><tool_name>read_file</tool_name><path>src/app.ts</path></function_call>
+✅ **CORRECT FORMAT:**
+<function_calls>
+<invoke name="read_file">
+<parameter name="path">src/app.ts</parameter>
+</invoke>
+</function_calls>
 
-✅ **CORRECT - tool name goes BETWEEN <tool_name> and </tool_name>:**
-<function_call><tool_name>list_files</tool_name><path>.</path></function_call>
+✅ **CORRECT - Compact format:**
+<function_calls><invoke name="list_files"><parameter name="path">.</parameter></invoke></function_calls>
 
 ❌ **FORBIDDEN FORMATS (WILL FAIL):**
 - <|tool_call_begin|>functions.read_file:0<|tool_call_end|>
 - functions.read_file:0
 - \`\`\`tool:read_file
-- <tool_name>read_file</tool_name>
-- <tool_name=read_file> (XML attributes are FORBIDDEN)
-- <function_call><tool_name=read_file></tool_name> (NEVER use = in tags)
+- <function_call><tool_name>read_file</tool_name>...</function_call>
 - Any format with |tokens|
 
 **CRITICAL XML RULES:**
-1. **NO XML ATTRIBUTES**: NEVER use = inside tags. Use <tool_name>value</tool_name> NOT <tool_name=value>
-2. **ONE opening tag per call**: Never output <function_call> twice
-3. **ALWAYS close with </function_call>**: Every opening tag needs a closing tag
-4. **No nested function_call tags**: Never put <function_call> inside another <function_call>
-5. **Sequential calls**: Close previous call before opening next one
+1. **ONE function_calls block per tool**: Close </function_calls> before starting a new one
+2. **No nested function_calls tags**: Never put <function_calls> inside another <function_calls>
+3. **Sequential calls**: Close previous call before opening next one
 
 Parameter types:
-- Primitives: Direct value
-- Arrays/Objects: JSON format (e.g., <files>[...]</files>)
-
-✅ CORRECT - Single opening tag:
-<function_call><tool_name>read_file</tool_name><path>src/app.ts</path></function_call>
+- Primitives: Direct value between <parameter> tags
+- Arrays/Objects: JSON format (e.g., <parameter name="files">[...]</parameter>)
 
 ✅ CORRECT - Multiple sequential calls (each properly closed):
-<function_call><tool_name>read_file</tool_name><path>file1.ts</path></function_call>
-<function_call><tool_name>read_file</tool_name><path>file2.ts</path></function_call>
+<function_calls><invoke name="read_file"><parameter name="path">file1.ts</parameter></invoke></function_calls>
+<function_calls><invoke name="read_file"><parameter name="path">file2.ts</parameter></invoke></function_calls>
 
 ❌ WRONG - Duplicate opening tag:
-<function_call>
-<function_call>
-<tool_name>read_file</tool_name>
+<function_calls>
+<function_calls>
+<invoke name="read_file">
 
 ❌ WRONG - Missing closing tag:
-<function_call><tool_name>read_file</tool_name><path>file.ts</path>
-<function_call><tool_name>grep_search</tool_name>
-
-❌ WRONG - Token format:
-<|tool_calls_section_begin|><|tool_call_begin|>functions.read_file:0<|tool_call_end|><|tool_calls_section_end|>
-
-❌ WRONG - Functions format:
-functions.read_file:0
-
-❌ WRONG - XML attributes (THIS IS THE MOST COMMON ERROR - DO NOT DO THIS):
-<function_call><tool_name=list_files></tool_name><path>.</path></function_call>
-THIS WILL FAIL! Use <tool_name>list_files</tool_name> instead!
-
-❌ WRONG - Another attribute example (FORBIDDEN):
-<function_call><tool_name=read_file></tool_name><path=src/app.ts></path></function_call>
+<function_calls><invoke name="read_file"><parameter name="path">file.ts</parameter></invoke>
+<function_calls><invoke name="grep_search">
 
 **IF YOU USE ANY FORMAT OTHER THAN THE XML FORMAT SHOWN ABOVE, YOUR TOOL CALLS WILL FAIL!**
-**CRITICAL: Tags must contain values between opening and closing, NOT as attributes with =**
-**REMEMBER: <tag>value</tag> is CORRECT, <tag=value> is WRONG and will cause errors!**
 </tool_format>
 
 ${explicitToolList}<available_tools>
@@ -221,47 +198,54 @@ ${enabledTools
           read_file: `Read a single file. Defaults to first 100 lines. Use offset/limit for custom ranges.
 
 Default (first 100 lines):
-<function_call>
-<tool_name>read_file</tool_name>
-<path>src/app.ts</path>
-</function_call>
+<function_calls>
+<invoke name="read_file">
+<parameter name="path">src/app.ts</parameter>
+</invoke>
+</function_calls>
 
 Custom range:
-<function_call>
-<tool_name>read_file</tool_name>
-<path>src/large-file.ts</path>
-<offset>101</offset>
-<limit>50</limit>
-</function_call>
+<function_calls>
+<invoke name="read_file">
+<parameter name="path">src/large-file.ts</parameter>
+<parameter name="offset">101</parameter>
+<parameter name="limit">50</parameter>
+</invoke>
+</function_calls>
 
 More lines (up to 200):
-<function_call>
-<tool_name>read_file</tool_name>
-<path>src/medium.ts</path>
-<limit>200</limit>
-</function_call>
+<function_calls>
+<invoke name="read_file">
+<parameter name="path">src/medium.ts</parameter>
+<parameter name="limit">200</parameter>
+</invoke>
+</function_calls>
 
 Multiple files (call sequentially):
-<function_call>
-<tool_name>read_file</tool_name>
-<path>src/app.ts</path>
-</function_call>
+<function_calls>
+<invoke name="read_file">
+<parameter name="path">src/app.ts</parameter>
+</invoke>
+</function_calls>
 
-<function_call>
-<tool_name>read_file</tool_name>
-<path>src/index.ts</path>
-</function_call>`,
-          write_to_file: `<function_call>
-<tool_name>write_to_file</tool_name>
-<path>src/new-component.tsx</path>
-<content>export default function Component() {
+<function_calls>
+<invoke name="read_file">
+<parameter name="path">src/index.ts</parameter>
+</invoke>
+</function_calls>`,
+          write_to_file: `<function_calls>
+<invoke name="write_to_file">
+<parameter name="path">src/new-component.tsx</parameter>
+<parameter name="content">export default function Component() {
   return <div>Hello</div>;
-}</content>
-</function_call>`,
-          list_files: `<function_call>
-<tool_name>list_files</tool_name>
-<path>src/app</path>
-</function_call>
+}</parameter>
+</invoke>
+</function_calls>`,
+          list_files: `<function_calls>
+<invoke name="list_files">
+<parameter name="path">src/app</parameter>
+</invoke>
+</function_calls>
 
 Returns:
 {
@@ -270,46 +254,51 @@ Returns:
 }
 
 Next steps:
-- To explore "components" → <function_call><tool_name>list_files</tool_name><path>src/app/components</path></function_call>
-- To read "page.tsx" → <function_call><tool_name>read_file</tool_name><path>src/app/page.tsx</path></function_call>`,
+- To explore "components" → <function_calls><invoke name="list_files"><parameter name="path">src/app/components</parameter></invoke></function_calls>
+- To read "page.tsx" → <function_calls><invoke name="read_file"><parameter name="path">src/app/page.tsx</parameter></invoke></function_calls>`,
           grep_search: `Smart content search.
 
 Natural-language (semantic-lite, default):
-<function_call>
-<tool_name>grep_search</tool_name>
-<query>job content moderation pending rejected</query>
-<path>src</path>
-</function_call>
+<function_calls>
+<invoke name="grep_search">
+<parameter name="query">job content moderation pending rejected</parameter>
+<parameter name="path">src</parameter>
+</invoke>
+</function_calls>
 
 With regex:
-<function_call>
-<tool_name>grep_search</tool_name>
-<query>import.*from</query>
-<isRegex>true</isRegex>
-<includes>["**/*.ts"]</includes>
-</function_call>`,
+<function_calls>
+<invoke name="grep_search">
+<parameter name="query">import.*from</parameter>
+<parameter name="isRegex">true</parameter>
+<parameter name="includes">["**/*.ts"]</parameter>
+</invoke>
+</function_calls>`,
           glob_search: `Smart file discovery.
 
 Glob pattern (precise):
-<function_call>
-<tool_name>glob_search</tool_name>
-<pattern>*.ts</pattern>
-<path>src</path>
-</function_call>
+<function_calls>
+<invoke name="glob_search">
+<parameter name="pattern">*.ts</parameter>
+<parameter name="path">src</parameter>
+</invoke>
+</function_calls>
 
 Multiple patterns:
-<function_call>
-<tool_name>glob_search</tool_name>
-<pattern>["*.ts", "*.tsx"]</pattern>
-<path>src/components</path>
-</function_call>
+<function_calls>
+<invoke name="glob_search">
+<parameter name="pattern">["*.ts", "*.tsx"]</parameter>
+<parameter name="path">src/components</parameter>
+</invoke>
+</function_calls>
 
 Natural-language fuzzy path (no *, ?, [], {}):
-<function_call>
-<tool_name>glob_search</tool_name>
-<pattern>job content moderation</pattern>
-<path>src</path>
-</function_call>
+<function_calls>
+<invoke name="glob_search">
+<parameter name="pattern">job content moderation</parameter>
+<parameter name="path">src</parameter>
+</invoke>
+</function_calls>
 
 Returns:
 {
@@ -319,10 +308,11 @@ Returns:
     {"path": "src/utils.ts", "name": "utils.ts", "size": 1024, "extension": "ts"}
   ]
 }`,
-          delete_file: `<function_call>
-<tool_name>delete_file</tool_name>
-<path>src/old-file.ts</path>
-</function_call>`,
+          delete_file: `<function_calls>
+<invoke name="delete_file">
+<parameter name="path">src/old-file.ts</parameter>
+</invoke>
+</function_calls>`,
         };
         return examples[tool.id] || '';
       })

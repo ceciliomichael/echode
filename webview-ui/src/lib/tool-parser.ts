@@ -2,96 +2,68 @@ import type { ToolCall, ParsedToolBlock } from '../types/tool';
 
 /**
  * Centralized regex pattern for tool blocks
- * Format: <function_call><tool_name>TOOL_NAME</tool_name><param>value</param>...</function_call>
+ * Format: <function_calls><invoke name="TOOL_NAME"><parameter name="param">value</parameter></invoke></function_calls>
  * 
  * Pattern breakdown:
- * - <function_call> - Opening tag
- * - ([\s\S]*?) - Non-greedy content capture (tool name + parameters)
- * - </function_call> - Closing tag
+ * - <function_calls> - Opening wrapper tag
+ * - ([\s\S]*?) - Non-greedy content capture (invoke blocks with parameters)
+ * - </function_calls> - Closing wrapper tag
  */
-const TOOL_BLOCK_REGEX = /<function_call>([\s\S]*?)<\/function_call>/;
-const TOOL_BLOCK_REGEX_GLOBAL = /<function_call>([\s\S]*?)<\/function_call>/g;
+const TOOL_BLOCK_REGEX = /<function_calls>([\s\S]*?)<\/function_calls>/;
+const TOOL_BLOCK_REGEX_GLOBAL = /<function_calls>([\s\S]*?)<\/function_calls>/g;
 
 /**
- * Parse XML-style parameters from tool block content
+ * Regex to extract invoke blocks with tool name from attribute
+ * Captures: name attribute value and inner content
+ */
+const INVOKE_BLOCK_REGEX = /<invoke\s+name=["']([^"']+)["']>([\s\S]*?)<\/invoke>/g;
+
+/**
+ * Parse XML-style parameters from invoke block content
+ * New format: <parameter name="paramName">value</parameter>
  * Supports both simple values and JSON values inside parameter tags
  * Also handles partial/unclosed tags during streaming
  */
 function parseXMLParameters(content: string): Record<string, unknown> {
   const parameters: Record<string, unknown> = {};
   
-  // First pass: Extract all COMPLETE parameter tags (with closing tags)
-  // Use balanced tag matching to handle content that contains tag-like strings
-  // Example: <content></div></content> should extract "</div>" not stop at first ">"
-  // This prevents the greedy regex bug where content like "</parameter_name>" inside
-  // the actual code would be incorrectly treated as the closing tag
-  const paramNameRegex = /<([\w_-]+)>/g;
+  // First pass: Extract all COMPLETE parameter tags with name attribute
+  // Format: <parameter name="paramName">value</parameter>
+  const paramRegex = /<parameter\s+name=["']([^"']+)["']>([\s\S]*?)<\/parameter>/g;
   let match: RegExpExecArray | null;
   const processedParams = new Set<string>();
   
-  while ((match = paramNameRegex.exec(content)) !== null) {
+  while ((match = paramRegex.exec(content)) !== null) {
     const paramName = match[1];
-    const contentStart = match.index + match[0].length;
+    const paramValue = match[2];
     
     // Skip if already processed (handles duplicate tags)
     if (processedParams.has(paramName)) {
       continue;
     }
     
-    // Find matching closing tag using balanced counting
-    // This handles cases where the content itself contains "</paramName>"
-    const closingTag = `</${paramName}>`;
-    const openingTag = `<${paramName}>`;
-    let depth = 1; // We've already seen one opening tag
-    let pos = contentStart;
-    let closingPos = -1;
+    // Don't trim for old_string/new_string/content/edits/diff/blocks - preserve exact whitespace for code
+    const shouldPreserveWhitespace = ['old_string', 'new_string', 'content', 'edits', 'diff', 'blocks'].includes(paramName);
+    // Strip only leading/trailing newlines (AI adds newline after opening tag), preserve internal whitespace
+    const finalValue = shouldPreserveWhitespace 
+      ? paramValue.replace(/^\n/, '').replace(/\n$/, '') 
+      : paramValue.trim();
     
-    while (pos < content.length && depth > 0) {
-      const nextOpening = content.indexOf(openingTag, pos);
-      const nextClosing = content.indexOf(closingTag, pos);
-      
-      // No more tags found
-      if (nextClosing === -1) {
-        break;
-      }
-      
-      // Found closing tag before any opening tag (or no opening tag)
-      if (nextOpening === -1 || nextClosing < nextOpening) {
-        depth--;
-        if (depth === 0) {
-          closingPos = nextClosing;
-          break;
-        }
-        pos = nextClosing + closingTag.length;
-      } else {
-        // Found opening tag before closing tag
-        depth++;
-        pos = nextOpening + openingTag.length;
-      }
-    }
-    
-    if (closingPos !== -1) {
-      const paramValue = content.slice(contentStart, closingPos);
-      
-      // Don't trim for old_string/new_string/content/edits/diff/blocks - preserve exact whitespace for code
-      const shouldPreserveWhitespace = ['old_string', 'new_string', 'content', 'edits', 'diff', 'blocks'].includes(paramName);
-      // Strip only leading/trailing newlines (AI adds newline after opening tag), preserve internal whitespace
-      const finalValue = shouldPreserveWhitespace 
-        ? paramValue.replace(/^\n/, '').replace(/\n$/, '') 
-        : paramValue.trim();
-      
-      parameters[paramName] = parseParamValue(finalValue, shouldPreserveWhitespace);
-      processedParams.add(paramName);
-    }
+    parameters[paramName] = parseParamValue(finalValue, shouldPreserveWhitespace);
+    processedParams.add(paramName);
   }
   
-  // Second pass: Extract PARTIAL/UNCLOSED tags (streaming content)
-  // Find opening tags that don't have corresponding closing tags
-  const openingTagRegex = /<([\w_-]+)>/g;
-  const openingTags: Array<{name: string; pos: number}> = [];
+  // Second pass: Extract PARTIAL/UNCLOSED parameter tags (streaming content)
+  // Look for opening parameter tags that don't have closing tags
+  const openingParamRegex = /<parameter\s+name=["']([^"']+)["']>/g;
+  const openingTags: Array<{name: string; pos: number; fullMatch: string}> = [];
   
-  while ((match = openingTagRegex.exec(content)) !== null) {
-    openingTags.push({ name: match[1], pos: match.index + match[0].length });
+  while ((match = openingParamRegex.exec(content)) !== null) {
+    openingTags.push({ 
+      name: match[1], 
+      pos: match.index + match[0].length,
+      fullMatch: match[0]
+    });
   }
   
   // Check each opening tag for unclosed content
@@ -99,8 +71,8 @@ function parseXMLParameters(content: string): Record<string, unknown> {
     // Skip if we already have this parameter (it was complete)
     if (parameters[tag.name] !== undefined) continue;
     
-    // Extract partial content from opening tag to end or next opening tag
-    const closingTag = `</${tag.name}>`;
+    // Extract partial content from opening tag to end or next parameter tag
+    const closingTag = '</parameter>';
     const closingPos = content.indexOf(closingTag, tag.pos);
     
     // If no closing tag found, this is a streaming parameter
@@ -224,30 +196,22 @@ function extractCompleteJsonObjects(partialArray: string): unknown[] {
 }
 
 /**
- * Parse a single tool block and return structured data
+ * Parse a single invoke block and return structured data
+ * Extracts tool name from invoke tag attribute: <invoke name="TOOL_NAME">
  */
-function parseToolBlockInternal(
-  contentStr: string,
+function parseInvokeBlock(
+  invokeContent: string,
+  toolName: string,
   rawContent: string,
 ): ParsedToolBlock | null {
   try {
-    // Parse XML-style parameters from the content
-    const parameters = parseXMLParameters(contentStr);
-    
-    // Extract tool_name from parameters
-    const toolName = parameters.tool_name as string;
-    if (!toolName || typeof toolName !== 'string') {
-      return null;
-    }
-    
-    // Remove tool_name from parameters as it's metadata
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { tool_name, ...actualParameters } = parameters;
+    // Parse XML-style parameters from the invoke content
+    const parameters = parseXMLParameters(invokeContent);
 
     return {
       type: 'tool',
       toolName,
-      parameters: actualParameters,
+      parameters,
       rawContent,
     };
   } catch {
@@ -256,8 +220,37 @@ function parseToolBlockInternal(
 }
 
 /**
+ * Parse function_calls block and extract all invoke blocks
+ * Returns array of parsed tool blocks
+ */
+function parseFunctionCallsBlock(
+  contentStr: string,
+  rawContent: string,
+): ParsedToolBlock[] {
+  const toolBlocks: ParsedToolBlock[] = [];
+  
+  // Reset regex lastIndex
+  const invokeRegex = new RegExp(INVOKE_BLOCK_REGEX.source, 'g');
+  let match: RegExpExecArray | null;
+  
+  while ((match = invokeRegex.exec(contentStr)) !== null) {
+    const toolName = match[1];
+    const invokeContent = match[2];
+    
+    if (toolName && typeof toolName === 'string') {
+      const parsed = parseInvokeBlock(invokeContent, toolName, rawContent);
+      if (parsed) {
+        toolBlocks.push(parsed);
+      }
+    }
+  }
+  
+  return toolBlocks;
+}
+
+/**
  * Extracts tool calls from XML-style tool blocks
- * Format: <function_call><tool_name>TOOL_NAME</tool_name><param>value</param></function_call>
+ * Format: <function_calls><invoke name="TOOL_NAME"><parameter name="param">value</parameter></invoke></function_calls>
  */
 export function parseToolBlock(content: string): ParsedToolBlock | null {
   const match = content.match(new RegExp(`^${TOOL_BLOCK_REGEX.source}$`, 'm'));
@@ -267,11 +260,11 @@ export function parseToolBlock(content: string): ParsedToolBlock | null {
   }
 
   const innerContent = match[1];
-  const parsed = parseToolBlockInternal(innerContent, match[0]);
+  const toolBlocks = parseFunctionCallsBlock(innerContent, match[0]);
   
+  // Return the first tool block (for single tool call compatibility)
   // Allow all tool names to pass through - validation happens at execution time
-  // This ensures invalid tools return proper error messages to the AI instead of aborting
-  return parsed;
+  return toolBlocks.length > 0 ? toolBlocks[0] : null;
 }
 
 /**
@@ -339,9 +332,9 @@ export function trimToLastCompleteToolBlock(content: string): string {
   regex.lastIndex = 0;
   match = regex.exec(contentWithoutThinkBlocks);
   while (match !== null) {
-    // Parse tool name
-    const parsed = parseToolBlockInternal(match[1], match[0]);
-    if (parsed) {
+    // Parse invoke blocks within function_calls
+    const parsedBlocks = parseFunctionCallsBlock(match[1], match[0]);
+    if (parsedBlocks.length > 0) {
       lastToolBlockEnd = match.index + match[0].length;
     }
     match = regex.exec(contentWithoutThinkBlocks);
@@ -356,9 +349,9 @@ export function trimToLastCompleteToolBlock(content: string): string {
     originalRegex.lastIndex = 0;
     originalMatch = originalRegex.exec(content);
     while (originalMatch !== null) {
-      // Parse tool name
-      const parsed = parseToolBlockInternal(originalMatch[1], originalMatch[0]);
-      if (parsed) {
+      // Parse invoke blocks
+      const parsedBlocks = parseFunctionCallsBlock(originalMatch[1], originalMatch[0]);
+      if (parsedBlocks.length > 0) {
         originalMatches.push({
           index: originalMatch.index,
           length: originalMatch[0].length,
@@ -402,8 +395,8 @@ export function trimToFirstCompleteToolBlock(content: string): string {
   match = regex.exec(contentWithoutThinkBlocks);
   
   while (match !== null) {
-    const parsed = parseToolBlockInternal(match[1], match[0]);
-    if (parsed) {
+    const parsedBlocks = parseFunctionCallsBlock(match[1], match[0]);
+    if (parsedBlocks.length > 0) {
       // Found a tool - map back to original content
       const originalRegex = new RegExp(TOOL_BLOCK_REGEX.source, 'g');
       let originalMatch: RegExpExecArray | null;
@@ -412,8 +405,8 @@ export function trimToFirstCompleteToolBlock(content: string): string {
       originalMatch = originalRegex.exec(content);
       
       while (originalMatch !== null) {
-        const originalParsed = parseToolBlockInternal(originalMatch[1], originalMatch[0]);
-        if (originalParsed) {
+        const originalParsedBlocks = parseFunctionCallsBlock(originalMatch[1], originalMatch[0]);
+        if (originalParsedBlocks.length > 0) {
           return content.slice(0, originalMatch.index + originalMatch[0].length);
         }
         originalMatch = originalRegex.exec(content);
@@ -428,49 +421,49 @@ export function trimToFirstCompleteToolBlock(content: string): string {
 
 /**
  * Clean up common AI mistakes in tool call formatting
- * Handles cases like duplicate opening tags: <function_call><function_call>
+ * Handles cases like duplicate opening tags: <function_calls><function_calls>
  */
 function cleanToolCallContent(content: string): string {
   let cleaned = content;
   let hadErrors = false;
   
-  // Remove duplicate opening <function_call> tags
-  // Pattern: <function_call>\s*<function_call> -> <function_call>
-  const duplicateOpenings = cleaned.match(/<function_call>\s*<function_call>/g);
+  // Remove duplicate opening <function_calls> tags
+  // Pattern: <function_calls>\s*<function_calls> -> <function_calls>
+  const duplicateOpenings = cleaned.match(/<function_calls>\s*<function_calls>/g);
   if (duplicateOpenings) {
     console.log(`[ToolParser] 🔧 Fixed ${duplicateOpenings.length} duplicate opening tag(s)`);
     hadErrors = true;
     cleaned = cleaned.replace(
-      /<function_call>\s*<function_call>/g,
-      '<function_call>'
+      /<function_calls>\s*<function_calls>/g,
+      '<function_calls>'
     );
   }
   
-  // Remove duplicate closing </function_call> tags
-  const duplicateClosings = cleaned.match(/<\/function_call>\s*<\/function_call>/g);
+  // Remove duplicate closing </function_calls> tags
+  const duplicateClosings = cleaned.match(/<\/function_calls>\s*<\/function_calls>/g);
   if (duplicateClosings) {
     console.log(`[ToolParser] 🔧 Fixed ${duplicateClosings.length} duplicate closing tag(s)`);
     hadErrors = true;
     cleaned = cleaned.replace(
-      /<\/function_call>\s*<\/function_call>/g,
-      '</function_call>'
+      /<\/function_calls>\s*<\/function_calls>/g,
+      '</function_calls>'
     );
   }
   
   // Fix cases where AI forgot to close previous tag and opened a new one
-  // Pattern: <function_call>...(no closing tag)...<function_call> -> </function_call><function_call>
-  // Look for: <function_call>...content...<function_call> where middle content has <tool_name>
+  // Pattern: <function_calls>...(no closing tag)...<function_calls> -> </function_calls><function_calls>
+  // Look for: <function_calls>...content...<function_calls> where middle content has <invoke
   let unclosedFixed = 0;
   cleaned = cleaned.replace(
-    /(<function_call>[\s\S]*?<tool_name>[\s\S]*?<\/tool_name>[\s\S]*?)(<function_call>)/g,
+    /(<function_calls>[\s\S]*?<invoke[\s\S]*?<\/invoke>[\s\S]*?)(<function_calls>)/g,
     (match, firstBlock, secondTag) => {
       // Check if firstBlock already has a closing tag
-      if (firstBlock.includes('</function_call>')) {
+      if (firstBlock.includes('</function_calls>')) {
         return match; // Already properly closed
       }
       // Add closing tag before opening new one
       unclosedFixed++;
-      return firstBlock + '</function_call>\n' + secondTag;
+      return firstBlock + '</function_calls>\n' + secondTag;
     }
   );
   
@@ -491,16 +484,12 @@ function cleanToolCallContent(content: string): string {
     );
   }
   
-  // Fix malformed tool_name tags: <apply_diff</tool_name> -> <tool_name>apply_diff</tool_name>
-  // Some AI models output the tool name directly instead of wrapping it properly
-  const malformedToolNames = cleaned.match(/<([\w_-]+)<\/tool_name>/g);
-  if (malformedToolNames) {
-    console.log(`[ToolParser] 🔧 Fixed ${malformedToolNames.length} malformed tool_name tag(s) (e.g., <apply_diff</tool_name> -> <tool_name>apply_diff</tool_name>)`);
+  // Fix malformed invoke tags: <invoke name= without proper closing
+  // Some AI models may format the invoke tag incorrectly
+  const malformedInvokes = cleaned.match(/<invoke\s+name=["'][^"']+["']\s*[^>]*(?!>)/g);
+  if (malformedInvokes) {
+    console.log(`[ToolParser] 🔧 Fixed ${malformedInvokes.length} malformed invoke tag(s)`);
     hadErrors = true;
-    cleaned = cleaned.replace(
-      /<([\w_-]+)<\/tool_name>/g,
-      '<tool_name>$1</tool_name>'
-    );
   }
   
   if (hadErrors) {
@@ -525,19 +514,17 @@ export function extractToolBlocks(content: string): ParsedToolBlock[] {
   contentWithoutThinkBlocks = cleanToolCallContent(contentWithoutThinkBlocks);
 
   const toolBlocks: ParsedToolBlock[] = [];
+  
+  // Reset regex and search for function_calls blocks
+  const regex = new RegExp(TOOL_BLOCK_REGEX_GLOBAL.source, 'g');
   let match: RegExpExecArray | null;
 
-  match = TOOL_BLOCK_REGEX_GLOBAL.exec(contentWithoutThinkBlocks);
-  while (match !== null) {
+  while ((match = regex.exec(contentWithoutThinkBlocks)) !== null) {
     const innerContent = match[1];
-    const parsed = parseToolBlockInternal(innerContent, match[0]);
+    const parsedBlocks = parseFunctionCallsBlock(innerContent, match[0]);
     
-    // Allow all tool names to pass through
-    if (parsed) {
-      toolBlocks.push(parsed);
-    }
-    
-    match = TOOL_BLOCK_REGEX_GLOBAL.exec(contentWithoutThinkBlocks);
+    // Add all parsed invoke blocks
+    toolBlocks.push(...parsedBlocks);
   }
 
   return toolBlocks;
@@ -580,7 +567,7 @@ export function extractParallelizableToolBlocks(content: string): ParsedToolBloc
   
   // Check if content starts with tool blocks (allowing whitespace)
   const trimmedContent = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-  const startsWithToolBlock = trimmedContent.startsWith('<function_call>');
+  const startsWithToolBlock = trimmedContent.startsWith('<function_calls>');
   
   if (!startsWithToolBlock) {
     // If content doesn't start with a tool block, only execute first tool

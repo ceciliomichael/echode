@@ -38,38 +38,42 @@ Parameters:
 - caseSensitive: (optional) Case-sensitive search (default: smart case: if query has uppercase, search is case-sensitive; otherwise case-insensitive).
 - includes: (optional) Glob patterns to filter files (e.g., *.ts,*.tsx,src/**).
 
-Usage (XML-style call):
-<function_call>
-<tool_name>grep_search</tool_name>
-<query>handleSubmit</query>
-<path>src</path>
-<isRegex>false</isRegex>
-</function_call>
+Usage:
+<function_calls>
+<invoke name="grep_search">
+<parameter name="query">handleSubmit</parameter>
+<parameter name="path">src</parameter>
+<parameter name="isRegex">false</parameter>
+</invoke>
+</function_calls>
 
 Examples:
 
 1. Find all references to a function in src:
-<function_call>
-<tool_name>grep_search</tool_name>
-<query>handleSubmit</query>
-<path>src</path>
-</function_call>
+<function_calls>
+<invoke name="grep_search">
+<parameter name="query">handleSubmit</parameter>
+<parameter name="path">src</parameter>
+</invoke>
+</function_calls>
 
 2. Regex search for React imports:
-<function_call>
-<tool_name>grep_search</tool_name>
-<query>import.*from.*react</query>
-<path>src</path>
-<isRegex>true</isRegex>
-</function_call>
+<function_calls>
+<invoke name="grep_search">
+<parameter name="query">import.*from.*react</parameter>
+<parameter name="path">src</parameter>
+<parameter name="isRegex">true</parameter>
+</invoke>
+</function_calls>
 
 3. Search only TypeScript files:
-<function_call>
-<tool_name>grep_search</tool_name>
-<query>interface User</query>
-<path>src</path>
-<includes>*.ts,*.tsx</includes>
-</function_call>
+<function_calls>
+<invoke name="grep_search">
+<parameter name="query">interface User</parameter>
+<parameter name="path">src</parameter>
+<parameter name="includes">*.ts,*.tsx</parameter>
+</invoke>
+</function_calls>
 
 IMPORTANT search strategy:
 - Prefer exact identifiers (component names, function names, type names) over generic words.
@@ -79,7 +83,7 @@ IMPORTANT search strategy:
 - After locating matches, use read_file on the specific file(s) to inspect full context before editing.`,
     icon: Search,
     usage: 'Search for patterns across workspace files',
-    formatExample: '<function_call>\n<tool_name>grep_search</tool_name>\n<query>function</query>\n<path>src</path>\n<caseSensitive>false</caseSensitive>\n</function_call>',
+    formatExample: '<function_calls>\n<invoke name="grep_search">\n<parameter name="query">function</parameter>\n<parameter name="path">src</parameter>\n</invoke>\n</function_calls>',
   },
   handler: {
     execute: executeGrepSearch,

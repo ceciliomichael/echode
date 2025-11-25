@@ -38,7 +38,7 @@ registerToolPlugin({
 If both tasks and todos are provided, tasks takes precedence.`,
     icon: ListChecks,
     usage: 'Manage session todo list by writing tasks',
-    formatExample: '<function_call>\n<tool_name>todo_write</tool_name>\n<tasks>[{"id":"1","content":"Implement auth","status":"pending"},{"id":"2","content":"Add tests","status":"in_progress"}]</tasks>\n</function_call>',
+    formatExample: '<function_calls>\n<invoke name="todo_write">\n<parameter name="tasks">[{"id":"1","content":"Implement auth","status":"pending"},{"id":"2","content":"Add tests","status":"in_progress"}]</parameter>\n</invoke>\n</function_calls>',
   },
   handler: {
     execute: executeTodoWrite,

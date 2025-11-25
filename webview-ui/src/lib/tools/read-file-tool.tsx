@@ -33,24 +33,27 @@ Parameters:
 Examples:
 
 1. Single file:
-<function_call>
-<tool_name>read_file</tool_name>
-<path>src/app.ts</path>
-</function_call>
+<function_calls>
+<invoke name="read_file">
+<parameter name="path">src/app.ts</parameter>
+</invoke>
+</function_calls>
 
 2. Multiple files (parallel read):
-<function_call>
-<tool_name>read_file</tool_name>
-<paths>["src/components/header.tsx", "src/components/footer.tsx", "src/utils/helpers.ts"]</paths>
-</function_call>
+<function_calls>
+<invoke name="read_file">
+<parameter name="paths">["src/components/header.tsx", "src/components/footer.tsx", "src/utils/helpers.ts"]</parameter>
+</invoke>
+</function_calls>
 
 3. Custom line range:
-<function_call>
-<tool_name>read_file</tool_name>
-<path>src/large.ts</path>
-<offset>101</offset>
-<limit>50</limit>
-</function_call>
+<function_calls>
+<invoke name="read_file">
+<parameter name="path">src/large.ts</parameter>
+<parameter name="offset">101</parameter>
+<parameter name="limit">50</parameter>
+</invoke>
+</function_calls>
 
 IMPORTANT:
 - Use \`paths\` array when reading multiple related files - reads in parallel for efficiency
@@ -58,7 +61,7 @@ IMPORTANT:
 - If "Cannot read directory" error: use list_files on that path first`,
     icon: FileText,
     usage: 'Read file content - ONLY for paths WITH extensions',
-    formatExample: '<function_call>\n<tool_name>read_file</tool_name>\n<path>src/app.ts</path>\n</function_call>',
+    formatExample: '<function_calls>\n<invoke name="read_file">\n<parameter name="path">src/app.ts</parameter>\n</invoke>\n</function_calls>',
   },
   handler: {
     execute: executeReadFile,

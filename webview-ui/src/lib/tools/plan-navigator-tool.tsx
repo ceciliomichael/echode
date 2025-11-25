@@ -32,11 +32,12 @@ registerToolPlugin({
 - options: Array of 1-4 short option strings (required)
 
 **Example:**
-<function_call>
-<tool_name>plan_navigator</tool_name>
-<question>Which authentication method should we implement?</question>
-<options>["JWT with local storage", "Session cookies", "OAuth2 / Social Login"]</options>
-</function_call>
+<function_calls>
+<invoke name="plan_navigator">
+<parameter name="question">Which authentication method should we implement?</parameter>
+<parameter name="options">["JWT with local storage", "Session cookies", "OAuth2 / Social Login"]</parameter>
+</invoke>
+</function_calls>
 
 **Best practices:**
 - Keep the question clear and concise
@@ -44,7 +45,7 @@ registerToolPlugin({
 - Use this instead of asking open-ended questions when you have specific paths in mind`,
     icon: HelpCircle,
     usage: 'Present a question with clickable options',
-    formatExample: '<function_call>\n<tool_name>plan_navigator</tool_name>\n<question>Question text?</question>\n<options>["Option 1", "Option 2"]</options>\n</function_call>',
+    formatExample: '<function_calls>\n<invoke name="plan_navigator">\n<parameter name="question">Question text?</parameter>\n<parameter name="options">["Option 1", "Option 2"]</parameter>\n</invoke>\n</function_calls>',
   },
   handler: {
     execute: executePlanNavigator,

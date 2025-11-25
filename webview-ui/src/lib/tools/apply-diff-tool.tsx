@@ -113,18 +113,19 @@ def calculate_sum(items):
 
 
 Usage:
-<function_call>
-<tool_name>apply_diff</tool_name>
-<path>File path here</path>
-<diff>
+<function_calls>
+<invoke name="apply_diff">
+<parameter name="path">File path here</parameter>
+<parameter name="diff">
 Your search/replace content here
 You can use multi search/replace block in one diff block, but make sure to include the line numbers for each block.
 Only use a single line of '=======' between search and replacement content, because multiple '=======' will corrupt the file.
-</diff>
-</function_call>`,
+</parameter>
+</invoke>
+</function_calls>`,
         icon: FilePenLine,
         usage: 'PREFERRED for all targeted edits to existing files',
-        formatExample: '<function_call>\\n<tool_name>apply_diff</tool_name>\\n<path>src/file.ts</path>\\n<diff>\\n<<<<<<< SEARCH\\n:start_line:10\\n-------\\nold code\\n=======\\nnew code\\n>>>>>>> REPLACE\\n</diff>\\n</function_call>',
+        formatExample: '<function_calls>\n<invoke name="apply_diff">\n<parameter name="path">src/file.ts</parameter>\n<parameter name="diff">\n<<<<<<< SEARCH\n:start_line:10\n-------\nold code\n=======\nnew code\n>>>>>>> REPLACE\n</parameter>\n</invoke>\n</function_calls>',
     },
     handler: {
         execute: executeApplyDiff,

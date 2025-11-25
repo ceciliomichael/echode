@@ -35,19 +35,20 @@ Parameters:
 - content: (required) The content to write to the file. When performing a full rewrite of an existing file or creating a new one, ALWAYS provide the COMPLETE intended content of the file, without any truncation or omissions. You MUST include ALL parts of the file, even if they haven't been modified. Do NOT include line numbers in the content though, just the actual content of the file.
 
 Usage:
-<function_call>
-<tool_name>write_to_file</tool_name>
-<path>File path here</path>
-<content>
+<function_calls>
+<invoke name="write_to_file">
+<parameter name="path">File path here</parameter>
+<parameter name="content">
 Your file content here
-</content>
-</function_call>
+</parameter>
+</invoke>
+</function_calls>
 
 Example: Requesting to write to config.json
-<function_call>
-<tool_name>write_to_file</tool_name>
-<path>config.json</path>
-<content>
+<function_calls>
+<invoke name="write_to_file">
+<parameter name="path">config.json</parameter>
+<parameter name="content">
 {
   "apiEndpoint": "https://api.example.com",
   "theme": {
@@ -59,8 +60,9 @@ Example: Requesting to write to config.json
     "notifications": true
   }
 }
-</content>
-</function_call>
+</parameter>
+</invoke>
+</function_calls>
 
 IMPORTANT: Tool Safety and Usage Guidelines:
 - ONLY use for: (1) NEW files, (2) complete rewrites, or (3) large refactors where file is now shorter
@@ -71,7 +73,7 @@ IMPORTANT: Tool Safety and Usage Guidelines:
 - After creating a new file, use read_file to verify it was created correctly`,
     icon: FilePlus,
     usage: 'NEW files, complete rewrites, or when refactored file is shorter',
-    formatExample: '<function_call>\n<tool_name>write_to_file</tool_name>\n<path>src/new-file.ts</path>\n<content>// new file content</content>\n</function_call>',
+    formatExample: '<function_calls>\n<invoke name="write_to_file">\n<parameter name="path">src/new-file.ts</parameter>\n<parameter name="content">// new file content</parameter>\n</invoke>\n</function_calls>',
   },
   handler: {
     execute: executeWriteFile,

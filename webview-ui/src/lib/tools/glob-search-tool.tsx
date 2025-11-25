@@ -31,32 +31,36 @@ Parameters:
 - sortOrder: (optional) Sort order 'asc' or 'desc' (default: asc)
 
 Usage:
-<function_call>
-<tool_name>glob_search</tool_name>
-<pattern>glob pattern</pattern>
-<path>search directory</path>
-</function_call>
+<function_calls>
+<invoke name="glob_search">
+<parameter name="pattern">glob pattern</parameter>
+<parameter name="path">search directory</parameter>
+</invoke>
+</function_calls>
 
 Examples:
 
 1. Find all TypeScript files:
-<function_call>
-<tool_name>glob_search</tool_name>
-<pattern>**/*.ts</pattern>
-</function_call>
+<function_calls>
+<invoke name="glob_search">
+<parameter name="pattern">**/*.ts</parameter>
+</invoke>
+</function_calls>
 
 2. Find all component files in src:
-<function_call>
-<tool_name>glob_search</tool_name>
-<pattern>**/*Component.tsx</pattern>
-<path>src</path>
-</function_call>
+<function_calls>
+<invoke name="glob_search">
+<parameter name="pattern">**/*Component.tsx</parameter>
+<parameter name="path">src</parameter>
+</invoke>
+</function_calls>
 
 3. Find config files with specific extension:
-<function_call>
-<tool_name>glob_search</tool_name>
-<pattern>*.config.{js,ts,json}</pattern>
-</function_call>
+<function_calls>
+<invoke name="glob_search">
+<parameter name="pattern">*.config.{js,ts,json}</parameter>
+</invoke>
+</function_calls>
 
 IMPORTANT: Pattern Guidelines:
 - Use * to match any characters in a single directory level
@@ -66,7 +70,7 @@ IMPORTANT: Pattern Guidelines:
 - For content search (finding code/text), use grep_search instead`,
     icon: FileSearch,
     usage: 'Find files based on glob patterns',
-    formatExample: '<function_call>\n<tool_name>glob_search</tool_name>\n<pattern>*.ts</pattern>\n<path>src</path>\n</function_call>',
+    formatExample: '<function_calls>\n<invoke name="glob_search">\n<parameter name="pattern">*.ts</parameter>\n<parameter name="path">src</parameter>\n</invoke>\n</function_calls>',
   },
   handler: {
     execute: executeGlobSearch,

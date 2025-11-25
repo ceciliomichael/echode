@@ -22,7 +22,7 @@ registerToolPlugin({
     aiDescription: 'Delete a file from the workspace. This operation moves the file to the trash/recycle bin.',
     icon: Trash2,
     usage: 'Delete a file from the workspace',
-    formatExample: '<function_call>\n<tool_name>delete_file</tool_name>\n<path>src/old-file.ts</path>\n</function_call>',
+    formatExample: '<function_calls>\n<invoke name="delete_file">\n<parameter name="path">src/old-file.ts</parameter>\n</invoke>\n</function_calls>',
   },
   handler: {
     execute: executeDeleteFile,

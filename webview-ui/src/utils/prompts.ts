@@ -194,8 +194,6 @@ No tools are currently enabled. You cannot use any tools for this request. All r
     ? (mode === 'plan'
       ? `
 <tool_use_guidelines>
-🚫 **CRITICAL XML RULE: NEVER use = in tags. Use <tool_name>value</tool_name> NOT <tool_name=value>** 🚫
-
 1. **Assess Information Needs**: Before using any tool, determine what information you already have and what you need to proceed with the task.
 
 2. **Use Exploration Tools**: Select the most effective exploration tool for each step:
@@ -224,8 +222,6 @@ By waiting for and carefully considering results after each tool use, you can ma
 </tool_use_guidelines>`
       : `
 <tool_use_guidelines>
-🚫 **CRITICAL XML RULE: NEVER use = in tags. Use <tool_name>value</tool_name> NOT <tool_name=value>** 🚫
-
 1. **Assess Information Needs**: Before using any tool, determine what information you already have and what you need to proceed with the task.
 
 2. **Choose Appropriate Tools**: Select the most effective tool for each step:

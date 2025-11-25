@@ -31,10 +31,11 @@ registerToolPlugin({
 - summary: Brief 1-3 sentence summary of what will be implemented (optional)
 
 **Example:**
-<function_call>
-<tool_name>plan_handoff</tool_name>
-<summary>Ready to implement the authentication system with JWT tokens, login/logout endpoints, and user session management as planned.</summary>
-</function_call>
+<function_calls>
+<invoke name="plan_handoff">
+<parameter name="summary">Ready to implement the authentication system with JWT tokens, login/logout endpoints, and user session management as planned.</parameter>
+</invoke>
+</function_calls>
 
 **Important:**
 - Use this ONLY when the plan is truly complete
@@ -42,7 +43,7 @@ registerToolPlugin({
 - The user must explicitly approve before implementation begins`,
     icon: Rocket,
     usage: 'Offer to switch from Plan mode to Agent mode for implementation',
-    formatExample: '<function_call>\n<tool_name>plan_handoff</tool_name>\n<summary>Brief implementation summary</summary>\n</function_call>',
+    formatExample: '<function_calls>\n<invoke name="plan_handoff">\n<parameter name="summary">Brief implementation summary</parameter>\n</invoke>\n</function_calls>',
   },
   handler: {
     execute: executePlanHandoff,

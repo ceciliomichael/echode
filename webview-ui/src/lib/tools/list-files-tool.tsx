@@ -28,22 +28,25 @@ Parameters:
 - recursive: (optional) If 'true', list all files under this directory recursively. Defaults to false (top-level only).
 
 Usage:
-<function_call>
-<tool_name>list_files</tool_name>
-<path>directory/path</path>
-</function_call>
+<function_calls>
+<invoke name="list_files">
+<parameter name="path">directory/path</parameter>
+</invoke>
+</function_calls>
 
 Example: Listing contents of src directory
-<function_call>
-<tool_name>list_files</tool_name>
-<path>src</path>
-</function_call>
+<function_calls>
+<invoke name="list_files">
+<parameter name="path">src</parameter>
+</invoke>
+</function_calls>
 
 Example: Listing root directory
-<function_call>
-<tool_name>list_files</tool_name>
-<path>.</path>
-</function_call>
+<function_calls>
+<invoke name="list_files">
+<parameter name="path">.</parameter>
+</invoke>
+</function_calls>
 
 IMPORTANT: When to use list_files:
 - Use list_files for paths WITHOUT file extensions (e.g., src/app, api, components/ui)
@@ -53,7 +56,7 @@ IMPORTANT: When to use list_files:
 - Very large directories may be truncated to the first 200 files for performance`,
     icon: FolderTree,
     usage: 'List directory contents - DEFAULT for extensionless paths',
-    formatExample: '<function_call>\n<tool_name>list_files</tool_name>\n<path>src/app</path>\n</function_call>',
+    formatExample: '<function_calls>\n<invoke name="list_files">\n<parameter name="path">src/app</parameter>\n</invoke>\n</function_calls>',
   },
   handler: {
     execute: executeListFiles,

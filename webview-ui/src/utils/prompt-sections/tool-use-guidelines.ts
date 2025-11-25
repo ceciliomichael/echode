@@ -17,10 +17,11 @@ TOOL USE GUIDELINES
 
 4. **Formulate Tool Calls Correctly**: Use the XML format specified for each tool:
    \`\`\`
-   <function_call>
-   <tool_name>tool_name</tool_name>
-   <param>value</param>
-   </function_call>
+   <function_calls>
+   <invoke name="tool_name">
+   <parameter name="param">value</parameter>
+   </invoke>
+   </function_calls>
    \`\`\`
 
 5. **Wait for Results**: After each tool use, you will receive a result that may include:
