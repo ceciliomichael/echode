@@ -76,7 +76,8 @@ export function buildContinuationHistory(
     });
 
     if (msg.toolExecutions && msg.toolExecutions.size > 0) {
-      const toolResults = formatToolResultsForHistory(msg.toolExecutions);
+      // Filter tool results to only include tools available in current mode
+      const toolResults = formatToolResultsForHistory(msg.toolExecutions, mode);
 
       if (toolResults.length > 0) {
         continuationHistory.push({

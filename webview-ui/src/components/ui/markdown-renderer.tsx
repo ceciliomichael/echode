@@ -108,11 +108,12 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: Mark
       const childrenText = typeof children === 'string' ? children : String(children || '');
       const hasNewlines = childrenText.includes('\n');
       const isInline = inline || (!hasNewlines && !className);
-      
+
       return isInline ? (
         <code
-          className="rounded px-1.5 py-0.5 text-xs font-mono border"
+          className="rounded px-1.5 py-0.5 text-xs font-mono border whitespace-nowrap"
           style={{
+            display: 'inline-block',
             backgroundColor: 'var(--vscode-textCodeBlock-background)',
             borderColor: 'var(--vscode-input-border)',
             color: 'var(--vscode-textLink-foreground)'

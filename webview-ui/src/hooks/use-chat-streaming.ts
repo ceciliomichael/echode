@@ -10,6 +10,7 @@ import type { ChatMode } from '../types/chat-mode';
 import { hasCompleteToolBlock, trimToFirstCompleteToolBlock } from '../lib/tool-parser';
 import { removeThinkBlocks } from '../utils/think-block-parser';
 import { buildChatMessage, getCurrentModel, isVisionCapableModel } from '../utils/vision-utils';
+import { isToolAvailableInMode } from '../utils/tool-history-filter';
 
 interface ChatStreamingProps {
   messages: Message[];
@@ -128,9 +129,16 @@ export function useChatStreaming({
         chatHistory.push(chatMessage);
         
         // If this message has tool executions, add them as context
+        // Filter to only include tools available in current mode
         if (msg.toolExecutions && msg.toolExecutions.size > 0) {
           const toolResults: string[] = [];
+          const skippedTools: string[] = [];
           msg.toolExecutions.forEach((execution) => {
+            // Skip tools not available in current mode to prevent AI confusion
+            if (!isToolAvailableInMode(execution.toolName, mode)) {
+              skippedTools.push(execution.toolName);
+              return;
+            }
             if (execution.status === 'completed' && execution.result) {
               if (execution.result.success) {
                 // Format result based on tool type

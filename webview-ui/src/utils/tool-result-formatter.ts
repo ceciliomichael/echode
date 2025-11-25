@@ -1,14 +1,23 @@
 import type { ToolExecutionState } from '../types/tool';
+import type { ChatMode } from '../types/chat-mode';
+import { isToolAvailableInMode } from './tool-history-filter';
 
 /**
  * Format tool execution results for AI context
+ * @param toolExecutions - Map of tool executions
+ * @param mode - Current chat mode (used to filter out tools not available in current mode)
  */
 export function formatToolResultsForHistory(
-  toolExecutions: Map<string, ToolExecutionState>
+  toolExecutions: Map<string, ToolExecutionState>,
+  mode: ChatMode = 'agent'
 ): string[] {
   const toolResults: string[] = [];
 
   toolExecutions.forEach((execution) => {
+    // Skip tools not available in current mode to prevent AI confusion
+    if (!isToolAvailableInMode(execution.toolName, mode)) {
+      return;
+    }
     if (execution.status === 'completed' && execution.result) {
       if (execution.result.success) {
         const data = execution.result.data as Record<string, unknown>;
