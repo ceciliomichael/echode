@@ -1,4 +1,5 @@
 import type { WorkspaceContext } from '../../types/workspace';
+import type { ChatMode } from '../../types/chat-mode';
 
 function getEditingInstructions(): string {
 	const instructions: string[] = [];
@@ -26,7 +27,7 @@ function getEditingInstructions(): string {
 	return instructions.join("\n");
 }
 
-export function getRulesSection(workspace: WorkspaceContext | null): string {
+export function getRulesSection(workspace: WorkspaceContext | null, mode: ChatMode = 'agent'): string {
 	const cwd = workspace?.path || 'the current workspace directory';
 
 	return `====
@@ -38,11 +39,11 @@ RULES
 - You cannot change directories. You are stuck operating from '${cwd}', so be sure to pass in the correct 'path' parameter when using tools that require a path.
 - Do not use the ~ character or $HOME to refer to the home directory on Windows.
 
-${getEditingInstructions()}
+${mode === 'agent' ? getEditingInstructions() : ''}
 
-- When using the grep_search tool, craft your regex patterns carefully to balance specificity and flexibility. Based on the user's task you may use it to find code patterns, TODO comments, function definitions, or any text-based information across the project. The results include context, so analyze the surrounding code to better understand the matches. Leverage the grep_search tool in combination with other tools for more comprehensive analysis. For example, use it to find specific code patterns, then use read_file to examine the full context of interesting matches before using apply_diff to make informed changes.
+- When using the grep_search tool, craft your regex patterns carefully to balance specificity and flexibility. Based on the user's task you may use it to find code patterns, TODO comments, function definitions, or any text-based information across the project. The results include context, so analyze the surrounding code to better understand the matches. Leverage the grep_search tool in combination with other tools for more comprehensive analysis. For example, use it to find specific code patterns, then use read_file to examine the full context of interesting matches${mode === 'agent' ? ' before using apply_diff to make informed changes' : ''}.
 
-- When creating a new project (such as an app, website, or any software project), organize all new files within a dedicated project directory unless the user specifies otherwise. Use appropriate file paths when writing files, as the write_to_file tool will automatically create any necessary directories. Structure the project logically, adhering to best practices for the specific type of project being created. Unless otherwise specified, new projects should be easily run without additional setup.
+${mode === 'agent' ? `- When creating a new project (such as an app, website, or any software project), organize all new files within a dedicated project directory unless the user specifies otherwise. Use appropriate file paths when writing files, as the write_to_file tool will automatically create any necessary directories. Structure the project logically, adhering to best practices for the specific type of project being created. Unless otherwise specified, new projects should be easily run without additional setup.` : ''}
 
 - Be sure to consider the type of project (e.g. Python, JavaScript, web application) when determining the appropriate structure and files to include. Also consider what files may be most relevant to accomplishing the task, for example looking at a project's manifest file (package.json, requirements.txt, etc.) would help you understand the project's dependencies, which you could incorporate into any code you write.
 

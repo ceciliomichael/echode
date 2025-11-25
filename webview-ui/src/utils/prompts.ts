@@ -162,6 +162,13 @@ You are in full implementation mode. You can now read, write, edit, and delete f
 - Make focused, incremental changes
 - Follow existing code patterns and style
 - Test your changes when possible
+
+## Todo List Management (CRITICAL)
+If a todo list exists from planning:
+- **AFTER completing each task**, immediately use todo_write to mark it as completed
+- Update the todo list BEFORE moving to the next task
+- Keep the todo list synchronized with actual progress at all times
+- Do NOT skip updating the todo - this is essential for tracking progress
 </mode>`;
 
   // Add tool configuration - use mode-aware tool filtering
@@ -257,9 +264,9 @@ ${getMarkdownFormattingSection()}
 
 ${getSystemInfoSection(workspace)}
 
-${getCapabilitiesSection(workspace)}
+${getCapabilitiesSection(workspace, mode)}
 
-${getRulesSection(workspace)}
+${getRulesSection(workspace, mode)}
 
 ${getObjectiveSection()}
 ${userRulesSection}

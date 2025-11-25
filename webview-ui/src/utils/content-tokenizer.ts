@@ -21,10 +21,14 @@ function parseXMLParameters(content: string): Record<string, unknown> {
   
   while ((match = completeParamRegex.exec(content)) !== null) {
     const paramName = match[1];
-    // Don't trim for old_string/new_string/content/edits - preserve exact whitespace for code
-    const shouldPreserveWhitespace = ['old_string', 'new_string', 'content', 'edits'].includes(paramName);
-    const paramValue = shouldPreserveWhitespace ? match[2] : match[2].trim();
-    parameters[paramName] = parseParamValue(paramValue);
+    // Parameters that should ALWAYS be treated as raw strings (never parsed as JSON/numbers)
+    const isRawStringParam = ['old_string', 'new_string', 'content', 'diff', 'edits'].includes(paramName);
+    // Strip only leading/trailing newlines (AI adds newline after opening tag), preserve internal whitespace
+    const paramValue = isRawStringParam 
+      ? match[2].replace(/^\n/, '').replace(/\n$/, '') 
+      : match[2].trim();
+    // Skip parseParamValue for raw string params - they should never be converted to objects
+    parameters[paramName] = isRawStringParam ? paramValue : parseParamValue(paramValue);
   }
   
   // Second pass: Extract PARTIAL/UNCLOSED tags (streaming content)

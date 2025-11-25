@@ -20,77 +20,42 @@ registerToolPlugin({
     name: 'Read File',
     description: 'Read file contents - ONLY for paths WITH file extensions (defaults to first 100 lines)',
     aiDescription: `## read_file
-Description: Request to read the contents of one or multiple files in a single call. The tool outputs line-numbered content (e.g. "1: const x = 1") for easy reference when creating diffs or discussing code. Use line ranges to efficiently read specific portions of large files. Supports text extraction from PDF and DOCX files, but may not handle other binary files properly.
+Description: Read contents of one or multiple files. Outputs line-numbered content for easy reference.
 
-**DEFAULT BEHAVIOR: Reads first 100 lines maximum per file.** Use offset/limit parameters to read different sections or more lines.
+**DEFAULT: Reads first 500 lines per file.** Use offset/limit for different sections.
 
 Parameters:
-- path1: (required) First file path WITH extension relative to workspace (e.g., src/app.ts, README.md)
-- path2: (optional) Second file path - for reading multiple files efficiently in parallel
-- path3: (optional) Third file path
-- path4: (optional) Fourth file path
-- path5: (optional) Fifth file path
-- offset: (optional) Start line number (default: 1, 1-based) - applies to all files
-- limit: (optional) Number of lines to read (default: 100) - applies to all files
-
-Usage Format (CRITICAL - Follow XML syntax exactly):
-<function_call>
-<tool_name>read_file</tool_name>
-<path1>path/to/file1.ext</path1>
-<path2>path/to/file2.ext</path2>
-<offset>start_line</offset>
-<limit>line_count</limit>
-</function_call>
-
-IMPORTANT XML SYNTAX RULES:
-- Each path MUST be on its own line with proper closing tags: </path1>, </path2>, etc.
-- NEVER put multiple paths in a single parameter
-- NEVER use backslashes in closing tags (correct: </path1>, incorrect: <\\path1>)
-- Each file path goes in its own numbered parameter (path1, path2, path3, etc.)
+- path: (required for single file) File path with extension (e.g., src/app.ts)
+- paths: (required for multiple files) JSON array of file paths (e.g., ["src/a.ts", "src/b.ts"])
+- offset: (optional) Start line number (1-based, default: 1)
+- limit: (optional) Number of lines to read (default: 500)
 
 Examples:
 
-1. Reading first 100 lines of a single file (default):
+1. Single file:
 <function_call>
 <tool_name>read_file</tool_name>
-<path1>src/app.ts</path1>
+<path>src/app.ts</path>
 </function_call>
 
-2. Reading multiple files in parallel (HIGHLY RECOMMENDED for efficiency):
+2. Multiple files (parallel read):
 <function_call>
 <tool_name>read_file</tool_name>
-<path1>src/components/header.tsx</path1>
-<path2>src/components/footer.tsx</path2>
-<path3>src/utils/helpers.ts</path3>
+<paths>["src/components/header.tsx", "src/components/footer.tsx", "src/utils/helpers.ts"]</paths>
 </function_call>
 
-3. Reading custom range (lines 101-150) from a single file:
+3. Custom line range:
 <function_call>
 <tool_name>read_file</tool_name>
-<path1>src/large.ts</path1>
+<path>src/large.ts</path>
 <offset>101</offset>
 <limit>50</limit>
 </function_call>
 
-4. Reading entire small file (up to 500 lines):
-<function_call>
-<tool_name>read_file</tool_name>
-<path1>config.json</path1>
-<limit>500</limit>
-</function_call>
-
-IMPORTANT: You MUST use this Efficient Reading Strategy:
-- **ALWAYS use path2, path3, path4, path5 when you need to read multiple files** - this reads them all in parallel for maximum efficiency
-- You MUST read all related files and implementations together before making changes
-- You MUST obtain all necessary context before proceeding with modifications
-- You MUST use line ranges to read specific portions of large files (>100 lines), rather than reading entire files when not needed
-- File paths MUST have extensions (e.g., .ts, .tsx, .json) - if no extension after last /, use list_files instead
-
-**CRITICAL ERROR RECOVERY:**
-If you receive "Cannot read directory" error:
-1. IMMEDIATELY use list_files on that exact path
-2. Find the specific file you need from the directory listing
-3. THEN call read_file on the file with its full path including extension`,
+IMPORTANT:
+- Use \`paths\` array when reading multiple related files - reads in parallel for efficiency
+- File paths MUST have extensions - if no extension, use list_files first
+- If "Cannot read directory" error: use list_files on that path first`,
     icon: FileText,
     usage: 'Read file content - ONLY for paths WITH extensions',
     formatExample: '<function_call>\n<tool_name>read_file</tool_name>\n<path>src/app.ts</path>\n</function_call>',

@@ -75,7 +75,10 @@ function parseXMLParameters(content: string): Record<string, unknown> {
       
       // Don't trim for old_string/new_string/content/edits/diff/blocks - preserve exact whitespace for code
       const shouldPreserveWhitespace = ['old_string', 'new_string', 'content', 'edits', 'diff', 'blocks'].includes(paramName);
-      const finalValue = shouldPreserveWhitespace ? paramValue : paramValue.trim();
+      // Strip only leading/trailing newlines (AI adds newline after opening tag), preserve internal whitespace
+      const finalValue = shouldPreserveWhitespace 
+        ? paramValue.replace(/^\n/, '').replace(/\n$/, '') 
+        : paramValue.trim();
       
       parameters[paramName] = parseParamValue(finalValue, shouldPreserveWhitespace);
       processedParams.add(paramName);
@@ -112,9 +115,17 @@ function parseXMLParameters(content: string): Record<string, unknown> {
 
 /**
  * Parse parameter value with type coercion
+ * @param value - The string value to parse
+ * @param isRawString - If true, return value as-is without any parsing (for code content)
  */
-function parseParamValue(value: string, preserveWhitespace = false): unknown {
-  const trimmedValue = preserveWhitespace ? value : value.trim();
+function parseParamValue(value: string, isRawString = false): unknown {
+  // Raw string parameters (content, diff, etc.) should NEVER be parsed
+  // They contain source code that may look like JSON but isn't
+  if (isRawString) {
+    return value;
+  }
+  
+  const trimmedValue = value.trim();
   
   // Try to parse as JSON first (for arrays, objects, booleans, numbers)
   if (trimmedValue.startsWith('[') || trimmedValue.startsWith('{')) {
@@ -477,6 +488,18 @@ function cleanToolCallContent(content: string): string {
     cleaned = cleaned.replace(
       /<\\([\w_-]+)>/g,
       '</$1>'
+    );
+  }
+  
+  // Fix malformed tool_name tags: <apply_diff</tool_name> -> <tool_name>apply_diff</tool_name>
+  // Some AI models output the tool name directly instead of wrapping it properly
+  const malformedToolNames = cleaned.match(/<([\w_-]+)<\/tool_name>/g);
+  if (malformedToolNames) {
+    console.log(`[ToolParser] 🔧 Fixed ${malformedToolNames.length} malformed tool_name tag(s) (e.g., <apply_diff</tool_name> -> <tool_name>apply_diff</tool_name>)`);
+    hadErrors = true;
+    cleaned = cleaned.replace(
+      /<([\w_-]+)<\/tool_name>/g,
+      '<tool_name>$1</tool_name>'
     );
   }
   

@@ -17,47 +17,31 @@ export class ReadFileTool implements ITool {
     const offset = parameters.offset as number | undefined;
     const limit = parameters.limit as number | undefined;
 
-    // Extract all path parameters (path1-path5, with fallback to legacy 'path')
+    // Extract paths - support both 'path' (single) and 'paths' (array) parameters
     const paths: string[] = [];
-    const legacyPath = parameters.path as string | undefined;
-    const path1 = parameters.path1 as string | undefined;
-    const path2 = parameters.path2 as string | undefined;
-    const path3 = parameters.path3 as string | undefined;
-    const path4 = parameters.path4 as string | undefined;
-    const path5 = parameters.path5 as string | undefined;
+    const singlePath = parameters.path as string | undefined;
+    const multiplePaths = parameters.paths as string[] | undefined;
 
-    // Support legacy 'path' parameter for backwards compatibility
-    if (legacyPath) {
-      paths.push(legacyPath);
+    // Single path parameter
+    if (singlePath) {
+      paths.push(singlePath);
     }
     
-    // Add path1-path5 if provided
-    if (path1) {
-      paths.push(path1);
-    }
-    if (path2) {
-      paths.push(path2);
-    }
-    if (path3) {
-      paths.push(path3);
-    }
-    if (path4) {
-      paths.push(path4);
-    }
-    if (path5) {
-      paths.push(path5);
+    // Multiple paths array parameter
+    if (multiplePaths && Array.isArray(multiplePaths)) {
+      paths.push(...multiplePaths);
     }
 
     if (paths.length === 0) {
-      return { success: false, error: 'At least one file path is required (path1 or legacy path parameter)' };
+      return { success: false, error: 'File path is required. Use "path" for single file or "paths" array for multiple files.' };
     }
 
-    // If only one file, use the original single-file logic
+    // Single file - use direct return
     if (paths.length === 1) {
       return this.readSingleFile(paths[0], offset, limit);
     }
 
-    // Multiple files: read them all in parallel
+    // Multiple files - read in parallel
     return this.readMultipleFiles(paths, offset, limit);
   }
 

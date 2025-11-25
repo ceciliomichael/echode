@@ -20,7 +20,14 @@ export function getToolFileInfo(
   status: string,
   isStreaming: boolean
 ): ToolFileInfo {
-  const path = parameters.path as string | undefined;
+  // For read_file, check both 'path' (single) and 'paths' (array) parameters
+  let path = parameters.path as string | undefined;
+  if (toolName === 'read_file' && !path) {
+    const paths = parameters.paths as string[] | undefined;
+    if (paths && Array.isArray(paths) && paths.length > 0) {
+      path = paths[0]; // Use first path for display
+    }
+  }
   const isExecuting = isStreaming || status === 'pending' || status === 'executing';
 
   // For write_to_file and read_file, ALWAYS prioritize showing filename
