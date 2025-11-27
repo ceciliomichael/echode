@@ -92,6 +92,9 @@ const LANGUAGE_ICONS: Record<string, FileIconConfig> = {
 
   // Go
   go: { icon: SiGo, color: '#00add8', label: 'Go' },
+  gomod: { icon: SiGo, color: '#00add8', label: 'Go Module' },
+  gosum: { icon: SiGo, color: '#00add8', label: 'Go Checksum' },
+  gowork: { icon: SiGo, color: '#00add8', label: 'Go Workspace' },
 
   // Rust
   rs: { icon: SiRust, color: '#dea584', label: 'Rust' },
@@ -181,6 +184,15 @@ export function getFileIconConfig(filePath: string): FileIconConfig {
   }
   if (lowerFileName === 'makefile' || lowerFileName.startsWith('makefile.')) {
     return LANGUAGE_ICONS.makefile;
+  }
+  if (lowerFileName === 'go.mod') {
+    return LANGUAGE_ICONS.gomod;
+  }
+  if (lowerFileName === 'go.sum') {
+    return LANGUAGE_ICONS.gosum;
+  }
+  if (lowerFileName === 'go.work') {
+    return LANGUAGE_ICONS.gowork;
   }
 
   // Look up by extension
