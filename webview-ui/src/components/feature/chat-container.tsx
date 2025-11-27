@@ -92,7 +92,10 @@ export function ChatContainer() {
     await sendMessage(content, attachments, undefined, isHidden);
     // Force scroll to bottom when user sends a message
     setIsAutoScrollEnabled(true);
-    setTimeout(() => scrollToBottom({ behavior: 'smooth' }), 50);
+    // Use requestAnimationFrame to ensure DOM has updated before scrolling
+    requestAnimationFrame(() => {
+      setTimeout(() => scrollToBottom({ behavior: 'smooth' }), 50);
+    });
   }, [sendMessage]);
 
   // Define handleModeChange before useEffect hooks that use it
@@ -170,6 +173,13 @@ export function ChatContainer() {
         setIsHistoryOpen(true);
       } else if (message.type === 'closeHistory') {
         setIsHistoryOpen(false);
+      } else if (message.type === 'sessionLoaded') {
+        // When a session is loaded, scroll to bottom after a short delay
+        // to ensure the messages have rendered
+        setTimeout(() => {
+          setIsAutoScrollEnabled(true);
+          scrollToBottom({ behavior: 'smooth' });
+        }, 100);
       }
     };
 

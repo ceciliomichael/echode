@@ -119,7 +119,7 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
   };
 
   return (
-    <div ref={containerRef} className="px-2 relative z-50">
+    <div ref={containerRef} className="px-2 relative z-[60]">
       <section
         className="w-full rounded-xl shadow-sm border p-1 transition-colors"
         style={{

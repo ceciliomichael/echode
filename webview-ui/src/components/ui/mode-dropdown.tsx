@@ -81,7 +81,7 @@ export function ModeDropdown({ mode, onModeChange, disabled = false, direction =
       {/* Dropdown Panel */}
       {isOpen && (
         <div
-          className={`absolute left-0 w-52 rounded-lg border p-1.5 z-50 ${direction === 'down' ? 'top-full mt-1' : 'bottom-full mb-1'}`}
+          className={`absolute left-0 w-52 rounded-lg border p-1.5 z-[100] ${direction === 'down' ? 'top-full mt-1' : 'bottom-full mb-1'}`}
           style={{
             backgroundColor: 'var(--vscode-dropdown-background)',
             borderColor: 'var(--vscode-input-border)',
