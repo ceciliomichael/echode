@@ -590,6 +590,19 @@ export class ApplyDiffTool implements ITool {
         // Unescape HTML entities if needed (assuming similar behavior to Roo-Code)
         diffContent = unescapeHtmlEntities(diffContent);
 
+        // Convert escaped \n, \t, \r sequences ONLY when the diff content appears to be
+        // a single packed line with no real newlines. This avoids corrupting
+        // intentional "\\n" inside string literals in normal multi-line patches.
+        const hasActualNewlines = diffContent.includes('\n');
+        const hasEscapedSequences = /\\[ntr]/.test(diffContent);
+        if (!hasActualNewlines && hasEscapedSequences) {
+            console.log('[APPLY_DIFF] Converting escaped sequences (\\n, \\t, \\r) to actual characters for single-line packed diff');
+            diffContent = diffContent
+                .replace(/\\n/g, '\n')
+                .replace(/\\t/g, '\t')
+                .replace(/\\r/g, '\r');
+        }
+
         try {
             const workspaceRoot = getWorkspaceRoot();
             if (!workspaceRoot) {

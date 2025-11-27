@@ -90,6 +90,19 @@ export class WriteFileTool implements ITool {
     // Claude models tend to handle this better natively
     content = unescapeHtmlEntities(content);
 
+    // Convert escaped \n, \t, \r sequences ONLY when the content appears to be
+    // a single packed line with no real newlines. This prevents us from
+    // touching intentional "\\n" inside string literals in normal multi-line code.
+    const hasActualNewlines = content.includes('\n');
+    const hasEscapedSequences = /\\[ntr]/.test(content);
+    if (!hasActualNewlines && hasEscapedSequences) {
+      console.log('[WRITE_FILE] Converting escaped sequences (\\n, \\t, \\r) to actual characters for single-line packed content');
+      content = content
+        .replace(/\\n/g, '\n')
+        .replace(/\\t/g, '\t')
+        .replace(/\\r/g, '\r');
+    }
+
     console.log('[WRITE_FILE] Content length:', content.length, 'characters');
 
     // Size check

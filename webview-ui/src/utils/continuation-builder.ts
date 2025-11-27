@@ -5,6 +5,10 @@ import type { ChatMode } from '../types/chat-mode';
 import { getSystemPrompt } from './prompts';
 import { formatToolResultsForHistory } from './tool-result-formatter';
 
+const MAX_HISTORY_MESSAGES = 20;
+const MAX_TOOL_RESULTS_CHARS = 8000;
+const MAX_DIAGNOSTICS_CHARS = 4000;
+
 interface TodoItem {
   id: string;
   content: string;
@@ -68,8 +72,12 @@ export function buildContinuationHistory(
     },
   ];
 
-  // Add previous messages with their tool results
-  for (const msg of currentMessages) {
+  // Add previous messages with their tool results (bounded for context size)
+  const messagesToInclude = currentMessages.length > MAX_HISTORY_MESSAGES
+    ? currentMessages.slice(-MAX_HISTORY_MESSAGES)
+    : currentMessages;
+
+  for (const msg of messagesToInclude) {
     continuationHistory.push({
       role: msg.role,
       content: msg.content,
@@ -101,9 +109,17 @@ export function buildContinuationHistory(
   // Add current tool execution result with todo context and diagnostics
   const todoContext = buildTodoContext(currentTodos);
 
+  const boundedToolResultText = toolResultText.length > MAX_TOOL_RESULTS_CHARS
+    ? `${toolResultText.slice(0, MAX_TOOL_RESULTS_CHARS)}\n...[truncated tool results]`
+    : toolResultText;
+
+  const boundedDiagnosticsText = diagnosticsText.length > MAX_DIAGNOSTICS_CHARS
+    ? `${diagnosticsText.slice(0, MAX_DIAGNOSTICS_CHARS)}\n...[truncated diagnostics]`
+    : diagnosticsText;
+
   continuationHistory.push({
     role: 'user',
-    content: `Tool execution results:\n${toolResultText}${todoContext}${diagnosticsText}\n\n[INSTRUCTION: Process these tool results and continue your response. You have access to previous tool results in <previous_tool_results> tags. Maintain all system prompt rules, tool protocols, and formatting requirements. Stay focused on the original user request.]`,
+    content: `Tool execution results:\n${boundedToolResultText}${todoContext}${boundedDiagnosticsText}\n\n[INSTRUCTION: Use these tool results and diagnostics to continue. Follow your system prompt and tool rules. Respond concisely and stay focused on the original user request.]`,
   });
 
   return continuationHistory;

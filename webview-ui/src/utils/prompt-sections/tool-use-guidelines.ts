@@ -1,48 +1,36 @@
-export function getToolUseGuidelinesSection(): string {
-	return `====
+import type { ChatMode } from '../../types/chat-mode';
+
+export function getToolUseGuidelinesSection(mode: ChatMode): string {
+	const isPlanMode = mode === 'plan';
+
+	const sharedGuidelines = `====
 
 TOOL USE GUIDELINES
 
-1. **Assess Information Needs**: Before using any tool, determine what information you already have and what you need to proceed with the task.
+1. **Assess Information Needs**: Before using any tool, determine what information you already have and what you need to proceed.
 
-2. **Choose Appropriate Tools**: Select the most effective tool for each step:
-   - Use **list_files** for directory exploration (paths without extensions)
-   - Use **grep_search** to find specific code, functions, or text content
-   - Use **glob_search** to discover files by name patterns or extensions
-   - Use **read_file** to examine file contents with line numbers
-   - For editing, use **apply_diff** for targeted changes or **write_to_file** for new files/complete rewrites
-   - It's critical that you think about each available tool and use the one that best fits the current step in the task.
+2. **Choose Appropriate Tools**: Use list_files for directories, grep_search for finding code, glob_search for paths, and read_file for file contents. For other tools, follow their <available_tools> descriptions.
 
-3. **One Tool at a Time**: Execute tools iteratively, one at a time per message. Each tool use must be informed by the result of the previous tool use. Do NOT assume outcomes.
+3. **One Tool at a Time**: Execute tools iteratively, one per message. Each tool use must be informed by the result of the previous one. Do not assume outcomes.
 
-4. **Formulate Tool Calls Correctly**: Use the XML format specified for each tool:
-   \`\`\`
-   <function_calls>
-   <invoke name="tool_name">
-   <parameter name="param">value</parameter>
-   </invoke>
-   </function_calls>
-   \`\`\`
+4. **Wait for Results**: Always wait for tool results before continuing. Never assume success without explicit confirmation.
 
-5. **Wait for Results**: After each tool use, you will receive a result that may include:
-   - Success or failure status with reasons
-   - File content, search results, or directory listings
-   - Linter errors or diagnostics that need to be addressed
-   - Other relevant feedback
+5. **Use Tool Results**: Treat tool outputs as ground truth for files, searches, diagnostics, and todos. Do not guess or invent file contents.
 
-6. **CRITICAL - ALWAYS Wait for Confirmation**: You MUST wait for user confirmation and tool results after each tool use before proceeding. NEVER assume success without explicit confirmation.
+6. **NEVER Echo Tool Instructions**: Do not repeat or explain internal tool formats, XML syntax, or section headers like "Tool Format" to the user. Only use tools.
+`;
 
-7. **Iterative Approach**: Proceed step-by-step:
-   - Confirm success of each step before moving forward
-   - Address any issues or errors immediately
-   - Adapt your approach based on new information or unexpected results
-   - Ensure each action builds correctly on previous ones
+	const modeSpecific = isPlanMode
+		? `
+7. **Plan Mode Focus**: Use tools only for exploration and planning (read_file, list_files, grep_search, glob_search, todo_write, plan_navigator, plan_handoff). Do not propose or perform code edits.
 
-It is crucial to proceed step-by-step, waiting for confirmation after each tool use before moving forward with the task. This approach allows you to:
-1. Confirm the success of each step before proceeding
-2. Address any issues or errors that arise immediately
-3. Adapt your approach based on new information or unexpected results
-4. Ensure that each action builds correctly on the previous ones
+8. **Concise Planning**: Keep plans focused on files, steps, and success criteria. Avoid implementation details and long explanations.
+`
+		: `
+7. **Agent Mode Focus**: Use tools to read, edit, and verify code while following the agreed plan. Prefer small, focused tool calls.
 
-By waiting for and carefully considering results after each tool use, you can react accordingly and make informed decisions about how to proceed with the task. This iterative process helps ensure the overall success and accuracy of your work.`;
+8. **Concise Implementation**: Prioritize code and minimal explanation. Only be verbose when the user explicitly asks for more detail.
+`;
+
+	return `${sharedGuidelines}${modeSpecific}`;
 }

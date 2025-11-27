@@ -111,6 +111,7 @@
     "watch:esbuild": "node esbuild.js --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
     "package": "cd webview-ui && npm run build && cd .. && npm run check-types && npm run lint && node esbuild.js --production",
+    "package:vsix": "vsce package --out ./builds/echode.vsix",
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
@@ -119,6 +120,9 @@
     "test": "vscode-test",
     "postinstall": "electron-rebuild -v 37.0.0 -f -w better-sqlite3",
     "rebuild": "electron-rebuild -v 37.0.0 -f -w better-sqlite3"
+  },
+  "vsce": {
+    "out": "./builds/"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

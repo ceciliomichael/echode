@@ -3,12 +3,36 @@ import { getToolRenderer } from '../../lib/tool-registry';
 import { DiffViewer } from './diff-viewer';
 
 /**
+ * Normalize content by converting escaped sequences to actual characters.
+ * We ONLY do this when the content appears to be a single packed line with
+ * no real newlines. This preserves intentional "\\n" inside string literals
+ * in normal multi-line code and tool output.
+ */
+function normalizeEscapedSequences(content: string): string {
+  if (!content) return content;
+
+  const hasActualNewlines = content.includes('\n');
+  const hasEscapedSequences = /\\[ntr]/.test(content);
+
+  if (!hasActualNewlines && hasEscapedSequences) {
+    return content
+      .replace(/\\n/g, '\n')
+      .replace(/\\t/g, '\t')
+      .replace(/\\r/g, '\r');
+  }
+
+  return content;
+}
+
+/**
  * Strip line numbers from content formatted as "lineNum | content"
  * Used to show clean code in UI while AI sees line numbers
  * Format from read_file: "  1 | content" (with padding spaces)
  */
 function stripLineNumbers(content: string): string {
-  return content
+  // First normalize any escaped sequences
+  const normalized = normalizeEscapedSequences(content);
+  return normalized
     .split('\n')
     .map((line) => {
       // Match line numbers with format: "  123 | content" or "1 | content"

@@ -12,6 +12,26 @@ import { removeThinkBlocks } from '../utils/think-block-parser';
 import { buildChatMessage, getCurrentModel, isVisionCapableModel } from '../utils/vision-utils';
 import { isToolAvailableInMode } from '../utils/tool-history-filter';
 
+const MAX_HISTORY_MESSAGES = 20;
+const MAX_FILE_CONTENT_CHARS = 8000;
+
+function trimHistory(history: ChatMessage[]): ChatMessage[] {
+  if (history.length <= MAX_HISTORY_MESSAGES) {
+    return history;
+  }
+
+  const [systemMessage, ...rest] = history;
+  const kept = rest.slice(-Math.max(1, MAX_HISTORY_MESSAGES - 1));
+  return [systemMessage, ...kept];
+}
+
+function truncateContent(content: string, maxChars: number): string {
+  if (content.length <= maxChars) {
+    return content;
+  }
+  return `${content.slice(0, maxChars)}\n...[truncated file content]`;
+}
+
 interface ChatStreamingProps {
   messages: Message[];
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
@@ -150,10 +170,12 @@ export function useChatStreaming({
                   if ('files' in data && Array.isArray(data.files)) {
                     // Multiple files case
                     const files = data.files as Array<{ path: string; content: string }>;
-                    formattedResult = files.map(f => `File: ${f.path}\n${f.content}`).join('\n\n---\n\n');
+                    formattedResult = files
+                      .map(f => `File: ${f.path}\n${truncateContent(f.content, MAX_FILE_CONTENT_CHARS)}`)
+                      .join('\n\n---\n\n');
                   } else if ('content' in data && 'path' in data) {
                     // Single file case
-                    formattedResult = `File: ${data.path as string}\n${data.content as string}`;
+                    formattedResult = `File: ${data.path as string}\n${truncateContent(String(data.content), MAX_FILE_CONTENT_CHARS)}`;
                   } else {
                     formattedResult = JSON.stringify(data);
                   }
@@ -192,12 +214,14 @@ export function useChatStreaming({
           }
         }
       }
-      
+      // Apply history trimming after assembling messages and tool results
+      const finalChatHistory = trimHistory(chatHistory);
+
       // Add current user message with attachments
       const hasToolResults = messagesToSend.some(msg => msg.toolExecutions && msg.toolExecutions.size > 0);
       const instruction = hasToolResults
-        ? '\n\n[INSTRUCTION: You have tool execution results in your context (marked with <tool_results>). Use these results - do NOT make assumptions about file content. If you read a file, use the EXACT content provided in the tool results for your edits. Execute this request while strictly following your system prompt rules, tool protocols, response formats, and user-specific guidelines.]'
-        : '\n\n[INSTRUCTION: Execute this request while strictly following your system prompt rules, tool protocols, response formats, and user-specific guidelines. Maintain consistency throughout your response.]';
+        ? '\n\n[INSTRUCTION: You have tool execution results in <tool_results>. Use them instead of guessing file contents. Follow your system prompt and tool rules. Respond concisely and stay focused on the coding task.]'
+        : '\n\n[INSTRUCTION: Follow your system prompt and tool rules. Respond concisely and stay focused on the coding task.]';
       
       const finalUserMessage = buildChatMessage(
         'user',
@@ -205,7 +229,7 @@ export function useChatStreaming({
         attachments,
         modelSupportsVision
       );
-      chatHistory.push(finalUserMessage);
+      finalChatHistory.push(finalUserMessage);
 
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
@@ -225,7 +249,7 @@ export function useChatStreaming({
       console.log('[STREAMING] Starting stream...');
       let chunkCount = 0;
       
-      for await (const chunk of chatApi.streamChat(chatHistory, abortController.signal, mode)) {
+      for await (const chunk of chatApi.streamChat(finalChatHistory, abortController.signal, mode)) {
         chunkCount++;
         console.log(`[STREAMING] Chunk #${chunkCount}:`, chunk);
         
@@ -269,7 +293,7 @@ export function useChatStreaming({
           await executeToolAndContinue(
             assistantContent,
             assistantMessageId,
-            chatHistory,
+            finalChatHistory,
             messagesToSend,
             content
           );

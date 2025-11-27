@@ -1,5 +1,27 @@
 import { memo, useMemo } from 'react';
 
+/**
+ * Normalize content by converting escaped sequences to actual characters.
+ * We ONLY do this when the content appears to be a single packed line with
+ * no real newlines. This preserves intentional "\\n" inside string literals
+ * in normal multi-line code.
+ */
+function normalizeEscapedSequences(content: string): string {
+  if (!content) return content;
+
+  const hasActualNewlines = content.includes('\n');
+  const hasEscapedSequences = /\\[ntr]/.test(content);
+
+  if (!hasActualNewlines && hasEscapedSequences) {
+    return content
+      .replace(/\\n/g, '\n')
+      .replace(/\\t/g, '\t')
+      .replace(/\\r/g, '\r');
+  }
+
+  return content;
+}
+
 interface DiffViewerProps {
   oldContent: string | null | undefined;
   newContent: string;
@@ -24,9 +46,13 @@ interface DiffLine {
  * Simple diff algorithm to compare two strings line by line
  */
 function computeDiff(oldContent: string | null | undefined, newContent: string, isStreaming: boolean = false, startLineNumber: number = 1): DiffLine[] {
+  // Normalize escaped sequences before processing
+  const normalizedNewContent = normalizeEscapedSequences(newContent);
+  const normalizedOldContent = oldContent ? normalizeEscapedSequences(oldContent) : oldContent;
+  
   // If no old content, all lines are added
-  if (oldContent === null || oldContent === undefined) {
-    const newLines = newContent.split('\n');
+  if (normalizedOldContent === null || normalizedOldContent === undefined) {
+    const newLines = normalizedNewContent.split('\n');
     return newLines.map((line, idx) => ({
       type: 'added' as const,
       lineNumber: idx + startLineNumber,
@@ -36,8 +62,8 @@ function computeDiff(oldContent: string | null | undefined, newContent: string, 
     }));
   }
 
-  const oldLines = oldContent.split('\n');
-  const newLines = newContent.split('\n');
+  const oldLines = normalizedOldContent.split('\n');
+  const newLines = normalizedNewContent.split('\n');
   const diff: DiffLine[] = [];
 
   let oldIndex = 0;
