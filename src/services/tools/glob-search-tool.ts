@@ -12,6 +12,7 @@ interface FileResult {
   size: number;
   type: 'file';
   extension: string;
+  score?: number;
 }
 
 interface SkippedFile {
@@ -233,6 +234,7 @@ export class GlobSearchTool implements ITool {
               size: fileStat.size,
               type: 'file',
               extension,
+              score: combinedScore,
             });
           } catch (_error) {
             skippedFiles.push({
@@ -314,9 +316,12 @@ export class GlobSearchTool implements ITool {
             comparison = a.name.localeCompare(b.name);
           }
           break;
-        case 'relevance':
-          comparison = 0;
+        case 'relevance': {
+          const aScore = a.score ?? 0;
+          const bScore = b.score ?? 0;
+          comparison = aScore - bScore;
           break;
+        }
       }
 
       return comparison * multiplier;

@@ -91,8 +91,8 @@ These are the ONLY tools you may use. Do not invent or hallucinate other tool na
 **Tool Quick Ref:**
 - list_files: List directory contents.
 - read_file: View file content with line numbers.
-- grep_search: Search within files (use specific queries; set isRegex=true only for regex).
-- glob_search: Discover files by pattern or fuzzy path.
+- grep_search: Search within files using focused queries and appropriate includes/matchMode settings; start with small maxResults and context windows.
+- glob_search: Discover files by glob pattern or fuzzy path (e.g., "src/**/*auth*" or short filename queries); prefer small maxResults.
 ${hasEditingTools ? `- apply_diff: Preferred for targeted edits to existing files.
 - write_to_file: For new files or complete rewrites.
 - delete_file: Only when explicitly requested.` : ''}

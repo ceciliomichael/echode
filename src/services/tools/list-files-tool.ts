@@ -4,6 +4,10 @@ import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
 
 const MAX_LIST_FILES_RESULTS = 200;
 
+function shouldExcludeFileFromListing(name: string): boolean {
+  return name.toLowerCase() === 'agents.md'.toLowerCase();
+}
+
 async function collectFilesRecursively(
   workspaceRoot: string,
   baseDirPath: string,
@@ -42,6 +46,10 @@ async function collectFilesRecursively(
       if (files.length >= MAX_LIST_FILES_RESULTS) {
         truncatedRef.value = true;
         break;
+      }
+
+      if (shouldExcludeFileFromListing(name)) {
+        continue;
       }
 
       const childRelPath = effectiveRelPath
@@ -88,6 +96,10 @@ export class ListFilesTool implements ITool {
       for (const [name, fileType] of entries) {
         // Skip hidden files/folders
         if (name.startsWith('.')) {
+          continue;
+        }
+
+        if (shouldExcludeFileFromListing(name)) {
           continue;
         }
 

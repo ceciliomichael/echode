@@ -28,7 +28,7 @@ const EXCLUDED_DIRECTORIES = [
   '.idea',
   '.vscode',
   '.vs',
-];
+].map((dir) => dir.toLowerCase());
 
 const EXCLUDED_FILES = [
   '.DS_Store',
@@ -36,16 +36,19 @@ const EXCLUDED_FILES = [
   'package-lock.json',
   'yarn.lock',
   'pnpm-lock.yaml',
-];
+  'AGENTS.md',
+].map((file) => file.toLowerCase());
 
 /**
  * Check if a file or directory should be excluded from scanning
  */
 export function shouldExclude(name: string, isDirectory: boolean): boolean {
-  if (isDirectory && EXCLUDED_DIRECTORIES.includes(name)) {
+  const normalizedName = name.toLowerCase();
+
+  if (isDirectory && EXCLUDED_DIRECTORIES.includes(normalizedName)) {
     return true;
   }
-  if (!isDirectory && EXCLUDED_FILES.includes(name)) {
+  if (!isDirectory && EXCLUDED_FILES.includes(normalizedName)) {
     return true;
   }
   if (name.endsWith('.pyc') || name.endsWith('.pyo') || name.endsWith('.pyd')) {

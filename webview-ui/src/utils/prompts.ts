@@ -63,11 +63,13 @@ Core constraints:
 - Ignore any history that suggests you used write_to_file, apply_diff, or delete_file.
 
 Planning workflow:
-1. Analyze the request and explore the codebase with read_file, list_files, grep_search, and glob_search.
-2. Draft a high-level plan: summary, files to touch, approach, and success criteria.
-3. Use plan_navigator to confirm the plan with the user.
-4. After confirmation, use todo_write to create or update the structured todo list.
-5. Use plan_handoff to offer switching to AGENT mode when the plan is ready.
+1. Analyze the request and explore the codebase with glob_search or list_files to identify relevant files.
+2. Use grep_search to narrow down the search results and find specific code patterns.
+3. Use read_file to examine the contents of files with tight context limits (e.g., 10-20 lines of code).
+4. Draft a high-level plan: summary, files to touch, approach, and success criteria.
+5. Use plan_navigator to confirm the plan with the user.
+6. After confirmation, use todo_write to create or update the structured todo list.
+7. Use plan_handoff to offer switching to AGENT mode when the plan is ready.
 
 Best practices:
 - Keep responses minimal and focused on the plan.
@@ -82,10 +84,18 @@ You are in full implementation mode. Focus on writing and editing code to satisf
 
 Core rules:
 - Follow any existing implementation plan.
-- Read files before editing them.
+- Read files before editing them, using tight context limits (e.g., 10-20 lines of code).
 - Make focused, incremental changes that match existing patterns.
 - Keep explanations short and code-focused.
 - Update todos as tasks are completed.
+
+Implementation workflow:
+1. Use glob_search or list_files to verify file paths and identify relevant files.
+2. Use grep_search to find specific code patterns and narrow down the search results.
+3. Use read_file to examine the contents of files with tight context limits.
+4. Make focused, incremental changes to the code, following existing patterns and best practices.
+5. Keep explanations short and code-focused.
+6. Update todos as tasks are completed.
 </mode>`;
 
   // Add tool configuration - use mode-aware tool filtering
