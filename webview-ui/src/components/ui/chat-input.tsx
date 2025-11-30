@@ -4,6 +4,10 @@ import { TodoBlock } from './todo-block';
 import { AttachmentPreview } from './attachment-preview';
 import { ModeDropdown } from './mode-dropdown';
 import { ChatModelSelector } from './chat-model-selector';
+import { ContextMenu } from './context-menu';
+import { MentionHighlighter } from './mention-highlighter';
+import { useContextMenu } from '../../hooks/use-context-menu';
+import { clearMentionPaths } from '../../utils/mention-utils';
 import type { TodoTask } from '../../types/todo';
 import type { ImageAttachment } from '../../types/chat';
 import type { ChatMode } from '../../types/chat-mode';
@@ -21,9 +25,30 @@ interface ChatInputProps {
 
 export function ChatInput({ onSendMessage, disabled = false, isStreaming = false, onStop, todos = [], mode, onModeChange }: ChatInputProps) {
   const [input, setInput] = useState('');
+  const [cursorPos, setCursorPos] = useState(0);
   const [attachments, setAttachments] = useState<ImageAttachment[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Get workspace files for mentions
+  const workspaceFiles = window.workspaceContext?.files || [];
+
+  // Context menu hook for @ mentions
+  const handleInputChange = (newValue: string, newCursorPos?: number) => {
+    setInput(newValue);
+    if (newCursorPos !== undefined) {
+      setCursorPos(newCursorPos);
+    }
+  };
+
+  const contextMenu = useContextMenu({
+    value: input,
+    cursorPos,
+    onChange: handleInputChange,
+    textareaRef,
+    workspaceFiles,
+    enabled: !disabled && !isStreaming,
+  });
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -38,18 +63,31 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
       onSendMessage(input.trim(), attachments.length > 0 ? attachments : undefined);
       setInput('');
       setAttachments([]);
+      clearMentionPaths(); // Clear mention path mappings after sending
     }
   };
 
   const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
+    setCursorPos(e.target.selectionStart || 0);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // Let context menu handle keyboard events first
+    if (contextMenu.handleKeyDown(e)) {
+      return;
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
     }
+  };
+
+  // Track cursor position on selection change
+  const handleSelect = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    const target = e.target as HTMLTextAreaElement;
+    setCursorPos(target.selectionStart || 0);
   };
 
   const handleAttachmentClick = () => {
@@ -186,18 +224,34 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
           </div>
 
           <div className="w-full relative rounded-lg">
+            {/* Context menu - positioned above textarea */}
+            {contextMenu.isOpen && (
+              <ContextMenu
+                options={contextMenu.options}
+                selectedIndex={contextMenu.selectedIndex}
+                onSelect={contextMenu.handleSelect}
+                onClose={contextMenu.close}
+                onMouseDown={contextMenu.preventClose}
+                setSelectedIndex={contextMenu.setSelectedIndex}
+              />
+            )}
+            {/* Mention highlighter - positioned behind textarea */}
+            <MentionHighlighter text={input} />
             <textarea
               ref={textareaRef}
               value={input}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
-              placeholder="Type your message..."
+              onSelect={handleSelect}
+              onClick={handleSelect}
+              placeholder="Type your message... (use @ to mention files)"
               disabled={disabled || isStreaming}
               rows={1}
               className="w-full px-1.5 py-1 rounded-lg bg-transparent text-sm leading-tight min-h-[36px] max-h-[100px] overflow-y-auto resize-none border-0 relative z-10 disabled:opacity-50 disabled:cursor-not-allowed placeholder:opacity-50"
               style={{
                 color: 'var(--vscode-input-foreground)',
-                outline: 'none'
+                outline: 'none',
+                caretColor: 'var(--vscode-input-foreground)',
               }}
             />
           </div>

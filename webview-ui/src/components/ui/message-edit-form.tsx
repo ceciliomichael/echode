@@ -3,6 +3,9 @@ import { ArrowUp, Paperclip } from 'lucide-react';
 import { AttachmentPreview } from './attachment-preview';
 import { ModeDropdown } from './mode-dropdown';
 import { ChatModelSelector } from './chat-model-selector';
+import { ContextMenu } from './context-menu';
+import { MentionHighlighter } from './mention-highlighter';
+import { useContextMenu } from '../../hooks/use-context-menu';
 import type { ImageAttachment } from '../../types/chat';
 import type { ChatMode } from '../../types/chat-mode';
 import { processImageFiles } from '../../utils/image-utils';
@@ -19,10 +22,31 @@ interface MessageEditFormProps {
 
 export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, attachments, mode, onModeChange }: MessageEditFormProps) {
   const [editContent, setEditContent] = useState(initialContent);
+  const [cursorPos, setCursorPos] = useState(initialContent.length);
   const [editAttachments, setEditAttachments] = useState<ImageAttachment[]>(attachments || []);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Get workspace files for mentions
+  const workspaceFiles = window.workspaceContext?.files || [];
+
+  // Context menu hook for @ mentions
+  const handleInputChange = (newValue: string, newCursorPos?: number) => {
+    setEditContent(newValue);
+    if (newCursorPos !== undefined) {
+      setCursorPos(newCursorPos);
+    }
+  };
+
+  const contextMenu = useContextMenu({
+    value: editContent,
+    cursorPos,
+    onChange: handleInputChange,
+    textareaRef,
+    workspaceFiles,
+    enabled: true,
+  });
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -78,15 +102,27 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
 
   const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     setEditContent(e.target.value);
+    setCursorPos(e.target.selectionStart || 0);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // Let context menu handle keyboard events first
+    if (contextMenu.handleKeyDown(e)) {
+      return;
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
     } else if (e.key === 'Escape') {
       onCancel();
     }
+  };
+
+  // Track cursor position on selection change
+  const handleSelect = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    const target = e.target as HTMLTextAreaElement;
+    setCursorPos(target.selectionStart || 0);
   };
 
   const handleAttachmentClick = () => {
@@ -181,16 +217,32 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
           </div>
 
           <div className="w-full relative rounded-lg">
+            {/* Context menu - positioned above textarea */}
+            {contextMenu.isOpen && (
+              <ContextMenu
+                options={contextMenu.options}
+                selectedIndex={contextMenu.selectedIndex}
+                onSelect={contextMenu.handleSelect}
+                onClose={contextMenu.close}
+                onMouseDown={contextMenu.preventClose}
+                setSelectedIndex={contextMenu.setSelectedIndex}
+              />
+            )}
+            {/* Mention highlighter - positioned behind textarea */}
+            <MentionHighlighter text={editContent} />
             <textarea
               ref={textareaRef}
               value={editContent}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
+              onSelect={handleSelect}
+              onClick={handleSelect}
               rows={1}
               className="w-full px-1.5 py-1 rounded-lg bg-transparent text-sm leading-tight min-h-[36px] max-h-[100px] overflow-y-auto resize-none border-0 relative z-10"
               style={{
                 color: 'var(--vscode-input-foreground)',
-                outline: 'none'
+                outline: 'none',
+                caretColor: 'var(--vscode-input-foreground)',
               }}
             />
           </div>
