@@ -28,7 +28,7 @@ export class GlobSearchTool implements ITool {
   async execute(parameters: Record<string, unknown>): Promise<ToolExecutionResult> {
     const patterns = this.normalizePatterns(parameters.pattern);
     const searchPath = (parameters.path as string) || '';
-    const excludes = (parameters.excludes as string[]) || getDefaultGrepExcludes();
+    const excludes = normalizeToStringArray(parameters.excludes, getDefaultGrepExcludes());
     const maxResults = (parameters.maxResults as number) || 1000;
     const maxFileSizeBytes = (parameters.maxFileSizeBytes as number) || 100 * 1024 * 1024;
     const sortByParam = parameters.sortBy as 'name' | 'size' | 'extension' | 'relevance' | undefined;
@@ -343,4 +343,20 @@ function normalizeGlobMatchMode(value: unknown): GlobMatchMode {
 
 function hasGlobSyntax(pattern: string): boolean {
   return /[\*\?\[\]\{\}]/.test(pattern);
+}
+
+function normalizeToStringArray(value: unknown, defaultValue: string[] = []): string[] {
+  if (!value) {
+    return defaultValue;
+  }
+
+  if (typeof value === 'string') {
+    return [value];
+  }
+
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === 'string');
+  }
+
+  return defaultValue;
 }

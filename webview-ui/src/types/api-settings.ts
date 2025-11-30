@@ -1,4 +1,4 @@
-export type Provider = 'anthropic' | 'openai' | 'openai-compatible' | 'vscode-lm' | 'qwen-code';
+export type Provider = 'anthropic' | 'openai' | 'openai-compatible' | 'megallm' | 'vscode-lm' | 'qwen-code';
 
 export interface Tool {
   id: string;
@@ -14,25 +14,30 @@ export interface ApiSettings {
   anthropicCustomUrl?: string;
   openaiCustomUrl?: string;
   openaiCompatibleCustomUrl?: string;
+  megallmCustomUrl?: string;
   apiKey: string;
   anthropicApiKey?: string;
   openaiApiKey?: string;
   openaiCompatibleApiKey?: string;
+  megallmApiKey?: string;
   qwenCodeOauthPath?: string;
   model: string;
   anthropicModel?: string;
   openaiModel?: string;
   openaiCompatibleModel?: string;
+  megallmModel?: string;
   vscodeLmModel?: string;
   qwenCodeModel?: string;
   anthropicMaxTokens: number;
   openaiMaxTokens: number;
   openaiCompatibleMaxTokens: number;
+  megallmMaxTokens: number;
   vscodeLmMaxTokens: number;
   qwenCodeMaxTokens: number;
   anthropicTemperature: number;
   openaiTemperature: number;
   openaiCompatibleTemperature: number;
+  megallmTemperature: number;
   vscodeLmTemperature: number;
   qwenCodeTemperature: number;
   systemPrompt?: string;
@@ -46,20 +51,24 @@ export const DEFAULT_API_SETTINGS: ApiSettings = {
   anthropicCustomUrl: '',
   openaiCustomUrl: '',
   openaiCompatibleCustomUrl: '',
+  megallmCustomUrl: '',
   apiKey: '',
   anthropicApiKey: '',
   openaiApiKey: '',
   openaiCompatibleApiKey: '',
+  megallmApiKey: '',
   qwenCodeOauthPath: '',
   model: '',
   anthropicMaxTokens: 8192,
   openaiMaxTokens: 4096,
   openaiCompatibleMaxTokens: 4096,
+  megallmMaxTokens: 4096,
   vscodeLmMaxTokens: 4096,
   qwenCodeMaxTokens: 65536,
   anthropicTemperature: 0.0,
   openaiTemperature: 0.0,
   openaiCompatibleTemperature: 0.0,
+  megallmTemperature: 0.0,
   vscodeLmTemperature: 1.0,
   qwenCodeTemperature: 0.0,
   systemPrompt: '',
@@ -78,6 +87,11 @@ export const PROVIDER_DEFAULTS = {
   },
   'openai-compatible': {
     baseUrl: 'http://localhost:1234',
+    maxTokens: 4096,
+    temperature: 1.0,
+  },
+  megallm: {
+    baseUrl: 'https://ai.megallm.io',
     maxTokens: 4096,
     temperature: 1.0,
   },

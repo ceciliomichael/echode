@@ -39,6 +39,12 @@ export class ChatApiService {
       maxTokens = settings.openaiCompatibleMaxTokens;
       temperature = settings.openaiCompatibleTemperature;
       baseURL = settings.openaiCompatibleCustomUrl?.trim() || getProviderDefaults('openai-compatible').baseUrl;
+    } else if (settings.provider === 'megallm') {
+      effectiveApiKey = settings.megallmApiKey || settings.apiKey || '';
+      effectiveModel = settings.megallmModel || settings.model;
+      maxTokens = settings.megallmMaxTokens;
+      temperature = settings.megallmTemperature;
+      baseURL = getProviderDefaults('megallm').baseUrl;
     } else if (settings.provider === 'qwen-code') {
       // Qwen Code: uses OAuth, no API key
       effectiveApiKey = '';

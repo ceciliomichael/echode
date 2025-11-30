@@ -63,7 +63,7 @@ export function ModeDropdown({ mode, onModeChange, disabled = false, direction =
         type="button"
         onClick={handleToggle}
         disabled={disabled}
-        className="flex items-center gap-1.5 px-2 py-1 text-xs rounded border transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
+        className="flex items-center gap-1.5 px-2 py-1 text-xs rounded-md border transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
         style={{
           color: mode === 'agent' ? '#22c55e' : '#f97316',
           backgroundColor: 'transparent',

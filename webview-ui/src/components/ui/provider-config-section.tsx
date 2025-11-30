@@ -45,7 +45,7 @@ export function ProviderConfigSection({
         <ProviderDropdown value={provider} onChange={onProviderChange} />
       </div>
 
-      {provider !== 'vscode-lm' && provider !== 'qwen-code' && (
+      {provider !== 'vscode-lm' && provider !== 'qwen-code' && provider !== 'megallm' && (
         <div className="space-y-2">
           <label
             htmlFor="customBaseUrl"

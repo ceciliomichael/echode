@@ -13,6 +13,36 @@ interface AssistantMessageProps {
   toolExecutions?: Map<string, ToolExecutionState>;
 }
 
+function sanitizeAssistantText(content: string): string {
+  if (!content) {
+    return content;
+  }
+
+  let sanitized = content;
+
+  // Remove internal section blocks entirely from user-visible text
+  const internalBlockTags = [
+    'function_calls',
+    'tool_calling',
+    'tool_format',
+    'tool_format_critical',
+    'available_tools',
+    'file_operations',
+    'system_reminder',
+  ];
+
+  for (const tag of internalBlockTags) {
+    const blockRegex = new RegExp(`<${tag}[^>]*>[\\s\\S]*?<\\/${tag}>`, 'g');
+    sanitized = sanitized.replace(blockRegex, '');
+  }
+
+  // Remove any stray invoke/parameter blocks that might leak into text
+  sanitized = sanitized.replace(/<invoke[^>]*>[\s\S]*?<\/invoke>/g, '');
+  sanitized = sanitized.replace(/<parameter[^>]*>[\s\S]*?<\/parameter>/g, '');
+
+  return sanitized;
+}
+
 function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming = false, toolExecutions }: AssistantMessageProps) {
   // Tokenize content into stable segments
   const tokens = useMemo(() => tokenizeContent(content, messageId), [content, messageId]);
@@ -184,7 +214,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
             return (
               <div key={`text-${messageId}-${token.index}`} style={{ marginTop, paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
                 <StableMarkdown 
-                  content={token.content} 
+                  content={sanitizeAssistantText(token.content)} 
                 />
               </div>
             );

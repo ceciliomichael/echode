@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
+
 import { SettingsSidebar } from '../ui/settings-sidebar';
 import { SettingsDropdown } from '../ui/settings-dropdown';
 import { ApiConfigTab } from './api-config-tab';
 import { SystemPromptTab } from './system-prompt-tab';
 import { ToolsTab } from './tools-tab';
-import { useModelFetcher } from '../../hooks/use-model-fetcher';
+
 import { useProviderSettings } from '../../hooks/use-provider-settings';
 import { getAllTools } from '../../lib/tool-config';
 import type { ApiSettings, Tool } from '../../types/api-settings';
@@ -26,8 +27,6 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
   const {
     provider,
     currentSettings,
-    model,
-    setModel,
     handleProviderChange,
     handleCustomUrlChange,
     handleMaxTokensChange,
@@ -36,22 +35,6 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
     handleQwenCodeOauthPathChange,
     buildSettings,
   } = useProviderSettings(initialSettings);
-
-  const { models, loadingModels, fetchModels, refetchModels, clearCache } = useModelFetcher(
-    provider,
-    currentSettings.customUrl,
-    currentSettings.apiKey
-  );
-
-  // Clear cache when provider changes
-  useEffect(() => {
-    clearCache();
-  }, [provider, clearCache]);
-
-  // Clear cache when connection details change (provider/base URL/apiKey)
-  useEffect(() => {
-    clearCache();
-  }, [provider, currentSettings.customUrl, currentSettings.apiKey, clearCache]);
 
   // Sync system prompt and tools with initial settings
   useEffect(() => {
@@ -72,18 +55,7 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
       });
     }, 500);
     return () => clearTimeout(timeoutId);
-  }, [provider, currentSettings, model, systemPrompt, enabledTools, onSave, buildSettings]);
-
-  const handleModelDropdownOpen = () => {
-    // VS Code LM and Qwen Code don't require API key
-    if (provider === 'vscode-lm' || provider === 'qwen-code' || currentSettings.apiKey) {
-      fetchModels();
-    }
-  };
-
-  const handleRefreshModels = () => {
-    refetchModels();
-  };
+  }, [provider, currentSettings, systemPrompt, enabledTools, onSave, buildSettings]);
 
   return (
     <div
@@ -122,20 +94,14 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
               customBaseUrl={currentSettings.customUrl}
               apiKey={currentSettings.apiKey}
               qwenCodeOauthPath={currentSettings.qwenCodeOauthPath}
-              model={model}
               maxTokens={currentSettings.maxTokens}
               temperature={currentSettings.temperature}
-              models={models}
-              loadingModels={loadingModels}
               onProviderChange={handleProviderChange}
               onCustomBaseUrlChange={handleCustomUrlChange}
               onApiKeyChange={handleApiKeyChange}
               onQwenCodeOauthPathChange={handleQwenCodeOauthPathChange}
-              onModelChange={setModel}
               onMaxTokensChange={handleMaxTokensChange}
               onTemperatureChange={handleTemperatureChange}
-              onModelDropdownOpen={handleModelDropdownOpen}
-              onRefreshModels={handleRefreshModels}
             />
           )}
 

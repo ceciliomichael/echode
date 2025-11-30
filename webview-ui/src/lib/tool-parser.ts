@@ -196,8 +196,47 @@ function extractCompleteJsonObjects(partialArray: string): unknown[] {
 }
 
 /**
+ * Detect nested tool-call XML inside a string (e.g., inside a parameter value)
+ * Returns true if the content contains <function_calls> or <invoke tags
+ */
+function hasNestedToolCalls(content: string): boolean {
+  if (typeof content !== 'string') return false;
+  // Check for nested function_calls or invoke tags
+  return /<function_calls>/.test(content) || /<invoke\s+name=/.test(content);
+}
+
+/**
+ * Check all parameter values for nested tool-call XML
+ * Returns true if any parameter contains nested tool calls
+ */
+function hasNestedToolCallsInParams(parameters: Record<string, unknown>): boolean {
+  for (const value of Object.values(parameters)) {
+    if (typeof value === 'string' && hasNestedToolCalls(value)) {
+      return true;
+    }
+    // Check arrays (e.g., edits array)
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (typeof item === 'string' && hasNestedToolCalls(item)) {
+          return true;
+        }
+        if (typeof item === 'object' && item !== null) {
+          for (const subVal of Object.values(item)) {
+            if (typeof subVal === 'string' && hasNestedToolCalls(subVal)) {
+              return true;
+            }
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * Parse a single invoke block and return structured data
  * Extracts tool name from invoke tag attribute: <invoke name="TOOL_NAME">
+ * Rejects tool calls with nested tool-call XML inside parameter values
  */
 function parseInvokeBlock(
   invokeContent: string,
@@ -207,6 +246,12 @@ function parseInvokeBlock(
   try {
     // Parse XML-style parameters from the invoke content
     const parameters = parseXMLParameters(invokeContent);
+
+    // Reject if any parameter contains nested tool-call XML
+    if (hasNestedToolCallsInParams(parameters)) {
+      console.log(`[ToolParser] ⚠️ Rejected ${toolName}: nested tool-call XML detected in parameter value`);
+      return null;
+    }
 
     return {
       type: 'tool',

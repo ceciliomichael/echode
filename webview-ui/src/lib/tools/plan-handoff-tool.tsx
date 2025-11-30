@@ -40,7 +40,12 @@ registerToolPlugin({
 **Important:**
 - Use this ONLY when the plan is truly complete
 - After the user clicks "Start Implementation", you'll switch to Agent mode with full tool access
-- The user must explicitly approve before implementation begins`,
+- The user must explicitly approve before implementation begins
+
+**Re-planning Behavior:**
+- If user sends a NEW message AFTER you used plan_handoff (but BEFORE clicking "Start Implementation"), your previous plan_handoff is INVALIDATED
+- Treat the new message as feedback, refinement, or new requirements
+- Update/recreate the plan, ask questions if needed, then use plan_handoff AGAIN`,
     icon: Rocket,
     usage: 'Offer to switch from Plan mode to Agent mode for implementation',
     formatExample: '<function_calls>\n<invoke name="plan_handoff">\n<parameter name="summary">Brief implementation summary</parameter>\n</invoke>\n</function_calls>',

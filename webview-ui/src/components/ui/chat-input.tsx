@@ -3,6 +3,7 @@ import { ArrowUp, Paperclip, Square } from 'lucide-react';
 import { TodoBlock } from './todo-block';
 import { AttachmentPreview } from './attachment-preview';
 import { ModeDropdown } from './mode-dropdown';
+import { ChatModelSelector } from './chat-model-selector';
 import type { TodoTask } from '../../types/todo';
 import type { ImageAttachment } from '../../types/chat';
 import type { ChatMode } from '../../types/chat-mode';
@@ -220,6 +221,10 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
                   disabled={disabled || isStreaming}
                 />
               )}
+              <ChatModelSelector
+                disabled={disabled || isStreaming}
+                direction="up"
+              />
             </div>
 
             <div className="flex items-center gap-1">

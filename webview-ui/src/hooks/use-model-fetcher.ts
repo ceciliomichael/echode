@@ -4,6 +4,9 @@ import { getProviderDefaults, type Provider } from '../types/api-settings';
 // Session-only cache for fetched models
 const modelCache = new Map<string, string[]>();
 
+// Global counter for unique request IDs (avoids collision when multiple hooks call simultaneously)
+let requestIdCounter = 0;
+
 export function useModelFetcher(
   provider: Provider,
   customBaseUrl: string | undefined,
@@ -11,7 +14,7 @@ export function useModelFetcher(
 ) {
   const [models, setModels] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
-  const requestIdRef = useRef<number | null>(null);
+  const requestIdRef = useRef<string | null>(null);
 
   // Generate cache key based on provider, url, and apiKey
   const getCacheKey = useCallback((prov: Provider, url: string | undefined, key: string) => {
@@ -39,7 +42,9 @@ export function useModelFetcher(
     setLoadingModels(true);
     
     const baseURL = customBaseUrl?.trim() || getProviderDefaults(provider).baseUrl;
-    const requestId = Date.now();
+    // Use counter + timestamp + provider to ensure unique request IDs across simultaneous calls
+    requestIdCounter += 1;
+    const requestId = `${Date.now()}-${requestIdCounter}-${provider}`;
     requestIdRef.current = requestId;
 
     const handleResponse = (event: MessageEvent) => {

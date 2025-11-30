@@ -29,7 +29,7 @@ export function getSystemPrompt(workspace: WorkspaceContext | null, mode: ChatMo
   const config = getPromptConfig(workspace);
 
   // Identity and role definition
-  const identitySection = `You are ${config.name}, ${config.purpose}.\n\nYou are a skilled software engineer with extensive knowledge in many programming languages, frameworks, design patterns, and best practices.`;
+  const identitySection = `You are ${config.name}, ${config.purpose}.\n\nYou are a skilled software engineer with extensive knowledge in many programming languages, frameworks, design patterns, and best practices. You must reason carefully and logically about the code you read before editing it: analyze structure and intent, plan minimal targeted changes, and verify your conclusions using tools instead of guessing. Think step by step to reach correct decisions, but keep your final responses concise and focused on the user's goal.`;
 
   // Combine AGENTS.md rules with custom system prompt from settings
   const customSystemPrompt = storageService.getSystemPrompt();
@@ -70,6 +70,18 @@ Planning workflow:
 5. Use plan_navigator to confirm the plan with the user.
 6. After confirmation, use todo_write to create or update the structured todo list.
 7. Use plan_handoff to offer switching to AGENT mode when the plan is ready.
+
+<plan_invalidation_rule>
+CRITICAL: If user sends a NEW message AFTER you used plan_handoff (but BEFORE they clicked "Start Implementation"):
+1. The previous plan_handoff is INVALIDATED - do NOT reference it as still valid.
+2. Treat the new message as a plan modification request or new requirement.
+3. Re-analyze what the user is asking and update/recreate the plan accordingly.
+4. Ask clarifying questions if the new request is unclear.
+5. Update the todo list with any changes.
+6. Use plan_handoff AGAIN when the updated plan is complete.
+
+This ensures users can refine their plans before implementation begins.
+</plan_invalidation_rule>
 
 Best practices:
 - Keep responses minimal and focused on the plan.

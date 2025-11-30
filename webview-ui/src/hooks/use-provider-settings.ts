@@ -27,6 +27,7 @@ export function useProviderSettings(initialSettings: ApiSettings) {
   const [anthropicApiKey, setAnthropicApiKey] = useState(initialSettings.anthropicApiKey || initialSettings.apiKey || '');
   const [openaiApiKey, setOpenaiApiKey] = useState(initialSettings.openaiApiKey || initialSettings.apiKey || '');
   const [openaiCompatibleApiKey, setOpenaiCompatibleApiKey] = useState(initialSettings.openaiCompatibleApiKey || initialSettings.apiKey || '');
+  const [megallmApiKey, setMegallmApiKey] = useState(initialSettings.megallmApiKey || initialSettings.apiKey || '');
   
   const [anthropicMaxTokens, setAnthropicMaxTokens] = useState(initialSettings.anthropicMaxTokens);
   const [openaiMaxTokens, setOpenaiMaxTokens] = useState(initialSettings.openaiMaxTokens);
@@ -46,8 +47,22 @@ export function useProviderSettings(initialSettings: ApiSettings) {
 
   // Get current settings based on provider
   const currentSettings: ProviderSettings = {
-    customUrl: provider === 'anthropic' ? anthropicCustomUrl : provider === 'openai' ? openaiCustomUrl : provider === 'openai-compatible' ? openaiCompatibleCustomUrl : '',
-    apiKey: provider === 'anthropic' ? anthropicApiKey : provider === 'openai' ? openaiApiKey : provider === 'openai-compatible' ? openaiCompatibleApiKey : '',
+    customUrl: provider === 'anthropic'
+      ? anthropicCustomUrl
+      : provider === 'openai'
+      ? openaiCustomUrl
+      : provider === 'openai-compatible'
+      ? openaiCompatibleCustomUrl
+      : '',
+    apiKey: provider === 'anthropic'
+      ? anthropicApiKey
+      : provider === 'openai'
+      ? openaiApiKey
+      : provider === 'openai-compatible'
+      ? openaiCompatibleApiKey
+      : provider === 'megallm'
+      ? megallmApiKey
+      : '',
     model,
     maxTokens: provider === 'anthropic' ? anthropicMaxTokens : provider === 'openai' ? openaiMaxTokens : provider === 'openai-compatible' ? openaiCompatibleMaxTokens : provider === 'qwen-code' ? qwenCodeMaxTokens : vscodeLmMaxTokens,
     temperature: provider === 'anthropic' ? anthropicTemperature : provider === 'openai' ? openaiTemperature : provider === 'openai-compatible' ? openaiCompatibleTemperature : provider === 'qwen-code' ? qwenCodeTemperature : vscodeLmTemperature,
@@ -70,6 +85,7 @@ export function useProviderSettings(initialSettings: ApiSettings) {
       setAnthropicApiKey(initialSettings.anthropicApiKey || initialSettings.apiKey || '');
       setOpenaiApiKey(initialSettings.openaiApiKey || initialSettings.apiKey || '');
       setOpenaiCompatibleApiKey(initialSettings.openaiCompatibleApiKey || initialSettings.apiKey || '');
+      setMegallmApiKey(initialSettings.megallmApiKey || initialSettings.apiKey || '');
       setAnthropicMaxTokens(initialSettings.anthropicMaxTokens);
       setOpenaiMaxTokens(initialSettings.openaiMaxTokens);
       setOpenaiCompatibleMaxTokens(initialSettings.openaiCompatibleMaxTokens);
@@ -168,6 +184,8 @@ export function useProviderSettings(initialSettings: ApiSettings) {
       setAnthropicApiKey(value);
     } else if (provider === 'openai') {
       setOpenaiApiKey(value);
+    } else if (provider === 'megallm') {
+      setMegallmApiKey(value);
     } else {
       setOpenaiCompatibleApiKey(value);
     }
@@ -215,15 +233,18 @@ export function useProviderSettings(initialSettings: ApiSettings) {
       anthropicApiKey,
       openaiApiKey,
       openaiCompatibleApiKey,
+      megallmApiKey,
       qwenCodeOauthPath,
       anthropicMaxTokens,
       openaiMaxTokens,
       openaiCompatibleMaxTokens,
+      megallmMaxTokens: initialSettings.megallmMaxTokens,
       vscodeLmMaxTokens,
       qwenCodeMaxTokens,
       anthropicTemperature,
       openaiTemperature,
       openaiCompatibleTemperature,
+      megallmTemperature: initialSettings.megallmTemperature,
       vscodeLmTemperature,
       qwenCodeTemperature,
     };

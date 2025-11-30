@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Undo2 } from 'lucide-react';
 import { MessageEditForm } from './message-edit-form';
 import type { ImageAttachment } from '../../types/chat';
@@ -20,7 +20,17 @@ interface UserMessageProps {
 
 export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, attachments, mode, onModeChange }: UserMessageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const scrollTargetRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
+
+  // Scroll to make room for dropdowns when entering edit mode
+  useEffect(() => {
+    if (isEditing && scrollTargetRef.current) {
+      setTimeout(() => {
+        scrollTargetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 300);
+    }
+  }, [isEditing]);
 
   const handleMessageClick = (e: React.MouseEvent) => {
     // Don't trigger edit if clicking the revert button
@@ -51,7 +61,7 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
 
   if (isEditing) {
     return (
-      <div data-message-id={messageId}>
+      <div ref={containerRef} data-message-id={messageId} className="relative">
         <MessageEditForm
           initialContent={content}
           onSubmit={handleSubmit}
@@ -61,6 +71,7 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
           mode={mode}
           onModeChange={onModeChange}
         />
+        <div ref={scrollTargetRef} className="absolute -bottom-64 left-0 w-px h-px pointer-events-none opacity-0" />
       </div>
     );
   }

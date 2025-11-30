@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, type KeyboardEvent, type FormEvent, type C
 import { ArrowUp, Paperclip } from 'lucide-react';
 import { AttachmentPreview } from './attachment-preview';
 import { ModeDropdown } from './mode-dropdown';
+import { ChatModelSelector } from './chat-model-selector';
 import type { ImageAttachment } from '../../types/chat';
 import type { ChatMode } from '../../types/chat-mode';
 import { processImageFiles } from '../../utils/image-utils';
@@ -214,6 +215,10 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
                   direction="down"
                 />
               )}
+              <ChatModelSelector
+                disabled={false}
+                direction="down"
+              />
             </div>
 
             <div className="flex items-center gap-2">

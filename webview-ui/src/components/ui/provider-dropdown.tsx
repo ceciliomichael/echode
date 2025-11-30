@@ -11,6 +11,7 @@ const PROVIDER_OPTIONS: { value: Provider; label: string }[] = [
   { value: 'anthropic', label: 'Anthropic' },
   { value: 'openai', label: 'OpenAI' },
   { value: 'openai-compatible', label: 'OpenAI Compatible' },
+  { value: 'megallm', label: 'MEGALLM' },
   { value: 'vscode-lm', label: 'VS Code LM (Copilot)' },
   { value: 'qwen-code', label: 'Qwen Code' },
 ];

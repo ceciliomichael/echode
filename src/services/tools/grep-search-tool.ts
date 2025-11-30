@@ -39,8 +39,8 @@ export class GrepSearchTool implements ITool {
     const query = parameters.query as string;
     const isRegex = (parameters.isRegex as boolean) ?? false;
     const searchPath = (parameters.path as string) || '';
-    const includes = (parameters.includes as string[]) || [];
-    const excludes = (parameters.excludes as string[]) || getDefaultGrepExcludes();
+    const includes = normalizeToStringArray(parameters.includes);
+    const excludes = normalizeToStringArray(parameters.excludes, getDefaultGrepExcludes());
     
     // New enhanced parameters
     const smartCase = (parameters.smartCase as boolean) ?? true;
@@ -339,4 +339,20 @@ function normalizeGrepMatchMode(value: unknown): GrepMatchMode {
   }
 
   return 'auto';
+}
+
+function normalizeToStringArray(value: unknown, defaultValue: string[] = []): string[] {
+  if (!value) {
+    return defaultValue;
+  }
+
+  if (typeof value === 'string') {
+    return [value];
+  }
+
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === 'string');
+  }
+
+  return defaultValue;
 }

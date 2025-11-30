@@ -141,11 +141,13 @@ export function useSetupForm(
         anthropicMaxTokens, 
         openaiMaxTokens, 
         openaiCompatibleMaxTokens,
+        megallmMaxTokens: initialSettings.megallmMaxTokens,
         vscodeLmMaxTokens,
         qwenCodeMaxTokens,
         anthropicTemperature,
         openaiTemperature,
         openaiCompatibleTemperature,
+        megallmTemperature: initialSettings.megallmTemperature,
         vscodeLmTemperature,
         qwenCodeTemperature,
         systemPrompt 

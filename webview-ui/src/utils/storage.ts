@@ -74,6 +74,8 @@ export const storageService = {
   saveSettings(settings: ApiSettings): void {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+      // Dispatch custom event for same-window listeners
+      window.dispatchEvent(new CustomEvent('settingsUpdated', { detail: settings }));
     } catch {
       console.error('Failed to save settings');
     }

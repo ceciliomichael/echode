@@ -256,24 +256,6 @@ export function ChatContainer() {
     isAutoScrollEnabledRef.current = isAutoScrollEnabled;
   }, [isAutoScrollEnabled]);
 
-  // Scroll editing message into view when edit mode starts
-  useEffect(() => {
-    if (editingMessageId && scrollContainerRef.current) {
-      // Wait for edit form to render, then scroll into view
-      setTimeout(() => {
-        const editingElement = scrollContainerRef.current?.querySelector(
-          `[data-message-id="${editingMessageId}"]`
-        );
-        if (editingElement) {
-          editingElement.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center'
-          });
-        }
-      }, 50);
-    }
-  }, [editingMessageId]);
-
   // Auto-scroll when messages change (new messages or streaming updates)
   useEffect(() => {
     const currentMessageCount = visibleMessages.length;

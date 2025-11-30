@@ -4,7 +4,7 @@ import OpenAI from 'openai';
 
 interface ModelFetchRequest {
   requestId: number;
-  provider: 'anthropic' | 'openai' | 'openai-compatible' | 'vscode-lm' | 'qwen-code';
+  provider: 'anthropic' | 'openai' | 'openai-compatible' | 'megallm' | 'vscode-lm' | 'qwen-code';
   apiKey: string;
   baseURL: string;
 }
@@ -25,8 +25,8 @@ export async function handleModelFetch(
     // Route to appropriate provider
     if (provider === 'anthropic') {
       models = await fetchAnthropicModels(apiKey, baseURL);
-    } else if (provider === 'openai' || provider === 'openai-compatible') {
-      models = await fetchOpenAIModels(apiKey, baseURL, provider);
+    } else if (provider === 'openai' || provider === 'openai-compatible' || provider === 'megallm') {
+      models = await fetchOpenAIModels(apiKey, baseURL, provider === 'openai' ? 'openai' : 'openai-compatible');
     } else if (provider === 'vscode-lm') {
       models = await fetchVSCodeLMModels();
     } else if (provider === 'qwen-code') {
