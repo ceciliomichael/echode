@@ -68,9 +68,9 @@ export function MentionHighlighter({ text, scrollTop = 0, highlightAll = false }
           transform: `translateY(${-scrollTop}px)`,
           // Match textarea: px-1.5 py-1 = 6px 4px
           padding: '4px 6px',
-          // Match textarea: text-sm leading-tight
+          // Match textarea: text-sm leading-normal
           fontSize: '0.875rem',
-          lineHeight: '1.25',
+          lineHeight: '1.5',
           fontFamily: 'inherit',
           whiteSpace: 'pre-wrap',
           wordWrap: 'break-word',

@@ -287,7 +287,7 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
               onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
               placeholder="Type your message... (use @ to mention files)"
               rows={1}
-              className="w-full px-1.5 py-1 rounded-lg bg-transparent text-sm leading-tight min-h-[36px] max-h-[100px] overflow-y-auto resize-none border-0 relative z-10"
+              className="w-full px-1.5 py-1 rounded-lg bg-transparent text-sm leading-normal min-h-[36px] max-h-[100px] overflow-y-auto resize-none border-0 relative z-10"
               style={{
                 color: 'var(--vscode-input-foreground)',
                 outline: 'none',

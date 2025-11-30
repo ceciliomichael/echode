@@ -9,7 +9,7 @@ export class ChatApiService {
   async *streamChat(messages: ChatMessage[], signal?: AbortSignal, mode: ChatMode = 'agent'): AsyncGenerator<string, void, unknown> {
     const settings = storageService.getSettings();
 
-    if (!settings.provider) {
+    if (!storageService.hasSettings()) {
       throw new Error('API configuration not available. Please configure your API settings in the header settings.');
     }
 
@@ -60,12 +60,6 @@ export class ChatApiService {
       maxTokens = settings.vscodeLmMaxTokens;
       temperature = settings.vscodeLmTemperature;
       baseURL = '';
-    }
-
-    // VS Code LM and Qwen Code don't require API key, others do
-    const requiresApiKey = settings.provider !== 'vscode-lm' && settings.provider !== 'qwen-code';
-    if ((requiresApiKey && !effectiveApiKey) || !effectiveModel) {
-      throw new Error('API configuration not available. Please configure your API settings in the header settings.');
     }
 
     // Filter tools based on mode (plan mode gets restricted set, agent mode gets all)

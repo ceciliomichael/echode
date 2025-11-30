@@ -109,6 +109,14 @@ export const storageService = {
       return !!(settings.openaiCompatibleApiKey && (settings.openaiCompatibleModel || settings.model));
     }
 
+    if (settings.provider === 'megallm') {
+      return !!(settings.megallmApiKey && (settings.megallmModel || settings.model));
+    }
+
+    if (settings.provider === 'qwen-code') {
+      return !!(settings.qwenCodeModel || settings.model);
+    }
+
     // VS Code LM provider: only model is required
     if (settings.provider === 'vscode-lm') {
       return !!(settings.vscodeLmModel || settings.model);

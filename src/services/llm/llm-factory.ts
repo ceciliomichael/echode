@@ -13,6 +13,7 @@ export class LLMFactory {
       case 'openai':
         return new OpenAIProvider();
       case 'openai-compatible':
+      case 'megallm':
         return new OpenAICompatibleProvider();
       case 'vscode-lm':
         return new VSCodeLMProvider();

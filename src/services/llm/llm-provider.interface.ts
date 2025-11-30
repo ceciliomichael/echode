@@ -14,7 +14,7 @@ export interface ChatMessage {
 }
 
 export interface ChatStreamSettings {
-  provider: 'anthropic' | 'openai' | 'openai-compatible' | 'vscode-lm' | 'qwen-code';
+  provider: 'anthropic' | 'openai' | 'openai-compatible' | 'megallm' | 'vscode-lm' | 'qwen-code';
   apiKey: string;
   model: string;
   maxTokens: number;

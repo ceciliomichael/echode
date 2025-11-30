@@ -211,8 +211,11 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
             // visibleTokens already filtered out empty text, but double check just in case
             if (!token.content.trim()) return null;
             
+            // Reduce spacing when text follows a think block for tighter visual flow
+            const textMarginTop = prevToken?.type === 'think' ? '0.1rem' : marginTop;
+            
             return (
-              <div key={`text-${messageId}-${token.index}`} style={{ marginTop, paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
+              <div key={`text-${messageId}-${token.index}`} style={{ marginTop: textMarginTop, paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
                 <StableMarkdown 
                   content={sanitizeAssistantText(token.content)} 
                 />

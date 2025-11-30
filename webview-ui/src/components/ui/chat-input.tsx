@@ -280,7 +280,7 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
               placeholder="Type your message... (use @ to mention files)"
               disabled={disabled || isStreaming}
               rows={1}
-              className="w-full px-1.5 py-1 rounded-lg bg-transparent text-sm leading-tight min-h-[36px] max-h-[100px] overflow-y-auto resize-none border-0 relative z-10 disabled:opacity-50 disabled:cursor-not-allowed placeholder:opacity-50"
+              className="w-full px-1.5 py-1 rounded-lg bg-transparent text-sm leading-normal min-h-[36px] max-h-[100px] overflow-y-auto resize-none border-0 relative z-10 disabled:opacity-50 disabled:cursor-not-allowed placeholder:opacity-50"
               style={{
                 color: 'var(--vscode-input-foreground)',
                 outline: 'none',

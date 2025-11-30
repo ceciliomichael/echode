@@ -96,12 +96,13 @@ export function HistoryDropdown({ onLoadSession, onClose }: HistoryDropdownProps
               className="px-3 py-2 cursor-pointer transition-colors border-b"
               style={{
                 borderColor: 'var(--vscode-dropdown-border)',
+                backgroundColor: 'var(--vscode-dropdown-background)',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.backgroundColor = 'var(--vscode-dropdown-background)';
               }}
             >
               <div className="flex items-start justify-between gap-2">
@@ -123,13 +124,14 @@ export function HistoryDropdown({ onLoadSession, onClose }: HistoryDropdownProps
                   className="p-1 rounded transition-colors flex-shrink-0"
                   style={{
                     color: 'var(--vscode-descriptionForeground)',
+                    backgroundColor: 'var(--vscode-dropdown-background)',
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = 'var(--vscode-button-secondaryHoverBackground)';
                     e.currentTarget.style.color = 'var(--vscode-errorForeground)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.backgroundColor = 'var(--vscode-dropdown-background)';
                     e.currentTarget.style.color = 'var(--vscode-descriptionForeground)';
                   }}
                   aria-label="Delete"

@@ -39,7 +39,7 @@ export function Dropdown({ isOpen, onClose, children }: DropdownProps) {
     <div
       ref={dropdownRef}
       data-edit-outside-ignore="true"
-      className="fixed top-2 right-4 w-80 max-h-96 rounded-lg border shadow-lg overflow-hidden z-50"
+      className="fixed top-2 right-4 w-80 max-h-96 rounded-lg border shadow-lg overflow-hidden z-[9999]"
       style={{
         backgroundColor: 'var(--vscode-dropdown-background)',
         borderColor: 'var(--vscode-dropdown-border)',
