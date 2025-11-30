@@ -90,6 +90,15 @@ export function ChatModelSelector({ disabled = false, direction = 'up' }: ChatMo
     loadingQwenCode;
 
   useEffect(() => {
+    fetchAnthropic();
+    fetchOpenai();
+    fetchOpenaiCompatible();
+    fetchMegallm();
+    fetchVscodeLm();
+    fetchQwenCode();
+  }, [fetchAnthropic, fetchOpenai, fetchOpenaiCompatible, fetchMegallm, fetchVscodeLm, fetchQwenCode]);
+
+  useEffect(() => {
     if (!isOpen) return;
 
     fetchAnthropic();

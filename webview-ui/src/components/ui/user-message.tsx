@@ -21,15 +21,15 @@ interface UserMessageProps {
 
 export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, attachments, mode, onModeChange }: UserMessageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const scrollTargetRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
 
-  // Scroll to make room for dropdowns when entering edit mode
+  // Scroll to make edit form visible when entering edit mode
   useEffect(() => {
-    if (isEditing && scrollTargetRef.current) {
+    if (isEditing && containerRef.current) {
+      // Small delay to ensure DOM has updated
       setTimeout(() => {
-        scrollTargetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }, 300);
+        containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 50);
     }
   }, [isEditing]);
 
@@ -72,7 +72,6 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
           mode={mode}
           onModeChange={onModeChange}
         />
-        <div ref={scrollTargetRef} className="absolute -bottom-64 left-0 w-px h-px pointer-events-none opacity-0" />
       </div>
     );
   }

@@ -174,12 +174,27 @@ export function ChatContainer() {
       } else if (message.type === 'closeHistory') {
         setIsHistoryOpen(false);
       } else if (message.type === 'sessionLoaded') {
-        // When a session is loaded, scroll to bottom after a short delay
-        // to ensure the messages have rendered
-        setTimeout(() => {
+        // When a session is loaded, instantly position at bottom (no animation)
+        // so the view starts at the end of the conversation.
+        // Use requestAnimationFrame to ensure messages have rendered first.
+        requestAnimationFrame(() => {
+          // Check if session has an active edit message - if so, skip scroll to bottom
+          // and let the edit form's own scrollIntoView logic handle positioning
+          const sessionUiState = message.session?.uiState;
+          const hasActiveEdit = sessionUiState?.editingMessageId || sessionUiState?.revertPreviewMessageId;
+          
+          if (hasActiveEdit) {
+            // Don't auto-scroll, let edit form position itself
+            setIsAutoScrollEnabled(false);
+            return;
+          }
+          
+          if (scrollContainerRef.current) {
+            // Instant scroll (no animation) - view starts at bottom
+            scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+          }
           setIsAutoScrollEnabled(true);
-          scrollToBottom({ behavior: 'smooth' });
-        }, 100);
+        });
       }
     };
 
