@@ -6,7 +6,7 @@ import {
   insertContextMention,
   isOptionSelectable,
 } from '../utils/context-mentions';
-import { getActiveMention, registerMentionPath } from '../utils/mention-utils';
+import { getActiveMention, registerMentionPath, getMentionPath, unescapeSpaces } from '../utils/mention-utils';
 
 interface UseContextMenuOptions {
   value: string;
@@ -62,16 +62,24 @@ export function useContextMenu({
   // Check if this query was manually closed
   const isClosed = closedQueries.has(queryKey);
 
+  // If this mention already corresponds to a registered (highlighted) mention,
+  // we don't want to show the context menu again.
+  const isAlreadyHighlighted = useMemo(() => {
+    if (!activeMention) return false;
+    const mentionText = unescapeSpaces(activeMention.query);
+    return getMentionPath(mentionText) !== undefined;
+  }, [activeMention]);
+
   // Get context menu options based on current state
   const options = useMemo(() => {
-    if (!activeMention || isClosed) return [];
+    if (!activeMention || isClosed || isAlreadyHighlighted) return [];
     
     // Use search query if drilling into a submenu, otherwise use the main query
     const effectiveQuery = selectedType ? searchQuery : query;
     return getContextMenuOptions(effectiveQuery, selectedType, workspaceFiles);
-  }, [activeMention, isClosed, selectedType, searchQuery, query, workspaceFiles]);
+  }, [activeMention, isClosed, isAlreadyHighlighted, selectedType, searchQuery, query, workspaceFiles]);
 
-  const isOpen = activeMention !== null && options.length > 0 && !isClosed;
+  const isOpen = activeMention !== null && options.length > 0 && !isClosed && !isAlreadyHighlighted;
 
   // Ensure selectedIndex points to a valid selectable option
   // If current selectedIndex is invalid, find the first selectable option

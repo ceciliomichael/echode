@@ -9,6 +9,7 @@ import { useContextMenu } from '../../hooks/use-context-menu';
 import type { ImageAttachment } from '../../types/chat';
 import type { ChatMode } from '../../types/chat-mode';
 import { processImageFiles } from '../../utils/image-utils';
+import { removeMention, getMentionPath, unescapeSpaces, registerMentionPath, parseMentionFilenames } from '../../utils/mention-utils';
 
 interface MessageEditFormProps {
   initialContent: string;
@@ -24,6 +25,7 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
   const [editContent, setEditContent] = useState(initialContent);
   const [cursorPos, setCursorPos] = useState(initialContent.length);
   const [editAttachments, setEditAttachments] = useState<ImageAttachment[]>(attachments || []);
+  const [scrollTop, setScrollTop] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -47,6 +49,20 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
     workspaceFiles,
     enabled: true,
   });
+
+  // Register mentions from initial content so they get highlighted
+  useEffect(() => {
+    const mentions = parseMentionFilenames(initialContent);
+    for (const mention of mentions) {
+      // Try to find the full path in workspace files
+      const matchingFile = workspaceFiles.find(f => {
+        const basename = f.split('/').pop() || f;
+        return basename.toLowerCase() === mention.toLowerCase();
+      });
+      // Register with the matched path or just the mention itself
+      registerMentionPath(mention, matchingFile || mention);
+    }
+  }, [initialContent, workspaceFiles]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -81,20 +97,22 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
         return;
       }
 
-      if (editContent.trim() && editContent !== initialContent && onSave) {
-        onSave(editContent.trim());
-      }
+      // Cancel edit without saving when clicking outside
       onCancel();
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [onCancel, editContent, initialContent, onSave]);
+  }, [onCancel]);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (editContent.trim()) {
-      onSubmit(editContent.trim(), editAttachments.length > 0 ? editAttachments : undefined);
+      const newContent = editContent.trim();
+      onSubmit(newContent, editAttachments.length > 0 ? editAttachments : undefined);
+      if (onSave) {
+        onSave(newContent);
+      }
     } else {
       onCancel();
     }
@@ -109,6 +127,34 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
     // Let context menu handle keyboard events first
     if (contextMenu.handleKeyDown(e)) {
       return;
+    }
+
+    // Handle backspace to remove whole mention if it's a registered one
+    // Two-step: first backspace removes trailing space, second removes mention
+    if (e.key === 'Backspace') {
+      // Get fresh cursor position from the textarea
+      const currentPos = e.currentTarget.selectionStart || 0;
+      const beforeCursor = editContent.slice(0, currentPos);
+      // Only match @mention WITHOUT trailing space (cursor right at end of mention)
+      const mentionMatch = beforeCursor.match(/@([^\s@]+)$/);
+      if (mentionMatch) {
+        const mentionText = unescapeSpaces(mentionMatch[1]);
+        // Only remove whole mention if it's registered (highlighted)
+        if (getMentionPath(mentionText) !== undefined) {
+          e.preventDefault();
+          const result = removeMention(editContent, currentPos);
+          if (result) {
+            setEditContent(result.newText);
+            setCursorPos(result.newCursorPos);
+            requestAnimationFrame(() => {
+              if (textareaRef.current) {
+                textareaRef.current.setSelectionRange(result.newCursorPos, result.newCursorPos);
+              }
+            });
+          }
+          return;
+        }
+      }
     }
 
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -217,7 +263,7 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
           </div>
 
           <div className="w-full relative rounded-lg">
-            {/* Context menu - positioned above textarea */}
+            {/* Context menu - positioned below textarea */}
             {contextMenu.isOpen && (
               <ContextMenu
                 options={contextMenu.options}
@@ -226,10 +272,11 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
                 onClose={contextMenu.close}
                 onMouseDown={contextMenu.preventClose}
                 setSelectedIndex={contextMenu.setSelectedIndex}
+                direction="down"
               />
             )}
             {/* Mention highlighter - positioned behind textarea */}
-            <MentionHighlighter text={editContent} />
+            <MentionHighlighter text={editContent} scrollTop={scrollTop} highlightAll={true} />
             <textarea
               ref={textareaRef}
               value={editContent}
@@ -237,6 +284,8 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
               onKeyDown={handleKeyDown}
               onSelect={handleSelect}
               onClick={handleSelect}
+              onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+              placeholder="Type your message... (use @ to mention files)"
               rows={1}
               className="w-full px-1.5 py-1 rounded-lg bg-transparent text-sm leading-tight min-h-[36px] max-h-[100px] overflow-y-auto resize-none border-0 relative z-10"
               style={{

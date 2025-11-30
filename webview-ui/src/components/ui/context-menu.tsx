@@ -14,6 +14,7 @@ interface ContextMenuProps {
   onClose: () => void;
   onMouseDown: () => void;
   setSelectedIndex: (index: number) => void;
+  direction?: 'up' | 'down';
 }
 
 export function ContextMenu({
@@ -23,6 +24,7 @@ export function ContextMenu({
   onClose,
   onMouseDown,
   setSelectedIndex,
+  direction = 'up',
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -132,7 +134,9 @@ export function ContextMenu({
     <div
       style={{
         position: 'absolute',
-        bottom: 'calc(100% + 4px)',
+        ...(direction === 'up'
+          ? { bottom: 'calc(100% + 4px)' }
+          : { top: 'calc(100% + 4px)' }),
         left: 0,
         zIndex: 50,
       }}

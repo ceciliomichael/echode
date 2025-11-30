@@ -7,7 +7,7 @@ import { ChatModelSelector } from './chat-model-selector';
 import { ContextMenu } from './context-menu';
 import { MentionHighlighter } from './mention-highlighter';
 import { useContextMenu } from '../../hooks/use-context-menu';
-import { clearMentionPaths } from '../../utils/mention-utils';
+import { clearMentionPaths, removeMention, getMentionPath, unescapeSpaces } from '../../utils/mention-utils';
 import type { TodoTask } from '../../types/todo';
 import type { ImageAttachment } from '../../types/chat';
 import type { ChatMode } from '../../types/chat-mode';
@@ -27,6 +27,7 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
   const [input, setInput] = useState('');
   const [cursorPos, setCursorPos] = useState(0);
   const [attachments, setAttachments] = useState<ImageAttachment[]>([]);
+  const [scrollTop, setScrollTop] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -59,8 +60,10 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (input.trim() && !disabled) {
-      onSendMessage(input.trim(), attachments.length > 0 ? attachments : undefined);
+    const content = input;
+    // Only use trim() to check for non-empty content, but send the original text
+    if (content.trim() && !disabled) {
+      onSendMessage(content, attachments.length > 0 ? attachments : undefined);
       setInput('');
       setAttachments([]);
       clearMentionPaths(); // Clear mention path mappings after sending
@@ -76,6 +79,35 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
     // Let context menu handle keyboard events first
     if (contextMenu.handleKeyDown(e)) {
       return;
+    }
+
+    // Handle backspace to remove whole mention if it's a registered one
+    // Two-step: first backspace removes trailing space, second removes mention
+    if (e.key === 'Backspace') {
+      // Get fresh cursor position from the textarea
+      const currentPos = e.currentTarget.selectionStart || 0;
+      const beforeCursor = input.slice(0, currentPos);
+      // Only match @mention WITHOUT trailing space (cursor right at end of mention)
+      const mentionMatch = beforeCursor.match(/@([^\s@]+)$/);
+      if (mentionMatch) {
+        const mentionText = unescapeSpaces(mentionMatch[1]);
+        // Only remove whole mention if it's registered (highlighted)
+        if (getMentionPath(mentionText) !== undefined) {
+          e.preventDefault();
+          const result = removeMention(input, currentPos);
+          if (result) {
+            setInput(result.newText);
+            setCursorPos(result.newCursorPos);
+            // Set cursor position after state update
+            requestAnimationFrame(() => {
+              if (textareaRef.current) {
+                textareaRef.current.setSelectionRange(result.newCursorPos, result.newCursorPos);
+              }
+            });
+          }
+          return;
+        }
+      }
     }
 
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -236,7 +268,7 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
               />
             )}
             {/* Mention highlighter - positioned behind textarea */}
-            <MentionHighlighter text={input} />
+            <MentionHighlighter text={input} scrollTop={scrollTop} />
             <textarea
               ref={textareaRef}
               value={input}
@@ -244,6 +276,7 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
               onKeyDown={handleKeyDown}
               onSelect={handleSelect}
               onClick={handleSelect}
+              onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
               placeholder="Type your message... (use @ to mention files)"
               disabled={disabled || isStreaming}
               rows={1}

@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
 import { Undo2 } from 'lucide-react';
 import { MessageEditForm } from './message-edit-form';
+import { MentionText } from './mention-text';
 import type { ImageAttachment } from '../../types/chat';
 import type { ChatMode } from '../../types/chat-mode';
 
@@ -91,7 +92,7 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
         }}
       >
         <p className="text-sm leading-relaxed whitespace-pre-wrap break-words pointer-events-none pr-8">
-          {content}
+          <MentionText text={content} />
         </p>
         
         {onRevert && isHovered && (

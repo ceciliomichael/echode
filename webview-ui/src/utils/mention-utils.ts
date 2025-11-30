@@ -132,7 +132,8 @@ export function insertMention(
 }
 
 /**
- * Remove a mention if cursor is at the end of one (for backspace handling)
+ * Remove a mention if cursor is right at the end of one (for backspace handling)
+ * Only triggers when cursor is directly after @filename (no trailing space)
  */
 export function removeMention(
   text: string,
@@ -140,18 +141,19 @@ export function removeMention(
 ): { newText: string; newCursorPos: number } | null {
   const beforeCursor = text.slice(0, cursorPos);
   
-  // Check if we're at the end of a mention: @filename
-  const mentionEndMatch = beforeCursor.match(/@([^\s@]+)\s?$/);
+  // Only match if cursor is right at end of mention (no trailing space)
+  const mentionEndMatch = beforeCursor.match(/@([^\s@]+)$/);
   
   if (mentionEndMatch) {
-    const mentionStart = beforeCursor.lastIndexOf('@');
+    // Find where the @ starts
+    const matchStart = cursorPos - mentionEndMatch[0].length;
     const afterCursor = text.slice(cursorPos);
     
-    // Remove the mention and trailing space
-    const newText = text.slice(0, mentionStart) + afterCursor.replace(/^\s/, '');
+    // Remove the mention and any leading space from what follows
+    const newText = text.slice(0, matchStart) + afterCursor.replace(/^\s/, '');
     return {
       newText,
-      newCursorPos: mentionStart,
+      newCursorPos: matchStart,
     };
   }
   
