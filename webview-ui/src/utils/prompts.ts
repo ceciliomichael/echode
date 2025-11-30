@@ -1,6 +1,6 @@
 import type { WorkspaceContext } from '../types/workspace';
 import { storageService } from './storage';
-import { getAllTools, getToolSystemPrompt, getToolsForMode } from '../lib/tool-config';
+import { getAllTools, getToolSystemPrompt, getToolsForMode, PLAN_ONLY_TOOL_IDS } from '../lib/tool-config';
 import { type ChatMode, DEFAULT_CHAT_MODE } from '../types/chat-mode';
 import {
   getMarkdownFormattingSection,
@@ -112,11 +112,11 @@ Implementation workflow:
 
   // Add tool configuration - use mode-aware tool filtering
   // In Plan mode: only 7 tools (read_file, list_files, grep_search, glob_search, todo_write, plan_navigator, plan_handoff)
-  // In Agent mode: respects user's tool settings from settings page
+  // In Agent mode: respects user's tool settings from settings page, but excludes plan-only tools
   const savedTools = storageService.getEnabledTools();
   const baseTools = mode === 'plan'
     ? getToolsForMode('plan', true)
-    : (savedTools || getAllTools(true));
+    : (savedTools || getAllTools(true)).filter(tool => !PLAN_ONLY_TOOL_IDS.has(tool.id));
   const activeTools = baseTools.filter(tool => tool.enabled);
   const toolsSection = activeTools.length > 0
     ? `

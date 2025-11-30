@@ -16,7 +16,7 @@ const PLAN_MODE_TOOL_IDS = [
 ] as const;
 
 // Plan-exclusive helpers should never be surfaced outside of Plan mode
-const PLAN_ONLY_TOOL_IDS = new Set<string>([
+export const PLAN_ONLY_TOOL_IDS = new Set<string>([
   'plan_navigator',
   'plan_handoff',
 ]);
