@@ -12,6 +12,7 @@ import type { TodoTask } from '../../types/todo';
 import type { ImageAttachment } from '../../types/chat';
 import type { ChatMode } from '../../types/chat-mode';
 import { processImageFiles } from '../../utils/image-utils';
+import type { Provider } from '../../types/api-settings';
 
 interface ChatInputProps {
   onSendMessage: (message: string, attachments?: ImageAttachment[]) => void;
@@ -21,9 +22,13 @@ interface ChatInputProps {
   todos?: TodoTask[];
   mode?: ChatMode;
   onModeChange?: (mode: ChatMode) => void;
+  provider: Provider;
+  model: string;
+  onModelChange: (provider: Provider, model: string) => void;
 }
 
-export function ChatInput({ onSendMessage, disabled = false, isStreaming = false, onStop, todos = [], mode, onModeChange }: ChatInputProps) {
+export function ChatInput({ onSendMessage, disabled = false, isStreaming = false, onStop, todos = [], mode, onModeChange, provider, model, onModelChange }: ChatInputProps) {
+
   const [input, setInput] = useState('');
   const [cursorPos, setCursorPos] = useState(0);
   const [attachments, setAttachments] = useState<ImageAttachment[]>([]);
@@ -309,6 +314,9 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
                 />
               )}
               <ChatModelSelector
+                provider={provider}
+                model={model}
+                onChange={onModelChange}
                 disabled={disabled || isStreaming}
                 direction="up"
               />

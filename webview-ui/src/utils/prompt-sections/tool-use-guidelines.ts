@@ -1,8 +1,6 @@
 import type { ChatMode } from '../../types/chat-mode';
 
 export function getToolUseGuidelinesSection(mode: ChatMode): string {
-	const isPlanMode = mode === 'plan';
-
 	const sharedGuidelines = `====
 
 TOOL USE GUIDELINES
@@ -43,19 +41,28 @@ PARAMETER DISCIPLINE:
 7. **Workspace Exploration Pipeline**: For any request involving the current project, first use glob_search or list_files to find candidate files, then grep_search to locate relevant code, then read_file on a small portion of the most relevant files (avoid reading many large files at once).
 `;
 
-	const modeSpecific = isPlanMode
-		? `
+	let modeSpecific: string;
+	if (mode === 'plan') {
+		modeSpecific = `
 8. **Plan Mode Focus**: Use tools only for exploration and planning (read_file, list_files, grep_search, glob_search, todo_write, plan_navigator, plan_handoff). Do not propose or perform code edits.
 
 9. **Concise Planning**: Keep plans focused on files, steps, and success criteria. Avoid implementation details, long explanations, or creating design documents/specifications unless the user explicitly requests them.
-`
-		: `
+`;
+	} else if (mode === 'ask') {
+		modeSpecific = `
+8. **Ask Mode Focus**: Use tools only for exploration to support question answering (read_file, list_files, grep_search, glob_search). Do not call editing, todo, or planning tools.
+
+9. **Concise Q&A**: Focus on directly answering the user's questions. Use tools when needed for context, but avoid over-exploring the codebase or proposing detailed implementation plans unless the user explicitly asks.
+`;
+	} else {
+		modeSpecific = `
 8. **Agent Mode Focus**: Use tools to read, edit, and verify code while following the agreed plan. Prefer small, focused tool calls.
 
 9. **Concise Implementation**: Prioritize code and minimal explanation. Do not create extra documents (design docs, reports, or long-form writeups) unless the user explicitly asks for them. Only be verbose when the user explicitly asks for more detail.
 
 10. **Targeted Edit Workflow**: For any code change, follow this cycle: (1) use list_files / glob_search / grep_search / read_file to locate the exact code region, (2) reason about the current behavior and why it is wrong or incomplete, (3) decide the smallest, most local edit that satisfies the request, (4) apply it with apply_diff or write_to_file, and (5) re-run read_file or grep_search on the affected region to verify the change. Avoid touching unrelated files or code paths unless they are clearly required by the requested change.
 `;
+	}
 
 	return `${sharedGuidelines}${modeSpecific}`;
 }

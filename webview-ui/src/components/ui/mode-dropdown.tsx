@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, Code, Hammer } from 'lucide-react';
+import { Check, Code, Hammer, MessageCircle } from 'lucide-react';
 import type { ChatMode } from '../../types/chat-mode';
 import { CHAT_MODE_OPTIONS } from '../../types/chat-mode';
 
 const MODE_ICONS: Record<ChatMode, typeof Code> = {
   agent: Code,
+  ask: MessageCircle,
   plan: Hammer,
 };
 
@@ -65,9 +66,13 @@ export function ModeDropdown({ mode, onModeChange, disabled = false, direction =
         disabled={disabled}
         className="flex items-center gap-1.5 px-2 py-1 text-xs rounded-md border transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
         style={{
-          color: mode === 'agent' ? '#22c55e' : '#f97316',
+          color: mode === 'agent' ? '#22c55e' : mode === 'ask' ? '#3b82f6' : '#f97316',
           backgroundColor: 'transparent',
-          borderColor: mode === 'agent' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(249, 115, 22, 0.3)',
+          borderColor: mode === 'agent'
+            ? 'rgba(34, 197, 94, 0.3)'
+            : mode === 'ask'
+              ? 'rgba(59, 130, 246, 0.3)'
+              : 'rgba(249, 115, 22, 0.3)',
         }}
         title={currentOption?.description}
       >

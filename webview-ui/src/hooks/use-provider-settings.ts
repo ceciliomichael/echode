@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { ApiSettings, Provider } from '../types/api-settings';
+import { storageService } from '../utils/storage';
 
 interface ProviderSettings {
   customUrl: string;
@@ -197,37 +198,21 @@ export function useProviderSettings(initialSettings: ApiSettings) {
 
   // Build complete settings object
   const buildSettings = (): ApiSettings => {
-    let updatedAnthropicModel = anthropicModel;
-    let updatedOpenaiModel = openaiModel;
-    let updatedOpenaiCompatibleModel = openaiCompatibleModel;
-    let updatedVscodeLmModel = vscodeLmModel;
-    let updatedQwenCodeModel = qwenCodeModel;
-    
-    if (provider === 'anthropic') {
-      updatedAnthropicModel = model;
-    } else if (provider === 'openai') {
-      updatedOpenaiModel = model;
-    } else if (provider === 'openai-compatible') {
-      updatedOpenaiCompatibleModel = model;
-    } else if (provider === 'vscode-lm') {
-      updatedVscodeLmModel = model;
-    } else if (provider === 'qwen-code') {
-      updatedQwenCodeModel = model;
-    }
-    
+    const persisted = storageService.getSettings();
+
     return {
       provider,
       customBaseUrl: currentSettings.customUrl,
       anthropicCustomUrl,
       openaiCustomUrl,
       openaiCompatibleCustomUrl,
-      // Generic model mirrors active provider-specific model for convenience
-      model,
-      anthropicModel: updatedAnthropicModel,
-      openaiModel: updatedOpenaiModel,
-      openaiCompatibleModel: updatedOpenaiCompatibleModel,
-      vscodeLmModel: updatedVscodeLmModel,
-      qwenCodeModel: updatedQwenCodeModel,
+      // Preserve existing model selection; settings page does not manage models
+      model: persisted.model,
+      anthropicModel: persisted.anthropicModel,
+      openaiModel: persisted.openaiModel,
+      openaiCompatibleModel: persisted.openaiCompatibleModel,
+      vscodeLmModel: persisted.vscodeLmModel,
+      qwenCodeModel: persisted.qwenCodeModel,
       // Generic apiKey mirrors active provider-specific key (VS Code LM uses empty string)
       apiKey: currentSettings.apiKey,
       anthropicApiKey,

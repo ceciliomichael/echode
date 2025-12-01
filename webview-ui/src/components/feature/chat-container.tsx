@@ -10,10 +10,13 @@ import type { TodoTask } from '../../types/todo';
 import type { ImageAttachment } from '../../types/chat';
 import type { ChatMode } from '../../types/chat-mode';
 import { storageService } from '../../utils/storage';
+import { useChatModel } from '../../hooks/use-chat-model';
 
 export function ChatContainer() {
   const { tasks, updateTodos, clearTodos } = useTodo();
   const [mode, setMode] = useState<ChatMode>(() => storageService.getChatMode());
+
+  const { provider, model, setActiveProviderAndModel } = useChatModel();
 
   const { 
     messages, 
@@ -333,6 +336,8 @@ export function ChatContainer() {
         <div 
           ref={scrollContainerRef}
           onScroll={handleScroll}
+          data-chat-scroll-container="true"
+          data-chat-message-list-boundary="true"
           className={`flex-1 py-2 px-1 ${editingMessageId ? 'overflow-y-hidden' : 'overflow-y-auto'}`}
         >
           {visibleMessages.length === 0 ? (
@@ -355,6 +360,9 @@ export function ChatContainer() {
                     isStreaming={(isStreaming || isExecutingTool) && isLastAssistantMessage}
                     mode={mode}
                     onModeChange={handleModeChange}
+                    provider={provider}
+                    model={model}
+                    onModelChange={setActiveProviderAndModel}
                   />
                 );
               })}
@@ -371,6 +379,9 @@ export function ChatContainer() {
           todos={tasks}
           mode={mode}
           onModeChange={handleModeChange}
+          provider={provider}
+          model={model}
+          onModelChange={setActiveProviderAndModel}
         />
       </div>
 

@@ -8,7 +8,7 @@ export function getCapabilitiesSection(workspace: WorkspaceContext | null, mode:
 
 CAPABILITIES
 
-- You have access to tools that let you list files, view source code, perform regex and glob searches, ${mode === 'agent' ? 'read and write files, apply targeted diffs, ' : 'read files, '}and manage todo lists. These tools help you effectively accomplish a wide range of tasks, such as ${mode === 'agent' ? 'writing code, making edits or improvements to existing files, ' : ''}understanding the current state of a project, and much more.
+- You have access to tools that let you list files, view source code, perform regex and glob searches, ${mode === 'agent' ? 'read and write files, apply targeted diffs, and manage todo lists. ' : mode === 'ask' ? 'read files. ' : 'read files, and manage todo lists. '}These tools help you effectively accomplish a wide range of tasks, such as ${mode === 'agent' ? 'writing code, making edits or improvements to existing files, ' : ''}understanding the current state of a project, and much more.
 
 - When the user initially gives you a task, a list of all files in the current workspace directory ('${cwd}') will be included in SYSTEM INFORMATION. This provides an overview of the project's file structure, offering key insights into the project from directory/file names (how developers conceptualize and organize their code) and file extensions (the language used). This can guide decision-making on which files to explore further.
 
@@ -30,5 +30,5 @@ ${mode === 'agent' ? `
   3. Use apply_diff for targeted edits (preferred), or write_to_file for complete rewrites
   4. If you refactored code that could affect other parts of the codebase, use grep_search to ensure you update other files as needed.
 ` : ''}
-- You can use **todo_write** and **todo_read** to manage a session-based task list. This helps track progress on multi-step tasks.`;
+${mode === 'ask' ? '' : '- You can use **todo_write** and **todo_read** to manage a session-based task list. This helps track progress on multi-step tasks.'}`;
 }

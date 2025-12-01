@@ -42,7 +42,7 @@ export interface ApiSettings {
   qwenCodeTemperature: number;
   systemPrompt?: string;
   enabledTools?: Tool[];
-  chatMode?: 'agent' | 'plan';
+  chatMode?: 'agent' | 'plan' | 'ask';
 }
 
 export const DEFAULT_API_SETTINGS: ApiSettings = {

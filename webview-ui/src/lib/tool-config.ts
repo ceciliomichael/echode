@@ -5,14 +5,22 @@ import type { ChatMode } from '../types/chat-mode';
 export const AVAILABLE_TOOLS: Tool[] = getToolsFromRegistry(false);
 
 // Fixed exploration-only tools for Plan mode
-const PLAN_MODE_TOOL_IDS = [
+export const PLAN_MODE_TOOL_IDS = [
   'read_file',
   'list_files',
   'grep_search',
   'glob_search',
   'todo_write',
+  'todo_read',
   'plan_navigator',
   'plan_handoff',
+] as const;
+
+export const ASK_MODE_TOOL_IDS = [
+  'read_file',
+  'list_files',
+  'grep_search',
+  'glob_search',
 ] as const;
 
 // Plan-exclusive helpers should never be surfaced outside of Plan mode
@@ -37,6 +45,10 @@ export function getToolsForMode(mode: ChatMode, defaultEnabled = true): Tool[] {
   if (mode === 'plan') {
     // Plan mode: filter to exploration tools only
     return allTools.filter(tool => (PLAN_MODE_TOOL_IDS as readonly string[]).includes(tool.id));
+  }
+
+  if (mode === 'ask') {
+    return allTools.filter(tool => (ASK_MODE_TOOL_IDS as readonly string[]).includes(tool.id));
   }
 
   // Agent (and any future modes) should never expose plan-only helpers

@@ -4,6 +4,7 @@ import { MessageEditForm } from './message-edit-form';
 import { MentionText } from './mention-text';
 import type { ImageAttachment } from '../../types/chat';
 import type { ChatMode } from '../../types/chat-mode';
+import type { Provider } from '../../types/api-settings';
 
 interface UserMessageProps {
   content: string;
@@ -17,9 +18,13 @@ interface UserMessageProps {
   attachments?: ImageAttachment[];
   mode?: ChatMode;
   onModeChange?: (mode: ChatMode) => void;
+  provider: Provider;
+  model: string;
+  onModelChange: (provider: Provider, model: string) => void;
 }
 
-export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, attachments, mode, onModeChange }: UserMessageProps) {
+export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, attachments, mode, onModeChange, provider, model, onModelChange }: UserMessageProps) {
+
   const containerRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -71,6 +76,9 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
           attachments={attachments}
           mode={mode}
           onModeChange={onModeChange}
+          provider={provider}
+          model={model}
+          onModelChange={onModelChange}
         />
       </div>
     );

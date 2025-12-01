@@ -20,6 +20,7 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
   private _historyService: ChatHistoryService;
   private _toolHistoryService: ToolHistoryService;
   private _isHistoryOpen: boolean = false;
+  private _settingsPanel?: vscode.WebviewPanel;
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -126,6 +127,12 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
    * Open settings panel
    */
   public openSettingsPanel(): void {
+    // If panel already exists, reveal it instead of creating a new one
+    if (this._settingsPanel) {
+      this._settingsPanel.reveal(vscode.ViewColumn.One);
+      return;
+    }
+
     const panel = vscode.window.createWebviewPanel(
       'echodeSettings',
       'Echode Settings',
@@ -137,6 +144,17 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
         ]
       }
     );
+
+    // Set extension icon for the tab
+    panel.iconPath = vscode.Uri.joinPath(this._extensionUri, 'icon.svg');
+
+    // Store reference to track singleton
+    this._settingsPanel = panel;
+
+    // Clear reference when panel is disposed
+    panel.onDidDispose(() => {
+      this._settingsPanel = undefined;
+    });
 
     panel.webview.html = getSettingsHtml(panel.webview, this._extensionUri);
 

@@ -48,8 +48,9 @@ export function getSystemPrompt(workspace: WorkspaceContext | null, mode: ChatMo
     : '';
 
   // Add mode-specific behavior section
-  const modeSection = mode === 'plan'
-    ? `
+  let modeSection: string;
+  if (mode === 'plan') {
+    modeSection = `
 ====
 <mode>
 Current mode: PLAN
@@ -58,7 +59,7 @@ You are in planning-only mode. Your objective is to create a concise implementat
 
 Core constraints:
 - Do NOT modify files or call any file-writing or deleting tools.
-- You MAY ONLY use: read_file, list_files, grep_search, glob_search, todo_write, plan_navigator, plan_handoff.
+- You MAY ONLY use: read_file, list_files, grep_search, glob_search, todo_write, todo_read, plan_navigator, plan_handoff.
 - Use list_files or glob_search to verify paths before calling read_file.
 - Ignore any history that suggests you used write_to_file, apply_diff, or delete_file.
 
@@ -87,8 +88,27 @@ Best practices:
 - Keep responses minimal and focused on the plan.
 - Ask clarifying questions only when necessary.
 - Keep the todo list synchronized with the agreed plan.
-</mode>`
-    : `
+</mode>`;
+  } else if (mode === 'ask') {
+    modeSection = `
+<mode>
+Current mode: ASK
+
+You are in Q&A mode. Your primary objective is to answer the user's questions clearly and accurately, using the workspace context when it is helpful.
+
+Core constraints:
+- Do NOT modify files or call any file-writing, deleting, todo, or planning tools.
+- You MAY ONLY use: read_file, list_files, grep_search, glob_search.
+- Use list_files or glob_search to verify paths before calling read_file.
+- Ignore any history that suggests you used write_to_file, apply_diff, delete_file, todo_write, todo_read, plan_navigator, or plan_handoff.
+
+Best practices:
+- Focus on directly answering the user's questions; keep responses concise.
+- Use tools to inspect code or files only when needed to answer the question.
+- You may outline high-level next steps or a rough plan, but do not create structured implementation plans or todos.
+</mode>`;
+  } else {
+    modeSection = `
 <mode>
 Current mode: AGENT
 
@@ -108,15 +128,20 @@ Implementation workflow:
 4. Make focused, incremental changes to the code, following existing patterns and best practices.
 5. Keep explanations short and code-focused.
 6. Update todos as tasks are completed.
+7. Near the end of implementation (before declaring the task finished), call get_diagnostics (with include_warnings=true) to collect current linter/compile diagnostics for the workspace or the relevant paths, then fix or explicitly acknowledge any remaining issues.
 </mode>`;
+  }
 
   // Add tool configuration - use mode-aware tool filtering
   // In Plan mode: only 7 tools (read_file, list_files, grep_search, glob_search, todo_write, plan_navigator, plan_handoff)
+  // In Ask mode: only 4 tools (read_file, list_files, grep_search, glob_search)
   // In Agent mode: respects user's tool settings from settings page, but excludes plan-only tools
   const savedTools = storageService.getEnabledTools();
   const baseTools = mode === 'plan'
     ? getToolsForMode('plan', true)
-    : (savedTools || getAllTools(true)).filter(tool => !PLAN_ONLY_TOOL_IDS.has(tool.id));
+    : mode === 'ask'
+      ? getToolsForMode('ask', true)
+      : (savedTools || getAllTools(true)).filter(tool => !PLAN_ONLY_TOOL_IDS.has(tool.id));
   const activeTools = baseTools.filter(tool => tool.enabled);
   const toolsSection = activeTools.length > 0
     ? `

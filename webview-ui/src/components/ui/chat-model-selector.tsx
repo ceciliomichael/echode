@@ -14,51 +14,68 @@ const PROVIDER_OPTIONS: { value: Provider; label: string }[] = [
 ];
 
 interface ChatModelSelectorProps {
+  provider: Provider;
+  model: string;
+  onChange: (provider: Provider, model: string) => void;
   disabled?: boolean;
   direction?: 'up' | 'down';
 }
 
-export function ChatModelSelector({ disabled = false, direction = 'up' }: ChatModelSelectorProps) {
+export function ChatModelSelector({ provider: activeProvider, model: activeModel, onChange, disabled = false, direction = 'up' }: ChatModelSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const initialSettings = storageService.getSettings();
-
-  const [activeProvider, setActiveProvider] = useState<Provider>(initialSettings.provider);
-  const [activeModel, setActiveModel] = useState<string>(initialSettings.model);
+  const [settings, setSettings] = useState<ApiSettings>(() => storageService.getSettings());
 
   // Note: we intentionally do NOT sync active provider/model from settingsSaved events,
   // so the chat header model selector state is decoupled from the settings page provider.
 
-  const anthropicKey = initialSettings.anthropicApiKey || initialSettings.apiKey || '';
-  const openaiKey = initialSettings.openaiApiKey || initialSettings.apiKey || '';
-  const openaiCompatibleKey = initialSettings.openaiCompatibleApiKey || initialSettings.apiKey || '';
-  const megallmKey = initialSettings.megallmApiKey || initialSettings.apiKey || '';
+  useEffect(() => {
+    const handleSettingsUpdated = (event: Event) => {
+      const customEvent = event as CustomEvent<ApiSettings>;
+      if (customEvent.detail) {
+        setSettings(customEvent.detail);
+      } else {
+        setSettings(storageService.getSettings());
+      }
+    };
+
+    window.addEventListener('settingsUpdated', handleSettingsUpdated as EventListener);
+
+    return () => {
+      window.removeEventListener('settingsUpdated', handleSettingsUpdated as EventListener);
+    };
+  }, []);
+
+  const anthropicKey = settings.anthropicApiKey || settings.apiKey || '';
+  const openaiKey = settings.openaiApiKey || settings.apiKey || '';
+  const openaiCompatibleKey = settings.openaiCompatibleApiKey || settings.apiKey || '';
+  const megallmKey = settings.megallmApiKey || settings.apiKey || '';
 
   const {
     models: anthropicModels,
     loadingModels: loadingAnthropic,
     fetchModels: fetchAnthropic,
-  } = useModelFetcher('anthropic', initialSettings.anthropicCustomUrl, anthropicKey);
+  } = useModelFetcher('anthropic', settings.anthropicCustomUrl, anthropicKey);
 
   const {
     models: openaiModels,
     loadingModels: loadingOpenai,
     fetchModels: fetchOpenai,
-  } = useModelFetcher('openai', initialSettings.openaiCustomUrl, openaiKey);
+  } = useModelFetcher('openai', settings.openaiCustomUrl, openaiKey);
 
   const {
     models: openaiCompatibleModels,
     loadingModels: loadingOpenaiCompatible,
     fetchModels: fetchOpenaiCompatible,
-  } = useModelFetcher('openai-compatible', initialSettings.openaiCompatibleCustomUrl, openaiCompatibleKey);
+  } = useModelFetcher('openai-compatible', settings.openaiCompatibleCustomUrl, openaiCompatibleKey);
 
   const {
     models: megallmModels,
     loadingModels: loadingMegallm,
     fetchModels: fetchMegallm,
-  } = useModelFetcher('megallm', initialSettings.megallmCustomUrl, megallmKey);
+  } = useModelFetcher('megallm', settings.megallmCustomUrl, megallmKey);
 
   const {
     models: vscodeLmModels,
@@ -141,38 +158,7 @@ export function ChatModelSelector({ disabled = false, direction = 'up' }: ChatMo
   };
 
   const handleSelectModel = (provider: Provider, model: string) => {
-    const currentSettings = storageService.getSettings();
-    const updated: ApiSettings = {
-      ...currentSettings,
-      provider,
-      model,
-    };
-
-    if (provider === 'anthropic') {
-      updated.anthropicModel = model;
-    } else if (provider === 'openai') {
-      updated.openaiModel = model;
-    } else if (provider === 'openai-compatible') {
-      updated.openaiCompatibleModel = model;
-    } else if (provider === 'megallm') {
-      updated.megallmModel = model;
-    } else if (provider === 'vscode-lm') {
-      updated.vscodeLmModel = model;
-    } else if (provider === 'qwen-code') {
-      updated.qwenCodeModel = model;
-    }
-
-    storageService.saveSettings(updated);
-
-    if (window.vscode) {
-      window.vscode.postMessage({
-        type: 'saveSettings',
-        settings: updated,
-      });
-    }
-
-    setActiveProvider(provider);
-    setActiveModel(model);
+    onChange(provider, model);
     setIsOpen(false);
     setSearch('');
   };

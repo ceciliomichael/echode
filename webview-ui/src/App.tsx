@@ -20,8 +20,25 @@ function App() {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
       if (message.type === 'settingsSaved') {
-        storageService.saveSettings(message.settings);
-        setSettings(message.settings);
+        const current = storageService.getSettings();
+        const incoming = message.settings as ApiSettings;
+
+        // Preserve active provider and model selection from the chat sidebar.
+        // Settings panel is for API configuration only and should not change models.
+        const merged: ApiSettings = {
+          ...incoming,
+          provider: current.provider,
+          model: current.model,
+          anthropicModel: current.anthropicModel,
+          openaiModel: current.openaiModel,
+          openaiCompatibleModel: current.openaiCompatibleModel,
+          megallmModel: current.megallmModel,
+          vscodeLmModel: current.vscodeLmModel,
+          qwenCodeModel: current.qwenCodeModel,
+        };
+
+        storageService.saveSettings(merged);
+        setSettings(merged);
         setShowSetup(false);
       }
     };

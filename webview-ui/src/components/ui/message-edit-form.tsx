@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type KeyboardEvent, type FormEvent, type ChangeEvent } from 'react';
+import { useState, useRef, useEffect, useMemo, type KeyboardEvent, type FormEvent, type ChangeEvent } from 'react';
 import { ArrowUp, Paperclip } from 'lucide-react';
 import { AttachmentPreview } from './attachment-preview';
 import { ModeDropdown } from './mode-dropdown';
@@ -6,10 +6,12 @@ import { ChatModelSelector } from './chat-model-selector';
 import { ContextMenu } from './context-menu';
 import { MentionHighlighter } from './mention-highlighter';
 import { useContextMenu } from '../../hooks/use-context-menu';
+import { useDropdownDirection } from '../../hooks/use-dropdown-direction';
 import type { ImageAttachment } from '../../types/chat';
 import type { ChatMode } from '../../types/chat-mode';
 import { processImageFiles } from '../../utils/image-utils';
 import { removeMention, getMentionPath, unescapeSpaces, registerMentionPath, parseMentionFilenames } from '../../utils/mention-utils';
+import type { Provider } from '../../types/api-settings';
 
 interface MessageEditFormProps {
   initialContent: string;
@@ -19,9 +21,13 @@ interface MessageEditFormProps {
   attachments?: ImageAttachment[];
   mode?: ChatMode;
   onModeChange?: (mode: ChatMode) => void;
+  provider: Provider;
+  model: string;
+  onModelChange: (provider: Provider, model: string) => void;
 }
 
-export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, attachments, mode, onModeChange }: MessageEditFormProps) {
+export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, attachments, mode, onModeChange, provider, model, onModelChange }: MessageEditFormProps) {
+
   const [editContent, setEditContent] = useState(initialContent);
   const [cursorPos, setCursorPos] = useState(initialContent.length);
   const [editAttachments, setEditAttachments] = useState<ImageAttachment[]>(attachments || []);
@@ -29,9 +35,10 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropdownDirection = useDropdownDirection(containerRef);
 
   // Get workspace files for mentions
-  const workspaceFiles = window.workspaceContext?.files || [];
+  const workspaceFiles = useMemo(() => window.workspaceContext?.files || [], []);
 
   // Context menu hook for @ mentions
   const handleInputChange = (newValue: string, newCursorPos?: number) => {
@@ -276,7 +283,7 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
               />
             )}
             {/* Mention highlighter - positioned behind textarea */}
-            <MentionHighlighter text={editContent} scrollTop={scrollTop} highlightAll={true} />
+            <MentionHighlighter text={editContent} scrollTop={scrollTop} />
             <textarea
               ref={textareaRef}
               value={editContent}
@@ -313,12 +320,15 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
                   mode={mode}
                   onModeChange={onModeChange}
                   disabled={false}
-                  direction="down"
+                  direction={dropdownDirection}
                 />
               )}
               <ChatModelSelector
+                provider={provider}
+                model={model}
+                onChange={onModelChange}
                 disabled={false}
-                direction="down"
+                direction={dropdownDirection}
               />
             </div>
 

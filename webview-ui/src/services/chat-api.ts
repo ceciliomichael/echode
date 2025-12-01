@@ -63,12 +63,25 @@ export class ChatApiService {
     }
 
     // Filter tools based on mode (plan mode gets restricted set, agent mode gets all)
-    const modeFilteredTools = getToolsForMode(mode, false)
-      .filter(tool => {
+    const savedEnabledTools = settings.enabledTools;
+    const hasSavedEnabledTools = Array.isArray(savedEnabledTools) && savedEnabledTools.length > 0;
+
+    let modeTools = mode === 'plan'
+      ? getToolsForMode('plan', true)
+      : getToolsForMode(mode, true);
+
+    if (mode === 'agent' && hasSavedEnabledTools) {
+      modeTools = modeTools.filter(tool => {
         // Find the tool in settings to check if it's enabled
-        const settingsTool = settings.enabledTools?.find(t => t.id === tool.id);
+        const settingsTool = savedEnabledTools!.find(t => t.id === tool.id);
         return settingsTool?.enabled ?? false;
       });
+    }
+
+    const enabledToolsForBackend = modeTools.map(tool => ({
+      id: tool.id,
+      enabled: true,
+    }));
 
     // Use unified service singleton that communicates with VSCode backend
     const service = UnifiedChatService.getInstance({
@@ -78,7 +91,7 @@ export class ChatApiService {
       temperature,
       baseURL,
       qwenCodeOauthPath,
-      enabledTools: modeFilteredTools,
+      enabledTools: enabledToolsForBackend,
     }, settings.provider);
 
     yield* service.streamChat({ messages, signal });

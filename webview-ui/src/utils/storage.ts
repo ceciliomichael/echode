@@ -200,12 +200,12 @@ export const storageService = {
     return content.substring(0, maxLength).trim() + '...';
   },
 
-  getChatMode(): 'agent' | 'plan' {
+  getChatMode(): 'agent' | 'plan' | 'ask' {
     const settings = this.getSettings();
     return settings.chatMode || DEFAULT_CHAT_MODE;
   },
 
-  setChatMode(mode: 'agent' | 'plan'): void {
+  setChatMode(mode: 'agent' | 'plan' | 'ask'): void {
     const settings = this.getSettings();
     settings.chatMode = mode;
     this.saveSettings(settings);

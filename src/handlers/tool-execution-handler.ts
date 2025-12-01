@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { defaultRegistry } from '../services/tools/tool-registry';
-import { ReadFileTool, WriteFileTool, ListFilesTool, GrepSearchTool, GlobSearchTool, DeleteFileTool, TodoWriteTool, TodoReadTool, PlanNavigatorTool, PlanHandoffTool, ApplyDiffTool } from '../services/tools';
+import { ReadFileTool, WriteFileTool, ListFilesTool, GrepSearchTool, GlobSearchTool, DeleteFileTool, TodoWriteTool, TodoReadTool, PlanNavigatorTool, PlanHandoffTool, ApplyDiffTool, GetDiagnosticsTool } from '../services/tools';
 
 // Register tools
 defaultRegistry.registerTool(new ReadFileTool());
@@ -14,6 +14,7 @@ defaultRegistry.registerTool(new TodoReadTool());
 defaultRegistry.registerTool(new PlanNavigatorTool());
 defaultRegistry.registerTool(new PlanHandoffTool());
 defaultRegistry.registerTool(new ApplyDiffTool());
+defaultRegistry.registerTool(new GetDiagnosticsTool());
 
 interface ToolExecutionMessage {
   type: 'executeTool';

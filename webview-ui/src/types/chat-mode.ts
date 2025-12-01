@@ -1,6 +1,6 @@
-export type ChatMode = 'agent' | 'plan';
+export type ChatMode = 'agent' | 'plan' | 'ask';
 
-export const DEFAULT_CHAT_MODE: ChatMode = 'plan';
+export const DEFAULT_CHAT_MODE: ChatMode = 'agent';
 
 export interface ChatModeOption {
   value: ChatMode;
@@ -17,6 +17,11 @@ export const CHAT_MODE_OPTIONS: ChatModeOption[] = [
   {
     value: 'plan',
     label: 'Plan',
-    description: 'Echo reads but won\'t edit',
+    description: 'Echo can read and plan',
+  },
+  {
+    value: 'ask',
+    label: 'Ask',
+    description: 'Echo focuses on Q&A',
   },
 ];

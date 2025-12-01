@@ -49,9 +49,14 @@ export class ToolExecutor {
 
     // Check if tool is enabled in current mode
     if (!this.enabledTools.includes(toolCall.toolName)) {
-      const errorMessage = this.mode === 'plan'
-        ? `You are currently in Plan mode and are not allowed to use this tool: ${toolCall.toolName}.`
-        : `Tool "${toolCall.toolName}" is disabled in the current configuration.`;
+      let errorMessage: string;
+      if (this.mode === 'plan') {
+        errorMessage = `You are currently in Plan mode and are not allowed to use this tool: ${toolCall.toolName}.`;
+      } else if (this.mode === 'ask') {
+        errorMessage = `You are currently in Ask mode and may only use read_file, list_files, grep_search, and glob_search. This tool is not allowed: ${toolCall.toolName}.`;
+      } else {
+        errorMessage = `Tool "${toolCall.toolName}" is disabled in the current configuration.`;
+      }
       return {
         success: false,
         error: errorMessage,

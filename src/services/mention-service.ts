@@ -80,6 +80,12 @@ export function parseMentions(text: string, workspaceFiles?: string[]): string[]
   while ((match = mentionRegex.exec(text)) !== null) {
     const mentionText = unescapeSpaces(match[1]);
     
+    // Check special mentions first (e.g., @problems)
+    if (isSpecialMention(mentionText)) {
+      mentions.push(mentionText);
+      continue;
+    }
+
     // If it looks like a path (contains /), use as-is
     if (mentionText.includes('/')) {
       mentions.push(mentionText);
@@ -89,7 +95,11 @@ export function parseMentions(text: string, workspaceFiles?: string[]): string[]
         const basename = f.split('/').pop() || f;
         return basename.toLowerCase() === mentionText.toLowerCase();
       });
-      mentions.push(matchingFile || mentionText);
+      
+      // Only add if we found a real file match - ignore random @words like @echo
+      if (matchingFile) {
+        mentions.push(matchingFile);
+      }
     } else {
       mentions.push(mentionText);
     }
@@ -212,12 +222,17 @@ export async function expandMentions(text: string, workspaceRoot: string): Promi
     
     // Handle special mentions
     if (isSpecialMention(unescapedMention)) {
-      return `'${unescapedMention}' (see below)`;
+      return `special '${unescapedMention}' (details shown below)`;
     }
     
     // Look up resolved path for file mentions
-    const resolvedPath = resolvedPaths.get(unescapedMention.toLowerCase()) || unescapedMention;
-    return `'${resolvedPath}' (see below for content)`;
+    const resolvedPath = resolvedPaths.get(unescapedMention.toLowerCase());
+    if (resolvedPath) {
+      return `file '${resolvedPath}' (content included in a block below)`;
+    }
+    
+    // Not a valid file mention, keep original text (e.g., @echo stays as @echo)
+    return _match;
   });
 
   // Append content blocks
