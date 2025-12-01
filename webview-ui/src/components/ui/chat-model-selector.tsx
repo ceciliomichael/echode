@@ -302,27 +302,27 @@ export function ChatModelSelector({ provider: activeProvider, model: activeModel
               )
             ) : (
               <div className="flex flex-col gap-1 pb-1">
-                {PROVIDER_OPTIONS.map((providerOption) => {
-                  const provider = providerOption.value;
-                  const providerModels = modelsByProvider[provider] || [];
-                  const isActiveProvider = provider === activeProvider;
+                {PROVIDER_OPTIONS
+                  .filter((providerOption) => {
+                    const providerModels = modelsByProvider[providerOption.value] || [];
+                    return providerModels.length > 0;
+                  })
+                  .map((providerOption) => {
+                    const provider = providerOption.value;
+                    const providerModels = modelsByProvider[provider] || [];
+                    const isActiveProvider = provider === activeProvider;
 
-                  return (
-                    <div key={provider} className="pt-0.5 pb-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[11px] font-semibold opacity-70">
-                          {providerOption.label}
-                        </span>
-                        {isActiveProvider && activeModel && (
-                          <span className="text-[10px] opacity-60">Active</span>
-                        )}
-                      </div>
-
-                      {providerModels.length === 0 ? (
-                        <div className="text-[11px] opacity-60">
-                          No models loaded.
+                    return (
+                      <div key={provider} className="pt-0.5 pb-1">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[11px] font-semibold opacity-70">
+                            {providerOption.label}
+                          </span>
+                          {isActiveProvider && activeModel && (
+                            <span className="text-[10px] opacity-60">Active</span>
+                          )}
                         </div>
-                      ) : (
+
                         <div className="flex flex-col gap-1">
                           {providerModels.map((model) => {
                             const isSelected =
@@ -354,10 +354,14 @@ export function ChatModelSelector({ provider: activeProvider, model: activeModel
                             );
                           })}
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
+                      </div>
+                    );
+                  })}
+                {PROVIDER_OPTIONS.every((p) => (modelsByProvider[p.value] || []).length === 0) && !anyLoading && (
+                  <div className="px-2 py-1.5 text-[11px] opacity-70">
+                    No providers configured.
+                  </div>
+                )}
               </div>
             )}
           </div>
