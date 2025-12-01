@@ -169,9 +169,10 @@ export function ChatContainer() {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
       if (message.type === 'newChat') {
+        abortStream();
         clearChat();
         clearTodos();
-        handleModeChange('plan');
+        handleModeChange('agent');
       } else if (message.type === 'openHistory') {
         setIsHistoryOpen(true);
       } else if (message.type === 'closeHistory') {
@@ -203,7 +204,7 @@ export function ChatContainer() {
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [clearChat, clearTodos, handleModeChange]);
+  }, [abortStream, clearChat, clearTodos, handleModeChange]);
 
   // Listen for plan navigator quick questions
   useEffect(() => {
