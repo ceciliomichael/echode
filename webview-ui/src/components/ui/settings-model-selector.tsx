@@ -105,24 +105,25 @@ export function SettingsModelSelector({
     loadingVscodeLm ||
     loadingQwenCode;
 
-  useEffect(() => {
-    fetchAnthropic();
-    fetchOpenai();
-    fetchOpenaiCompatible();
-    fetchMegallm();
-    fetchVscodeLm();
-    fetchQwenCode();
-  }, [fetchAnthropic, fetchOpenai, fetchOpenaiCompatible, fetchMegallm, fetchVscodeLm, fetchQwenCode]);
+  // Check if any models are already loaded from cache
+  const hasAnyModels =
+    anthropicModels.length > 0 ||
+    openaiModels.length > 0 ||
+    openaiCompatibleModels.length > 0 ||
+    megallmModels.length > 0 ||
+    vscodeLmModels.length > 0 ||
+    qwenCodeModels.length > 0;
 
+  // Only fetch when dropdown opens AND no models are cached yet
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || hasAnyModels) return;
     fetchAnthropic();
     fetchOpenai();
     fetchOpenaiCompatible();
     fetchMegallm();
     fetchVscodeLm();
     fetchQwenCode();
-  }, [isOpen, fetchAnthropic, fetchOpenai, fetchOpenaiCompatible, fetchMegallm, fetchVscodeLm, fetchQwenCode]);
+  }, [isOpen, hasAnyModels, fetchAnthropic, fetchOpenai, fetchOpenaiCompatible, fetchMegallm, fetchVscodeLm, fetchQwenCode]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

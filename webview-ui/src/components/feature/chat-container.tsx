@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useCallback } from 'react';
 import { MessageBubble } from '../ui/message-bubble';
 import { ChatInput } from '../ui/chat-input';
 import { ChatEmptyState } from '../ui/chat-empty-state';
@@ -6,37 +6,18 @@ import { Dropdown } from '../ui/dropdown';
 import { HistoryDropdown } from './history-dropdown';
 import { useStreamingChat } from '../../hooks/use-streaming-chat';
 import { useTodo } from '../../hooks/use-todo';
-import type { TodoTask } from '../../types/todo';
-import type { ImageAttachment } from '../../types/chat';
-import type { ChatMode } from '../../types/chat-mode';
-import { storageService } from '../../utils/storage';
 import { useChatModel } from '../../hooks/use-chat-model';
+import { useChatMode } from '../../hooks/use-chat-mode';
+import { useChatScroll } from '../../hooks/use-chat-scroll';
+import { useExtensionMessages } from '../../hooks/use-extension-messages';
+import { usePlanEvents } from '../../hooks/use-plan-events';
+import { useTodoExtraction } from '../../hooks/use-todo-extraction';
+import type { ImageAttachment } from '../../types/chat';
 
 export function ChatContainer() {
   const { tasks, updateTodos, clearTodos } = useTodo();
-  const [mode, setMode] = useState<ChatMode>(() => storageService.getChatMode());
-
+  const { mode, handleModeChange } = useChatMode();
   const { provider, model, setActiveProviderAndModel } = useChatModel();
-
-  // Check if echo_search is enabled from settings
-  const [echoSearchEnabled, setEchoSearchEnabled] = useState(() => {
-    const settings = storageService.getSettings();
-    return settings.indexingSettings?.enabled ?? true;
-  });
-
-  // Listen for settings changes to update echoSearchEnabled
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (message.type === 'settingsSaved') {
-        const settings = message.settings;
-        setEchoSearchEnabled(settings?.indexingSettings?.enabled ?? true);
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
 
   const { 
     messages, 
@@ -57,292 +38,80 @@ export function ChatContainer() {
     updateToolResultData,
     supersedePlanningTools,
   } = useStreamingChat(tasks, mode);
-  const autoStartImplementationRef = useRef(false);
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const lastMessageCountRef = useRef(0);
-  const lastScrollTopRef = useRef(0);
-  const isAutoScrollEnabledRef = useRef(isAutoScrollEnabled);
 
-  // Filter out hidden messages (tool result feedback messages)
   const visibleMessages = messages.filter(msg => !msg.hidden);
 
-  // Scroll to bottom helper
-  const scrollToBottom = (options?: { behavior?: 'auto' | 'smooth' }) => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTo({
-        top: scrollContainerRef.current.scrollHeight,
-        behavior: options?.behavior || 'smooth'
-      });
-    }
-  };
+  const {
+    scrollContainerRef,
+    handleScroll,
+    scrollToBottom,
+    setIsAutoScrollEnabled,
+  } = useChatScroll(visibleMessages.length, isStreaming, isExecutingTool);
 
-  // Check if user is near bottom
-  const isNearBottom = () => {
-    if (!scrollContainerRef.current) return false;
-    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
-    const distanceToBottom = scrollHeight - scrollTop - clientHeight;
-    return distanceToBottom < 40;
-  };
-
-  // Handle scroll event to track user scroll position
-  const handleScroll = () => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
-    const { scrollTop } = container;
-    const previousScrollTop = lastScrollTopRef.current;
-    const isScrollingUp = scrollTop < previousScrollTop;
-
-    lastScrollTopRef.current = scrollTop;
-
-    if (isScrollingUp) {
-      if (isAutoScrollEnabled) {
-        setIsAutoScrollEnabled(false);
-      }
-      return;
-    }
-
-    if (isNearBottom()) {
-      if (!isAutoScrollEnabled) {
-        setIsAutoScrollEnabled(true);
-      }
-    }
-  };
-
-  // Define handleSendMessage before useEffect hooks that use it
-  const handleSendMessage = useCallback(async (content: string, attachments?: ImageAttachment[], forceEchoSearch: boolean = false) => {
-    // When user sends a visible message, supersede previous planning tools
+  const handleSendMessage = useCallback(async (
+    content: string, 
+    attachments?: ImageAttachment[], 
+    forceEchoSearch: boolean = false
+  ) => {
     supersedePlanningTools();
     await sendMessage(content, attachments, undefined, false, forceEchoSearch);
-    // Force scroll to bottom when user sends a message
-    setIsAutoScrollEnabled(true);
-    // Use requestAnimationFrame to ensure DOM has updated before scrolling
-    requestAnimationFrame(() => {
-      setTimeout(() => scrollToBottom({ behavior: 'smooth' }), 50);
-    });
-  }, [sendMessage, supersedePlanningTools]);
-
-  // Internal handler for hidden messages (e.g., quick questions, auto-start)
-  const handleSendHiddenMessage = useCallback(async (content: string, attachments?: ImageAttachment[]) => {
-    await sendMessage(content, attachments, undefined, true, false);
     setIsAutoScrollEnabled(true);
     requestAnimationFrame(() => {
       setTimeout(() => scrollToBottom({ behavior: 'smooth' }), 50);
     });
-  }, [sendMessage]);
+  }, [sendMessage, supersedePlanningTools, setIsAutoScrollEnabled, scrollToBottom]);
 
-  // Define handleModeChange before useEffect hooks that use it
-  const handleModeChange = useCallback((newMode: ChatMode) => {
-    setMode(newMode);
-    storageService.setChatMode(newMode);
-  }, []);
+  const handleSendHiddenMessage = useCallback(async (content: string) => {
+    await sendMessage(content, undefined, undefined, true, false);
+    setIsAutoScrollEnabled(true);
+    requestAnimationFrame(() => {
+      setTimeout(() => scrollToBottom({ behavior: 'smooth' }), 50);
+    });
+  }, [sendMessage, setIsAutoScrollEnabled, scrollToBottom]);
 
-  // Extract todos from tool executions (any status: pending, executing, completed)
-  useEffect(() => {
-    let mostRecentTodoWrite: { tasks: TodoTask[]; timestamp: number } | null = null;
-    
-    // Find the most recent todo_write execution across all messages
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const msg = messages[i];
-      if (msg.toolExecutions) {
-        for (const execution of msg.toolExecutions.values()) {
-          // Check for ANY todo_write tool execution (pending, executing, completed)
-          if (execution.toolName === 'todo_write') {
-            // Use execution-level timestamp (completedAt > startedAt > message timestamp)
-            // This ensures we pick the LATEST todo_write even when multiple exist in one message
-            const execTimestamp = execution.completedAt ?? execution.startedAt ?? 
-              (msg.timestamp instanceof Date ? msg.timestamp.getTime() : new Date(msg.timestamp).getTime());
-            
-            let tasks: TodoTask[] | null = null;
-
-            // For completed executions, get tasks from result.data
-            if (execution.status === 'completed' && 
-                execution.result?.success &&
-                execution.result.data) {
-              const data = execution.result.data as { tasks?: unknown[] };
-              if (data.tasks && Array.isArray(data.tasks)) {
-                tasks = data.tasks as TodoTask[];
-              }
-            } 
-            // For pending/executing executions, get tasks from parameters
-            else if ((execution.status === 'pending' || execution.status === 'executing') && 
-                     execution.parameters?.tasks) {
-              const paramTasks = execution.parameters.tasks;
-              if (Array.isArray(paramTasks)) {
-                tasks = paramTasks as TodoTask[];
-              }
-            }
-
-            // Keep track of the most recent todo_write using execution timestamp
-            if (tasks && (!mostRecentTodoWrite || execTimestamp > mostRecentTodoWrite.timestamp)) {
-              mostRecentTodoWrite = {
-                tasks,
-                timestamp: execTimestamp
-              };
-            }
-          }
-        }
-      }
-    }
-    
-    // Update todos with the most recent state, or clear if none found
-    if (mostRecentTodoWrite) {
-      updateTodos(mostRecentTodoWrite.tasks);
-    } else if (messages.length === 0) {
-      // Clear todos when no messages (new chat)
-      updateTodos([]);
-    }
-  }, [messages, updateTodos]);
-
-  // Listen for messages from extension
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (message.type === 'newChat') {
-        abortStream();
-        clearChat();
-        clearTodos();
-        handleModeChange('agent');
-      } else if (message.type === 'openHistory') {
-        setIsHistoryOpen(true);
-      } else if (message.type === 'closeHistory') {
-        setIsHistoryOpen(false);
-      } else if (message.type === 'sessionLoaded') {
-        // When a session is loaded, instantly position at bottom (no animation)
-        // so the view starts at the end of the conversation.
-        // Use requestAnimationFrame to ensure messages have rendered first.
-        requestAnimationFrame(() => {
-          // Check if session has an active edit message - if so, skip scroll to bottom
-          // and let the edit form's own scrollIntoView logic handle positioning
-          const sessionUiState = message.session?.uiState;
-          const hasActiveEdit = sessionUiState?.editingMessageId || sessionUiState?.revertPreviewMessageId;
-          
-          if (hasActiveEdit) {
-            // Don't auto-scroll, let edit form position itself
-            setIsAutoScrollEnabled(false);
-            return;
-          }
-          
-          if (scrollContainerRef.current) {
-            // Instant scroll (no animation) - view starts at bottom
-            scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
-          }
-          setIsAutoScrollEnabled(true);
-        });
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
+  const onNewChat = useCallback(() => {
+    abortStream();
+    clearChat();
+    clearTodos();
+    handleModeChange('agent');
   }, [abortStream, clearChat, clearTodos, handleModeChange]);
 
-  // Listen for plan navigator quick questions
-  useEffect(() => {
-    const handleQuickQuestion = (event: Event) => {
-      const custom = event as CustomEvent<{ question: string; selectedIndex: number }>;
-      const question = custom.detail?.question;
-      const selectedIndex = custom.detail?.selectedIndex;
-      if (!question) return;
-      
-      // Update the plan_navigator tool result data with selectedIndex
-      if (selectedIndex !== undefined) {
-        updateToolResultData('plan_navigator', (data) => ({
-          ...(typeof data === 'object' && data !== null ? data : {}),
-          selectedIndex,
-        }));
-      }
-      
-      // Send as hidden message so it doesn't appear as a user bubble
-      void handleSendHiddenMessage(question, undefined);
-    };
+  const {
+    isHistoryOpen,
+    echoSearchEnabled,
+    closeHistory,
+  } = useExtensionMessages({
+    onNewChat,
+    onSessionLoaded: () => { /* Session load handled internally */ },
+    scrollContainerRef,
+    setIsAutoScrollEnabled,
+  });
 
-    window.addEventListener('echode:quickQuestion', handleQuickQuestion as EventListener);
-    return () => window.removeEventListener('echode:quickQuestion', handleQuickQuestion as EventListener);
-  }, [handleSendHiddenMessage, updateToolResultData]);
+  usePlanEvents({
+    mode,
+    handleModeChange,
+    handleSendHiddenMessage,
+    updateToolResultData,
+  });
 
-  // Listen for plan implementation handoff
-  useEffect(() => {
-    const handleImplementHandoff = (event: Event) => {
-      const customEvent = event as CustomEvent<{ markAsClicked?: boolean }>;
-      const shouldMarkClicked = customEvent.detail?.markAsClicked;
-      
-      // Mark the plan_handoff tool as clicked in its result data
-      if (shouldMarkClicked) {
-        updateToolResultData('plan_handoff', (data) => ({
-          ...(typeof data === 'object' && data !== null ? data : {}),
-          clicked: true,
-        }));
-      }
-      
-      // Switch to agent mode first
-      handleModeChange('agent');
-      
-      // Flag that implementation should auto-start after mode switches to agent
-      autoStartImplementationRef.current = true;
-    };
-
-    window.addEventListener('echode:planImplementHandoff', handleImplementHandoff as EventListener);
-    return () => window.removeEventListener('echode:planImplementHandoff', handleImplementHandoff as EventListener);
-  }, [handleModeChange, updateToolResultData]);
-
-  // Auto-start implementation after mode switches to Agent
-  // This effect runs AFTER React re-renders with mode='agent', ensuring
-  // that sendMessage uses the Agent-mode system prompt and tools
-  useEffect(() => {
-    if (mode !== 'agent' || !autoStartImplementationRef.current) {
-      return;
-    }
-
-    autoStartImplementationRef.current = false;
-
-    // Use setTimeout to avoid calling setState synchronously within effect
-    setTimeout(() => {
-      void handleSendHiddenMessage('Yes, proceed with the implementation as planned.', undefined);
-    }, 0);
-  }, [mode, handleSendHiddenMessage]);
-
-  useEffect(() => {
-    isAutoScrollEnabledRef.current = isAutoScrollEnabled;
-  }, [isAutoScrollEnabled]);
-
-  // Auto-scroll when messages change (new messages or streaming updates)
-  useEffect(() => {
-    const currentMessageCount = visibleMessages.length;
-    const previousMessageCount = lastMessageCountRef.current;
-    const hasNewMessage = currentMessageCount > previousMessageCount;
-    const isStreamingUpdate =
-      currentMessageCount === previousMessageCount && (isStreaming || isExecutingTool);
-
-    if (currentMessageCount > 0) {
-      requestAnimationFrame(() => {
-        if (!isAutoScrollEnabledRef.current) return;
-        if (!isNearBottom()) return;
-        scrollToBottom({ behavior: hasNewMessage || !isStreamingUpdate ? 'smooth' : 'auto' });
-      });
-    }
-
-    lastMessageCountRef.current = currentMessageCount;
-  }, [visibleMessages, isStreaming, isExecutingTool, isAutoScrollEnabled]);
+  useTodoExtraction({
+    messages,
+    updateTodos,
+  });
 
   const handleCancel = async () => {
-    // If we're in a revert preview for the current editing message, cancel the revert
     if (revertPreviewMessageId && editingMessageId === revertPreviewMessageId) {
       await handleCancelRevert();
     } else {
-      // Just clear editing state for normal edits
       handleEditCancel();
     }
   };
 
   const handleRevert = async (messageId: string) => {
-    // handleRevertPreview already sets editingMessageId internally
     await handleRevertPreview(messageId);
   };
 
   const handleEdit = async (messageId: string, newContent: string, attachments?: ImageAttachment[]) => {
-    // editMessage already clears editingMessageId internally
     await editMessage(messageId, newContent, attachments);
   };
 
@@ -353,7 +122,6 @@ export function ChatContainer() {
 
   return (
     <>
-      {/* Dimmed overlay when in edit mode */}
       {editingMessageId && (
         <div
           className="fixed inset-0 z-40 transition-opacity"
@@ -399,7 +167,6 @@ export function ChatContainer() {
                   />
                 );
               })}
-              {/* Bottom spacer for comfortable spacing above chat input */}
               <div className="h-4 sm:h-6 lg:h-8" aria-hidden="true" />
             </div>
           )}
@@ -421,23 +188,11 @@ export function ChatContainer() {
 
       <Dropdown
         isOpen={isHistoryOpen}
-        onClose={() => {
-          setIsHistoryOpen(false);
-          // Notify extension that history was closed via UI
-          if (window.vscode) {
-            window.vscode.postMessage({ type: 'historyPanelClosed' });
-          }
-        }}
+        onClose={closeHistory}
       >
         <HistoryDropdown
           onLoadSession={loadSession}
-          onClose={() => {
-            setIsHistoryOpen(false);
-            // Notify extension that history was closed via UI
-            if (window.vscode) {
-              window.vscode.postMessage({ type: 'historyPanelClosed' });
-            }
-          }}
+          onClose={closeHistory}
         />
       </Dropdown>
     </>

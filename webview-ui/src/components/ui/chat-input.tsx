@@ -60,7 +60,10 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+      // Only expand beyond initial row if there's content
+      if (input) {
+        textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+      }
     }
   }, [input]);
 

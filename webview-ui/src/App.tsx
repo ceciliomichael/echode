@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { SetupPage } from './components/feature/setup-page';
 import { ChatContainer } from './components/feature/chat-container';
 import { storageService } from './utils/storage';
+import { prefetchAllModels } from './hooks/use-model-fetcher';
 import type { ApiSettings } from './types/api-settings';
 
 declare global {
@@ -15,6 +16,12 @@ function App() {
   const [showSetup, setShowSetup] = useState(() => {
     return window.isSettingsPanel || !storageService.hasSettings();
   });
+
+  // Prefetch models at app startup to populate cache (runs once)
+  useEffect(() => {
+    prefetchAllModels(settings);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
