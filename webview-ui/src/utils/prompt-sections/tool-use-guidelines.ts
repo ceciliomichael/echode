@@ -13,11 +13,22 @@ ZERO WASTE POLICY: Every tool call must have clear purpose. Before calling ANY t
 - "Am I staying within the user's requested scope?" → Only explore files/dirs implied by the task.
 
 SMART TOOL SELECTION:
-- Need to explore/understand code? → echo_search FIRST (it's your primary exploration tool)
-- Know exact identifier? → grep_search for quick text search
+- Need to explore/understand code? → echo_search MANDATORY FIRST (your primary exploration tool)
+- Determining what a project is about? → echo_search REQUIRED (never skip this step)
+- Starting a new task or unfamiliar area? → echo_search FIRST before any other tool
+- Know exact identifier? → grep_search for quick text search (only after echo_search established context)
 - Know file path? → read_file directly (skip list_files/glob_search)
 - Need to find files by name? → glob_search with specific pattern
 - Exploring directory structure? → list_files once, then targeted reads
+
+CRITICAL: echo_search is your PRIMARY codebase exploration tool. Use it FIRST when:
+- You need to understand what a project does or how it's structured
+- You're exploring unfamiliar code areas
+- You need to find implementations, patterns, or architecture
+- The user asks about how something works in the codebase
+- You don't already have clear context from previous echo_search results
+
+NEVER skip echo_search in favor of grep_search when exploring. grep_search is ONLY for when you already know the exact identifier name.
 
 PARAMETER DISCIPLINE:
 - Every required param must come from user text, file structure, or prior tool output.
@@ -39,7 +50,13 @@ PARAMETER DISCIPLINE:
 
 6b. **NO NESTED TOOL CALLS**: Never embed tool-call XML inside a parameter value. Each tool call must be a standalone top-level block, not nested within another.
 
-7. **Workspace Exploration Pipeline**: For any request involving understanding or exploring the codebase, use echo_search FIRST - it efficiently finds relevant code with context. Only use grep_search when you already know exact identifiers. Use read_file for detailed inspection after locating files.
+7. **Workspace Exploration Pipeline (MANDATORY)**: For ANY request involving understanding, exploring, or learning about the codebase:
+   - STEP 1: Call echo_search FIRST with a clear query describing what you need to understand
+   - STEP 2: Review echo_search results to establish context and locate key files
+   - STEP 3: Use read_file for detailed inspection of specific files found
+   - STEP 4: Only use grep_search when you need to find exact identifier occurrences AFTER context is established
+   
+   VIOLATION: Skipping echo_search and jumping directly to grep_search/read_file for exploration tasks is PROHIBITED unless you already have comprehensive context from a previous echo_search in this conversation.
 `;
 
 	let modeSpecific: string;

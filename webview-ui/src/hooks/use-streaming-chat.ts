@@ -10,6 +10,9 @@ import { storageService } from '../utils/storage';
 import { toolHistoryApi } from '../services/tool-history-api';
 import { setSessionEditingMessage, setSessionRevertPreview, loadSessionUiState } from '../utils/session-ui-state';
 
+// Planning tool names that should be superseded when user sends a new message
+const PLANNING_TOOL_NAMES = ['plan_navigator', 'plan_handoff'];
+
 export function useStreamingChat(
   currentTodos?: Array<{ id: string; content: string; status: string }>,
   mode: ChatMode = 'agent'
@@ -416,6 +419,66 @@ export function useStreamingChat(
     });
   }, []);
 
+  // Mark all planning tools (plan_navigator, plan_handoff) as superseded
+  // Called when user sends a new message to disable previous interactive buttons
+  const supersedePlanningTools = useCallback(() => {
+    setMessages(prevMessages => {
+      let hasChanges = false;
+      
+      const newMessages = prevMessages.map(msg => {
+        if (msg.role !== 'assistant' || !msg.toolExecutions) {
+          return msg;
+        }
+        
+        const newToolExecutions = new Map(msg.toolExecutions);
+        let messageChanged = false;
+        
+        for (const [execId, execution] of newToolExecutions.entries()) {
+          if (!PLANNING_TOOL_NAMES.includes(execution.toolName)) {
+            continue;
+          }
+          
+          const data = execution.result?.data as Record<string, unknown> | undefined;
+          
+          // Skip if already superseded or already interacted with
+          if (data?.superseded) {
+            continue;
+          }
+          
+          // For plan_navigator: skip if already has selectedIndex
+          if (execution.toolName === 'plan_navigator' && data?.selectedIndex !== undefined) {
+            continue;
+          }
+          
+          // For plan_handoff: skip if already clicked
+          if (execution.toolName === 'plan_handoff' && data?.clicked) {
+            continue;
+          }
+          
+          // Mark as superseded
+          const updatedExecution: ToolExecutionState = {
+            ...execution,
+            result: {
+              ...execution.result,
+              success: execution.result?.success ?? true,
+              data: { ...data, superseded: true },
+            },
+          };
+          newToolExecutions.set(execId, updatedExecution);
+          messageChanged = true;
+          hasChanges = true;
+        }
+        
+        if (messageChanged) {
+          return { ...msg, toolExecutions: newToolExecutions };
+        }
+        return msg;
+      });
+      
+      return hasChanges ? newMessages : prevMessages;
+    });
+  }, []);
+
   return {
     messages,
     isStreaming,
@@ -434,5 +497,6 @@ export function useStreamingChat(
     handleRevertPreview,
     handleCancelRevert,
     updateToolResultData,
+    supersedePlanningTools,
   };
 };

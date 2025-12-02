@@ -67,7 +67,7 @@ export function useChatStreaming({
 }: ChatStreamingProps) {
   const workspace = useWorkspaceContext();
 
-  const sendMessage = useCallback(async (content: string, attachments?: ImageAttachment[], overrideMessages?: Message[], isHidden: boolean = false) => {
+  const sendMessage = useCallback(async (content: string, attachments?: ImageAttachment[], overrideMessages?: Message[], isHidden: boolean = false, forceEchoSearch: boolean = false) => {
     // Prevent starting new stream if already streaming
     if (isStreamingRef.current) {
       console.warn('[Chat] Already streaming, ignoring new message request');
@@ -221,9 +221,17 @@ export function useChatStreaming({
 
       // Add current user message with attachments
       const hasToolResults = messagesToSend.some(msg => msg.toolExecutions && msg.toolExecutions.size > 0);
-      const instruction = hasToolResults
-        ? '\n\n[INSTRUCTION: You have tool execution results in <tool_results>. Use them instead of guessing file contents. Follow your system prompt and tool rules. Respond concisely and stay focused on the coding task.]'
-        : '\n\n[INSTRUCTION: Follow your system prompt and tool rules. Respond concisely and stay focused on the coding task.]';
+      
+      // Build instruction based on context
+      let instruction: string;
+      if (forceEchoSearch) {
+        // Forced echo_search mode (Ctrl+Enter) - user wants immediate sub-agent exploration
+        instruction = `\n\n[CRITICAL INSTRUCTION: The user triggered FORCED ECHO SEARCH (Ctrl+Enter). You MUST IMMEDIATELY call echo_search with their query as the first action. Do NOT respond with text first. Do NOT use any other tool first. Call echo_search NOW with query: "${content.replace(/"/g, "'")}"]`;
+      } else if (hasToolResults) {
+        instruction = '\n\n[INSTRUCTION: You have tool execution results in <tool_results>. Use them instead of guessing file contents. Follow your system prompt and tool rules. Respond concisely and stay focused on the coding task.]';
+      } else {
+        instruction = '\n\n[INSTRUCTION: Follow your system prompt and tool rules. Respond concisely and stay focused on the coding task.]';
+      }
       
       const finalUserMessage = buildChatMessage(
         'user',

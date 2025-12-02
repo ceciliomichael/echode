@@ -35,6 +35,7 @@ export function ChatContainer() {
     handleRevertPreview,
     handleCancelRevert,
     updateToolResultData,
+    supersedePlanningTools,
   } = useStreamingChat(tasks, mode);
   const autoStartImplementationRef = useRef(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -91,11 +92,22 @@ export function ChatContainer() {
   };
 
   // Define handleSendMessage before useEffect hooks that use it
-  const handleSendMessage = useCallback(async (content: string, attachments?: ImageAttachment[], isHidden: boolean = false) => {
-    await sendMessage(content, attachments, undefined, isHidden);
+  const handleSendMessage = useCallback(async (content: string, attachments?: ImageAttachment[], forceEchoSearch: boolean = false) => {
+    // When user sends a visible message, supersede previous planning tools
+    supersedePlanningTools();
+    await sendMessage(content, attachments, undefined, false, forceEchoSearch);
     // Force scroll to bottom when user sends a message
     setIsAutoScrollEnabled(true);
     // Use requestAnimationFrame to ensure DOM has updated before scrolling
+    requestAnimationFrame(() => {
+      setTimeout(() => scrollToBottom({ behavior: 'smooth' }), 50);
+    });
+  }, [sendMessage, supersedePlanningTools]);
+
+  // Internal handler for hidden messages (e.g., quick questions, auto-start)
+  const handleSendHiddenMessage = useCallback(async (content: string, attachments?: ImageAttachment[]) => {
+    await sendMessage(content, attachments, undefined, true, false);
+    setIsAutoScrollEnabled(true);
     requestAnimationFrame(() => {
       setTimeout(() => scrollToBottom({ behavior: 'smooth' }), 50);
     });
@@ -223,12 +235,12 @@ export function ChatContainer() {
       }
       
       // Send as hidden message so it doesn't appear as a user bubble
-      void handleSendMessage(question, undefined, true);
+      void handleSendHiddenMessage(question, undefined);
     };
 
     window.addEventListener('echode:quickQuestion', handleQuickQuestion as EventListener);
     return () => window.removeEventListener('echode:quickQuestion', handleQuickQuestion as EventListener);
-  }, [handleSendMessage, updateToolResultData]);
+  }, [handleSendHiddenMessage, updateToolResultData]);
 
   // Listen for plan implementation handoff
   useEffect(() => {
@@ -267,9 +279,9 @@ export function ChatContainer() {
 
     // Use setTimeout to avoid calling setState synchronously within effect
     setTimeout(() => {
-      void handleSendMessage('Yes, proceed with the implementation as planned.', undefined, true);
+      void handleSendHiddenMessage('Yes, proceed with the implementation as planned.', undefined);
     }, 0);
-  }, [mode, handleSendMessage]);
+  }, [mode, handleSendHiddenMessage]);
 
   useEffect(() => {
     isAutoScrollEnabledRef.current = isAutoScrollEnabled;

@@ -15,7 +15,7 @@ import { processImageFiles } from '../../utils/image-utils';
 import type { Provider } from '../../types/api-settings';
 
 interface ChatInputProps {
-  onSendMessage: (message: string, attachments?: ImageAttachment[]) => void;
+  onSendMessage: (message: string, attachments?: ImageAttachment[], forceEchoSearch?: boolean) => void;
   disabled?: boolean;
   isStreaming?: boolean;
   onStop?: () => void;
@@ -63,12 +63,12 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
     }
   }, [input]);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = (e: FormEvent, forceEchoSearch: boolean = false) => {
     e.preventDefault();
     const content = input;
     // Only use trim() to check for non-empty content, but send the original text
     if (content.trim() && !disabled) {
-      onSendMessage(content, attachments.length > 0 ? attachments : undefined);
+      onSendMessage(content, attachments.length > 0 ? attachments : undefined, forceEchoSearch);
       setInput('');
       setAttachments([]);
       clearMentionPaths(); // Clear mention path mappings after sending
@@ -117,7 +117,9 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
 
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSubmit(e);
+      // Ctrl+Enter forces echo_search with the query
+      const forceEchoSearch = e.ctrlKey || e.metaKey;
+      handleSubmit(e, forceEchoSearch);
     }
   };
 

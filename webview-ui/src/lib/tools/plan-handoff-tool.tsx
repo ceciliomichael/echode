@@ -61,14 +61,18 @@ interface PlanHandoffRendererProps {
 }
 
 export function PlanHandoffRenderer({ data }: PlanHandoffRendererProps) {
-  // Check if button was already clicked (persisted in tool result data)
-  const resultData = data as { clicked?: boolean } | undefined;
+  // Check if button was already clicked or superseded (persisted in tool result data)
+  const resultData = data as { clicked?: boolean; superseded?: boolean } | undefined;
   const wasClicked = resultData?.clicked === true;
+  const isSuperseded = resultData?.superseded === true;
   
   const [isSwitching, setIsSwitching] = useState(wasClicked);
 
+  // Button is disabled if already clicked/switching or superseded by user message
+  const isDisabled = isSwitching || isSuperseded;
+
   const handleImplementClick = () => {
-    if (isSwitching) return;
+    if (isDisabled) return;
     setIsSwitching(true);
     
     // Dispatch event with flag to update tool result data
@@ -85,6 +89,7 @@ export function PlanHandoffRenderer({ data }: PlanHandoffRendererProps) {
         style={{
           backgroundColor: 'var(--vscode-input-background)',
           borderColor: 'var(--vscode-input-border)',
+          opacity: isSuperseded ? 0.5 : 1,
         }}
       >
         <div className="flex items-start gap-2">
@@ -113,7 +118,7 @@ export function PlanHandoffRenderer({ data }: PlanHandoffRendererProps) {
       <button
         type="button"
         onClick={handleImplementClick}
-        disabled={isSwitching}
+        disabled={isDisabled}
         className="w-full px-3 py-2.5 rounded-lg border text-xs font-medium transition-all flex items-center justify-center gap-2"
         style={{
           backgroundColor: isSwitching
@@ -126,14 +131,15 @@ export function PlanHandoffRenderer({ data }: PlanHandoffRendererProps) {
             ? 'var(--vscode-charts-orange)'
             : 'var(--vscode-button-border)',
           minHeight: '40px',
-          cursor: isSwitching ? 'default' : 'pointer',
+          opacity: isSuperseded ? 0.4 : 1,
+          cursor: isDisabled ? (isSwitching ? 'default' : 'not-allowed') : 'pointer',
         }}
         onMouseEnter={(e) => {
-          if (isSwitching) return;
+          if (isDisabled) return;
           e.currentTarget.style.backgroundColor = 'var(--vscode-button-hoverBackground)';
         }}
         onMouseLeave={(e) => {
-          if (isSwitching) return;
+          if (isDisabled) return;
           e.currentTarget.style.backgroundColor = 'var(--vscode-button-background)';
         }}
       >

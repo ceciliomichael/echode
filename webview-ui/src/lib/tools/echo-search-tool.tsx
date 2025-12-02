@@ -125,27 +125,9 @@ function EchoSearchRendererComponent({ data }: { data: unknown }) {
     const result = data as EchoSearchResult;
 
     const isEmpty = !result.snippets || result.snippets.length === 0;
-    const headerQuery =
-      result.query && result.query.length > 60
-        ? `${result.query.substring(0, 60)}...`
-        : result.query;
 
     return (
       <div className="rounded-md overflow-hidden border border-[var(--vscode-input-border)] bg-[var(--vscode-editor-background)]">
-        {/* Header */}
-        <div
-          className="px-3 py-2 text-xs font-medium border-b border-[var(--vscode-input-border)] bg-[var(--vscode-sideBar-background)] flex items-center gap-2"
-          style={{ color: 'var(--vscode-sideBarTitle-foreground)' }}
-        >
-          <Radar className="w-3.5 h-3.5 opacity-70 flex-shrink-0" />
-          <span className="flex-1 min-w-0">
-            {headerQuery || 'Echo Search'}
-          </span>
-          <span className="ml-auto opacity-50 font-normal flex-shrink-0">
-            {result.snippets?.length || 0} snippets
-          </span>
-        </div>
-
         {/* Summary */}
         <div
           className="px-3 py-2 border-b border-[var(--vscode-input-border)] bg-[var(--vscode-sideBar-background)] max-h-32 overflow-y-auto"

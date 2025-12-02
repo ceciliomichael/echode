@@ -56,8 +56,8 @@ async function collectFilesRecursively(
       break;
     }
 
-    // Skip hidden files/folders
-    if (name.startsWith('.')) {
+    // Skip hidden files/folders (except .gitignore)
+    if (name.startsWith('.') && name !== '.gitignore') {
       continue;
     }
 
@@ -119,8 +119,8 @@ export class ListFilesTool implements ITool {
       const truncatedRef = { value: false };
 
       for (const [name, fileType] of entries) {
-        // Skip hidden files/folders
-        if (name.startsWith('.')) {
+        // Skip hidden files/folders (except .gitignore)
+        if (name.startsWith('.') && name !== '.gitignore') {
           continue;
         }
 

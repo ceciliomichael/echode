@@ -74,7 +74,7 @@ export function getToolFileInfo(
   // Echo search -> Use Radar icon and query text as display name
   if (toolName === 'echo_search') {
     const query = parameters.query as string | undefined;
-    const truncatedQuery = query && query.length > 60 ? query.substring(0, 60) + '...' : query;
+    const truncatedQuery = query && query.length > 100 ? query.substring(0, 100) + '...' : query;
     const displayName = truncatedQuery || 'Echo Search';
 
     return {

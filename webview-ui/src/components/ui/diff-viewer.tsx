@@ -25,7 +25,7 @@ function normalizeEscapedSequences(content: string): string {
 interface DiffViewerProps {
   oldContent: string | null | undefined;
   newContent: string;
-  fileName: string;
+  fileName?: string;
   isStreaming?: boolean;
   viewOnly?: boolean;
   startLineNumber?: number;
@@ -217,7 +217,7 @@ function filterDiffWithContext(diffLines: DiffLine[], contextLines: number | und
   return result;
 }
 
-const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = false, viewOnly = false, startLineNumber = 1, endLineNumber, contextLines }: DiffViewerProps) => {
+const DiffViewerComponent = ({ oldContent, newContent, isStreaming = false, viewOnly = false, startLineNumber = 1, contextLines }: DiffViewerProps) => {
   const diffLines = useMemo(
     () => {
       const diff = computeDiff(oldContent, newContent, isStreaming, startLineNumber);
@@ -227,22 +227,7 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
   );
 
   return (
-    <div className="w-full">
-      {/* Diff Header */}
-      <div
-        className="flex items-center justify-between px-3 py-2 text-xs font-medium border-b"
-        style={{
-          backgroundColor: 'var(--vscode-editor-background)',
-          borderColor: 'var(--vscode-input-border)',
-          color: 'var(--vscode-descriptionForeground)',
-        }}
-      >
-        <span>{fileName}</span>
-        {viewOnly && startLineNumber && endLineNumber && (
-          <span>{startLineNumber}-{endLineNumber}</span>
-        )}
-      </div>
-
+    <div className="w-full rounded-md overflow-hidden border border-[var(--vscode-input-border)]">
       {/* Diff Content */}
       <div
         className="overflow-x-auto text-xs font-mono"
@@ -254,58 +239,34 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
       >
         <div style={{ minWidth: '100%', width: 'max-content' }}>
           {diffLines.map((line, idx) => {
-          // Handle collapsed section indicator
+          // Skip collapsed sections entirely
           if (line.type === 'collapsed') {
-            return (
-              <div
-                key={idx}
-                className="flex items-center justify-center py-1 w-full"
-                style={{
-                  backgroundColor: 'var(--vscode-editor-background)',
-                  color: 'var(--vscode-descriptionForeground)',
-                }}
-              >
-                <div className="text-xs italic opacity-70">
-                  ··· {line.collapsedCount} unchanged {line.collapsedCount === 1 ? 'line' : 'lines'} ···
-                </div>
-              </div>
-            );
+            return null;
           }
 
           let bgColor: string;
-          let borderColor: string;
-          let linePrefix: string;
 
           if (viewOnly) {
             bgColor = 'transparent';
-            borderColor = 'transparent';
-            linePrefix = '';
           } else {
             switch (line.type) {
               case 'added':
                 bgColor = 'var(--vscode-diffEditor-insertedTextBackground)';
-                borderColor = 'var(--vscode-gitDecoration-addedResourceForeground)';
-                linePrefix = '+';
                 break;
               case 'removed':
                 bgColor = 'var(--vscode-diffEditor-removedTextBackground)';
-                borderColor = 'var(--vscode-gitDecoration-deletedResourceForeground)';
-                linePrefix = '-';
                 break;
               default:
                 bgColor = 'transparent';
-                borderColor = 'transparent';
-                linePrefix = ' ';
             }
           }
 
           return (
             <div
               key={idx}
-              className={`flex items-start w-full ${viewOnly ? '' : 'border-l-2'}`}
+              className="flex items-start w-full"
               style={{
                 backgroundColor: bgColor,
-                borderColor: borderColor,
               }}
             >
               {/* Line Number */}
@@ -314,7 +275,7 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
                 style={{
                   minWidth: viewOnly ? '40px' : '50px',
                   color: 'var(--vscode-editorLineNumber-foreground)',
-                  backgroundColor: 'var(--vscode-editorLineNumber-background)',
+                  backgroundColor: 'var(--vscode-editor-background)',
                 }}
               >
                 {!viewOnly ? (
@@ -339,21 +300,6 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
                 className="flex-1 px-2 whitespace-pre m-0 min-h-[1.15rem] leading-[1.15rem]"
                 style={{ color: 'var(--vscode-editor-foreground)' }}
               >
-                {!viewOnly && (
-                  <span
-                    className="select-none"
-                    style={{
-                      color:
-                        line.type === 'added'
-                          ? 'var(--vscode-gitDecoration-addedResourceForeground)'
-                          : line.type === 'removed'
-                            ? 'var(--vscode-gitDecoration-deletedResourceForeground)'
-                            : 'inherit',
-                    }}
-                  >
-                    {linePrefix}{' '}
-                  </span>
-                )}
                 {line.content || ' '}
               </pre>
             </div>

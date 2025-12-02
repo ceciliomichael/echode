@@ -131,13 +131,15 @@ const ToolBlockComponent = ({
             !toolCall.result && (
               <>
                 {toolCall.toolName === 'write_to_file' && toolCall.parameters.content ? (
-                  <DiffViewer
-                    oldContent={undefined}
-                    newContent={toolCall.parameters.content as string}
-                    fileName={fileInfo.displayName}
-                    isStreaming={true}
-                    viewOnly={true}
-                  />
+                  <div className="px-3 py-2">
+                    <DiffViewer
+                      oldContent={undefined}
+                      newContent={toolCall.parameters.content as string}
+                      fileName={fileInfo.displayName}
+                      isStreaming={true}
+                      viewOnly={true}
+                    />
+                  </div>
                 ) : (
                   <div
                     className="px-3 py-2"

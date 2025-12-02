@@ -172,29 +172,9 @@ IMPORTANT: Pattern Guidelines:
 
       const isEmpty = result.results.length === 0;
       const hasSkipped = result.skippedFiles && result.skippedFiles.length > 0;
-      const headerPattern =
-        result.patterns.length === 1
-          ? result.patterns[0].length > 60
-            ? `${result.patterns[0].substring(0, 60)}...`
-            : result.patterns[0]
-          : `${result.patterns.length} patterns`;
 
       return (
         <div className="rounded-md overflow-hidden border border-[var(--vscode-input-border)] bg-[var(--vscode-editor-background)]">
-          {/* Header */}
-          <div
-            className="px-3 py-2 text-xs font-medium border-b border-[var(--vscode-input-border)] bg-[var(--vscode-sideBar-background)] flex items-center gap-2"
-            style={{ color: 'var(--vscode-sideBarTitle-foreground)' }}
-          >
-            <FileSearch className="w-3.5 h-3.5 opacity-70 flex-shrink-0" />
-            <span className="flex-1 min-w-0">
-              {headerPattern || 'Glob Search'}
-            </span>
-            <span className="ml-auto opacity-50 font-normal flex-shrink-0">
-              {result.totalFiles} {result.totalFiles === 1 ? 'file' : 'files'}
-            </span>
-          </div>
-
           {/* Content */}
           <div className="max-h-[400px] overflow-y-auto">
             {isEmpty ? (

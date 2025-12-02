@@ -57,7 +57,7 @@ export function renderToolResult(
     if ('files' in data && Array.isArray((data as { files: unknown[] }).files)) {
       const multiResult = data as { files: Array<{ content: string; path: string; startLine?: number; endLine?: number }> };
       return (
-        <div className="space-y-4">
+        <div className="space-y-4 px-3 py-2">
           {multiResult.files.map((file, index) => {
             const cleanContent = stripLineNumbers(file.content);
             return (
@@ -83,14 +83,16 @@ export function renderToolResult(
       const cleanContent = stripLineNumbers(result.content);
 
       return (
-        <DiffViewer
-          oldContent={undefined}
-          newContent={cleanContent}
-          fileName={fileName}
-          viewOnly={true}
-          startLineNumber={result.startLine || 1}
-          endLineNumber={result.endLine}
-        />
+        <div className="px-3 py-2">
+          <DiffViewer
+            oldContent={undefined}
+            newContent={cleanContent}
+            fileName={fileName}
+            viewOnly={true}
+            startLineNumber={result.startLine || 1}
+            endLineNumber={result.endLine}
+          />
+        </div>
       );
     }
   }
@@ -106,11 +108,13 @@ export function renderToolResult(
 
     if (result.newContent !== undefined) {
       return (
-        <DiffViewer
-          oldContent={result.oldContent ?? null}
-          newContent={result.newContent}
-          fileName={fileName}
-        />
+        <div className="px-3 py-2">
+          <DiffViewer
+            oldContent={result.oldContent ?? null}
+            newContent={result.newContent}
+            fileName={fileName}
+          />
+        </div>
       );
     }
   }
@@ -125,11 +129,14 @@ export function renderToolResult(
 
     if (result.newContent !== undefined && result.oldContent !== undefined) {
       return (
-        <DiffViewer
-          oldContent={result.oldContent ?? null}
-          newContent={result.newContent}
-          fileName={fileName}
-        />
+        <div className="px-3 py-2">
+          <DiffViewer
+            oldContent={result.oldContent ?? null}
+            newContent={result.newContent}
+            fileName={fileName}
+            contextLines={3}
+          />
+        </div>
       );
     }
   }

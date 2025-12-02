@@ -68,11 +68,13 @@ export function PlanNavigatorRenderer({ data }: { data: unknown }) {
     question: string;
     options: string[];
     selectedIndex?: number;
+    superseded?: boolean;
   };
 
   const question = result.question || '';
   const options = result.options || [];
   const persistedIndex = result.selectedIndex ?? null;
+  const isSuperseded = result.superseded === true;
   
   // Use persisted index if available, otherwise use local state
   const effectiveClickedIndex = clickedIndex ?? persistedIndex;
@@ -86,12 +88,15 @@ export function PlanNavigatorRenderer({ data }: { data: unknown }) {
   }
 
   const handleOptionClick = (option: string, index: number) => {
-    if (effectiveClickedIndex !== null) return; // Prevent clicking if already clicked or persisted
+    if (effectiveClickedIndex !== null || isSuperseded) return; // Prevent clicking if already clicked, persisted, or superseded
     setClickedIndex(index);
     window.dispatchEvent(new CustomEvent('echode:quickQuestion', {
       detail: { question: option, selectedIndex: index }
     }));
   };
+
+  // Determine if buttons should be disabled (either selection made or superseded by user message)
+  const isInteractionDisabled = effectiveClickedIndex !== null || isSuperseded;
 
   return (
     <div className="py-2 px-1">
@@ -107,14 +112,15 @@ export function PlanNavigatorRenderer({ data }: { data: unknown }) {
         {options.map((option, index) => {
           const isClicked = effectiveClickedIndex === index;
           const hasSelection = effectiveClickedIndex !== null;
-          const isDisabled = hasSelection && !isClicked;
+          // Button is disabled if: superseded, or has selection and not the clicked one
+          const isButtonDisabled = isSuperseded || (hasSelection && !isClicked);
 
           return (
             <button
               key={index}
               type="button"
               onClick={() => handleOptionClick(option, index)}
-              disabled={hasSelection}
+              disabled={isInteractionDisabled}
               className="w-full text-left px-3 py-2 rounded-lg border text-xs transition-all"
               style={{
                 backgroundColor: isClicked 
@@ -127,16 +133,16 @@ export function PlanNavigatorRenderer({ data }: { data: unknown }) {
                   ? 'var(--vscode-charts-orange)'
                   : 'var(--vscode-input-border)',
                 minHeight: '36px',
-                opacity: isDisabled ? 0.4 : 1,
-                cursor: hasSelection ? (isClicked ? 'default' : 'not-allowed') : 'pointer',
+                opacity: isButtonDisabled ? 0.4 : 1,
+                cursor: isInteractionDisabled ? (isClicked ? 'default' : 'not-allowed') : 'pointer',
               }}
               onMouseEnter={(e) => {
-                if (!hasSelection && !isClicked) {
+                if (!isInteractionDisabled && !isClicked) {
                   e.currentTarget.style.opacity = '0.8';
                 }
               }}
               onMouseLeave={(e) => {
-                if (!hasSelection && !isClicked) {
+                if (!isInteractionDisabled && !isClicked) {
                   e.currentTarget.style.opacity = '1';
                 }
               }}

@@ -41,8 +41,8 @@ async function getWorkspaceFiles(workspaceRoot: string): Promise<string[]> {
       const entries = await fs.readdir(dir, { withFileTypes: true });
       
       for (const entry of entries) {
-        // Skip common ignored directories
-        if (entry.name.startsWith('.') || 
+        // Skip common ignored directories (except .gitignore)
+        if ((entry.name.startsWith('.') && entry.name !== '.gitignore') || 
             entry.name === 'node_modules' || 
             entry.name === 'dist' ||
             entry.name === 'build' ||
