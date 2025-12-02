@@ -9,9 +9,9 @@ interface ToolsTabProps {
 }
 
 export function ToolsTab({ enabledTools, onChange }: ToolsTabProps) {
-  // Filter out plan-specific tools that are fixed for Plan mode
+  // Filter out plan-specific tools and echo_search (always available in all modes)
   const allToolsMetadata = getAllToolMetadata().filter(
-    (metadata) => metadata.id !== 'plan_navigator' && metadata.id !== 'plan_handoff'
+    (metadata) => metadata.id !== 'plan_navigator' && metadata.id !== 'plan_handoff' && metadata.id !== 'echo_search'
   );
 
   const handleToggle = (toolId: string) => {

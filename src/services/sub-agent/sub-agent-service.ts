@@ -12,9 +12,6 @@ import { ListFilesTool } from '../tools/list-files-tool';
 export interface IndexingSettings {
   provider: 'anthropic' | 'openai' | 'openai-compatible' | 'megallm' | 'vscode-lm' | 'qwen-code';
   model: string;
-  maxIterations: number;
-  maxFiles: number;
-  maxSnippets: number;
 }
 
 /**
@@ -102,6 +99,12 @@ export class SubAgentService {
     totalMatches: 0,
   };
 
+  // Default search limits (hardcoded for simplicity)
+  private static readonly MAX_ITERATIONS = 4;
+  private static readonly MAX_PARALLEL_CALLS = 8;
+  private static readonly MAX_FILES = 100;
+  private static readonly MAX_SNIPPETS = 20;
+
   constructor(
     indexingSettings: IndexingSettings,
     apiSettings: SubAgentApiSettings,
@@ -133,8 +136,10 @@ export class SubAgentService {
     ];
 
     let iteration = 0;
-    // Increased default iterations for more thorough search
-    const maxIterations = this.indexingSettings.maxIterations || 8;
+    const maxIterations = SubAgentService.MAX_ITERATIONS;
+    const maxParallelCalls = SubAgentService.MAX_PARALLEL_CALLS;
+
+    this.onProgress?.(`Starting search (max ${maxIterations} turns)`);
 
     while (iteration < maxIterations) {
       iteration++;
@@ -169,9 +174,15 @@ export class SubAgentService {
         continue;
       }
 
+      // Cap parallel tool calls
+      const cappedToolCalls = toolCalls.slice(0, maxParallelCalls);
+      if (toolCalls.length > maxParallelCalls) {
+        this.onProgress?.(`Capped tool calls: ${cappedToolCalls.length}/${toolCalls.length}`);
+      }
+
       // Execute tools IN PARALLEL for better performance
-      this.onProgress?.(`Executing ${toolCalls.length} tool(s) in parallel...`);
-      const toolResults = await this.executeToolsParallel(toolCalls);
+      this.onProgress?.(`Executing ${cappedToolCalls.length} tool(s) in parallel...`);
+      const toolResults = await this.executeToolsParallel(cappedToolCalls);
 
       // Add to conversation
       conversation.push({ role: 'assistant', content: response });
@@ -417,7 +428,7 @@ DO NOT call any more tools. Output ONLY the <search_complete> block now.`
     
     // Early iterations: broader search; later iterations: more focused
     const isEarlyIteration = iteration <= 2;
-    const baseMaxFiles = this.indexingSettings.maxFiles || 100;
+    const baseMaxFiles = SubAgentService.MAX_FILES;
     const baseMaxResults = 50;
     
     // Scale limits based on iteration
@@ -642,7 +653,7 @@ DO NOT call any more tools. Output ONLY the <search_complete> block now.`
     snippets.sort((a, b) => b.score - a.score);
 
     // Limit to maxSnippets BEFORE hydration to save work
-    const maxSnippets = this.indexingSettings.maxSnippets || 20;
+    const maxSnippets = SubAgentService.MAX_SNIPPETS;
     const finalSnippets = snippets.slice(0, maxSnippets);
 
     // Hydrate empty snippets in parallel

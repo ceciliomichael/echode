@@ -217,7 +217,7 @@ function filterDiffWithContext(diffLines: DiffLine[], contextLines: number | und
   return result;
 }
 
-const DiffViewerComponent = ({ oldContent, newContent, isStreaming = false, viewOnly = false, startLineNumber = 1, contextLines }: DiffViewerProps) => {
+const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = false, viewOnly = false, startLineNumber = 1, endLineNumber, contextLines }: DiffViewerProps) => {
   const diffLines = useMemo(
     () => {
       const diff = computeDiff(oldContent, newContent, isStreaming, startLineNumber);
@@ -228,6 +228,21 @@ const DiffViewerComponent = ({ oldContent, newContent, isStreaming = false, view
 
   return (
     <div className="w-full rounded-md overflow-hidden border border-[var(--vscode-input-border)]">
+      {/* Diff Header */}
+      <div
+        className="flex items-center justify-between px-3 py-1.5 text-xs font-medium border-b"
+        style={{
+          backgroundColor: 'var(--vscode-editor-background)',
+          borderColor: 'var(--vscode-input-border)',
+          color: 'var(--vscode-descriptionForeground)',
+        }}
+      >
+        <span className="truncate">{fileName}</span>
+        {startLineNumber && endLineNumber && (
+          <span className="ml-2 flex-shrink-0">{startLineNumber}-{endLineNumber}</span>
+        )}
+      </div>
+
       {/* Diff Content */}
       <div
         className="overflow-x-auto text-xs font-mono"

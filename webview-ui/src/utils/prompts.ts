@@ -151,11 +151,20 @@ Implementation workflow:
   // In Ask mode: only 4 tools (read_file, list_files, grep_search, glob_search)
   // In Agent mode: respects user's tool settings from settings page, but excludes plan-only tools
   const savedTools = storageService.getEnabledTools();
-  const baseTools = mode === 'plan'
+  const settings = storageService.getSettings();
+  const echoSearchEnabled = settings.indexingSettings?.enabled ?? true;
+  
+  let baseTools = mode === 'plan'
     ? getToolsForMode('plan', true)
     : mode === 'ask'
       ? getToolsForMode('ask', true)
       : (savedTools || getAllTools(true)).filter(tool => !PLAN_ONLY_TOOL_IDS.has(tool.id));
+  
+  // Filter out echo_search if indexing is disabled
+  if (!echoSearchEnabled) {
+    baseTools = baseTools.filter(tool => tool.id !== 'echo_search');
+  }
+  
   const activeTools = baseTools.filter(tool => tool.enabled);
   const toolsSection = activeTools.length > 0
     ? `

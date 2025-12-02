@@ -125,9 +125,16 @@ function EchoSearchRendererComponent({ data }: { data: unknown }) {
     const result = data as EchoSearchResult;
 
     const isEmpty = !result.snippets || result.snippets.length === 0;
+    
+    // Calculate total tool calls for display
+    const totalToolCalls = (result.searchStats?.grepCalls || 0) + 
+                           (result.searchStats?.globCalls || 0) + 
+                           (result.searchStats?.readFileCalls || 0) + 
+                           (result.searchStats?.listDirCalls || 0);
 
     return (
       <div className="rounded-md overflow-hidden border border-[var(--vscode-input-border)] bg-[var(--vscode-editor-background)]">
+        
         {/* Summary */}
         <div
           className="px-3 py-2 border-b border-[var(--vscode-input-border)] bg-[var(--vscode-sideBar-background)] max-h-32 overflow-y-auto"
@@ -150,16 +157,32 @@ function EchoSearchRendererComponent({ data }: { data: unknown }) {
           </div>
         </div>
 
-        {/* Stats */}
+        {/* Stats - Enhanced with more detail */}
         <div
           className="px-3 py-1.5 border-b border-[var(--vscode-input-border)] flex items-center flex-wrap gap-x-3 gap-y-1 text-xs"
           style={{ color: 'var(--vscode-descriptionForeground)' }}
         >
-          <span>Iterations: {result.searchStats?.iterations || 0}</span>
-          <span>Files: {result.searchStats?.filesScanned || 0}</span>
-          <span>Matches: {result.searchStats?.totalMatches || 0}</span>
-          {(result.searchStats?.readFileCalls || 0) > 0 && (
-            <span>Reads: {result.searchStats.readFileCalls}</span>
+          <span title="Number of search iterations">
+            {result.searchStats?.iterations || 0} turns
+          </span>
+          <span title="Total tool calls executed">
+            {totalToolCalls} calls
+          </span>
+          <span title="Files scanned during search">
+            {result.searchStats?.filesScanned || 0} files
+          </span>
+          <span title="Total pattern matches found">
+            {result.searchStats?.totalMatches || 0} matches
+          </span>
+          {(result.searchStats?.grepCalls || 0) > 0 && (
+            <span className="opacity-70" title="grep_search calls">
+              grep:{result.searchStats?.grepCalls}
+            </span>
+          )}
+          {(result.searchStats?.globCalls || 0) > 0 && (
+            <span className="opacity-70" title="glob_search calls">
+              glob:{result.searchStats?.globCalls}
+            </span>
           )}
         </div>
 

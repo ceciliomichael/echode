@@ -10,6 +10,7 @@ export const PLAN_MODE_TOOL_IDS = [
   'list_files',
   'grep_search',
   'glob_search',
+  'echo_search',
   'todo_write',
   'todo_read',
   'plan_navigator',
@@ -21,17 +22,13 @@ export const ASK_MODE_TOOL_IDS = [
   'list_files',
   'grep_search',
   'glob_search',
+  'echo_search',
 ] as const;
 
 // Plan-exclusive helpers should never be surfaced outside of Plan mode
 export const PLAN_ONLY_TOOL_IDS = new Set<string>([
   'plan_navigator',
   'plan_handoff',
-]);
-
-// Agent-exclusive tools that require full capabilities
-export const AGENT_ONLY_TOOL_IDS = new Set<string>([
-  'echo_search',
 ]);
 
 // Re-export getAllTools for external use
@@ -53,10 +50,9 @@ export function getToolsForMode(mode: ChatMode, defaultEnabled = true): Tool[] {
   }
 
   if (mode === 'ask') {
-    // Ask mode: exclude agent-only tools
-    return allTools.filter(tool => 
-      (ASK_MODE_TOOL_IDS as readonly string[]).includes(tool.id) &&
-      !AGENT_ONLY_TOOL_IDS.has(tool.id)
+    // Ask mode: fixed read-only tools including echo_search
+    return allTools.filter(tool =>
+      (ASK_MODE_TOOL_IDS as readonly string[]).includes(tool.id)
     );
   }
 

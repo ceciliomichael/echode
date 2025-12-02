@@ -1,19 +1,15 @@
 export type Provider = 'anthropic' | 'openai' | 'openai-compatible' | 'megallm' | 'vscode-lm' | 'qwen-code';
 
 export interface IndexingSettings {
+  enabled: boolean;
   provider: Provider;
   model: string;
-  maxIterations: number;
-  maxFiles: number;
-  maxSnippets: number;
 }
 
 export const DEFAULT_INDEXING_SETTINGS: IndexingSettings = {
+  enabled: true,
   provider: 'anthropic',
   model: '',
-  maxIterations: 5,
-  maxFiles: 100,
-  maxSnippets: 20,
 };
 
 export interface AutocompleteSettings {

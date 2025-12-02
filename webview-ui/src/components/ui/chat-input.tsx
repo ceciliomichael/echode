@@ -25,9 +25,10 @@ interface ChatInputProps {
   provider: Provider;
   model: string;
   onModelChange: (provider: Provider, model: string) => void;
+  echoSearchEnabled?: boolean;
 }
 
-export function ChatInput({ onSendMessage, disabled = false, isStreaming = false, onStop, todos = [], mode, onModeChange, provider, model, onModelChange }: ChatInputProps) {
+export function ChatInput({ onSendMessage, disabled = false, isStreaming = false, onStop, todos = [], mode, onModeChange, provider, model, onModelChange, echoSearchEnabled = true }: ChatInputProps) {
 
   const [input, setInput] = useState('');
   const [cursorPos, setCursorPos] = useState(0);
@@ -117,8 +118,8 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
 
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      // Ctrl+Enter forces echo_search with the query
-      const forceEchoSearch = e.ctrlKey || e.metaKey;
+      // Ctrl+Enter forces echo_search with the query (only if echo_search is enabled)
+      const forceEchoSearch = (e.ctrlKey || e.metaKey) && echoSearchEnabled;
       handleSubmit(e, forceEchoSearch);
     }
   };

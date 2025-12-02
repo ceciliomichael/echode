@@ -18,6 +18,26 @@ export function ChatContainer() {
 
   const { provider, model, setActiveProviderAndModel } = useChatModel();
 
+  // Check if echo_search is enabled from settings
+  const [echoSearchEnabled, setEchoSearchEnabled] = useState(() => {
+    const settings = storageService.getSettings();
+    return settings.indexingSettings?.enabled ?? true;
+  });
+
+  // Listen for settings changes to update echoSearchEnabled
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      const message = event.data;
+      if (message.type === 'settingsSaved') {
+        const settings = message.settings;
+        setEchoSearchEnabled(settings?.indexingSettings?.enabled ?? true);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
   const { 
     messages, 
     isStreaming, 
@@ -395,6 +415,7 @@ export function ChatContainer() {
           provider={provider}
           model={model}
           onModelChange={setActiveProviderAndModel}
+          echoSearchEnabled={echoSearchEnabled}
         />
       </div>
 
