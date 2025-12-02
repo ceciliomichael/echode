@@ -16,6 +16,24 @@ export const DEFAULT_INDEXING_SETTINGS: IndexingSettings = {
   maxSnippets: 20,
 };
 
+export interface AutocompleteSettings {
+  enabled: boolean;
+  provider: Provider;
+  model: string;
+  debounceMs: number;
+  maxTokens: number;
+  temperature: number;
+}
+
+export const DEFAULT_AUTOCOMPLETE_SETTINGS: AutocompleteSettings = {
+  enabled: false,
+  provider: 'openai-compatible',
+  model: '',
+  debounceMs: 150,
+  maxTokens: 128,
+  temperature: 0.2,
+};
+
 export interface Tool {
   id: string;
   name: string;
@@ -60,6 +78,7 @@ export interface ApiSettings {
   enabledTools?: Tool[];
   chatMode?: 'agent' | 'plan' | 'ask';
   indexingSettings?: IndexingSettings;
+  autocompleteSettings?: AutocompleteSettings;
 }
 
 export const DEFAULT_API_SETTINGS: ApiSettings = {

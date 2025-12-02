@@ -1,8 +1,10 @@
-import { Settings, FileText, Wrench, Search } from 'lucide-react';
+import { Settings, FileText, Wrench, Search, Zap } from 'lucide-react';
+
+type TabType = 'api' | 'system' | 'tools' | 'indexing' | 'autocomplete';
 
 interface SettingsSidebarProps {
-  activeTab: 'api' | 'system' | 'tools' | 'indexing';
-  onTabChange: (tab: 'api' | 'system' | 'tools' | 'indexing') => void;
+  activeTab: TabType;
+  onTabChange: (tab: TabType) => void;
 }
 
 export function SettingsSidebar({ activeTab, onTabChange }: SettingsSidebarProps) {
@@ -110,6 +112,28 @@ export function SettingsSidebar({ activeTab, onTabChange }: SettingsSidebarProps
           >
             <Search size={14} strokeWidth={1.5} />
             <span className="font-medium">Indexing</span>
+          </button>
+          <button
+            onClick={() => onTabChange('autocomplete')}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs rounded-lg transition-all border"
+            style={{
+              backgroundColor: activeTab === 'autocomplete' ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent',
+              color: activeTab === 'autocomplete' ? 'var(--vscode-list-activeSelectionForeground)' : 'var(--vscode-foreground)',
+              borderColor: activeTab === 'autocomplete' ? 'var(--vscode-focusBorder)' : 'transparent'
+            }}
+            onMouseEnter={(e) => {
+              if (activeTab !== 'autocomplete') {
+                e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (activeTab !== 'autocomplete') {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }
+            }}
+          >
+            <Zap size={14} strokeWidth={1.5} />
+            <span className="font-medium">Autocomplete</span>
           </button>
         </nav>
       </div>

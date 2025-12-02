@@ -6,11 +6,12 @@ import { ApiConfigTab } from './api-config-tab';
 import { SystemPromptTab } from './system-prompt-tab';
 import { ToolsTab } from './tools-tab';
 import { IndexingTab } from './indexing-tab';
+import { AutocompleteTab } from './autocomplete-tab';
 
 import { useProviderSettings } from '../../hooks/use-provider-settings';
 import { getAllTools } from '../../lib/tool-config';
-import type { ApiSettings, Tool, IndexingSettings } from '../../types/api-settings';
-import { DEFAULT_INDEXING_SETTINGS } from '../../types/api-settings';
+import type { ApiSettings, Tool, IndexingSettings, AutocompleteSettings } from '../../types/api-settings';
+import { DEFAULT_INDEXING_SETTINGS, DEFAULT_AUTOCOMPLETE_SETTINGS } from '../../types/api-settings';
 
 interface SetupPageProps {
   initialSettings: ApiSettings;
@@ -26,7 +27,10 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
   const [indexingSettings, setIndexingSettings] = useState<IndexingSettings>(
     initialSettings.indexingSettings || DEFAULT_INDEXING_SETTINGS
   );
-  const [activeTab, setActiveTab] = useState<'api' | 'system' | 'tools' | 'indexing'>('api');
+  const [autocompleteSettings, setAutocompleteSettings] = useState<AutocompleteSettings>(
+    initialSettings.autocompleteSettings || DEFAULT_AUTOCOMPLETE_SETTINGS
+  );
+  const [activeTab, setActiveTab] = useState<'api' | 'system' | 'tools' | 'indexing' | 'autocomplete'>('api');
   const [showDropdown, setShowDropdown] = useState(false);
 
   const {
@@ -47,11 +51,29 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
       setSystemPrompt(initialSettings.systemPrompt || '');
       setEnabledTools(initialSettings.enabledTools || getAllTools(true));
       setIndexingSettings(initialSettings.indexingSettings || DEFAULT_INDEXING_SETTINGS);
+      setAutocompleteSettings(initialSettings.autocompleteSettings || DEFAULT_AUTOCOMPLETE_SETTINGS);
     }, 0);
     return () => clearTimeout(timeoutId);
   }, [initialSettings]);
 
-  // Auto-save settings
+  // Immediate autocomplete settings update (no delay for responsive feel)
+  useEffect(() => {
+    // Skip initial mount
+    if (autocompleteSettings === (initialSettings.autocompleteSettings || DEFAULT_AUTOCOMPLETE_SETTINGS)) {
+      return;
+    }
+    // Send immediately for autocomplete changes
+    onSave({
+      ...buildSettings(),
+      systemPrompt,
+      enabledTools,
+      indexingSettings,
+      autocompleteSettings,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autocompleteSettings]);
+
+  // Auto-save other settings with debounce
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       onSave({
@@ -59,10 +81,12 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
         systemPrompt,
         enabledTools,
         indexingSettings,
+        autocompleteSettings,
       });
     }, 500);
     return () => clearTimeout(timeoutId);
-  }, [provider, currentSettings, systemPrompt, enabledTools, indexingSettings, onSave, buildSettings]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [provider, currentSettings, systemPrompt, enabledTools, indexingSettings]);
 
   return (
     <div
@@ -90,7 +114,7 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
             className="text-sm sm:text-base font-semibold"
             style={{ color: 'var(--vscode-foreground)' }}
           >
-            {activeTab === 'api' ? 'API Configuration' : activeTab === 'system' ? 'System Prompt' : activeTab === 'tools' ? 'Tool Configuration' : 'Indexing / Code Search'}
+            {activeTab === 'api' ? 'API Configuration' : activeTab === 'system' ? 'System Prompt' : activeTab === 'tools' ? 'Tool Configuration' : activeTab === 'indexing' ? 'Indexing / Code Search' : 'Autocomplete'}
           </h1>
         </div>
 
@@ -121,7 +145,17 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
           )}
 
           {activeTab === 'indexing' && (
-            <IndexingTab indexingSettings={indexingSettings} onChange={setIndexingSettings} />
+            <IndexingTab
+              indexingSettings={indexingSettings}
+              onChange={setIndexingSettings}
+            />
+          )}
+
+          {activeTab === 'autocomplete' && (
+            <AutocompleteTab
+              autocompleteSettings={autocompleteSettings}
+              onChange={setAutocompleteSettings}
+            />
           )}
         </div>
       </div>

@@ -2,7 +2,7 @@
   "name": "echode",
   "displayName": "Echode",
   "description": "Agentic Coding",
-  "version": "1.0.255",
+  "version": "1.0.261",
   "publisher": "EchoSphere",
   "icon": "icon.png",
   "repository": {
@@ -51,6 +51,38 @@
         "command": "echode.openSettings",
         "title": "Open Settings",
         "icon": "$(settings-gear)"
+      },
+      {
+        "command": "echode.triggerAutocomplete",
+        "title": "Echode: Trigger Autocomplete"
+      },
+      {
+        "command": "echode.acceptNextWord",
+        "title": "Echode: Accept Next Word"
+      },
+      {
+        "command": "echode.acceptNextLine",
+        "title": "Echode: Accept Next Line"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "echode.triggerAutocomplete",
+        "key": "ctrl+shift+space",
+        "mac": "cmd+shift+space",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "echode.acceptNextWord",
+        "key": "ctrl+right",
+        "mac": "cmd+right",
+        "when": "inlineSuggestionVisible && editorTextFocus"
+      },
+      {
+        "command": "echode.acceptNextLine",
+        "key": "ctrl+down",
+        "mac": "cmd+down",
+        "when": "inlineSuggestionVisible && editorTextFocus"
       }
     ],
     "menus": {

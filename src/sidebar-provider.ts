@@ -8,6 +8,7 @@ import { getWorkspaceFiles, getAgentsConfig } from './utils/workspace-scanner';
 import { ChatHistoryService } from './services/chat-history-service';
 import { ToolHistoryService } from './services/tool-history-service';
 import { DiagnosticsService } from './services/diagnostics-service';
+import { AutocompleteService } from './autocomplete';
 import type { ToolExecutionState } from './types/tool-execution';
 
 /**
@@ -21,11 +22,14 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
   private _toolHistoryService: ToolHistoryService;
   private _isHistoryOpen: boolean = false;
   private _settingsPanel?: vscode.WebviewPanel;
+  private _autocompleteService: AutocompleteService;
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
-    private readonly _context: vscode.ExtensionContext
+    private readonly _context: vscode.ExtensionContext,
+    autocompleteService: AutocompleteService
   ) {
+    this._autocompleteService = autocompleteService;
     const workspacePath = this.getCurrentWorkspacePath();
     this._historyService = new ChatHistoryService(_context, workspacePath);
     this._toolHistoryService = new ToolHistoryService();
@@ -164,6 +168,8 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
           if (this._view) {
             this._view.webview.postMessage({ type: 'settingsSaved', settings: data.settings });
           }
+          // Update autocomplete service with new settings
+          this._autocompleteService.updateSettings(data.settings);
           break;
         case 'closeSettings':
           panel.dispose();
