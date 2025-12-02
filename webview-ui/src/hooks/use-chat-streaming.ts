@@ -241,9 +241,6 @@ export function useChatStreaming({
       );
       finalChatHistory.push(finalUserMessage);
 
-      const abortController = new AbortController();
-      abortControllerRef.current = abortController;
-
       // Batched update function for smooth 60fps rendering
       const updateUI = () => {
         setMessages((prev) =>
@@ -256,77 +253,131 @@ export function useChatStreaming({
         pendingUpdate = false;
       };
 
-      console.log('[STREAMING] Starting stream...');
-      let chunkCount = 0;
+      // Auto-retry loop for HTTP errors - keeps trying until success or user abort
+      let retryCount = 0;
+      let streamSuccess = false;
       
-      for await (const chunk of chatApi.streamChat(finalChatHistory, abortController.signal, mode)) {
-        chunkCount++;
-        console.log(`[STREAMING] Chunk #${chunkCount}:`, chunk);
-        
-        if (abortController.signal.aborted) {
-          console.log('[STREAMING] Aborted signal received, breaking stream');
-          break;
-        }
-
-        assistantContent += chunk;
-        console.log(`[STREAMING] Accumulated content length: ${assistantContent.length} chars`);
-        
-        // Check for complete tool block
-        if (hasCompleteToolBlock(assistantContent)) {
-          console.log('[STREAMING] ✓ Complete tool block detected!');
-          console.log('[STREAMING] Content before trim:', assistantContent.substring(0, 200) + '...');
+      while (!streamSuccess) {
+        try {
+          const abortController = new AbortController();
+          abortControllerRef.current = abortController;
           
-          // Trim content to only include up to the end of the FIRST complete tool block
-          // This ensures we execute tools strictly one-by-one and don't include partial content
-          const trimmedContent = trimToFirstCompleteToolBlock(assistantContent);
-          assistantContent = trimmedContent;
-          
-          console.log('[STREAMING] Content after trim:', assistantContent.substring(0, 200) + '...');
-          console.log('[STREAMING] Trimmed content length:', assistantContent.length);
-          
-          // Update UI with trimmed content before interrupting
-          if (pendingUpdate) {
+          // Reset content on retry
+          if (retryCount > 0) {
+            console.log(`[STREAMING] Retry attempt ${retryCount} for stream...`);
+            assistantContent = '';
+            // Update UI to clear error message
             updateUI();
-          } else {
+          }
+
+          console.log('[STREAMING] Starting stream...');
+          let chunkCount = 0;
+          
+          for await (const chunk of chatApi.streamChat(finalChatHistory, abortController.signal, mode)) {
+            chunkCount++;
+            console.log(`[STREAMING] Chunk #${chunkCount}:`, chunk);
+            
+            if (abortController.signal.aborted) {
+              console.log('[STREAMING] Aborted signal received, breaking stream');
+              streamSuccess = true; // User aborted, don't retry
+              break;
+            }
+
+            assistantContent += chunk;
+            console.log(`[STREAMING] Accumulated content length: ${assistantContent.length} chars`);
+            
+            // Check for complete tool block
+            if (hasCompleteToolBlock(assistantContent)) {
+              console.log('[STREAMING] ✓ Complete tool block detected!');
+              console.log('[STREAMING] Content before trim:', assistantContent.substring(0, 200) + '...');
+              
+              // Trim content to only include up to the end of the FIRST complete tool block
+              // This ensures we execute tools strictly one-by-one and don't include partial content
+              const trimmedContent = trimToFirstCompleteToolBlock(assistantContent);
+              assistantContent = trimmedContent;
+              
+              console.log('[STREAMING] Content after trim:', assistantContent.substring(0, 200) + '...');
+              console.log('[STREAMING] Trimmed content length:', assistantContent.length);
+              
+              // Update UI with trimmed content before interrupting
+              if (pendingUpdate) {
+                updateUI();
+              } else {
+                updateUI();
+              }
+              
+              console.log('[STREAMING] Aborting stream to execute tool...');
+              // Abort stream to execute tool
+              abortController.abort();
+              
+              // Set executing tool state to show loading
+              setIsExecutingTool(true);
+              
+              // Execute tool and continue
+              console.log('[STREAMING] Starting tool execution...');
+              await executeToolAndContinue(
+                assistantContent,
+                assistantMessageId,
+                finalChatHistory,
+                messagesToSend,
+                content,
+                0, // toolIndex
+                attachments // pass image attachments to preserve in history
+              );
+              
+              console.log('[STREAMING] Tool execution completed, exiting stream');
+              return; // Exit early, tool execution will handle continuation
+            }
+            
+            // Batch updates: only update UI every 16ms (60fps) for smooth performance
+            if (!pendingUpdate) {
+              pendingUpdate = true;
+              requestAnimationFrame(updateUI);
+            }
+          }
+          
+          console.log('[STREAMING] Stream finished naturally, total chunks:', chunkCount);
+          console.log('[STREAMING] Final content length:', assistantContent.length);
+          
+          // Final update to ensure all content is displayed
+          if (pendingUpdate) {
             updateUI();
           }
           
-          console.log('[STREAMING] Aborting stream to execute tool...');
-          // Abort stream to execute tool
-          abortController.abort();
+          // Stream completed successfully
+          streamSuccess = true;
           
-          // Set executing tool state to show loading
-          setIsExecutingTool(true);
+        } catch (streamError) {
+          const errorMessage = streamError instanceof Error ? streamError.message : 'Unknown error';
+          const isHttpError = errorMessage.includes('HTTP') || errorMessage.includes('500');
           
-          // Execute tool and continue
-          console.log('[STREAMING] Starting tool execution...');
-          await executeToolAndContinue(
-            assistantContent,
-            assistantMessageId,
-            finalChatHistory,
-            messagesToSend,
-            content,
-            0, // toolIndex
-            attachments // pass image attachments to preserve in history
-          );
-          
-          console.log('[STREAMING] Tool execution completed, exiting stream');
-          return; // Exit early, tool execution will handle continuation
+          // Check if user manually aborted
+          if (abortControllerRef.current?.signal.aborted) {
+            console.log('[STREAMING] User aborted, stopping retries');
+            streamSuccess = true; // Don't retry on user abort
+          } else if (isHttpError) {
+            retryCount++;
+            console.warn(`[STREAMING] HTTP error, auto-retrying (attempt ${retryCount}):`, errorMessage);
+            
+            // Show retry status in UI
+            assistantContent = `⟳ Retrying... (attempt ${retryCount})`;
+            updateUI();
+            
+            // Brief delay before retry (exponential backoff capped at 3s)
+            await new Promise(resolve => setTimeout(resolve, Math.min(500 * retryCount, 3000)));
+          } else {
+            // Non-HTTP error, show it and stop
+            console.error('[STREAMING] Non-HTTP error:', streamError);
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantMessageId
+                  ? { ...msg, content: `Error: ${errorMessage}` }
+                  : msg
+              )
+            );
+            streamSuccess = true; // Stop retrying for non-HTTP errors
+          }
         }
-        
-        // Batch updates: only update UI every 16ms (60fps) for smooth performance
-        if (!pendingUpdate) {
-          pendingUpdate = true;
-          requestAnimationFrame(updateUI);
-        }
-      }
-      
-      console.log('[STREAMING] Stream finished naturally, total chunks:', chunkCount);
-      console.log('[STREAMING] Final content length:', assistantContent.length);
-      
-      // Final update to ensure all content is displayed
-      if (pendingUpdate) {
-        updateUI();
       }
 
     } catch (error) {

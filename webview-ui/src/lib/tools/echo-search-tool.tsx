@@ -17,7 +17,29 @@ async function executeEchoSearch(
 ): Promise<ToolExecutionResult> {
   // Inject indexing settings and API credentials from storage
   const settings = storageService.getSettings();
-  const indexingSettings = settings.indexingSettings;
+  
+  // Get the provider-specific model based on current main chat provider
+  const getMainChatModel = () => {
+    switch (settings.provider) {
+      case 'anthropic': return settings.anthropicModel || settings.model;
+      case 'openai': return settings.openaiModel || settings.model;
+      case 'openai-compatible': return settings.openaiCompatibleModel || settings.model;
+      case 'megallm': return settings.megallmModel || settings.model;
+      case 'vscode-lm': return settings.vscodeLmModel || settings.model;
+      case 'qwen-code': return settings.qwenCodeModel || settings.model;
+      default: return settings.model;
+    }
+  };
+
+  // Fall back to main chat settings if indexing model is not configured
+  const rawIndexingSettings = settings.indexingSettings;
+  const indexingSettings = (rawIndexingSettings && rawIndexingSettings.model)
+    ? rawIndexingSettings
+    : {
+        enabled: rawIndexingSettings?.enabled ?? true,
+        provider: settings.provider,
+        model: getMainChatModel(),
+      };
 
   // Build API settings needed by sub-agent
   const apiSettings = {

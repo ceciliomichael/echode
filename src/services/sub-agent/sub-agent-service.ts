@@ -99,6 +99,9 @@ export class SubAgentService {
     totalMatches: 0,
   };
 
+  // Track discovered files during search for fallback
+  private discoveredFiles: Map<string, { lines?: { start: number; end: number }; reason?: string }> = new Map();
+
   // Default search limits (hardcoded for simplicity)
   private static readonly MAX_ITERATIONS = 4;
   private static readonly MAX_PARALLEL_CALLS = 8;
@@ -128,6 +131,9 @@ export class SubAgentService {
       filesScanned: 0,
       totalMatches: 0,
     };
+
+    // Clear discovered files from previous searches
+    this.discoveredFiles.clear();
 
     this.onProgress?.(`Starting sub-agent search for: "${query}"`);
 
@@ -232,11 +238,18 @@ DO NOT call any more tools. Output ONLY the <search_complete> block now.`
 
     // If LLM still didn't comply, try to extract any useful info from conversation
     console.log('[EchoSearch] Warning: LLM did not return <search_complete> block');
+    console.log('[EchoSearch] Final response preview:', finalResponse?.substring(0, 500));
 
-    // Fallback if no proper response
+    // Fallback: use discovered files from tool calls
+    if (this.discoveredFiles.size > 0) {
+      console.log('[EchoSearch] Using fallback with', this.discoveredFiles.size, 'discovered files');
+      return this.buildFallbackResult(finalResponse);
+    }
+
+    // Last resort fallback
     return {
-      summary: 'Search completed but could not find definitive results.',
-      highLevelAnswer: undefined,
+      summary: 'Search completed but could not parse results.',
+      highLevelAnswer: finalResponse || undefined,
       snippets: [],
       searchStats: this.stats,
     };
@@ -306,9 +319,15 @@ DO NOT call any more tools. Output ONLY the <search_complete> block now.`
     apiKey?: string,
     baseUrl?: string
   ): Promise<string> {
+    // Normalize baseURL to ensure /v1 suffix (matching main chat providers)
+    let normalizedBaseUrl = baseUrl;
+    if (baseUrl && !baseUrl.endsWith('/v1')) {
+      normalizedBaseUrl = baseUrl.endsWith('/') ? `${baseUrl}v1` : `${baseUrl}/v1`;
+    }
+
     const client = new OpenAI({
       apiKey: apiKey || '',
-      baseURL: baseUrl || undefined,
+      baseURL: normalizedBaseUrl || undefined,
     });
 
     const response = await client.chat.completions.create({
@@ -464,7 +483,20 @@ DO NOT call any more tools. Output ONLY the <search_complete> block now.`
         
         for (const file of data.results.slice(0, maxFilesToShow)) {
           output += `\n## ${file.file}\n`;
-          for (const match of file.matches.slice(0, maxMatchesPerFile)) {
+          
+          // Track discovered files for fallback
+          const matches = file.matches.slice(0, maxMatchesPerFile);
+          if (matches.length > 0) {
+            const lines = matches.map(m => m.line);
+            const minLine = Math.min(...lines);
+            const maxLine = Math.max(...lines);
+            this.discoveredFiles.set(file.file, {
+              lines: { start: Math.max(1, minLine - 5), end: maxLine + 20 },
+              reason: `Matched query: "${params.query}"`
+            });
+          }
+          
+          for (const match of matches) {
             // Truncate long lines
             const text = match.text.length > 120 
               ? match.text.substring(0, 120) + '...' 
@@ -509,6 +541,13 @@ DO NOT call any more tools. Output ONLY the <search_complete> block now.`
         let output = `Found ${data.totalFiles} files:\n`;
         for (const file of data.results.slice(0, 20)) {
           output += `- ${file.path}\n`;
+          // Track discovered files for fallback
+          if (!this.discoveredFiles.has(file.path)) {
+            this.discoveredFiles.set(file.path, {
+              lines: { start: 1, end: 50 },
+              reason: `Matched pattern: "${params.pattern}"`
+            });
+          }
         }
         if (data.results.length > 20) {
           output += `... and ${data.results.length - 20} more files`;
@@ -688,6 +727,72 @@ DO NOT call any more tools. Output ONLY the <search_complete> block now.`
     return {
       summary,
       highLevelAnswer: answer,
+      snippets: finalSnippets,
+      searchStats: this.stats,
+    };
+  }
+
+  /**
+   * Build fallback result from discovered files when LLM parsing fails
+   */
+  private async buildFallbackResult(llmResponse: string | null): Promise<SubAgentResult> {
+    const snippets: SearchSnippet[] = [];
+
+    // Convert discovered files to snippets
+    for (const [path, info] of this.discoveredFiles) {
+      snippets.push({
+        path,
+        startLine: info.lines?.start || 1,
+        endLine: info.lines?.end || 50,
+        snippet: '',
+        reason: info.reason || 'Found during search',
+        score: 0.6, // Lower score for fallback results
+      });
+    }
+
+    // Limit and sort
+    const maxSnippets = SubAgentService.MAX_SNIPPETS;
+    const finalSnippets = snippets.slice(0, maxSnippets);
+
+    // Try to hydrate snippets
+    const hydrationPromises = finalSnippets.map(async (snippet) => {
+      try {
+        const maxLines = 50;
+        const count = Math.min(snippet.endLine - snippet.startLine + 1, maxLines);
+        
+        const result = await this.readFileTool.execute({
+          path: snippet.path,
+          offset: snippet.startLine,
+          limit: count
+        });
+
+        if (result.success && result.data) {
+          const data = result.data as { content?: string };
+          if (data.content) {
+            snippet.snippet = data.content;
+          }
+        }
+      } catch (_error) {
+        // Ignore hydration errors
+      }
+      return snippet;
+    });
+
+    await Promise.all(hydrationPromises);
+
+    // Try to extract any summary from LLM response
+    let summary = 'Search found relevant files.';
+    if (llmResponse) {
+      // Try to get first meaningful sentence
+      const firstSentence = llmResponse.match(/^[^.!?\n]+[.!?]/);
+      if (firstSentence && firstSentence[0].length < 200) {
+        summary = firstSentence[0];
+      }
+    }
+
+    return {
+      summary,
+      highLevelAnswer: llmResponse || undefined,
       snippets: finalSnippets,
       searchStats: this.stats,
     };

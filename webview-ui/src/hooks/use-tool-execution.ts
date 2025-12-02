@@ -281,6 +281,13 @@ export function useToolExecution({
             diagnosticAttemptsRef
           );
           
+          // Check if stopped during diagnostic fetching
+          if (isStoppingRef.current) {
+            console.log('[Tool] User stopped during diagnostic fetching, aborting continuation');
+            setIsExecutingTool(false);
+            return;
+          }
+          
           // Format tool results for AI context
           const toolResultText = parallelResult.toolResults.join('\n\n');
           const diagnosticsText = diagnosticsTexts.join('\n\n');
@@ -302,9 +309,6 @@ export function useToolExecution({
           // Continue streaming with results from parallel execution
           setIsExecutingTool(false);
           
-          const newAbortController = new AbortController();
-          abortControllerRef.current = newAbortController;
-          
           let continuationContent = assistantContent;
           let pendingUpdate = false;
           
@@ -319,52 +323,90 @@ export function useToolExecution({
             pendingUpdate = false;
           };
           
-          for await (const chunk of chatApi.streamChat(
-            continuationHistory,
-            newAbortController.signal
-          )) {
-            if (newAbortController.signal.aborted) {
-              break;
-            }
-            
-            continuationContent += chunk;
-            
-            // Check for another tool block in the new content only
-            const newContent = continuationContent.slice(assistantContent.length);
-            if (hasCompleteToolBlock(newContent)) {
-              const trimmedContinuation = assistantContent + trimToFirstCompleteToolBlock(newContent);
-              continuationContent = trimmedContinuation;
+          // Auto-retry logic for HTTP errors - keeps trying until success or user abort
+          let retryCount = 0;
+          let streamSuccess = false;
+          
+          while (!streamSuccess) {
+            try {
+              const newAbortController = new AbortController();
+              abortControllerRef.current = newAbortController;
               
-              if (pendingUpdate) {
-                updateUI();
-              } else {
-                updateUI();
+              // Reset continuation content on retry (keep original assistant content)
+              if (retryCount > 0) {
+                console.log(`[Tool] Retry attempt ${retryCount} for parallel continuation stream...`);
+                continuationContent = assistantContent;
               }
               
-              // Abort and execute next tool (starting from the index after parallel batch)
-              newAbortController.abort();
-              setIsExecutingTool(true);
-              await executeToolAndContinue(
-                continuationContent,
-                assistantMessageId,
+              for await (const chunk of chatApi.streamChat(
                 continuationHistory,
-                messagesToSend,
-                userContent,
-                parallelizableBlocks.length, // Continue from after the parallel batch
-                effectiveUserAttachments
-              );
-              return;
+                newAbortController.signal
+              )) {
+                if (newAbortController.signal.aborted) {
+                  streamSuccess = true; // User aborted, don't retry
+                  break;
+                }
+                
+                continuationContent += chunk;
+                
+                // Check for another tool block in the new content only
+                const newContent = continuationContent.slice(assistantContent.length);
+                if (hasCompleteToolBlock(newContent)) {
+                  const trimmedContinuation = assistantContent + trimToFirstCompleteToolBlock(newContent);
+                  continuationContent = trimmedContinuation;
+                  
+                  if (pendingUpdate) {
+                    updateUI();
+                  } else {
+                    updateUI();
+                  }
+                  
+                  // Abort and execute next tool (starting from the index after parallel batch)
+                  newAbortController.abort();
+                  setIsExecutingTool(true);
+                  await executeToolAndContinue(
+                    continuationContent,
+                    assistantMessageId,
+                    continuationHistory,
+                    messagesToSend,
+                    userContent,
+                    parallelizableBlocks.length, // Continue from after the parallel batch
+                    effectiveUserAttachments
+                  );
+                  return;
+                }
+                
+                if (!pendingUpdate) {
+                  pendingUpdate = true;
+                  requestAnimationFrame(updateUI);
+                }
+              }
+              
+              // Stream completed successfully
+              streamSuccess = true;
+              
+              // Final update
+              if (pendingUpdate) {
+                updateUI();
+              }
+            } catch (streamError) {
+              const errorMessage = streamError instanceof Error ? streamError.message : 'Unknown error';
+              const isHttpError = errorMessage.includes('HTTP') || errorMessage.includes('500');
+              
+              // Check if user manually aborted
+              if (abortControllerRef.current?.signal.aborted || isStoppingRef.current) {
+                console.log('[Tool] User aborted, stopping retries');
+                streamSuccess = true;
+              } else if (isHttpError) {
+                retryCount++;
+                console.warn(`[Tool] HTTP error during parallel continuation, auto-retrying (attempt ${retryCount}):`, errorMessage);
+                // Brief delay before retry (exponential backoff capped at 3s)
+                await new Promise(resolve => setTimeout(resolve, Math.min(500 * retryCount, 3000)));
+              } else {
+                // Non-HTTP error, rethrow
+                throw streamError;
+              }
             }
-            
-            if (!pendingUpdate) {
-              pendingUpdate = true;
-              requestAnimationFrame(updateUI);
-            }
-          }
-          
-          // Final update
-          if (pendingUpdate) {
-            updateUI();
           }
           
           return; // Exit after parallel execution
@@ -521,6 +563,13 @@ export function useToolExecution({
           );
         }
         
+        // Check if stopped during diagnostic fetching
+        if (isStoppingRef.current) {
+          console.log('[Tool] User stopped during diagnostic fetching, aborting continuation');
+          setIsExecutingTool(false);
+          return;
+        }
+        
         // Build continuation history for chat
         const latestWorkspace = (window.workspaceContext || workspace)!;
         const continuationHistory = buildContinuationHistory(
@@ -538,9 +587,6 @@ export function useToolExecution({
         // Continue streaming - clear executing tool state
         setIsExecutingTool(false);
         
-        const newAbortController = new AbortController();
-        abortControllerRef.current = newAbortController;
-        
         let continuationContent = assistantContent;
         let pendingUpdate = false;
         
@@ -555,77 +601,131 @@ export function useToolExecution({
           pendingUpdate = false;
         };
         
-        for await (const chunk of chatApi.streamChat(
-          continuationHistory,
-          newAbortController.signal
-        )) {
-          if (newAbortController.signal.aborted) {
-            break;
-          }
-          
-          continuationContent += chunk;
-          
-          // Check for another tool block in the new content only
-          const newContent = continuationContent.slice(assistantContent.length);
-          if (hasCompleteToolBlock(newContent)) {
-            // Trim the entire continuation content to only include up to the first complete tool block
-            // This ensures we execute tools strictly one-by-one
-            const trimmedContinuation = assistantContent + trimToFirstCompleteToolBlock(newContent);
-            continuationContent = trimmedContinuation;
+        // Auto-retry logic for HTTP errors - keeps trying until success or user abort
+        let retryCount = 0;
+        let streamSuccess = false;
+        
+        while (!streamSuccess) {
+          try {
+            const newAbortController = new AbortController();
+            abortControllerRef.current = newAbortController;
             
-            // Update UI with trimmed content before interrupting
-            if (pendingUpdate) {
-              updateUI();
-            } else {
-              updateUI();
+            // Reset continuation content on retry (keep original assistant content)
+            if (retryCount > 0) {
+              console.log(`[Tool] Retry attempt ${retryCount} for continuation stream...`);
+              continuationContent = assistantContent;
             }
             
-            // Abort and execute next tool
-            newAbortController.abort();
-            setIsExecutingTool(true);
-            await executeToolAndContinue(
-              continuationContent,
-              assistantMessageId,
+            for await (const chunk of chatApi.streamChat(
               continuationHistory,
-              messagesToSend,
-              userContent,
-              toolIndex + 1,
-              effectiveUserAttachments
-            );
-            return;
+              newAbortController.signal
+            )) {
+              if (newAbortController.signal.aborted) {
+                streamSuccess = true; // User aborted, don't retry
+                break;
+              }
+              
+              continuationContent += chunk;
+              
+              // Check for another tool block in the new content only
+              const newContent = continuationContent.slice(assistantContent.length);
+              if (hasCompleteToolBlock(newContent)) {
+                // Trim the entire continuation content to only include up to the first complete tool block
+                // This ensures we execute tools strictly one-by-one
+                const trimmedContinuation = assistantContent + trimToFirstCompleteToolBlock(newContent);
+                continuationContent = trimmedContinuation;
+                
+                // Update UI with trimmed content before interrupting
+                if (pendingUpdate) {
+                  updateUI();
+                } else {
+                  updateUI();
+                }
+                
+                // Abort and execute next tool
+                newAbortController.abort();
+                setIsExecutingTool(true);
+                await executeToolAndContinue(
+                  continuationContent,
+                  assistantMessageId,
+                  continuationHistory,
+                  messagesToSend,
+                  userContent,
+                  toolIndex + 1,
+                  effectiveUserAttachments
+                );
+                return;
+              }
+              
+              if (!pendingUpdate) {
+                pendingUpdate = true;
+                requestAnimationFrame(updateUI);
+              }
+            }
+            
+            // Stream completed successfully
+            streamSuccess = true;
+            
+            // Final update
+            if (pendingUpdate) {
+              updateUI();
+            }
+          } catch (streamError) {
+            const errorMessage = streamError instanceof Error ? streamError.message : 'Unknown error';
+            const isHttpError = errorMessage.includes('HTTP') || errorMessage.includes('500');
+            
+            // Check if user manually aborted
+            if (abortControllerRef.current?.signal.aborted || isStoppingRef.current) {
+              console.log('[Tool] User aborted, stopping retries');
+              streamSuccess = true;
+            } else if (isHttpError) {
+              retryCount++;
+              console.warn(`[Tool] HTTP error during continuation, auto-retrying (attempt ${retryCount}):`, errorMessage);
+              // Brief delay before retry (exponential backoff capped at 3s)
+              await new Promise(resolve => setTimeout(resolve, Math.min(500 * retryCount, 3000)));
+            } else {
+              // Non-HTTP error, rethrow
+              throw streamError;
+            }
           }
-          
-          if (!pendingUpdate) {
-            pendingUpdate = true;
-            requestAnimationFrame(updateUI);
-          }
-        }
-        
-        // Final update
-        if (pendingUpdate) {
-          updateUI();
         }
       } catch (error) {
         console.error('[Tool] Execution error:', error);
         
         // Try to extract tool info for error state update
+        // But ONLY if the tool hasn't already completed successfully
+        // (e.g., don't overwrite successful tool state with continuation stream errors)
         const toolBlocks = extractToolBlocks(assistantContent);
         const toolBlock = toolBlocks[toolIndex];
         if (toolBlock) {
           const toolExecutionId = generateToolExecutionId(assistantMessageId, toolIndex);
-          const errorState: ToolExecutionState = {
-            toolExecutionId,
-            toolName: toolBlock.toolName,
-            parameters: toolBlock.parameters,
-            status: 'error',
-            result: {
-              success: false,
-              error: error instanceof Error ? error.message : 'Unknown error'
-            },
-            startedAt: Date.now(),
-            completedAt: Date.now(),
-          };
-          updateToolExecution(assistantMessageId, toolExecutionId, errorState);
+          
+          // Check if this tool execution already has a successful result
+          const currentMessages = messagesRef.current;
+          const assistantMsg = currentMessages.find(m => m.id === assistantMessageId);
+          const existingExecution = assistantMsg?.toolExecutions?.get(toolExecutionId);
+          
+          // Only set error state if tool hasn't already completed successfully
+          // HTTP errors during continuation shouldn't overwrite successful tool execution
+          if (!existingExecution?.result?.success) {
+            const errorState: ToolExecutionState = {
+              toolExecutionId,
+              toolName: toolBlock.toolName,
+              parameters: toolBlock.parameters,
+              status: 'error',
+              result: {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error'
+              },
+              startedAt: Date.now(),
+              completedAt: Date.now(),
+            };
+            updateToolExecution(assistantMessageId, toolExecutionId, errorState);
+          } else {
+            // Tool completed successfully but continuation failed
+            // Log warning but don't overwrite the successful tool result
+            console.warn('[Tool] Continuation stream error after successful tool execution:', error);
+          }
         }
       } finally {
         setIsExecutingTool(false);

@@ -18,6 +18,10 @@ export class OpenAICompatibleProvider implements ILLMProvider {
       baseURL,
     });
 
+    // Track stream state to handle late errors gracefully
+    let hasReceivedContent = false;
+    let hasFinishReason = false;
+
     try {
       const stream = await client.chat.completions.create({
         model: settings.model,
@@ -36,9 +40,16 @@ export class OpenAICompatibleProvider implements ILLMProvider {
           break;
         }
         
+        // Check for finish_reason indicating stream completion
+        const finishReason = chunk.choices[0]?.finish_reason;
+        if (finishReason) {
+          hasFinishReason = true;
+        }
+        
         // Extract content from delta - OpenAI-compatible APIs send deltas, not cumulative
         const content = chunk.choices[0]?.delta?.content;
         if (content) {
+          hasReceivedContent = true;
           webview.webview.postMessage({
             type: 'chatStreamChunk',
             requestId,
@@ -59,6 +70,20 @@ export class OpenAICompatibleProvider implements ILLMProvider {
         // Stream was aborted, don't throw
         return;
       }
+      
+      // If we received content and/or finish signal, the stream was essentially successful
+      // HTTP 500 errors at stream end are common with some OpenAI-compatible servers
+      const isHttpError = error instanceof Error && error.message.includes('HTTP');
+      if ((hasReceivedContent || hasFinishReason) && isHttpError) {
+        // Stream delivered content successfully, just had cleanup issues
+        // Complete the stream gracefully instead of throwing
+        webview.webview.postMessage({
+          type: 'chatStreamComplete',
+          requestId
+        });
+        return;
+      }
+      
       throw new Error(`OpenAI Compatible API Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
