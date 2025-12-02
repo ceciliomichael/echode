@@ -45,7 +45,9 @@ interface ChatStreamingProps {
     assistantMessageId: string,
     chatHistory: ChatMessage[],
     messagesToSend: Message[],
-    userContent: string
+    userContent: string,
+    toolIndex?: number,
+    userAttachments?: ImageAttachment[]
   ) => Promise<void>;
   saveSession: () => void;
   mode: ChatMode;
@@ -295,7 +297,9 @@ export function useChatStreaming({
             assistantMessageId,
             finalChatHistory,
             messagesToSend,
-            content
+            content,
+            0, // toolIndex
+            attachments // pass image attachments to preserve in history
           );
           
           console.log('[STREAMING] Tool execution completed, exiting stream');

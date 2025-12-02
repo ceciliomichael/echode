@@ -1,8 +1,8 @@
-import { Settings, FileText, Wrench } from 'lucide-react';
+import { Settings, FileText, Wrench, Search } from 'lucide-react';
 
 interface SettingsSidebarProps {
-  activeTab: 'api' | 'system' | 'tools';
-  onTabChange: (tab: 'api' | 'system' | 'tools') => void;
+  activeTab: 'api' | 'system' | 'tools' | 'indexing';
+  onTabChange: (tab: 'api' | 'system' | 'tools' | 'indexing') => void;
 }
 
 export function SettingsSidebar({ activeTab, onTabChange }: SettingsSidebarProps) {
@@ -88,6 +88,28 @@ export function SettingsSidebar({ activeTab, onTabChange }: SettingsSidebarProps
           >
             <Wrench size={14} strokeWidth={1.5} />
             <span className="font-medium">Tools</span>
+          </button>
+          <button
+            onClick={() => onTabChange('indexing')}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs rounded-lg transition-all border"
+            style={{
+              backgroundColor: activeTab === 'indexing' ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent',
+              color: activeTab === 'indexing' ? 'var(--vscode-list-activeSelectionForeground)' : 'var(--vscode-foreground)',
+              borderColor: activeTab === 'indexing' ? 'var(--vscode-focusBorder)' : 'transparent'
+            }}
+            onMouseEnter={(e) => {
+              if (activeTab !== 'indexing') {
+                e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (activeTab !== 'indexing') {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }
+            }}
+          >
+            <Search size={14} strokeWidth={1.5} />
+            <span className="font-medium">Indexing</span>
           </button>
         </nav>
       </div>

@@ -26,7 +26,7 @@ export class GetDiagnosticsTool implements ITool {
       }> = [];
 
       for (const [uri, diagnostics] of allDiagnostics) {
-        if (diagnostics.length === 0) continue;
+        if (diagnostics.length === 0) {continue;}
 
         const filePath = uri.fsPath;
 
@@ -48,7 +48,7 @@ export class GetDiagnosticsTool implements ITool {
           );
         });
 
-        if (filtered.length === 0) continue;
+        if (filtered.length === 0) {continue;}
 
         const converted = filtered.map((d) => ({
           line: d.range.start.line + 1,

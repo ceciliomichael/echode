@@ -18,7 +18,7 @@ registerToolPlugin({
   metadata: {
     id: 'read_file',
     name: 'Read File',
-    description: 'Read file contents - ONLY for paths WITH file extensions (defaults to first 100 lines)',
+    description: 'Read file contents - ONLY for paths WITH file extensions',
     aiDescription: `## read_file
 Description: Read contents of one or multiple files. Outputs line-numbered content for easy reference.
 

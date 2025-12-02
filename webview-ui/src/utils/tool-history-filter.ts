@@ -26,7 +26,7 @@ export function isToolAvailableInMode(toolName: string, mode: ChatMode): boolean
  * Used to inform AI about unavailable history
  */
 export function getFilteredToolsForMode(mode: ChatMode): string[] {
-  if (mode === 'agent') return [];
+  if (mode === 'agent') {return [];}
   
   // Return list of agent-only tools that might appear in history
   return ['write_to_file', 'apply_diff', 'delete_file'];

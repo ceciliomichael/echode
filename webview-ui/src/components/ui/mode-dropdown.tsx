@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, Code, Hammer, MessageCircle } from 'lucide-react';
+import { useHoverEffect, hoverPresets } from '../../hooks/use-hover-effect';
 import type { ChatMode } from '../../types/chat-mode';
 import { CHAT_MODE_OPTIONS } from '../../types/chat-mode';
 
@@ -19,6 +20,7 @@ interface ModeDropdownProps {
 export function ModeDropdown({ mode, onModeChange, disabled = false, direction = 'up' }: ModeDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { handleMouseEnter, handleMouseLeave } = useHoverEffect();
 
   const currentOption = CHAT_MODE_OPTIONS.find(opt => opt.value === mode);
 
@@ -75,6 +77,8 @@ export function ModeDropdown({ mode, onModeChange, disabled = false, direction =
               : 'rgba(249, 115, 22, 0.3)',
         }}
         title={currentOption?.description}
+        onMouseEnter={(e) => !disabled && handleMouseEnter(e, hoverPresets.button.enter)}
+        onMouseLeave={(e) => handleMouseLeave(e, hoverPresets.button.leave)}
       >
         {(() => {
           const Icon = MODE_ICONS[mode];

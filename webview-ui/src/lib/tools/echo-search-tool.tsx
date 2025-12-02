@@ -1,0 +1,289 @@
+import { Radar } from 'lucide-react';
+import { useState } from 'react';
+import { MarkdownRenderer } from '../../components/ui/markdown-renderer';
+import { SearchSnippetItem } from '../../components/ui/search-snippet-item';
+import type { ToolExecutionResult } from '../../types/tool';
+import { registerToolPlugin } from './tool-plugin';
+import { executeToolViaExtension } from '../tool-utils';
+import { getFileIconConfig } from '../../utils/file-icon-mapper';
+import { storageService } from '../../utils/storage';
+
+/**
+ * Echo Search Tool - Sub-agent for iterative code search
+ */
+async function executeEchoSearch(
+  parameters: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<ToolExecutionResult> {
+  // Inject indexing settings and API credentials from storage
+  const settings = storageService.getSettings();
+  const indexingSettings = settings.indexingSettings;
+
+  // Build API settings needed by sub-agent
+  const apiSettings = {
+    anthropicApiKey: settings.anthropicApiKey,
+    anthropicCustomUrl: settings.anthropicCustomUrl,
+    openaiApiKey: settings.openaiApiKey,
+    openaiCustomUrl: settings.openaiCustomUrl,
+    openaiCompatibleApiKey: settings.openaiCompatibleApiKey,
+    openaiCompatibleCustomUrl: settings.openaiCompatibleCustomUrl,
+    megallmApiKey: settings.megallmApiKey,
+    megallmCustomUrl: settings.megallmCustomUrl,
+  };
+
+  return executeToolViaExtension(
+    'echo_search',
+    {
+      ...parameters,
+      indexingSettings,
+      apiSettings,
+    },
+    signal,
+  );
+}
+
+interface SearchSnippet {
+  path: string;
+  startLine: number;
+  endLine: number;
+  snippet: string;
+  score: number;
+  reason?: string;
+}
+
+interface EchoSearchResult {
+  // Original search query (if provided by backend)
+  query?: string;
+  summary: string;
+  highLevelAnswer?: string;
+  snippets: SearchSnippet[];
+  searchStats: {
+    iterations: number;
+    grepCalls: number;
+    globCalls: number;
+    readFileCalls: number;
+    listDirCalls: number;
+    filesScanned: number;
+    totalMatches: number;
+  };
+}
+
+interface SnippetItemProps {
+  snippet: SearchSnippet;
+  isExpanded?: boolean;
+  onToggle?: () => void;
+}
+
+export function SnippetItem({ snippet, isExpanded, onToggle }: SnippetItemProps) {
+  const iconConfig = getFileIconConfig(snippet.path);
+  const Icon = iconConfig.icon;
+  const hasCode = !!(snippet.snippet && snippet.snippet.trim().length > 0);
+
+  // Strip line numbers from content (e.g., "48 | func..." -> "func...")
+  const cleanSnippet = hasCode
+    ? snippet.snippet.replace(/^\s*\d+\s+\|\s?/gm, '')
+    : '';
+
+  // Split into lines for line-numbered display (preserve trailing empty line)
+  const codeLines = cleanSnippet.split('\n');
+
+  const lines = codeLines.map((line, index) => ({
+    lineNumber: snippet.startLine + index,
+    text: line,
+  }));
+
+  const score = snippet.score;
+  const chipLabel = `${Math.round(score * 100)}%`;
+  const chipStyle = {
+    backgroundColor: `rgba(var(--vscode-button-background), ${score})`,
+    color: 'var(--vscode-button-foreground)',
+    opacity: 0.5 + score * 0.5,
+  };
+
+  return (
+    <SearchSnippetItem
+      path={snippet.path}
+      icon={Icon}
+      iconColor={iconConfig.color}
+      startLine={snippet.startLine}
+      endLine={snippet.endLine}
+      chipLabel={chipLabel}
+      chipStyle={chipStyle}
+      reason={snippet.reason}
+      lines={lines}
+      hasCode={hasCode}
+      isExpanded={isExpanded}
+      onToggle={onToggle}
+    />
+  );
+}
+
+function EchoSearchRendererComponent({ data }: { data: unknown }) {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+
+  if (typeof data === 'object' && data !== null) {
+    const result = data as EchoSearchResult;
+
+    const isEmpty = !result.snippets || result.snippets.length === 0;
+    const headerQuery =
+      result.query && result.query.length > 60
+        ? `${result.query.substring(0, 60)}...`
+        : result.query;
+
+    return (
+      <div className="rounded-md overflow-hidden border border-[var(--vscode-input-border)] bg-[var(--vscode-editor-background)]">
+        {/* Header */}
+        <div
+          className="px-3 py-2 text-xs font-medium border-b border-[var(--vscode-input-border)] bg-[var(--vscode-sideBar-background)] flex items-center gap-2"
+          style={{ color: 'var(--vscode-sideBarTitle-foreground)' }}
+        >
+          <Radar className="w-3.5 h-3.5 opacity-70 flex-shrink-0" />
+          <span className="flex-1 min-w-0">
+            {headerQuery || 'Echo Search'}
+          </span>
+          <span className="ml-auto opacity-50 font-normal flex-shrink-0">
+            {result.snippets?.length || 0} snippets
+          </span>
+        </div>
+
+        {/* Summary */}
+        <div
+          className="px-3 py-2 border-b border-[var(--vscode-input-border)] bg-[var(--vscode-sideBar-background)] max-h-32 overflow-y-auto"
+        >
+          <div className="min-h-[3.5rem] pr-1 space-y-1">
+            <p
+              className="text-xs font-medium"
+              style={{ color: 'var(--vscode-foreground)' }}
+            >
+              {result.summary}
+            </p>
+            {result.highLevelAnswer && (
+              <div
+                className="text-xs [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:my-1 [&_ol]:my-1 [&_li]:text-xs [&_code]:text-xs"
+                style={{ color: 'var(--vscode-foreground)' }}
+              >
+                <MarkdownRenderer content={result.highLevelAnswer} />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div
+          className="px-3 py-1.5 border-b border-[var(--vscode-input-border)] flex items-center flex-wrap gap-x-3 gap-y-1 text-xs"
+          style={{ color: 'var(--vscode-descriptionForeground)' }}
+        >
+          <span>Iterations: {result.searchStats?.iterations || 0}</span>
+          <span>Files: {result.searchStats?.filesScanned || 0}</span>
+          <span>Matches: {result.searchStats?.totalMatches || 0}</span>
+          {(result.searchStats?.readFileCalls || 0) > 0 && (
+            <span>Reads: {result.searchStats.readFileCalls}</span>
+          )}
+        </div>
+
+        {/* Content */}
+        <div>
+          {isEmpty ? (
+            <div className="px-3 py-4 text-xs text-center opacity-50 italic">
+              No relevant code found
+            </div>
+          ) : (
+            <div>
+              {result.snippets.map((snippet, index) => (
+                <SnippetItem
+                  key={index}
+                  snippet={snippet}
+                  isExpanded={openIndex === index}
+                  onToggle={() =>
+                    setOpenIndex(openIndex === index ? null : index)
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return <div className="text-xs opacity-70">Search completed successfully</div>;
+}
+
+function EchoSearchRenderer(data: unknown) {
+  return <EchoSearchRendererComponent data={data} />;
+}
+
+// Register echo_search tool
+registerToolPlugin({
+  metadata: {
+    id: 'echo_search',
+    name: 'Echo Search',
+    description: 'Sub-agent that iteratively searches the codebase to find relevant context',
+    aiDescription: `## echo_search
+Description: **YOUR PRIMARY TOOL FOR CODEBASE EXPLORATION.** An intelligent sub-agent that efficiently explores codebases to find relevant code. Use this FIRST when you need to understand code, find implementations, or explore unfamiliar areas. Optimized for any repository size with parallel search execution and smart narrowing strategies.
+
+**ALWAYS USE echo_search FIRST when:**
+- You need to understand how something works in the codebase
+- You're looking for implementations, patterns, or architecture
+- You don't know exact file paths or function names
+- The user asks about code behavior or structure
+- You need fast context understanding
+
+**Only use grep_search instead when:**
+- You already know the EXACT function/variable/class name
+- You need a simple text search for a known identifier
+
+**Capabilities:**
+- Searches code patterns with grep_search
+- Finds files by name with glob_search  
+- Reads specific file sections with read_file_snippet
+- Explores directory structure with list_dir
+- Executes multiple searches in parallel for speed
+- Returns context-rich explanations with ranked snippets
+
+Parameters:
+- query: (required) Natural language description of what you're looking for. Be specific.
+- path: (optional) Starting directory to search in. Narrow this for faster searches.
+- hints: (optional) Array of keywords that might help locate the code.
+
+Usage:
+<function_calls>
+<invoke name="echo_search">
+<parameter name="query">Find where user authentication is handled</parameter>
+<parameter name="path">src</parameter>
+</invoke>
+</function_calls>
+
+Examples:
+
+1. Understand implementation:
+<function_calls>
+<invoke name="echo_search">
+<parameter name="query">How is chat message streaming implemented</parameter>
+<parameter name="path">src</parameter>
+</invoke>
+</function_calls>
+
+2. Explore with hints:
+<function_calls>
+<invoke name="echo_search">
+<parameter name="query">Find the tool execution pipeline</parameter>
+<parameter name="path">src</parameter>
+<parameter name="hints">["tool", "execute", "handler"]</parameter>
+</invoke>
+</function_calls>
+
+Returns:
+- summary: Brief overview of findings
+- highLevelAnswer: Explanation of how the code works
+- snippets: Ranked file locations with reasons
+- searchStats: Iterations, files scanned, matches found`,
+    icon: Radar,
+    usage: 'Iteratively search the codebase to find relevant context',
+    formatExample: '<function_calls>\n<invoke name="echo_search">\n<parameter name="query">How is authentication handled</parameter>\n<parameter name="path">src</parameter>\n</invoke>\n</function_calls>',
+  },
+  handler: {
+    execute: executeEchoSearch,
+  },
+  renderer: EchoSearchRenderer,
+});

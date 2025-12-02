@@ -39,7 +39,7 @@ export function parseThinkBlocks(content: string): ParsedContent {
     let searchPos = 0;
     while (true) {
       const openIndex = content.indexOf(pattern.open, searchPos);
-      if (openIndex === -1) break;
+      if (openIndex === -1) {break;}
       
       const contentStart = openIndex + pattern.openLen;
       const closeIndex = content.indexOf(pattern.close, contentStart);

@@ -5,10 +5,12 @@ import { SettingsDropdown } from '../ui/settings-dropdown';
 import { ApiConfigTab } from './api-config-tab';
 import { SystemPromptTab } from './system-prompt-tab';
 import { ToolsTab } from './tools-tab';
+import { IndexingTab } from './indexing-tab';
 
 import { useProviderSettings } from '../../hooks/use-provider-settings';
 import { getAllTools } from '../../lib/tool-config';
-import type { ApiSettings, Tool } from '../../types/api-settings';
+import type { ApiSettings, Tool, IndexingSettings } from '../../types/api-settings';
+import { DEFAULT_INDEXING_SETTINGS } from '../../types/api-settings';
 
 interface SetupPageProps {
   initialSettings: ApiSettings;
@@ -21,7 +23,10 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
   const [enabledTools, setEnabledTools] = useState<Tool[]>(
     initialSettings.enabledTools || getAllTools(true)
   );
-  const [activeTab, setActiveTab] = useState<'api' | 'system' | 'tools'>('api');
+  const [indexingSettings, setIndexingSettings] = useState<IndexingSettings>(
+    initialSettings.indexingSettings || DEFAULT_INDEXING_SETTINGS
+  );
+  const [activeTab, setActiveTab] = useState<'api' | 'system' | 'tools' | 'indexing'>('api');
   const [showDropdown, setShowDropdown] = useState(false);
 
   const {
@@ -36,11 +41,12 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
     buildSettings,
   } = useProviderSettings(initialSettings);
 
-  // Sync system prompt and tools with initial settings
+  // Sync system prompt, tools, and indexing with initial settings
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       setSystemPrompt(initialSettings.systemPrompt || '');
       setEnabledTools(initialSettings.enabledTools || getAllTools(true));
+      setIndexingSettings(initialSettings.indexingSettings || DEFAULT_INDEXING_SETTINGS);
     }, 0);
     return () => clearTimeout(timeoutId);
   }, [initialSettings]);
@@ -52,10 +58,11 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
         ...buildSettings(),
         systemPrompt,
         enabledTools,
+        indexingSettings,
       });
     }, 500);
     return () => clearTimeout(timeoutId);
-  }, [provider, currentSettings, systemPrompt, enabledTools, onSave, buildSettings]);
+  }, [provider, currentSettings, systemPrompt, enabledTools, indexingSettings, onSave, buildSettings]);
 
   return (
     <div
@@ -83,7 +90,7 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
             className="text-sm sm:text-base font-semibold"
             style={{ color: 'var(--vscode-foreground)' }}
           >
-            {activeTab === 'api' ? 'API Configuration' : activeTab === 'system' ? 'System Prompt' : 'Tool Configuration'}
+            {activeTab === 'api' ? 'API Configuration' : activeTab === 'system' ? 'System Prompt' : activeTab === 'tools' ? 'Tool Configuration' : 'Indexing / Code Search'}
           </h1>
         </div>
 
@@ -111,6 +118,10 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
 
           {activeTab === 'tools' && (
             <ToolsTab enabledTools={enabledTools} onChange={setEnabledTools} />
+          )}
+
+          {activeTab === 'indexing' && (
+            <IndexingTab indexingSettings={indexingSettings} onChange={setIndexingSettings} />
           )}
         </div>
       </div>

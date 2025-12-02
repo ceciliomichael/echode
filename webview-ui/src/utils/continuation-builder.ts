@@ -1,9 +1,10 @@
-import type { Message } from '../types/chat';
+import type { Message, ImageAttachment } from '../types/chat';
 import type { ChatMessage } from '../types/chat-api';
 import type { WorkspaceContext } from '../types/workspace';
 import type { ChatMode } from '../types/chat-mode';
 import { getSystemPrompt } from './prompts';
 import { formatToolResultsForHistory } from './tool-result-formatter';
+import { buildChatMessage, getCurrentModel, isVisionCapableModel } from './vision-utils';
 
 const MAX_HISTORY_MESSAGES = 20;
 const MAX_TOOL_RESULTS_CHARS = 8000;
@@ -19,7 +20,7 @@ interface TodoItem {
  * Build todo context for AI
  */
 export function buildTodoContext(todos: TodoItem[]): string {
-  if (todos.length === 0) return '';
+  if (todos.length === 0) {return '';}
 
   const pendingTasks = todos
     .filter((t) => t.status === 'pending')
@@ -35,9 +36,9 @@ export function buildTodoContext(todos: TodoItem[]): string {
     .join('\n');
 
   let todoContext = '\n\n<current_todo_list>\n';
-  if (pendingTasks) todoContext += `Pending:\n${pendingTasks}\n\n`;
-  if (inProgressTasks) todoContext += `In Progress:\n${inProgressTasks}\n\n`;
-  if (completedTasks) todoContext += `Completed:\n${completedTasks}\n`;
+  if (pendingTasks) {todoContext += `Pending:\n${pendingTasks}\n\n`;}
+  if (inProgressTasks) {todoContext += `In Progress:\n${inProgressTasks}\n\n`;}
+  if (completedTasks) {todoContext += `Completed:\n${completedTasks}\n`;}
   todoContext += '</current_todo_list>\n\n';
   
   const hasIncompleteTasks = pendingTasks || inProgressTasks;
@@ -61,8 +62,12 @@ export function buildContinuationHistory(
   toolResultText: string,
   diagnosticsText: string,
   currentTodos: TodoItem[],
-  mode: ChatMode = 'agent'
+  mode: ChatMode = 'agent',
+  userAttachments?: ImageAttachment[]
 ): ChatMessage[] {
+  // Check if current model supports vision for image attachments
+  const currentModel = getCurrentModel();
+  const modelSupportsVision = isVisionCapableModel(currentModel);
   const systemPrompt = getSystemPrompt(workspace, mode);
 
   const continuationHistory: ChatMessage[] = [
@@ -78,10 +83,14 @@ export function buildContinuationHistory(
     : currentMessages;
 
   for (const msg of messagesToInclude) {
-    continuationHistory.push({
-      role: msg.role,
-      content: msg.content,
-    });
+    // Build message with vision support if available (preserves image attachments in history)
+    const chatMessage = buildChatMessage(
+      msg.role,
+      msg.content,
+      msg.attachments,
+      modelSupportsVision
+    );
+    continuationHistory.push(chatMessage);
 
     if (msg.toolExecutions && msg.toolExecutions.size > 0) {
       // Filter tool results to only include tools available in current mode
@@ -96,11 +105,14 @@ export function buildContinuationHistory(
     }
   }
 
-  // Add current user message and assistant response
-  continuationHistory.push({
-    role: 'user',
-    content: userContent,
-  });
+  // Add current user message with attachments and assistant response
+  const currentUserMessage = buildChatMessage(
+    'user',
+    userContent,
+    userAttachments,
+    modelSupportsVision
+  );
+  continuationHistory.push(currentUserMessage);
   continuationHistory.push({
     role: 'assistant',
     content: assistantContent,

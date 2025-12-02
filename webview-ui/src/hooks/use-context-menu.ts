@@ -46,7 +46,7 @@ export function useContextMenu({
 
   // Compute active mention from props
   const activeMention = useMemo(() => {
-    if (!enabled) return null;
+    if (!enabled) {return null;}
     return getActiveMention(value, cursorPos);
   }, [value, cursorPos, enabled]);
 
@@ -65,14 +65,14 @@ export function useContextMenu({
   // If this mention already corresponds to a registered (highlighted) mention,
   // we don't want to show the context menu again.
   const isAlreadyHighlighted = useMemo(() => {
-    if (!activeMention) return false;
+    if (!activeMention) {return false;}
     const mentionText = unescapeSpaces(activeMention.query);
     return getMentionPath(mentionText) !== undefined;
   }, [activeMention]);
 
   // Get context menu options based on current state
   const options = useMemo(() => {
-    if (!activeMention || isClosed || isAlreadyHighlighted) return [];
+    if (!activeMention || isClosed || isAlreadyHighlighted) {return [];}
     
     // Use search query if drilling into a submenu, otherwise use the main query
     const effectiveQuery = selectedType ? searchQuery : query;
@@ -84,7 +84,7 @@ export function useContextMenu({
   // Ensure selectedIndex points to a valid selectable option
   // If current selectedIndex is invalid, find the first selectable option
   const validSelectedIndex = useMemo(() => {
-    if (options.length === 0) return 0;
+    if (options.length === 0) {return 0;}
     
     // If current index is valid and selectable, use it
     if (selectedIndex >= 0 && selectedIndex < options.length && isOptionSelectable(options[selectedIndex])) {

@@ -1,8 +1,86 @@
-import { FileSearch } from 'lucide-react';
+import { useState } from 'react';
+import { FileSearch, ChevronDown, ChevronRight } from 'lucide-react';
 import type { ToolExecutionResult } from '../../types/tool';
 import { registerToolPlugin } from './tool-plugin';
 import { executeToolViaExtension } from '../tool-utils';
 import { getFileIconConfig } from '../../utils/file-icon-mapper';
+
+interface GlobFileResult {
+  path: string;
+  name: string;
+  size: number;
+  type: 'file';
+  extension: string;
+}
+
+// Format file size
+const formatSize = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+function GlobFileItem({ file }: { file: GlobFileResult }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const iconConfig = getFileIconConfig(file.name);
+  const Icon = iconConfig.icon;
+
+  return (
+    <div className="border-b border-[var(--vscode-input-border)] last:border-b-0">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[var(--vscode-list-hoverBackground)] transition-colors text-left"
+      >
+        {isExpanded ? (
+          <ChevronDown className="w-3 h-3 opacity-50 flex-shrink-0" />
+        ) : (
+          <ChevronRight className="w-3 h-3 opacity-50 flex-shrink-0" />
+        )}
+        <Icon
+          className="w-3.5 h-3.5 flex-shrink-0"
+          style={{ color: iconConfig.color }}
+        />
+        <span
+          className="text-xs font-medium truncate flex-1"
+          style={{ color: 'var(--vscode-foreground)' }}
+        >
+          {file.path}
+        </span>
+        <span
+          className="text-xs opacity-50 font-mono"
+          style={{ color: 'var(--vscode-descriptionForeground)' }}
+        >
+          {formatSize(file.size)}
+        </span>
+      </button>
+      {isExpanded && (
+        <div className="px-3 pb-2">
+          <div
+            className="text-xs p-2 rounded"
+            style={{
+              backgroundColor: 'var(--vscode-editor-background)',
+              color: 'var(--vscode-editor-foreground)',
+              border: '1px solid var(--vscode-input-border)',
+            }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <span className="opacity-50">Name:</span>
+              <span className="font-mono">{file.name}</span>
+            </div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="opacity-50">Extension:</span>
+              <span className="font-mono">{file.extension || 'none'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="opacity-50">Size:</span>
+              <span className="font-mono">{formatSize(file.size)}</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * Glob Search Tool
@@ -82,13 +160,7 @@ IMPORTANT: Pattern Guidelines:
         searchPath: string;
         totalFiles: number;
         totalSkipped: number;
-        results: Array<{
-          path: string;
-          name: string;
-          size: number;
-          type: 'file';
-          extension: string;
-        }>;
+        results: GlobFileResult[];
         skippedFiles?: Array<{
           file: string;
           reason: 'permissionDenied' | 'tooLarge' | 'invalidType';
@@ -100,25 +172,12 @@ IMPORTANT: Pattern Guidelines:
 
       const isEmpty = result.results.length === 0;
       const hasSkipped = result.skippedFiles && result.skippedFiles.length > 0;
-
-      // Format file size
-      const formatSize = (bytes: number): string => {
-        if (bytes < 1024) return `${bytes} B`;
-        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-      };
-
-      // Group files by extension if sorted by extension
-      const groupedResults: Record<string, typeof result.results> = {};
-      if (result.sortBy === 'extension') {
-        result.results.forEach((file) => {
-          const ext = file.extension || 'no extension';
-          if (!groupedResults[ext]) {
-            groupedResults[ext] = [];
-          }
-          groupedResults[ext].push(file);
-        });
-      }
+      const headerPattern =
+        result.patterns.length === 1
+          ? result.patterns[0].length > 60
+            ? `${result.patterns[0].substring(0, 60)}...`
+            : result.patterns[0]
+          : `${result.patterns.length} patterns`;
 
       return (
         <div className="rounded-md overflow-hidden border border-[var(--vscode-input-border)] bg-[var(--vscode-editor-background)]">
@@ -128,10 +187,8 @@ IMPORTANT: Pattern Guidelines:
             style={{ color: 'var(--vscode-sideBarTitle-foreground)' }}
           >
             <FileSearch className="w-3.5 h-3.5 opacity-70 flex-shrink-0" />
-            <span className="font-mono overflow-x-auto whitespace-nowrap flex-1 min-w-0">
-              {result.patterns.length === 1
-                ? result.patterns[0]
-                : `${result.patterns.length} patterns`}
+            <span className="flex-1 min-w-0">
+              {headerPattern || 'Glob Search'}
             </span>
             <span className="ml-auto opacity-50 font-normal flex-shrink-0">
               {result.totalFiles} {result.totalFiles === 1 ? 'file' : 'files'}
@@ -146,87 +203,9 @@ IMPORTANT: Pattern Guidelines:
               </div>
             ) : (
               <div>
-                {result.sortBy === 'extension' ? (
-                  // Grouped by extension
-                  Object.entries(groupedResults).map(([extension, files]) => (
-                    <div key={extension}>
-                      {/* Extension Header */}
-                      <div
-                        className="px-3 py-1.5 text-xs font-medium bg-[var(--vscode-sideBar-background)] border-b border-[var(--vscode-input-border)]"
-                        style={{ color: 'var(--vscode-foreground)' }}
-                      >
-                        <span className="opacity-70">.{extension}</span>
-                        <span className="ml-2 opacity-50 font-normal">
-                          ({files.length})
-                        </span>
-                      </div>
-
-                      {/* Files in this extension */}
-                      <div className="py-0.5">
-                        {files.map((file, fileIndex) => {
-                          const iconConfig = getFileIconConfig(file.name);
-                          const Icon = iconConfig.icon;
-
-                          return (
-                            <div
-                              key={fileIndex}
-                              className="flex items-center gap-2 px-3 py-1.5 hover:bg-[var(--vscode-list-hoverBackground)] transition-colors"
-                            >
-                              <Icon
-                                className="w-4 h-4 flex-shrink-0"
-                                style={{ color: iconConfig.color }}
-                              />
-                              <span
-                                className="text-sm flex-1 truncate font-mono"
-                                style={{ color: 'var(--vscode-foreground)' }}
-                              >
-                                {file.path}
-                              </span>
-                              <span
-                                className="text-xs opacity-50 flex-shrink-0 font-normal"
-                                style={{ color: 'var(--vscode-descriptionForeground)' }}
-                              >
-                                {formatSize(file.size)}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  // Flat list
-                  <div className="py-0.5">
-                    {result.results.map((file, fileIndex) => {
-                      const iconConfig = getFileIconConfig(file.name);
-                      const Icon = iconConfig.icon;
-
-                      return (
-                        <div
-                          key={fileIndex}
-                          className="flex items-center gap-2 px-3 py-1.5 hover:bg-[var(--vscode-list-hoverBackground)] transition-colors"
-                        >
-                          <Icon
-                            className="w-4 h-4 flex-shrink-0"
-                            style={{ color: iconConfig.color }}
-                          />
-                          <span
-                            className="text-sm flex-1 truncate font-mono"
-                            style={{ color: 'var(--vscode-foreground)' }}
-                          >
-                            {file.path}
-                          </span>
-                          <span
-                            className="text-xs opacity-50 flex-shrink-0 font-normal"
-                            style={{ color: 'var(--vscode-descriptionForeground)' }}
-                          >
-                            {formatSize(file.size)}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                {result.results.map((file, index) => (
+                  <GlobFileItem key={index} file={file} />
+                ))}
 
                 {/* Truncation or skip warnings */}
                 {(result.truncated || hasSkipped) && (
@@ -271,3 +250,5 @@ IMPORTANT: Pattern Guidelines:
     return <div className="text-xs opacity-70">Files found successfully</div>;
   },
 });
+
+export { GlobFileItem };

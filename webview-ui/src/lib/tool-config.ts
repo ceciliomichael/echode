@@ -29,6 +29,11 @@ export const PLAN_ONLY_TOOL_IDS = new Set<string>([
   'plan_handoff',
 ]);
 
+// Agent-exclusive tools that require full capabilities
+export const AGENT_ONLY_TOOL_IDS = new Set<string>([
+  'echo_search',
+]);
+
 // Re-export getAllTools for external use
 export function getAllTools(defaultEnabled = true): Tool[] {
   return getToolsFromRegistry(defaultEnabled);
@@ -48,10 +53,14 @@ export function getToolsForMode(mode: ChatMode, defaultEnabled = true): Tool[] {
   }
 
   if (mode === 'ask') {
-    return allTools.filter(tool => (ASK_MODE_TOOL_IDS as readonly string[]).includes(tool.id));
+    // Ask mode: exclude agent-only tools
+    return allTools.filter(tool => 
+      (ASK_MODE_TOOL_IDS as readonly string[]).includes(tool.id) &&
+      !AGENT_ONLY_TOOL_IDS.has(tool.id)
+    );
   }
 
-  // Agent (and any future modes) should never expose plan-only helpers
+  // Agent mode: include all tools except plan-only helpers
   return allTools.filter(tool => !PLAN_ONLY_TOOL_IDS.has(tool.id));
 }
 

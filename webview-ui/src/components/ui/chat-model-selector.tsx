@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useHoverEffect, hoverPresets } from '../../hooks/use-hover-effect';
 import { Check, Cpu, Search } from 'lucide-react';
 import type { ApiSettings, Provider } from '../../types/api-settings';
 import { storageService } from '../../utils/storage';
@@ -25,6 +26,7 @@ export function ChatModelSelector({ provider: activeProvider, model: activeModel
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { handleMouseEnter, handleMouseLeave } = useHoverEffect();
 
   const [settings, setSettings] = useState<ApiSettings>(() => storageService.getSettings());
 
@@ -204,6 +206,8 @@ export function ChatModelSelector({ provider: activeProvider, model: activeModel
           color: 'var(--vscode-input-foreground)',
         }}
         title={selectedProviderLabel}
+        onMouseEnter={(e) => !disabled && handleMouseEnter(e, hoverPresets.button.enter)}
+        onMouseLeave={(e) => handleMouseLeave(e, hoverPresets.button.leave)}
       >
         <Cpu className="w-3.5 h-3.5" />
         <span className="max-w-[120px] truncate">{buttonLabel}</span>
@@ -275,7 +279,7 @@ export function ChatModelSelector({ provider: activeProvider, model: activeModel
                         key={`${item.provider}:${item.model}`}
                         type="button"
                         onClick={() => handleSelectModel(item.provider, item.model)}
-                        className="w-full px-2 py-1 text-left rounded-md transition-opacity hover:opacity-80 active:opacity-70 flex items-center justify-between border"
+                        className="w-full px-2 py-1 text-left rounded-md transition-colors flex items-center justify-between border"
                         style={{
                           backgroundColor: isSelected
                             ? 'var(--vscode-list-activeSelectionBackground)'
@@ -286,6 +290,16 @@ export function ChatModelSelector({ provider: activeProvider, model: activeModel
                           borderColor: isSelected
                             ? 'var(--vscode-list-activeSelectionBackground)'
                             : 'var(--vscode-input-border)',
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isSelected) {
+                            e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isSelected) {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }
                         }}
                       >
                         <div className="flex-1 min-w-0 mr-2">
@@ -333,7 +347,7 @@ export function ChatModelSelector({ provider: activeProvider, model: activeModel
                                 key={`${provider}:${model}`}
                                 type="button"
                                 onClick={() => handleSelectModel(provider, model)}
-                                className="w-full px-2 py-1 text-left rounded-md transition-opacity hover:opacity-80 active:opacity-70 flex items-center justify-between border"
+                                className="w-full px-2 py-1 text-left rounded-md transition-colors flex items-center justify-between border"
                                 style={{
                                   backgroundColor: isSelected
                                     ? 'var(--vscode-list-activeSelectionBackground)'
@@ -344,6 +358,16 @@ export function ChatModelSelector({ provider: activeProvider, model: activeModel
                                   borderColor: isSelected
                                     ? 'var(--vscode-list-activeSelectionBackground)'
                                     : 'var(--vscode-input-border)',
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (!isSelected) {
+                                    e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
+                                  }
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (!isSelected) {
+                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                  }
                                 }}
                               >
                                 <span className="text-xs leading-tight truncate">{model}</span>

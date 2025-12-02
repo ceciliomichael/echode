@@ -9,5 +9,5 @@ MARKDOWN FORMATTING RULES
 - Keep responses concise and direct
 - Structure with clear headings and short paragraphs
 - Do NOT use conversational phrases like "Great!", "Certainly!", "Okay", "Sure" at the start of messages
-- Be technical and direct, not conversational`
+- Be technical and direct, not conversational`;
 }

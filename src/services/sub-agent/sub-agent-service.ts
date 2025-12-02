@@ -1,0 +1,684 @@
+import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
+import { SUB_AGENT_SYSTEM_PROMPT, buildSubAgentPrompt } from './sub-agent-prompt';
+import { GrepSearchTool } from '../tools/grep-search-tool';
+import { GlobSearchTool } from '../tools/glob-search-tool';
+import { ReadFileTool } from '../tools/read-file-tool';
+import { ListFilesTool } from '../tools/list-files-tool';
+
+/**
+ * Indexing settings from user config
+ */
+export interface IndexingSettings {
+  provider: 'anthropic' | 'openai' | 'openai-compatible' | 'megallm' | 'vscode-lm' | 'qwen-code';
+  model: string;
+  maxIterations: number;
+  maxFiles: number;
+  maxSnippets: number;
+}
+
+/**
+ * API settings needed for sub-agent
+ */
+export interface SubAgentApiSettings {
+  anthropicApiKey?: string;
+  anthropicCustomUrl?: string;
+  openaiApiKey?: string;
+  openaiCustomUrl?: string;
+  openaiCompatibleApiKey?: string;
+  openaiCompatibleCustomUrl?: string;
+  megallmApiKey?: string;
+  megallmCustomUrl?: string;
+}
+
+/**
+ * Search snippet result
+ */
+export interface SearchSnippet {
+  path: string;
+  startLine: number;
+  endLine: number;
+  snippet: string;
+  score: number;
+  reason?: string;
+}
+
+/**
+ * Sub-agent search result
+ */
+export interface SubAgentResult {
+  summary: string;
+  highLevelAnswer?: string;
+  snippets: SearchSnippet[];
+  searchStats: {
+    iterations: number;
+    grepCalls: number;
+    globCalls: number;
+    readFileCalls: number;
+    listDirCalls: number;
+    filesScanned: number;
+    totalMatches: number;
+  };
+}
+
+/**
+ * Progress callback for streaming updates
+ */
+export type ProgressCallback = (message: string) => void;
+
+/**
+ * Message in the conversation
+ */
+interface ConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+/**
+ * SubAgentService - Orchestrates LLM-powered code search (v2)
+ * 
+ * Features:
+ * - Parallel tool execution for faster search
+ * - read_file_snippet and list_dir tools for better context
+ * - Snippet-light output (metadata + reasons, code is optional)
+ * - Optimized for large codebases
+ */
+export class SubAgentService {
+  private grepTool = new GrepSearchTool();
+  private globTool = new GlobSearchTool();
+  private readFileTool = new ReadFileTool();
+  private listFilesTool = new ListFilesTool();
+  private indexingSettings: IndexingSettings;
+  private apiSettings: SubAgentApiSettings;
+  private onProgress?: ProgressCallback;
+
+  private stats = {
+    iterations: 0,
+    grepCalls: 0,
+    globCalls: 0,
+    readFileCalls: 0,
+    listDirCalls: 0,
+    filesScanned: 0,
+    totalMatches: 0,
+  };
+
+  constructor(
+    indexingSettings: IndexingSettings,
+    apiSettings: SubAgentApiSettings,
+    onProgress?: ProgressCallback
+  ) {
+    this.indexingSettings = indexingSettings;
+    this.apiSettings = apiSettings;
+    this.onProgress = onProgress;
+  }
+
+  /**
+   * Execute the sub-agent search
+   */
+  async search(query: string, searchPath?: string, hints?: string[]): Promise<SubAgentResult> {
+    this.stats = {
+      iterations: 0,
+      grepCalls: 0,
+      globCalls: 0,
+      readFileCalls: 0,
+      listDirCalls: 0,
+      filesScanned: 0,
+      totalMatches: 0,
+    };
+
+    this.onProgress?.(`Starting sub-agent search for: "${query}"`);
+
+    const conversation: ConversationMessage[] = [
+      { role: 'user', content: buildSubAgentPrompt(query, searchPath, hints) }
+    ];
+
+    let iteration = 0;
+    // Increased default iterations for more thorough search
+    const maxIterations = this.indexingSettings.maxIterations || 8;
+
+    while (iteration < maxIterations) {
+      iteration++;
+      this.stats.iterations = iteration;
+
+      this.onProgress?.(`Iteration ${iteration}/${maxIterations}: Thinking...`);
+
+      // Get LLM response
+      const response = await this.callLLM(conversation);
+
+      if (!response) {
+        this.onProgress?.(`Error: No response from LLM`);
+        break;
+      }
+
+      // Check if search is complete
+      if (response.includes('<search_complete>')) {
+        this.onProgress?.(`Search complete, parsing results...`);
+        return this.parseSearchComplete(response);
+      }
+
+      // Parse and execute tool calls
+      const toolCalls = this.parseToolCalls(response);
+
+      if (toolCalls.length === 0) {
+        // No tool calls and no completion - add response and continue
+        conversation.push({ role: 'assistant', content: response });
+        conversation.push({ 
+          role: 'user', 
+          content: 'Please use the search tools to find relevant code, or provide your final answer using <search_complete>.' 
+        });
+        continue;
+      }
+
+      // Execute tools IN PARALLEL for better performance
+      this.onProgress?.(`Executing ${toolCalls.length} tool(s) in parallel...`);
+      const toolResults = await this.executeToolsParallel(toolCalls);
+
+      // Add to conversation
+      conversation.push({ role: 'assistant', content: response });
+      
+      // After 3 iterations, remind LLM to wrap up
+      const iterationReminder = iteration >= 3 
+        ? `\n\nYou've done ${iteration} iterations. If you have enough information, provide your final answer using <search_complete>. Otherwise, continue with focused searches.`
+        : '\n\nContinue searching or provide your final answer using <search_complete>.';
+      
+      conversation.push({ role: 'user', content: `Tool results:${toolResults}${iterationReminder}` });
+    }
+
+    // Max iterations reached - ask for final answer with explicit format
+    this.onProgress?.(`Max iterations reached, requesting final answer...`);
+
+    conversation.push({
+      role: 'user',
+      content: `You have reached the maximum iterations. STOP searching and provide your final answer NOW.
+
+You MUST respond with this EXACT format:
+
+<search_complete>
+<summary>Brief summary of what you found</summary>
+<answer>Your explanation of what the codebase does based on what you found</answer>
+<snippets>
+<snippet>
+<path>path/to/relevant/file</path>
+<start_line>1</start_line>
+<end_line>50</end_line>
+<reason>Why this file is relevant</reason>
+<score>0.9</score>
+</snippet>
+</snippets>
+</search_complete>
+
+DO NOT call any more tools. Output ONLY the <search_complete> block now.`
+    });
+
+    const finalResponse = await this.callLLM(conversation);
+    
+    // Log for debugging
+    console.log('[EchoSearch] Final response received, length:', finalResponse?.length || 0);
+    
+    if (finalResponse && finalResponse.includes('<search_complete>')) {
+      return this.parseSearchComplete(finalResponse);
+    }
+
+    // If LLM still didn't comply, try to extract any useful info from conversation
+    console.log('[EchoSearch] Warning: LLM did not return <search_complete> block');
+
+    // Fallback if no proper response
+    return {
+      summary: 'Search completed but could not find definitive results.',
+      highLevelAnswer: undefined,
+      snippets: [],
+      searchStats: this.stats,
+    };
+  }
+
+  /**
+   * Call the LLM based on provider
+   */
+  private async callLLM(conversation: ConversationMessage[]): Promise<string | null> {
+    const { provider, model } = this.indexingSettings;
+
+    try {
+      switch (provider) {
+        case 'anthropic':
+          return await this.callAnthropic(conversation, model);
+        case 'openai':
+          return await this.callOpenAI(conversation, model, this.apiSettings.openaiApiKey, this.apiSettings.openaiCustomUrl);
+        case 'openai-compatible':
+        case 'megallm': {
+          const apiKey = provider === 'megallm' ? this.apiSettings.megallmApiKey : this.apiSettings.openaiCompatibleApiKey;
+          // Use default megallm URL if no custom URL provided
+          const defaultMegallmUrl = 'https://ai.megallm.io/v1';
+          const baseUrl = provider === 'megallm' 
+            ? (this.apiSettings.megallmCustomUrl || defaultMegallmUrl)
+            : this.apiSettings.openaiCompatibleCustomUrl;
+          return await this.callOpenAI(conversation, model, apiKey, baseUrl);
+        }
+        default:
+          this.onProgress?.(`Provider ${provider} not supported for sub-agent`);
+          return null;
+      }
+    } catch (error) {
+      this.onProgress?.(`LLM Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return null;
+    }
+  }
+
+  /**
+   * Call Anthropic API
+   */
+  private async callAnthropic(conversation: ConversationMessage[], model: string): Promise<string> {
+    const client = new Anthropic({
+      apiKey: this.apiSettings.anthropicApiKey,
+      baseURL: this.apiSettings.anthropicCustomUrl || undefined,
+    });
+
+    const response = await client.messages.create({
+      model: model || 'claude-3-5-sonnet-20241022',
+      max_tokens: 4096,
+      system: SUB_AGENT_SYSTEM_PROMPT,
+      messages: conversation.map(m => ({
+        role: m.role,
+        content: m.content,
+      })),
+    });
+
+    const textBlock = response.content.find(block => block.type === 'text');
+    return textBlock?.type === 'text' ? textBlock.text : '';
+  }
+
+  /**
+   * Call OpenAI-compatible API
+   */
+  private async callOpenAI(
+    conversation: ConversationMessage[],
+    model: string,
+    apiKey?: string,
+    baseUrl?: string
+  ): Promise<string> {
+    const client = new OpenAI({
+      apiKey: apiKey || '',
+      baseURL: baseUrl || undefined,
+    });
+
+    const response = await client.chat.completions.create({
+      model: model || 'gpt-4o',
+      max_tokens: 4096,
+      messages: [
+        { role: 'system', content: SUB_AGENT_SYSTEM_PROMPT },
+        ...conversation.map(m => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+        })),
+      ],
+    });
+
+    return response.choices[0]?.message?.content || '';
+  }
+
+  /**
+   * Supported tools for the sub-agent
+   */
+  private static SUPPORTED_TOOLS = new Set([
+    'grep_search',
+    'glob_search', 
+    'read_file_snippet',
+    'list_dir'
+  ]);
+
+  /**
+   * Parse tool calls from LLM response
+   */
+  private parseToolCalls(response: string): Array<{ name: string; params: Record<string, string> }> {
+    const toolCalls: Array<{ name: string; params: Record<string, string> }> = [];
+
+    // Match <invoke name="...">...</invoke> blocks
+    const invokeRegex = /<invoke\s+name="([^"]+)">([\s\S]*?)<\/invoke>/g;
+    let match;
+
+    while ((match = invokeRegex.exec(response)) !== null) {
+      const name = match[1];
+      const paramsContent = match[2];
+      const params: Record<string, string> = {};
+
+      // Parse parameters
+      const paramRegex = /<parameter\s+name="([^"]+)">([\s\S]*?)<\/parameter>/g;
+      let paramMatch;
+
+      while ((paramMatch = paramRegex.exec(paramsContent)) !== null) {
+        params[paramMatch[1]] = paramMatch[2].trim();
+      }
+
+      // Accept all supported tools
+      if (SubAgentService.SUPPORTED_TOOLS.has(name)) {
+        toolCalls.push({ name, params });
+      }
+    }
+
+    return toolCalls;
+  }
+
+  /**
+   * Execute multiple tools in parallel for better performance
+   */
+  private async executeToolsParallel(
+    toolCalls: Array<{ name: string; params: Record<string, string> }>
+  ): Promise<string> {
+    // Execute all tools concurrently
+    const resultPromises = toolCalls.map(async (toolCall) => {
+      const paramDesc = toolCall.params.query 
+        || toolCall.params.pattern 
+        || toolCall.params.path 
+        || '';
+      this.onProgress?.(`  → ${toolCall.name}(${paramDesc.substring(0, 40)}${paramDesc.length > 40 ? '...' : ''})`);
+      
+      const result = await this.executeTool(toolCall);
+      return `<tool_result name="${toolCall.name}">\n${result}\n</tool_result>`;
+    });
+
+    const results = await Promise.all(resultPromises);
+    return '\n\n' + results.join('\n\n');
+  }
+
+  /**
+   * Execute a tool call
+   */
+  private async executeTool(toolCall: { name: string; params: Record<string, string> }): Promise<string> {
+    try {
+      if (toolCall.name === 'grep_search') {
+        return await this.executeGrepSearch(toolCall.params);
+      }
+
+      if (toolCall.name === 'glob_search') {
+        return await this.executeGlobSearch(toolCall.params);
+      }
+
+      if (toolCall.name === 'read_file_snippet') {
+        return await this.executeReadFileSnippet(toolCall.params);
+      }
+
+      if (toolCall.name === 'list_dir') {
+        return await this.executeListDir(toolCall.params);
+      }
+
+      return `Unknown tool: ${toolCall.name}`;
+    } catch (error) {
+      return `Tool error: ${error instanceof Error ? error.message : 'Unknown error'}`;
+    }
+  }
+
+  /**
+   * Execute grep_search tool
+   */
+  private async executeGrepSearch(params: Record<string, string>): Promise<string> {
+    this.stats.grepCalls++;
+    
+    // Adaptive limits based on iteration
+    const iteration = this.stats.iterations;
+    
+    // Early iterations: broader search; later iterations: more focused
+    const isEarlyIteration = iteration <= 2;
+    const baseMaxFiles = this.indexingSettings.maxFiles || 100;
+    const baseMaxResults = 50;
+    
+    // Scale limits based on iteration
+    const maxResults = isEarlyIteration ? baseMaxResults : Math.min(baseMaxResults * 2, 100);
+    const maxFiles = isEarlyIteration ? baseMaxFiles : Math.min(baseMaxFiles * 1.5, 200);
+    
+    const result = await this.grepTool.execute({
+      query: params.query,
+      path: params.path || '',
+      includes: params.includes,
+      maxResults,
+      maxFiles,
+      contextLines: 1,
+      skipIndexing: true,
+    });
+
+    if (result.success && result.data) {
+      const data = result.data as {
+        totalMatches?: number;
+        filesWithMatches?: number;
+        results?: Array<{ file: string; matches: Array<{ line: number; text: string }> }>;
+      };
+      
+      this.stats.totalMatches += data.totalMatches || 0;
+      this.stats.filesScanned += data.filesWithMatches || 0;
+
+      // Compact format for LLM - minimize tokens
+      if (data.results && data.results.length > 0) {
+        let output = `Found ${data.totalMatches} matches in ${data.filesWithMatches} files:\n`;
+        
+        const maxFilesToShow = 10;
+        const maxMatchesPerFile = 5;
+        
+        for (const file of data.results.slice(0, maxFilesToShow)) {
+          output += `\n## ${file.file}\n`;
+          for (const match of file.matches.slice(0, maxMatchesPerFile)) {
+            // Truncate long lines
+            const text = match.text.length > 120 
+              ? match.text.substring(0, 120) + '...' 
+              : match.text;
+            output += `L${match.line}: ${text}\n`;
+          }
+        }
+        if (data.results.length > maxFilesToShow) {
+          output += `\n... and ${data.results.length - maxFilesToShow} more files`;
+        }
+        return output;
+      }
+      return 'No matches found.';
+    }
+    return `Error: ${result.error || 'Search failed'}`;
+  }
+
+  /**
+   * Execute glob_search tool
+   */
+  private async executeGlobSearch(params: Record<string, string>): Promise<string> {
+    this.stats.globCalls++;
+    
+    const maxResults = 30;
+    
+    const result = await this.globTool.execute({
+      pattern: params.pattern,
+      path: params.path || '',
+      maxResults,
+      skipIndexing: true, // Skip indexing during search for performance
+    });
+
+    if (result.success && result.data) {
+      const data = result.data as {
+        totalFiles?: number;
+        results?: Array<{ path: string; name: string }>;
+      };
+
+      this.stats.filesScanned += data.totalFiles || 0;
+
+      if (data.results && data.results.length > 0) {
+        let output = `Found ${data.totalFiles} files:\n`;
+        for (const file of data.results.slice(0, 20)) {
+          output += `- ${file.path}\n`;
+        }
+        if (data.results.length > 20) {
+          output += `... and ${data.results.length - 20} more files`;
+        }
+        return output;
+      }
+      return 'No files found matching pattern.';
+    }
+    return `Error: ${result.error || 'Search failed'}`;
+  }
+
+  /**
+   * Execute read_file_snippet tool - read specific lines from a file
+   */
+  private async executeReadFileSnippet(params: Record<string, string>): Promise<string> {
+    this.stats.readFileCalls++;
+    
+    const startLine = parseInt(params.startLine || '1', 10);
+    const endLine = parseInt(params.endLine || '50', 10);
+    
+    // Cap at 100 lines per read for efficiency
+    const maxLines = 100;
+    const limitedEnd = Math.min(endLine, startLine + maxLines - 1);
+    const lineCount = limitedEnd - startLine + 1;
+
+    const result = await this.readFileTool.execute({
+      path: params.path,
+      offset: startLine,
+      limit: lineCount,
+    });
+
+    if (result.success && result.data) {
+      const data = result.data as {
+        path?: string;
+        content?: string;
+        startLine?: number;
+        endLine?: number;
+        totalLines?: number;
+      };
+
+      if (data.content) {
+        let output = `File: ${data.path} (lines ${data.startLine}-${data.endLine} of ${data.totalLines})\n`;
+        output += '```\n';
+        output += data.content;
+        output += '\n```';
+        return output;
+      }
+      return 'File is empty.';
+    }
+    return `Error: ${result.error || 'Failed to read file'}`;
+  }
+
+  /**
+   * Execute list_dir tool - list directory contents
+   */
+  private async executeListDir(params: Record<string, string>): Promise<string> {
+    this.stats.listDirCalls++;
+    
+    const result = await this.listFilesTool.execute({
+      path: params.path || '',
+      recursive: false, // Non-recursive for speed
+    });
+
+    if (result.success && result.data) {
+      const data = result.data as {
+        path?: string;
+        directories?: Array<{ name: string }>;
+        files?: Array<{ name: string; size?: number }>;
+        totalCount?: number;
+      };
+
+      let output = `Directory: ${data.path || '/'}\n`;
+      
+      if (data.directories && data.directories.length > 0) {
+        output += '\nDirectories:\n';
+        for (const dir of data.directories.slice(0, 20)) {
+          output += `  📁 ${dir.name}/\n`;
+        }
+      }
+
+      if (data.files && data.files.length > 0) {
+        output += '\nFiles:\n';
+        for (const file of data.files.slice(0, 30)) {
+          output += `  📄 ${file.name}\n`;
+        }
+        if (data.files.length > 30) {
+          output += `  ... and ${data.files.length - 30} more files\n`;
+        }
+      }
+
+      if ((!data.directories || data.directories.length === 0) && 
+          (!data.files || data.files.length === 0)) {
+        output += 'Directory is empty.';
+      }
+
+      return output;
+    }
+    return `Error: ${result.error || 'Failed to list directory'}`;
+  }
+
+  /**
+   * Parse the final <search_complete> response and hydrate empty snippets
+   */
+  private async parseSearchComplete(response: string): Promise<SubAgentResult> {
+    const snippets: SearchSnippet[] = [];
+
+    // Extract summary
+    const summaryMatch = response.match(/<summary>([\s\S]*?)<\/summary>/);
+    const summary = summaryMatch ? summaryMatch[1].trim() : 'Search completed.';
+
+    // Extract answer
+    const answerMatch = response.match(/<answer>([\s\S]*?)<\/answer>/);
+    const answer = answerMatch ? answerMatch[1].trim() : undefined;
+
+    // Extract snippets - code is now OPTIONAL
+    const snippetRegex = /<snippet>([\s\S]*?)<\/snippet>/g;
+    let snippetMatch;
+
+    while ((snippetMatch = snippetRegex.exec(response)) !== null) {
+      const snippetContent = snippetMatch[1];
+
+      const pathMatch = snippetContent.match(/<path>([\s\S]*?)<\/path>/);
+      const startLineMatch = snippetContent.match(/<start_line>([\s\S]*?)<\/start_line>/);
+      const endLineMatch = snippetContent.match(/<end_line>([\s\S]*?)<\/end_line>/);
+      const reasonMatch = snippetContent.match(/<reason>([\s\S]*?)<\/reason>/);
+      const scoreMatch = snippetContent.match(/<score>([\s\S]*?)<\/score>/);
+
+      // v2: Only require path - code is NEVER parsed from LLM, always hydrated
+      if (pathMatch) {
+        snippets.push({
+          path: pathMatch[1].trim(),
+          startLine: parseInt(startLineMatch?.[1].trim() || '1', 10),
+          endLine: parseInt(endLineMatch?.[1].trim() || '1', 10),
+          snippet: '', // Always empty initially, filled by hydration
+          reason: reasonMatch?.[1].trim(),
+          score: parseFloat(scoreMatch?.[1].trim() || '0.5'),
+        });
+      }
+    }
+
+    // Sort by score descending
+    snippets.sort((a, b) => b.score - a.score);
+
+    // Limit to maxSnippets BEFORE hydration to save work
+    const maxSnippets = this.indexingSettings.maxSnippets || 20;
+    const finalSnippets = snippets.slice(0, maxSnippets);
+
+    // Hydrate empty snippets in parallel
+    const hydrationPromises = finalSnippets.map(async (snippet) => {
+      try {
+        this.onProgress?.(`Hydrating snippet for ${snippet.path}...`);
+        // Cap hydration at 100 lines
+        const maxLines = 100;
+        const count = Math.min(snippet.endLine - snippet.startLine + 1, maxLines);
+        
+        const result = await this.readFileTool.execute({
+          path: snippet.path,
+          offset: snippet.startLine,
+          limit: count
+        });
+
+        if (result.success && result.data) {
+          const data = result.data as { content?: string };
+          if (data.content) {
+            snippet.snippet = data.content;
+          }
+        }
+      } catch (_error) {
+        // If hydration fails, leave snippet empty
+        console.warn(`Failed to hydrate snippet for ${snippet.path}:`, _error);
+      }
+      return snippet;
+    });
+
+    await Promise.all(hydrationPromises);
+
+    return {
+      summary,
+      highLevelAnswer: answer,
+      snippets: finalSnippets,
+      searchStats: this.stats,
+    };
+  }
+}

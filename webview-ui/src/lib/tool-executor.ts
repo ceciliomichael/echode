@@ -53,7 +53,12 @@ export class ToolExecutor {
       if (this.mode === 'plan') {
         errorMessage = `You are currently in Plan mode and are not allowed to use this tool: ${toolCall.toolName}.`;
       } else if (this.mode === 'ask') {
-        errorMessage = `You are currently in Ask mode and may only use read_file, list_files, grep_search, and glob_search. This tool is not allowed: ${toolCall.toolName}.`;
+        // Special message for echo_search in Ask mode
+        if (toolCall.toolName === 'echo_search') {
+          errorMessage = `The echo_search tool is only available in Agent mode. Switch to Agent mode to use the sub-agent code search.`;
+        } else {
+          errorMessage = `You are currently in Ask mode and may only use read_file, list_files, grep_search, and glob_search. This tool is not allowed: ${toolCall.toolName}.`;
+        }
       } else {
         errorMessage = `Tool "${toolCall.toolName}" is disabled in the current configuration.`;
       }

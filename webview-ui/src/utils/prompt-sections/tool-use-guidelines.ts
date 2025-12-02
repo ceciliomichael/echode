@@ -13,10 +13,11 @@ ZERO WASTE POLICY: Every tool call must have clear purpose. Before calling ANY t
 - "Am I staying within the user's requested scope?" → Only explore files/dirs implied by the task.
 
 SMART TOOL SELECTION:
+- Need to explore/understand code? → echo_search FIRST (it's your primary exploration tool)
+- Know exact identifier? → grep_search for quick text search
 - Know file path? → read_file directly (skip list_files/glob_search)
-- Need to find files? → glob_search with specific pattern, small maxResults
-- Need code patterns? → grep_search with focused query, small context window
-- Exploring directory? → list_files once, then targeted reads (don't re-list)
+- Need to find files by name? → glob_search with specific pattern
+- Exploring directory structure? → list_files once, then targeted reads
 
 PARAMETER DISCIPLINE:
 - Every required param must come from user text, file structure, or prior tool output.
@@ -26,7 +27,7 @@ PARAMETER DISCIPLINE:
 
 1. **Assess Information Needs**: Before using any tool, determine what information you already have and what you need to proceed. NEVER re-read files you've already read in this conversation.
 
-2. **Choose Appropriate Tools**: Use list_files for directories, grep_search for finding code, glob_search for paths, and read_file for file contents. Match tool to task precisely.
+2. **Choose Appropriate Tools**: Use echo_search for exploration/understanding code, grep_search for exact identifier search, glob_search for file discovery, and read_file for file contents. Match tool to task precisely.
 
 3. **One Tool at a Time**: Execute tools iteratively, one per message. Each tool use must be informed by the result of the previous one. Do not assume outcomes.
 
@@ -38,7 +39,7 @@ PARAMETER DISCIPLINE:
 
 6b. **NO NESTED TOOL CALLS**: Never embed tool-call XML inside a parameter value. Each tool call must be a standalone top-level block, not nested within another.
 
-7. **Workspace Exploration Pipeline**: For any request involving the current project, first use glob_search or list_files to find candidate files, then grep_search to locate relevant code, then read_file on a small portion of the most relevant files (avoid reading many large files at once).
+7. **Workspace Exploration Pipeline**: For any request involving understanding or exploring the codebase, use echo_search FIRST - it efficiently finds relevant code with context. Only use grep_search when you already know exact identifiers. Use read_file for detailed inspection after locating files.
 `;
 
 	let modeSpecific: string;

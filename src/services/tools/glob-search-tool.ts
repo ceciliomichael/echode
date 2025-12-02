@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { ITool, ToolExecutionResult } from './tool.interface';
-import { getDefaultGrepExcludes } from '../../constants/excluded-patterns';
+import { getDefaultGrepExcludes, getExcludePatternsWithGitignore } from '../../constants/excluded-patterns';
 import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
 import { scoreTextMatch } from '../search/text-matcher';
 import { SearchIndexService } from '../search/search-index-service';
@@ -28,7 +28,12 @@ export class GlobSearchTool implements ITool {
   async execute(parameters: Record<string, unknown>): Promise<ToolExecutionResult> {
     const patterns = this.normalizePatterns(parameters.pattern);
     const searchPath = (parameters.path as string) || '';
-    const excludes = normalizeToStringArray(parameters.excludes, getDefaultGrepExcludes());
+    // Get workspace root first for gitignore support
+    const workspaceRootForExcludes = getWorkspaceRoot();
+    const defaultExcludes = workspaceRootForExcludes 
+      ? getExcludePatternsWithGitignore(workspaceRootForExcludes) 
+      : getDefaultGrepExcludes();
+    const excludes = normalizeToStringArray(parameters.excludes, defaultExcludes);
     const maxResults = (parameters.maxResults as number) || 1000;
     const maxFileSizeBytes = (parameters.maxFileSizeBytes as number) || 100 * 1024 * 1024;
     const sortByParam = parameters.sortBy as 'name' | 'size' | 'extension' | 'relevance' | undefined;
@@ -40,6 +45,7 @@ export class GlobSearchTool implements ITool {
     const minPathScoreParam = parameters.minPathScore;
     const minPathScore = typeof minPathScoreParam === 'number' ? minPathScoreParam : 0.4;
     const sortOrder = (parameters.sortOrder as 'asc' | 'desc') || 'asc';
+    const skipIndexing = (parameters.skipIndexing as boolean) ?? false;
 
     if (!patterns || patterns.length === 0) {
       return { success: false, error: 'At least one glob pattern is required' };
@@ -124,7 +130,9 @@ export class GlobSearchTool implements ITool {
                 const fileName = path.basename(fileUri.fsPath);
                 const extension = path.extname(fileUri.fsPath).slice(1) || '';
 
-                indexService.indexPathOnly(relativePath);
+                if (!skipIndexing) {
+                  indexService.indexPathOnly(relativePath);
+                }
 
                 results.push({
                   path: relativePath,
@@ -226,7 +234,9 @@ export class GlobSearchTool implements ITool {
               continue;
             }
 
-            indexService.indexPathOnly(relativePath);
+            if (!skipIndexing) {
+              indexService.indexPathOnly(relativePath);
+            }
 
             results.push({
               path: relativePath,

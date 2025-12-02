@@ -50,7 +50,7 @@ export function useStreamingChat(
     // CRITICAL: Use messagesRef.current to get the LATEST messages, not stale closure
     const currentMessages = messagesRef.current;
     
-    if (currentMessages.length === 0) return;
+    if (currentMessages.length === 0) {return;}
 
     const sessionId = ensureSessionId();
 

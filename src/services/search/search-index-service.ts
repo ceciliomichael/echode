@@ -291,4 +291,146 @@ export class SearchIndexService {
 
     return `ws_${Math.abs(hash).toString(36)}`;
   }
+
+  public searchPathsByTokens(query: string, maxResults: number): string[] {
+    const normalizedQuery = query.toLowerCase();
+    const tokens = this.splitTokens(normalizedQuery);
+
+    if (tokens.length === 0 || maxResults <= 0) {
+      return [];
+    }
+
+    const distinctTokens = Array.from(new Set(tokens));
+
+    if (distinctTokens.length === 0) {
+      return [];
+    }
+
+    const placeholders = distinctTokens.map(() => '?').join(',');
+    const sql = `
+      SELECT d.path, SUM(p.tf) AS score
+      FROM path_postings p
+      JOIN documents d ON d.id = p.doc_id
+      WHERE d.workspace_id = ?
+        AND p.token IN (${placeholders})
+      GROUP BY d.id, d.path
+      ORDER BY score DESC
+      LIMIT ?
+    `;
+
+    const statement = this.db.prepare(sql);
+    const parameters: (string | number)[] = [this.workspaceId, ...distinctTokens, maxResults];
+    const rows = statement.all(...parameters) as Array<{ path: string; score: number }>;
+
+    const results: string[] = [];
+
+    for (const row of rows) {
+      results.push(row.path);
+    }
+
+    return results;
+  }
+
+  public searchContentByTokens(query: string, maxResults: number): Array<{ path: string; line: number; score: number }> {
+    const normalizedQuery = query.toLowerCase();
+    const tokens = this.splitTokens(normalizedQuery);
+
+    if (tokens.length === 0 || maxResults <= 0) {
+      return [];
+    }
+
+    const distinctTokens = Array.from(new Set(tokens));
+
+    if (distinctTokens.length === 0) {
+      return [];
+    }
+
+    const placeholders = distinctTokens.map(() => '?').join(',');
+    const sql = `
+      SELECT d.path, c.line, SUM(c.tf) AS score
+      FROM content_postings c
+      JOIN documents d ON d.id = c.doc_id
+      WHERE d.workspace_id = ?
+        AND c.token IN (${placeholders})
+      GROUP BY d.id, d.path, c.line
+      ORDER BY score DESC
+      LIMIT ?
+    `;
+
+    const statement = this.db.prepare(sql);
+    const parameters: (string | number)[] = [this.workspaceId, ...distinctTokens, maxResults];
+    const rows = statement.all(...parameters) as Array<{ path: string; line: number; score: number }>;
+
+    return rows;
+  }
+
+  public getCandidateFiles(query: string, maxFiles: number): string[] {
+    const normalizedQuery = query.toLowerCase();
+    const tokens = this.splitTokens(normalizedQuery);
+
+    if (tokens.length === 0 || maxFiles <= 0) {
+      return [];
+    }
+
+    const distinctTokens = Array.from(new Set(tokens));
+
+    if (distinctTokens.length === 0) {
+      return [];
+    }
+
+    const placeholders = distinctTokens.map(() => '?').join(',');
+    const sql = `
+      SELECT d.path, COUNT(DISTINCT c.token) AS token_matches, SUM(c.tf) AS total_tf
+      FROM content_postings c
+      JOIN documents d ON d.id = c.doc_id
+      WHERE d.workspace_id = ?
+        AND c.token IN (${placeholders})
+      GROUP BY d.id, d.path
+      ORDER BY token_matches DESC, total_tf DESC
+      LIMIT ?
+    `;
+
+    const statement = this.db.prepare(sql);
+    const parameters: (string | number)[] = [this.workspaceId, ...distinctTokens, maxFiles];
+    const rows = statement.all(...parameters) as Array<{ path: string; token_matches: number; total_tf: number }>;
+
+    const results: string[] = [];
+    for (const row of rows) {
+      results.push(row.path);
+    }
+
+    return results;
+  }
+
+  public getIndexStats(): { documentCount: number; contentPostingCount: number; pathPostingCount: number } {
+    const docCountRow = this.db.prepare(
+      'SELECT COUNT(*) AS count FROM documents WHERE workspace_id = ?'
+    ).get(this.workspaceId) as { count: number };
+
+    const contentCountRow = this.db.prepare(
+      `SELECT COUNT(*) AS count FROM content_postings c
+       JOIN documents d ON d.id = c.doc_id
+       WHERE d.workspace_id = ?`
+    ).get(this.workspaceId) as { count: number };
+
+    const pathCountRow = this.db.prepare(
+      `SELECT COUNT(*) AS count FROM path_postings p
+       JOIN documents d ON d.id = p.doc_id
+       WHERE d.workspace_id = ?`
+    ).get(this.workspaceId) as { count: number };
+
+    return {
+      documentCount: docCountRow.count,
+      contentPostingCount: contentCountRow.count,
+      pathPostingCount: pathCountRow.count,
+    };
+  }
+
+  public hasIndexedContent(): boolean {
+    const row = this.db.prepare(
+      'SELECT 1 FROM documents WHERE workspace_id = ? LIMIT 1'
+    ).get(this.workspaceId) as { 1: number } | undefined;
+
+    return row !== undefined;
+  }
 }

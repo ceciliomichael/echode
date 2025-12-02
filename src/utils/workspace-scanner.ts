@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { parseGitignore, matchesGitignorePattern } from '../constants/excluded-patterns';
 
 const EXCLUDED_DIRECTORIES = [
   'node_modules',
@@ -39,10 +40,30 @@ const EXCLUDED_FILES = [
   'AGENTS.md',
 ].map((file) => file.toLowerCase());
 
+// Cache for gitignore patterns per workspace
+const gitignoreCache = new Map<string, string[]>();
+
+/**
+ * Get gitignore patterns for a workspace (cached)
+ */
+function getGitignorePatterns(workspacePath: string): string[] {
+  if (!gitignoreCache.has(workspacePath)) {
+    gitignoreCache.set(workspacePath, parseGitignore(workspacePath));
+  }
+  return gitignoreCache.get(workspacePath) || [];
+}
+
+/**
+ * Clear gitignore cache (useful when .gitignore changes)
+ */
+export function clearGitignoreCache(): void {
+  gitignoreCache.clear();
+}
+
 /**
  * Check if a file or directory should be excluded from scanning
  */
-export function shouldExclude(name: string, isDirectory: boolean): boolean {
+export function shouldExclude(name: string, isDirectory: boolean, workspacePath?: string, relativePath?: string): boolean {
   const normalizedName = name.toLowerCase();
 
   if (isDirectory && EXCLUDED_DIRECTORIES.includes(normalizedName)) {
@@ -57,6 +78,16 @@ export function shouldExclude(name: string, isDirectory: boolean): boolean {
   if (name.endsWith('.log') || name.endsWith('.tmp') || name.endsWith('.swp')) {
     return true;
   }
+  
+  // Check gitignore patterns if workspace path is provided
+  if (workspacePath) {
+    const gitignorePatterns = getGitignorePatterns(workspacePath);
+    const pathToCheck = relativePath || name;
+    if (matchesGitignorePattern(pathToCheck, gitignorePatterns)) {
+      return true;
+    }
+  }
+  
   return false;
 }
 
@@ -86,12 +117,13 @@ export function getWorkspaceFiles(workspacePath: string): string[] {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
       
       for (const entry of entries) {
-        if (shouldExclude(entry.name, entry.isDirectory())) {
+        const relPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+        
+        if (shouldExclude(entry.name, entry.isDirectory(), workspacePath, relPath)) {
           continue;
         }
         
         const fullPath = path.join(dir, entry.name);
-        const relPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
         
         if (entry.isDirectory()) {
           traverse(fullPath, relPath);
@@ -99,7 +131,7 @@ export function getWorkspaceFiles(workspacePath: string): string[] {
           files.push(relPath);
         }
       }
-    } catch (error) {
+    } catch (_error) {
       // Skip directories that can't be read
     }
   };

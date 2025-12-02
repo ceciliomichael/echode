@@ -22,7 +22,7 @@ const FORBIDDEN_CONTENT_PATTERNS = [
  * Returns error message if forbidden content detected, null if safe
  */
 function screenContentForProtocol(content: string): string | null {
-  if (typeof content !== 'string') return null;
+  if (typeof content !== 'string') {return null;}
   
   for (const pattern of FORBIDDEN_CONTENT_PATTERNS) {
     if (pattern.test(content)) {

@@ -69,7 +69,7 @@ function parseXMLParameters(content: string): Record<string, unknown> {
   // Check each opening tag for unclosed content
   for (const tag of openingTags) {
     // Skip if we already have this parameter (it was complete)
-    if (parameters[tag.name] !== undefined) continue;
+    if (parameters[tag.name] !== undefined) {continue;}
     
     // Extract partial content from opening tag to end or next parameter tag
     const closingTag = '</parameter>';
@@ -144,8 +144,8 @@ function parseParamValue(value: string, isRawString = false): unknown {
   }
   
   // Handle boolean values
-  if (trimmedValue === 'true') return true;
-  if (trimmedValue === 'false') return false;
+  if (trimmedValue === 'true') {return true;}
+  if (trimmedValue === 'false') {return false;}
   
   // Handle numeric values
   if (trimmedValue && !isNaN(Number(trimmedValue))) {
@@ -173,7 +173,7 @@ function extractCompleteJsonObjects(partialArray: string): unknown[] {
     const char = content[i];
     
     if (char === '{') {
-      if (depth === 0) objStart = i;
+      if (depth === 0) {objStart = i;}
       depth++;
     } else if (char === '}') {
       depth--;
@@ -200,7 +200,7 @@ function extractCompleteJsonObjects(partialArray: string): unknown[] {
  * Returns true if the content contains <function_calls> or <invoke tags
  */
 function hasNestedToolCalls(content: string): boolean {
-  if (typeof content !== 'string') return false;
+  if (typeof content !== 'string') {return false;}
   // Check for nested function_calls or invoke tags
   return /<function_calls>/.test(content) || /<invoke\s+name=/.test(content);
 }

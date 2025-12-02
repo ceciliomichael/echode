@@ -20,6 +20,7 @@ import './tools/plan-navigator-tool.tsx';
 import './tools/plan-handoff-tool.tsx';
 import './tools/apply-diff-tool.tsx';
 import './tools/get-diagnostics-tool.tsx';
+import './tools/echo-search-tool.tsx';
 
 /**
  * Tool status callback for mid-execution updates

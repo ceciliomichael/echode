@@ -1,7 +1,7 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { chatApi } from '../services/chat-api';
 import { useWorkspaceContext } from './use-workspace-context';
-import type { Message } from '../types/chat';
+import type { Message, ImageAttachment } from '../types/chat';
 import type { ChatMessage } from '../types/chat-api';
 import type { ChatMode } from '../types/chat-mode';
 import { hasCompleteToolBlock, extractToolBlocks, trimToFirstCompleteToolBlock, extractParallelizableToolBlocks } from '../lib/tool-parser';
@@ -188,8 +188,16 @@ export function useToolExecution({
       messagesToSend: Message[],
       userContent: string,
       toolIndex = 0,
+      userAttachments?: ImageAttachment[],
     ) => {
-      if (!toolExecutorRef.current) return;
+      if (!toolExecutorRef.current) {return;}
+      
+      // If no userAttachments provided, try to find from the latest user message in history
+      // This ensures images are preserved across tool execution continuations
+      const effectiveUserAttachments = userAttachments ?? (() => {
+        const lastUserMsg = [...messagesRef.current].reverse().find(m => m.role === 'user');
+        return lastUserMsg?.attachments;
+      })();
       
       try {
         // Keep executing tool state active
@@ -287,7 +295,8 @@ export function useToolExecution({
             toolResultText,
             diagnosticsText,
             currentTodos,
-            mode
+            mode,
+            effectiveUserAttachments
           );
           
           // Continue streaming with results from parallel execution
@@ -341,7 +350,8 @@ export function useToolExecution({
                 continuationHistory,
                 messagesToSend,
                 userContent,
-                parallelizableBlocks.length // Continue from after the parallel batch
+                parallelizableBlocks.length, // Continue from after the parallel batch
+                effectiveUserAttachments
               );
               return;
             }
@@ -521,7 +531,8 @@ export function useToolExecution({
           toolResultText,
           diagnosticsText,
           currentTodos,
-          mode
+          mode,
+          effectiveUserAttachments
         );
         
         // Continue streaming - clear executing tool state
@@ -578,7 +589,8 @@ export function useToolExecution({
               continuationHistory,
               messagesToSend,
               userContent,
-              toolIndex + 1
+              toolIndex + 1,
+              effectiveUserAttachments
             );
             return;
           }

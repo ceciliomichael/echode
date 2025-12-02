@@ -7,7 +7,7 @@ import { storageService } from './storage';
  * Note: Always returns true to allow vision on all models
  * If a model doesn't support vision, the API will handle it gracefully
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+ 
 export function isVisionCapableModel(_modelName: string): boolean {
   // Enable vision for all models - let the API handle unsupported models
   return true;

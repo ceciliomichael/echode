@@ -1,4 +1,4 @@
-import { Loader, Folder, Search, FileSearch, Trash2, type LucideIcon } from 'lucide-react';
+import { Loader, Folder, Search, FileSearch, Trash2, Radar, type LucideIcon } from 'lucide-react';
 import type { IconType } from 'react-icons';
 import { getToolMetadata } from '../lib/tool-registry';
 import { getFileIconConfig, extractFileName } from './file-icon-mapper';
@@ -64,6 +64,23 @@ export function getToolFileInfo(
       displayName: truncatedQuery ? `Search: ${truncatedQuery}` : 'Search',
       fullPath: path || '',
       icon: isExecuting ? Loader : Search,
+      iconColor: isExecuting
+        ? 'var(--vscode-charts-blue)'
+        : 'var(--vscode-editor-foreground)',
+      isSpinning: isExecuting,
+    };
+  }
+
+  // Echo search -> Use Radar icon and query text as display name
+  if (toolName === 'echo_search') {
+    const query = parameters.query as string | undefined;
+    const truncatedQuery = query && query.length > 60 ? query.substring(0, 60) + '...' : query;
+    const displayName = truncatedQuery || 'Echo Search';
+
+    return {
+      displayName,
+      fullPath: path || '',
+      icon: isExecuting ? Loader : Radar,
       iconColor: isExecuting
         ? 'var(--vscode-charts-blue)'
         : 'var(--vscode-editor-foreground)',

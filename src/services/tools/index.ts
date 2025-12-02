@@ -11,3 +11,4 @@ export { PlanHandoffTool } from './plan-handoff-tool';
 export { ApplyDiffTool } from './apply-diff-tool';
 export { ITool, ToolExecutionResult } from './tool.interface';
 export { GetDiagnosticsTool } from './get-diagnostics-tool';
+export { EchoSearchTool } from './echo-search-tool';

@@ -1,8 +1,8 @@
-import { Settings, FileText, Wrench, ChevronDown } from 'lucide-react';
+import { Settings, FileText, Wrench, ChevronDown, Search } from 'lucide-react';
 
 interface SettingsDropdownProps {
-  activeTab: 'api' | 'system' | 'tools';
-  onTabChange: (tab: 'api' | 'system' | 'tools') => void;
+  activeTab: 'api' | 'system' | 'tools' | 'indexing';
+  onTabChange: (tab: 'api' | 'system' | 'tools' | 'indexing') => void;
   isOpen: boolean;
   onToggle: () => void;
 }
@@ -22,7 +22,7 @@ export function SettingsDropdown({ activeTab, onTabChange, isOpen, onToggle }: S
         <div className="flex items-center gap-2">
           <Settings size={16} strokeWidth={1.5} />
           <span className="text-sm font-semibold">
-            {activeTab === 'api' ? 'API Configuration' : activeTab === 'system' ? 'System Prompt' : 'Tools'}
+            {activeTab === 'api' ? 'API Configuration' : activeTab === 'system' ? 'System Prompt' : activeTab === 'tools' ? 'Tools' : 'Indexing'}
           </span>
         </div>
         <ChevronDown
@@ -115,6 +115,31 @@ export function SettingsDropdown({ activeTab, onTabChange, isOpen, onToggle }: S
             >
               <Wrench size={14} strokeWidth={1.5} />
               <span className="font-medium">Tools</span>
+            </button>
+            <button
+              onClick={() => {
+                onTabChange('indexing');
+                onToggle();
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs rounded-lg transition-all border"
+              style={{
+                backgroundColor: activeTab === 'indexing' ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent',
+                color: activeTab === 'indexing' ? 'var(--vscode-list-activeSelectionForeground)' : 'var(--vscode-foreground)',
+                borderColor: activeTab === 'indexing' ? 'var(--vscode-focusBorder)' : 'transparent'
+              }}
+              onMouseEnter={(e) => {
+                if (activeTab !== 'indexing') {
+                  e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeTab !== 'indexing') {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
+              }}
+            >
+              <Search size={14} strokeWidth={1.5} />
+              <span className="font-medium">Indexing</span>
             </button>
           </nav>
         </div>

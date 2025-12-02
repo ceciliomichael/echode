@@ -52,7 +52,7 @@ function parseXMLParameters(content: string): Record<string, unknown> {
   // Check each opening tag for unclosed content
   for (const tag of openingTags) {
     // Skip if we already have this parameter (it was complete)
-    if (parameters[tag.name] !== undefined) continue;
+    if (parameters[tag.name] !== undefined) {continue;}
     
     // Extract partial content from opening tag
     const closingTag = '</parameter>';
@@ -89,8 +89,8 @@ function parseParamValue(value: string): unknown {
   }
   
   // Handle boolean values
-  if (value === 'true') return true;
-  if (value === 'false') return false;
+  if (value === 'true') {return true;}
+  if (value === 'false') {return false;}
   
   // Handle numeric values
   if (value && !isNaN(Number(value))) {
@@ -118,7 +118,7 @@ function extractCompleteJsonObjects(partialArray: string): unknown[] {
     const char = content[i];
     
     if (char === '{') {
-      if (depth === 0) objStart = i;
+      if (depth === 0) {objStart = i;}
       depth++;
     } else if (char === '}') {
       depth--;

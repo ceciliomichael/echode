@@ -1,5 +1,21 @@
 export type Provider = 'anthropic' | 'openai' | 'openai-compatible' | 'megallm' | 'vscode-lm' | 'qwen-code';
 
+export interface IndexingSettings {
+  provider: Provider;
+  model: string;
+  maxIterations: number;
+  maxFiles: number;
+  maxSnippets: number;
+}
+
+export const DEFAULT_INDEXING_SETTINGS: IndexingSettings = {
+  provider: 'anthropic',
+  model: '',
+  maxIterations: 5,
+  maxFiles: 100,
+  maxSnippets: 20,
+};
+
 export interface Tool {
   id: string;
   name: string;
@@ -43,6 +59,7 @@ export interface ApiSettings {
   systemPrompt?: string;
   enabledTools?: Tool[];
   chatMode?: 'agent' | 'plan' | 'ask';
+  indexingSettings?: IndexingSettings;
 }
 
 export const DEFAULT_API_SETTINGS: ApiSettings = {

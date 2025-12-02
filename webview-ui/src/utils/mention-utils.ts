@@ -33,7 +33,7 @@ export function getActiveMention(
   
   // Find the last @ before cursor
   const lastAtIndex = beforeCursor.lastIndexOf('@');
-  if (lastAtIndex === -1) return null;
+  if (lastAtIndex === -1) {return null;}
   
   // Check if there's whitespace between @ and cursor (excluding escaped spaces)
   const textAfterAt = beforeCursor.slice(lastAtIndex + 1);
@@ -173,7 +173,7 @@ export interface MentionSuggestion {
 export function getFileExtension(filePath: string): string {
   const basename = filePath.split('/').pop() || filePath;
   const dotIndex = basename.lastIndexOf('.');
-  if (dotIndex === -1 || dotIndex === 0) return '';
+  if (dotIndex === -1 || dotIndex === 0) {return '';}
   return basename.slice(dotIndex + 1).toLowerCase();
 }
 

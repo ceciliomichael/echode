@@ -1,11 +1,35 @@
 import * as vscode from 'vscode';
 import { ITool, ToolExecutionResult } from './tool.interface';
 import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
+import { parseGitignore, matchesGitignorePattern } from '../../constants/excluded-patterns';
 
 const MAX_LIST_FILES_RESULTS = 200;
 
-function shouldExcludeFileFromListing(name: string): boolean {
-  return name.toLowerCase() === 'agents.md'.toLowerCase();
+// Cache for gitignore patterns
+const gitignoreCache = new Map<string, string[]>();
+
+function getGitignorePatterns(workspacePath: string): string[] {
+  if (!gitignoreCache.has(workspacePath)) {
+    gitignoreCache.set(workspacePath, parseGitignore(workspacePath));
+  }
+  return gitignoreCache.get(workspacePath) || [];
+}
+
+function shouldExcludeFileFromListing(name: string, workspacePath?: string, relativePath?: string): boolean {
+  if (name.toLowerCase() === 'agents.md'.toLowerCase()) {
+    return true;
+  }
+  
+  // Check gitignore patterns
+  if (workspacePath) {
+    const gitignorePatterns = getGitignorePatterns(workspacePath);
+    const pathToCheck = relativePath || name;
+    if (matchesGitignorePattern(pathToCheck, gitignorePatterns)) {
+      return true;
+    }
+  }
+  
+  return false;
 }
 
 async function collectFilesRecursively(
@@ -37,10 +61,15 @@ async function collectFilesRecursively(
       continue;
     }
 
+    const childRelPath = effectiveRelPath
+      ? `${effectiveRelPath}/${name}`
+      : name;
+
     if (fileType === vscode.FileType.Directory) {
-      const childRelPath = effectiveRelPath
-        ? `${effectiveRelPath}/${name}`
-        : name;
+      // Check if directory should be excluded
+      if (shouldExcludeFileFromListing(name, workspaceRoot, childRelPath)) {
+        continue;
+      }
       await collectFilesRecursively(workspaceRoot, baseDirPath, childRelPath, files, truncatedRef);
     } else if (fileType === vscode.FileType.File) {
       if (files.length >= MAX_LIST_FILES_RESULTS) {
@@ -48,13 +77,9 @@ async function collectFilesRecursively(
         break;
       }
 
-      if (shouldExcludeFileFromListing(name)) {
+      if (shouldExcludeFileFromListing(name, workspaceRoot, childRelPath)) {
         continue;
       }
-
-      const childRelPath = effectiveRelPath
-        ? `${effectiveRelPath}/${name}`
-        : name;
 
       let size: number | undefined;
       try {
@@ -99,7 +124,9 @@ export class ListFilesTool implements ITool {
           continue;
         }
 
-        if (shouldExcludeFileFromListing(name)) {
+        const relPath = dirPath ? `${dirPath}/${name}` : name;
+
+        if (shouldExcludeFileFromListing(name, workspaceRoot, relPath)) {
           continue;
         }
 
@@ -107,8 +134,7 @@ export class ListFilesTool implements ITool {
           directories.push({ name, type: 'directory' });
 
           if (recursive) {
-            const childRelPath = dirPath ? `${dirPath}/${name}` : name;
-            await collectFilesRecursively(workspaceRoot, dirPath, childRelPath, files, truncatedRef);
+            await collectFilesRecursively(workspaceRoot, dirPath, relPath, files, truncatedRef);
           }
         } else if (fileType === vscode.FileType.File) {
           if (files.length >= MAX_LIST_FILES_RESULTS) {
@@ -116,7 +142,6 @@ export class ListFilesTool implements ITool {
             break;
           }
 
-          const relFilePath = dirPath ? `${dirPath}/${name}` : name;
           let size: number | undefined;
           try {
             const fileStat = await vscode.workspace.fs.stat(uri.with({ path: `${uri.path}/${name}` }));
@@ -125,7 +150,7 @@ export class ListFilesTool implements ITool {
             size = undefined;
           }
 
-          files.push({ name: relFilePath, type: 'file', size });
+          files.push({ name: relPath, type: 'file', size });
         }
       }
 

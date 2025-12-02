@@ -45,7 +45,7 @@ export function formatDiagnosticsForAI(
   currentAttempts: number,
   maxIterations: number
 ): string {
-  if (!diagnostics || diagnostics.length === 0) return '';
+  if (!diagnostics || diagnostics.length === 0) {return '';}
 
   const diagnosticLines = diagnostics.map((d) => {
     const source = d.source ? ` (${d.source})` : '';

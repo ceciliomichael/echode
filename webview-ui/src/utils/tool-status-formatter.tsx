@@ -42,6 +42,8 @@ export function getToolStatusDisplay(
       executingText = 'Ready';
     } else if (toolName === 'apply_diff') {
       executingText = 'Editing';
+    } else if (toolName === 'echo_search') {
+      executingText = 'Echoing';
     }
 
     return (
