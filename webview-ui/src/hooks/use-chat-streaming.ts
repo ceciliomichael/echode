@@ -128,6 +128,72 @@ export function useChatStreaming({
       console.log('[Chat] Model info:', { currentModel, modelSupportsVision });
       console.log('[Chat] User message has attachments:', attachments?.length || 0);
       
+      // FORCED ECHO SEARCH: Bypass LLM and execute echo_search directly
+      if (forceEchoSearch && mode === 'agent') {
+        console.log('[Chat] Forced echo_search triggered - executing directly without LLM');
+        
+        // Create synthetic assistant content with echo_search tool block
+        // Must match the expected format: <function_calls><invoke name="tool">...
+        const syntheticToolBlock = `<function_calls>
+<invoke name="echo_search">
+<parameter name="query">${content}</parameter>
+</invoke>
+</function_calls>`;
+        
+        assistantContent = syntheticToolBlock;
+        
+        // Update UI immediately with the tool block
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMessageId
+              ? { ...msg, content: assistantContent }
+              : msg
+          )
+        );
+        
+        // Set executing tool state immediately
+        setIsExecutingTool(true);
+        
+        // Build minimal chat history for continuation after tool execution
+        const chatHistory: ChatMessage[] = [
+          { role: 'system', content: systemPrompt },
+        ];
+        
+        // Add previous messages
+        for (const msg of messagesToSend) {
+          const contentWithoutThinking = removeThinkBlocks(msg.content);
+          const chatMessage = buildChatMessage(
+            msg.role,
+            contentWithoutThinking,
+            msg.attachments,
+            modelSupportsVision
+          );
+          chatHistory.push(chatMessage);
+        }
+        
+        // Add current user message
+        const finalUserMessage = buildChatMessage(
+          'user',
+          content,
+          attachments,
+          modelSupportsVision
+        );
+        chatHistory.push(finalUserMessage);
+        
+        // Execute tool directly and continue
+        await executeToolAndContinue(
+          assistantContent,
+          assistantMessageId,
+          chatHistory,
+          messagesToSend,
+          content,
+          0,
+          attachments
+        );
+        
+        return; // Exit early, tool execution handles continuation
+      }
+      
       // Build chat history with system prompt + all messages + tool results
       const chatHistory: ChatMessage[] = [
         {
@@ -224,10 +290,7 @@ export function useChatStreaming({
       
       // Build instruction based on context
       let instruction: string;
-      if (forceEchoSearch) {
-        // Forced echo_search mode (Ctrl+Enter) - user wants immediate sub-agent exploration
-        instruction = `\n\n[CRITICAL INSTRUCTION: The user triggered FORCED ECHO SEARCH (Ctrl+Enter). You MUST IMMEDIATELY call echo_search with their query as the first action. Do NOT respond with text first. Do NOT use any other tool first. Call echo_search NOW with query: "${content.replace(/"/g, "'")}"]`;
-      } else if (hasToolResults) {
+      if (hasToolResults) {
         instruction = '\n\n[INSTRUCTION: You have tool execution results in <tool_results>. Use them instead of guessing file contents. Follow your system prompt and tool rules. Respond concisely and stay focused on the coding task.]';
       } else {
         instruction = '\n\n[INSTRUCTION: Follow your system prompt and tool rules. Respond concisely and stay focused on the coding task.]';
@@ -349,25 +412,45 @@ export function useChatStreaming({
           
         } catch (streamError) {
           const errorMessage = streamError instanceof Error ? streamError.message : 'Unknown error';
-          const isHttpError = errorMessage.includes('HTTP') || errorMessage.includes('500');
+          const lowerError = errorMessage.toLowerCase();
+          
+          // Detect retryable transient errors:
+          // - HTTP errors (500, 502, 503, 504)
+          // - JSON parse errors (server returned malformed response)
+          // - Service unavailable
+          // - Connection errors
+          const isRetryableError = 
+            lowerError.includes('http') ||
+            lowerError.includes('500') ||
+            lowerError.includes('502') ||
+            lowerError.includes('503') ||
+            lowerError.includes('504') ||
+            lowerError.includes('parse') ||
+            lowerError.includes('json') ||
+            lowerError.includes('service unavailable') ||
+            lowerError.includes('econnreset') ||
+            lowerError.includes('etimedout') ||
+            lowerError.includes('econnrefused') ||
+            lowerError.includes('network') ||
+            lowerError.includes('fetch');
           
           // Check if user manually aborted
           if (abortControllerRef.current?.signal.aborted) {
             console.log('[STREAMING] User aborted, stopping retries');
             streamSuccess = true; // Don't retry on user abort
-          } else if (isHttpError) {
+          } else if (isRetryableError) {
             retryCount++;
-            console.warn(`[STREAMING] HTTP error, auto-retrying (attempt ${retryCount}):`, errorMessage);
+            console.warn(`[STREAMING] Transient error, auto-retrying (attempt ${retryCount}):`, errorMessage);
             
             // Show retry status in UI
             assistantContent = `⟳ Retrying... (attempt ${retryCount})`;
             updateUI();
             
-            // Brief delay before retry (exponential backoff capped at 3s)
-            await new Promise(resolve => setTimeout(resolve, Math.min(500 * retryCount, 3000)));
+            // Brief delay before retry (exponential backoff capped at 5s)
+            await new Promise(resolve => setTimeout(resolve, Math.min(1000 * retryCount, 5000)));
           } else {
-            // Non-HTTP error, show it and stop
-            console.error('[STREAMING] Non-HTTP error:', streamError);
+            // Non-retryable error, show it and stop
+            console.error('[STREAMING] Non-retryable error:', streamError);
             setMessages((prev) =>
               prev.map((msg) =>
                 msg.id === assistantMessageId
@@ -375,7 +458,7 @@ export function useChatStreaming({
                   : msg
               )
             );
-            streamSuccess = true; // Stop retrying for non-HTTP errors
+            streamSuccess = true; // Stop retrying for non-retryable errors
           }
         }
       }

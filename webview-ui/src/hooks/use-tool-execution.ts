@@ -391,19 +391,39 @@ export function useToolExecution({
               }
             } catch (streamError) {
               const errorMessage = streamError instanceof Error ? streamError.message : 'Unknown error';
-              const isHttpError = errorMessage.includes('HTTP') || errorMessage.includes('500');
+              const lowerError = errorMessage.toLowerCase();
+              
+              // Detect retryable transient errors:
+              // - HTTP errors (500, 502, 503, 504)
+              // - JSON parse errors (server returned malformed response)
+              // - Service unavailable
+              // - Connection errors
+              const isRetryableError = 
+                lowerError.includes('http') ||
+                lowerError.includes('500') ||
+                lowerError.includes('502') ||
+                lowerError.includes('503') ||
+                lowerError.includes('504') ||
+                lowerError.includes('parse') ||
+                lowerError.includes('json') ||
+                lowerError.includes('service unavailable') ||
+                lowerError.includes('econnreset') ||
+                lowerError.includes('etimedout') ||
+                lowerError.includes('econnrefused') ||
+                lowerError.includes('network') ||
+                lowerError.includes('fetch');
               
               // Check if user manually aborted
               if (abortControllerRef.current?.signal.aborted || isStoppingRef.current) {
                 console.log('[Tool] User aborted, stopping retries');
                 streamSuccess = true;
-              } else if (isHttpError) {
+              } else if (isRetryableError) {
                 retryCount++;
-                console.warn(`[Tool] HTTP error during parallel continuation, auto-retrying (attempt ${retryCount}):`, errorMessage);
-                // Brief delay before retry (exponential backoff capped at 3s)
-                await new Promise(resolve => setTimeout(resolve, Math.min(500 * retryCount, 3000)));
+                console.warn(`[Tool] Transient error during parallel continuation, auto-retrying (attempt ${retryCount}):`, errorMessage);
+                // Brief delay before retry (exponential backoff capped at 5s)
+                await new Promise(resolve => setTimeout(resolve, Math.min(1000 * retryCount, 5000)));
               } else {
-                // Non-HTTP error, rethrow
+                // Non-retryable error, rethrow
                 throw streamError;
               }
             }
@@ -672,19 +692,39 @@ export function useToolExecution({
             }
           } catch (streamError) {
             const errorMessage = streamError instanceof Error ? streamError.message : 'Unknown error';
-            const isHttpError = errorMessage.includes('HTTP') || errorMessage.includes('500');
+            const lowerError = errorMessage.toLowerCase();
+            
+            // Detect retryable transient errors:
+            // - HTTP errors (500, 502, 503, 504)
+            // - JSON parse errors (server returned malformed response)
+            // - Service unavailable
+            // - Connection errors
+            const isRetryableError = 
+              lowerError.includes('http') ||
+              lowerError.includes('500') ||
+              lowerError.includes('502') ||
+              lowerError.includes('503') ||
+              lowerError.includes('504') ||
+              lowerError.includes('parse') ||
+              lowerError.includes('json') ||
+              lowerError.includes('service unavailable') ||
+              lowerError.includes('econnreset') ||
+              lowerError.includes('etimedout') ||
+              lowerError.includes('econnrefused') ||
+              lowerError.includes('network') ||
+              lowerError.includes('fetch');
             
             // Check if user manually aborted
             if (abortControllerRef.current?.signal.aborted || isStoppingRef.current) {
               console.log('[Tool] User aborted, stopping retries');
               streamSuccess = true;
-            } else if (isHttpError) {
+            } else if (isRetryableError) {
               retryCount++;
-              console.warn(`[Tool] HTTP error during continuation, auto-retrying (attempt ${retryCount}):`, errorMessage);
-              // Brief delay before retry (exponential backoff capped at 3s)
-              await new Promise(resolve => setTimeout(resolve, Math.min(500 * retryCount, 3000)));
+              console.warn(`[Tool] Transient error during continuation, auto-retrying (attempt ${retryCount}):`, errorMessage);
+              // Brief delay before retry (exponential backoff capped at 5s)
+              await new Promise(resolve => setTimeout(resolve, Math.min(1000 * retryCount, 5000)));
             } else {
-              // Non-HTTP error, rethrow
+              // Non-retryable error, rethrow
               throw streamError;
             }
           }
