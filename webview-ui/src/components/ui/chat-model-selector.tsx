@@ -254,7 +254,7 @@ export function ChatModelSelector({ provider: activeProvider, model: activeModel
           </div>
 
           <div
-            className="overflow-y-auto max-h-48"
+            className="overflow-y-auto max-h-48 overflow-hidden rounded-b-xl"
             style={{ backgroundColor: 'transparent' }}
           >
             {anyLoading && !hasSearch && (
@@ -270,16 +270,17 @@ export function ChatModelSelector({ provider: activeProvider, model: activeModel
                 </div>
               ) : (
                 <div className="flex flex-col">
-                  {filteredResults.map((item) => {
+                  {filteredResults.map((item, index) => {
                     const isSelected =
                       item.provider === activeProvider && item.model === activeModel;
+                    const isLast = index === filteredResults.length - 1;
 
                     return (
                       <button
                         key={`${item.provider}:${item.model}`}
                         type="button"
                         onClick={() => handleSelectModel(item.provider, item.model)}
-                        className="w-full px-3 py-1.5 text-left transition-colors flex items-center justify-between"
+                        className={`w-full px-3 py-1.5 text-left transition-colors flex items-center justify-between ${isLast ? 'rounded-b-xl' : ''}`}
                         style={{
                           backgroundColor: isSelected
                             ? 'var(--vscode-list-activeSelectionBackground)'
@@ -335,16 +336,17 @@ export function ChatModelSelector({ provider: activeProvider, model: activeModel
                         </div>
 
                         <div className="flex flex-col">
-                          {providerModels.map((model) => {
+                          {providerModels.map((model, modelIndex) => {
                             const isSelected =
                               provider === activeProvider && model === activeModel;
+                            const isLastModel = modelIndex === providerModels.length - 1;
 
                             return (
                               <button
                                 key={`${provider}:${model}`}
                                 type="button"
                                 onClick={() => handleSelectModel(provider, model)}
-                                className="w-full px-3 py-1.5 text-left transition-colors flex items-center justify-between"
+                                className={`w-full px-3 py-1.5 text-left transition-colors flex items-center justify-between ${isLastModel ? 'rounded-b-xl' : ''}`}
                                 style={{
                                   backgroundColor: isSelected
                                     ? 'var(--vscode-list-activeSelectionBackground)'

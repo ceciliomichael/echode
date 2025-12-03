@@ -4,11 +4,25 @@ import type { ChatMode } from '../../types/chat-mode';
 export function getCapabilitiesSection(workspace: WorkspaceContext | null, mode: ChatMode = 'agent'): string {
 	const cwd = workspace?.path || 'the current workspace';
 
+	const capabilityIntro = mode === 'general'
+		? 'read and write files, apply targeted diffs, and manage documents. '
+		: mode === 'agent'
+			? 'read and write files, apply targeted diffs, and manage todo lists. '
+			: mode === 'ask'
+				? 'read files. '
+				: 'read files, and manage todo lists. ';
+
+	const taskExamples = mode === 'general'
+		? 'writing documents, organizing files, '
+		: mode === 'agent'
+			? 'writing code, making edits or improvements to existing files, '
+			: '';
+
 	return `====
 
 CAPABILITIES
 
-- You have access to tools that let you list files, view source code, perform regex and glob searches, ${mode === 'agent' ? 'read and write files, apply targeted diffs, and manage todo lists. ' : mode === 'ask' ? 'read files. ' : 'read files, and manage todo lists. '}These tools help you effectively accomplish a wide range of tasks, such as ${mode === 'agent' ? 'writing code, making edits or improvements to existing files, ' : ''}understanding the current state of a project, and much more.
+- You have access to tools that let you list files, view source code, ${mode === 'general' ? '' : 'perform regex and glob searches, '}${capabilityIntro}These tools help you effectively accomplish a wide range of tasks, such as ${taskExamples}understanding the current state of a project, and much more.
 
 - When the user initially gives you a task, a list of all files in the current workspace directory ('${cwd}') will be included in SYSTEM INFORMATION. This provides an overview of the project's file structure, offering key insights into the project from directory/file names (how developers conceptualize and organize their code) and file extensions (the language used). This can guide decision-making on which files to explore further.
 
@@ -29,6 +43,16 @@ ${mode === 'agent' ? `
   2. Analyze the code and plan your changes
   3. Use apply_diff for targeted edits (preferred), or write_to_file for complete rewrites
   4. If you refactored code that could affect other parts of the codebase, use grep_search to ensure you update other files as needed.
+` : mode === 'general' ? `
+- For managing documents, you have these tools:
+  - **apply_diff**: For making targeted edits to existing documents. Use read_file first to get exact content.
+  - **write_to_file**: For creating new documents or completely rewriting existing ones. Always provide COMPLETE content.
+  - **delete_file**: For removing files when explicitly requested.
+  
+  Example workflow for document editing:
+  1. Use read_file to examine the current document contents
+  2. Analyze the content and plan your changes
+  3. Use apply_diff for targeted edits, or write_to_file for new documents
 ` : ''}
-${mode === 'ask' ? '' : '- You can use **todo_write** and **todo_read** to manage a session-based task list. This helps track progress on multi-step tasks.'}`;
+${mode === 'ask' || mode === 'general' ? '' : '- You can use **todo_write** and **todo_read** to manage a session-based task list. This helps track progress on multi-step tasks.'}`;
 }

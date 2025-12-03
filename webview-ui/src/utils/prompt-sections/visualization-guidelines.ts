@@ -38,7 +38,10 @@ BEST PRACTICES:
 - Keep diagrams focused: aim for 5-12 nodes max
 - Split complex systems into multiple focused diagrams
 - Use clear, descriptive labels
-- Format: \`\`\`mermaid ... \`\`\`
+- Format: ALWAYS include both opening and closing code fences:
+  \`\`\`mermaid
+  [diagram content here]
+  \`\`\`
 </mermaid_usage>`;
 
 	let modeSpecificGuidance: string;

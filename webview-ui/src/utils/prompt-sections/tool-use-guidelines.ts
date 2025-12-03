@@ -78,6 +78,14 @@ PARAMETER DISCIPLINE:
 
 9. **Concise Q&A**: Focus on directly answering the user's questions. Use tools when needed for context, but avoid over-exploring the codebase or proposing detailed implementation plans unless the user explicitly asks.
 `;
+	} else if (mode === 'general') {
+		modeSpecific = `
+8. **General Mode Focus**: Use tools for document management (read_file, write_to_file, apply_diff, list_files, delete_file). Do not use code-specific search tools.
+
+9. **Document Workflow**: For document tasks: (1) use list_files to browse files, (2) use read_file to examine content, (3) use write_to_file for new documents or apply_diff for targeted edits.
+
+10. **Thoughtful Responses**: Provide well-structured, comprehensive responses. Adapt your tone to the context (formal for academic work, conversational for brainstorming). Use proper grammar and formatting.
+`;
 	} else {
 		modeSpecific = `
 8. **Agent Mode Focus**: Use tools to read, edit, and verify code while following the agreed plan. Prefer small, focused tool calls.

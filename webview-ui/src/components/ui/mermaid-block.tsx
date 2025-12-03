@@ -202,11 +202,11 @@ const MermaidBlockComponent = ({ code, isGenerating = false }: MermaidBlockProps
         }`}
       >
         <div
-          className="p-4 flex items-center justify-center overflow-auto border-t"
+          className="p-4 flex items-center justify-center overflow-hidden border-t"
           style={{ 
             backgroundColor: 'var(--vscode-editor-background)',
             borderColor: 'var(--vscode-input-border)',
-            minHeight: isExpanded ? '120px' : '0',
+            height: isExpanded ? '300px' : '0',
           }}
         >
         {isGenerating ? (
@@ -234,10 +234,7 @@ const MermaidBlockComponent = ({ code, isGenerating = false }: MermaidBlockProps
           </div>
         ) : svg ? (
           <div
-            className="flex items-center justify-center w-full mermaid-svg-container"
-            style={{
-              overflow: 'auto',
-            }}
+            className="flex items-center justify-center w-full h-full mermaid-svg-container"
             dangerouslySetInnerHTML={{ __html: svg }}
           />
         ) : (
@@ -252,10 +249,20 @@ const MermaidBlockComponent = ({ code, isGenerating = false }: MermaidBlockProps
       </div>
       {/* Inject styles for SVG container */}
       <style>{`
+        .mermaid-svg-container {
+          width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
         .mermaid-svg-container svg {
           max-width: 100%;
+          max-height: 100%;
+          width: auto;
           height: auto;
           display: block;
+          object-fit: contain;
         }
       `}</style>
     </div>

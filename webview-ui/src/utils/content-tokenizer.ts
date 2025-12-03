@@ -506,6 +506,10 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
           isClosed: true
         });
         position = closeTag + 3; // Skip past '```'
+        // Skip trailing newline after closing ``` if present
+        if (position < content.length && content[position] === '\n') {
+          position++;
+        }
       } else {
         // Unclosed mermaid block (streaming)
         const mermaidContent = content.slice(contentStart).trim();

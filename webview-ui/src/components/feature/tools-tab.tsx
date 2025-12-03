@@ -66,7 +66,7 @@ export function ToolsTab({ enabledTools, onChange }: ToolsTabProps) {
           className="text-xs sm:text-sm"
           style={{ color: 'var(--vscode-descriptionForeground)' }}
         >
-          Enable or disable tools that the AI can use during conversations. Disabled tools will not be available to the AI assistant.
+          Manage tools available in Agent mode. Other modes (Plan, Ask, General) use fixed tool sets that cannot be customized.
         </p>
       </div>
 

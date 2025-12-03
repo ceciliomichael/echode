@@ -43,19 +43,6 @@ const ToolBlockComponent = ({
     }
   }, [isEchoSearch, toolCall.status, toolCall.progress?.iteration]);
 
-  // Auto-close echo_search when it completes
-  useEffect(() => {
-    if (isEchoSearch && (toolCall.status === 'completed' || toolCall.status === 'error')) {
-      // Check if we need to collapse (only if currently expanded)
-      setTimeout(() => {
-        setIsExpanded((current) => {
-          if (current) return false;
-          return current;
-        });
-      }, 0);
-    }
-  }, [isEchoSearch, toolCall.status]);
-
   // Get status display
   const statusConfig = useMemo(
     () => getToolStatusDisplay(toolCall, isStreaming),

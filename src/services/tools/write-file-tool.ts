@@ -17,6 +17,14 @@ export class WriteFileTool implements ITool {
     'ttf', 'otf', 'woff', 'woff2',
   ]);
 
+  private readonly MARKDOWN_LIKE_EXTENSIONS = new Set([
+    'md',
+    'markdown',
+    'mdx',
+    'adoc',
+    'rst',
+  ]);
+
   private readonly MAX_CONTENT_SIZE = 1024 * 1024 * 5; // 5MB limit
 
   private isBinaryExtension(filePath: string): boolean {
@@ -77,12 +85,17 @@ export class WriteFileTool implements ITool {
 
     let content = rawContent as string;
 
-    // Strip surrounding code fences if present (```), similar to Roo Code behavior
-    if (content.startsWith('```')) {
+    const ext = filePath.split('.').pop()?.toLowerCase();
+    const isMarkdownLike = ext ? this.MARKDOWN_LIKE_EXTENSIONS.has(ext) : false;
+
+    // Strip surrounding code fences if present (```), similar to Roo Code behavior.
+    // IMPORTANT: Do NOT apply this to markdown-like files, where trailing ``` is
+    // usually a legitimate fenced code block (e.g., mermaid diagrams at EOF).
+    if (!isMarkdownLike && content.startsWith('```')) {
       content = content.split('\n').slice(1).join('\n');
     }
 
-    if (content.endsWith('```')) {
+    if (!isMarkdownLike && content.endsWith('```')) {
       content = content.split('\n').slice(0, -1).join('\n');
     }
 

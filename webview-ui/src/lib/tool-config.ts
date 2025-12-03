@@ -25,6 +25,15 @@ export const ASK_MODE_TOOL_IDS = [
   'echo_search',
 ] as const;
 
+// General mode: file operations only (no code-specific search tools)
+export const GENERAL_MODE_TOOL_IDS = [
+  'read_file',
+  'write_to_file',
+  'apply_diff',
+  'list_files',
+  'delete_file',
+] as const;
+
 // Plan-exclusive helpers should never be surfaced outside of Plan mode
 export const PLAN_ONLY_TOOL_IDS = new Set<string>([
   'plan_navigator',
@@ -53,6 +62,13 @@ export function getToolsForMode(mode: ChatMode, defaultEnabled = true): Tool[] {
     // Ask mode: fixed read-only tools including echo_search
     return allTools.filter(tool =>
       (ASK_MODE_TOOL_IDS as readonly string[]).includes(tool.id)
+    );
+  }
+
+  if (mode === 'general') {
+    // General mode: file operations only for document-based workflows
+    return allTools.filter(tool =>
+      (GENERAL_MODE_TOOL_IDS as readonly string[]).includes(tool.id)
     );
   }
 

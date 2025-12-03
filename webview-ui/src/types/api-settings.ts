@@ -72,7 +72,7 @@ export interface ApiSettings {
   qwenCodeTemperature: number;
   systemPrompt?: string;
   enabledTools?: Tool[];
-  chatMode?: 'agent' | 'plan' | 'ask';
+  chatMode?: 'agent' | 'plan' | 'ask' | 'general';
   indexingSettings?: IndexingSettings;
   autocompleteSettings?: AutocompleteSettings;
 }

@@ -1,4 +1,4 @@
-export type ChatMode = 'agent' | 'plan' | 'ask';
+export type ChatMode = 'agent' | 'plan' | 'ask' | 'general';
 
 export const DEFAULT_CHAT_MODE: ChatMode = 'agent';
 
@@ -23,5 +23,10 @@ export const CHAT_MODE_OPTIONS: ChatModeOption[] = [
     value: 'ask',
     label: 'Ask',
     description: 'Echo focuses on Q&A',
+  },
+  {
+    value: 'general',
+    label: 'General',
+    description: 'Echo helps with general tasks',
   },
 ];

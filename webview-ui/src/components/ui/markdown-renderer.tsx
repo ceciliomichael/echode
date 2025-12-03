@@ -211,18 +211,20 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: Mark
     ),
     th: ({ ...props }) => (
       <th
-        className="px-4 py-2.5 text-left font-semibold text-xs uppercase tracking-wide"
+        className="px-4 py-2.5 text-left font-semibold text-xs uppercase tracking-wide border-r last:border-r-0"
         style={{
-          color: 'var(--vscode-editor-foreground)'
+          color: 'var(--vscode-editor-foreground)',
+          borderColor: 'var(--vscode-input-border)'
         }}
         {...props}
       />
     ),
     td: ({ ...props }) => (
       <td
-        className="px-4 py-2.5 text-sm"
+        className="px-4 py-2.5 text-sm border-r last:border-r-0"
         style={{
-          color: 'var(--vscode-editor-foreground)'
+          color: 'var(--vscode-editor-foreground)',
+          borderColor: 'var(--vscode-input-border)'
         }}
         {...props}
       />

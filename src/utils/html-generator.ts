@@ -163,9 +163,14 @@ export function getMermaidPreviewHtml(
       align-items: center;
       gap: 2px;
       padding: 2px;
-      background: var(--vscode-input-background);
+      background: transparent;
       border: 1px solid var(--vscode-input-border);
-      border-radius: 4px;
+      border-radius: 12px;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .toolbar-group:hover {
+      border-color: rgba(255, 255, 255, 0.5);
+      background: rgba(255, 255, 255, 0.05);
     }
     .toolbar-divider {
       width: 1px;
@@ -178,37 +183,80 @@ export function getMermaidPreviewHtml(
       border: none;
       padding: 4px 8px;
       cursor: pointer;
-      border-radius: 2px;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       gap: 4px;
       font-size: 12px;
       font-weight: 400;
       transition: background 0.1s ease;
-      outline: none;
+      outline: none !important;
+      box-shadow: none !important;
     }
     button:hover {
-      background: var(--vscode-toolbar-hoverBackground);
+      background: transparent;
     }
     button:active {
-      opacity: 0.8;
+      background: transparent;
+    }
+    button:hover .icon {
+      transform: scale(1.05);
+    }
+    button:active .icon {
+      transform: scale(0.95);
     }
     button:focus {
-      outline: none;
+      outline: none !important;
+      box-shadow: none !important;
     }
     .save-group {
       display: flex;
       align-items: center;
       padding: 2px;
-      background: var(--vscode-button-secondaryBackground);
-      border: 1px solid var(--vscode-button-border); 
-      border-radius: 4px;
+      background: transparent;
+      border: 1px solid var(--vscode-input-border); 
+      border-radius: 12px;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .save-group:hover {
+      border-color: rgba(255, 255, 255, 0.5);
+      background: rgba(255, 255, 255, 0.05);
     }
     .save-group button {
-      color: var(--vscode-button-secondaryForeground);
+      color: var(--vscode-foreground);
+      transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
     .save-group button:hover {
-      background: var(--vscode-button-secondaryHoverBackground);
+      background: transparent;
+      transform: scale(1.03);
+    }
+    .save-group button:active {
+      transform: scale(0.98);
+    }
+    .button-divider {
+      width: 1px;
+      height: 14px;
+      background: var(--vscode-input-border);
+      margin: 0 2px;
+    }
+    .save-svg-group {
+      display: flex;
+      align-items: center;
+      padding: 2px;
+      background: transparent;
+      border: 1px solid var(--vscode-input-border); 
+      border-radius: 12px;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .save-svg-group:hover {
+      border-color: rgba(255, 255, 255, 0.5);
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .save-svg-group button {
+      color: var(--vscode-foreground);
+    }
+    .save-svg-group button:hover {
+      background: transparent;
     }
     #zoom-level {
       font-size: 11px;
@@ -223,9 +271,15 @@ export function getMermaidPreviewHtml(
       position: relative;
       cursor: grab;
       background: var(--vscode-editor-background);
+      user-select: none;
+      -webkit-user-select: none;
     }
     #container.panning {
       cursor: grabbing;
+    }
+    #container * {
+      user-select: none;
+      -webkit-user-select: none;
     }
     #diagram-wrapper {
       position: absolute;
@@ -258,6 +312,7 @@ export function getMermaidPreviewHtml(
       width: 14px;
       height: 14px;
       stroke-width: 2;
+      transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
   </style>
 </head>
@@ -272,11 +327,13 @@ export function getMermaidPreviewHtml(
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>
       </button>
     </div>
-    <div style="width: 8px"></div>
-    <button onclick="resetView()" title="Reset View">Reset</button>
-    <button onclick="fitToView()" title="Fit to View">Fit</button>
-    <div style="flex: 1;"></div>
     <div class="save-group">
+      <button onclick="resetView()" title="Reset View">Reset</button>
+      <span class="button-divider"></span>
+      <button onclick="fitToView()" title="Fit to View">Fit</button>
+    </div>
+    <div style="flex: 1;"></div>
+    <div class="save-svg-group">
       <button onclick="saveSvg()" title="Save as SVG">Save SVG</button>
     </div>
   </div>

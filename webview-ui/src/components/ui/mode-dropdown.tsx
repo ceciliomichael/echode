@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, Code, Hammer, MessageCircle } from 'lucide-react';
+import { BookOpen, Check, Code, Hammer, MessageCircle } from 'lucide-react';
 import { useHoverEffect, hoverPresets } from '../../hooks/use-hover-effect';
 import type { ChatMode } from '../../types/chat-mode';
 import { CHAT_MODE_OPTIONS } from '../../types/chat-mode';
@@ -8,6 +8,7 @@ const MODE_ICONS: Record<ChatMode, typeof Code> = {
   agent: Code,
   ask: MessageCircle,
   plan: Hammer,
+  general: BookOpen,
 };
 
 interface ModeDropdownProps {
@@ -68,13 +69,15 @@ export function ModeDropdown({ mode, onModeChange, disabled = false, direction =
         disabled={disabled}
         className="flex items-center gap-1.5 px-2 py-1 text-xs rounded-md border transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
         style={{
-          color: mode === 'agent' ? '#22c55e' : mode === 'ask' ? '#3b82f6' : '#f97316',
+          color: mode === 'agent' ? '#22c55e' : mode === 'ask' ? '#3b82f6' : mode === 'plan' ? '#f97316' : '#a855f7',
           backgroundColor: 'transparent',
           borderColor: mode === 'agent'
             ? 'rgba(34, 197, 94, 0.3)'
             : mode === 'ask'
               ? 'rgba(59, 130, 246, 0.3)'
-              : 'rgba(249, 115, 22, 0.3)',
+              : mode === 'plan'
+                ? 'rgba(249, 115, 22, 0.3)'
+                : 'rgba(168, 85, 247, 0.3)',
         }}
         title={currentOption?.description}
         onMouseEnter={(e) => !disabled && handleMouseEnter(e, hoverPresets.button.enter)}
@@ -92,7 +95,7 @@ export function ModeDropdown({ mode, onModeChange, disabled = false, direction =
         <div
           className={`absolute left-0 w-52 rounded-xl border p-1.5 z-[100] ${direction === 'down' ? 'top-full mt-1' : 'bottom-full mb-1'}`}
           style={{
-            backgroundColor: 'var(--vscode-dropdown-background)',
+            backgroundColor: 'var(--vscode-editor-background)',
             borderColor: 'var(--vscode-input-border)',
           }}
         >
@@ -108,17 +111,15 @@ export function ModeDropdown({ mode, onModeChange, disabled = false, direction =
                   onClick={() => handleSelect(option.value)}
                   className="w-full px-2 py-1.5 text-left rounded-xl transition-opacity hover:opacity-80 active:opacity-70 flex items-start gap-1.5 border"
                   style={{
-                    backgroundColor:
-                      isSelected
-                        ? 'var(--vscode-list-activeSelectionBackground)'
-                        : 'var(--vscode-input-background)',
-                    color:
-                      isSelected
-                        ? 'var(--vscode-list-activeSelectionForeground)'
-                        : 'var(--vscode-foreground)',
+                    backgroundColor: isSelected
+                      ? 'var(--vscode-list-activeSelectionBackground)'
+                      : 'transparent',
+                    color: isSelected
+                      ? 'var(--vscode-list-activeSelectionForeground)'
+                      : 'var(--vscode-foreground)',
                     borderColor: isSelected
                       ? 'var(--vscode-list-activeSelectionBackground)'
-                      : 'var(--vscode-input-border)',
+                      : 'transparent',
                   }}
                 >
                   {/* Icon */}
