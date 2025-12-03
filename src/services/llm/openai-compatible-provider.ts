@@ -71,12 +71,10 @@ export class OpenAICompatibleProvider implements ILLMProvider {
         return;
       }
       
-      // If we received content and/or finish signal, the stream was essentially successful
-      // HTTP 500 errors at stream end are common with some OpenAI-compatible servers
-      const isHttpError = error instanceof Error && error.message.includes('HTTP');
-      if ((hasReceivedContent || hasFinishReason) && isHttpError) {
-        // Stream delivered content successfully, just had cleanup issues
-        // Complete the stream gracefully instead of throwing
+      // If we received content and/or a finish signal, treat late errors as non-fatal
+      // Many OpenAI-compatible servers report errors like HTTP 5xx or "terminated" after
+      // successfully delivering the streamed content.
+      if (hasReceivedContent || hasFinishReason) {
         webview.webview.postMessage({
           type: 'chatStreamComplete',
           requestId

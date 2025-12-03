@@ -48,6 +48,14 @@ export function formatToolResultsForHistory(
                 )
                 .join('\n');
           }
+        } else if (execution.toolName === 'write_to_file') {
+          // Concise summary for write operations
+          const action = (data.action as string) || 'modified';
+          const summary = (data.summary as string) || `Successfully ${action} ${data.path as string}`;
+          formattedResult = summary;
+        } else if (execution.toolName === 'apply_diff') {
+          // Concise summary for diff operations
+          formattedResult = (data.message as string) || `Successfully applied diff to ${data.path as string}`;
         } else if (execution.toolName === 'list_files') {
           const directories = data.directories as Array<{ name: string }> | undefined;
           const files = data.files as Array<{ name: string }> | undefined;

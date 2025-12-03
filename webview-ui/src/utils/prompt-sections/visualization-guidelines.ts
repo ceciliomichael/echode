@@ -48,8 +48,8 @@ BEST PRACTICES:
 
 	if (mode === 'plan') {
 		modeSpecificGuidance = `
-<plan_mode_visualization>
-In Plan mode, leverage diagrams to communicate architecture and design:
+<planning_visualization>
+Leverage diagrams to communicate architecture and design:
 
 USE MERMAID FOR:
 - System/component architecture (graph TD)
@@ -60,11 +60,11 @@ USE MERMAID FOR:
 
 Diagrams help users validate understanding before implementation.
 Create diagrams proactively when planning multi-component changes.
-</plan_mode_visualization>`;
+</planning_visualization>`;
 	} else if (mode === 'ask') {
 		modeSpecificGuidance = `
-<ask_mode_visualization>
-In Ask mode, use diagrams when they answer the question more clearly than text:
+<qa_visualization>
+Use diagrams when they answer the question more clearly than text:
 
 GOOD USE CASES:
 - "How does X work?" → sequenceDiagram or flowchart
@@ -73,19 +73,18 @@ GOOD USE CASES:
 - Complex logic explanations → flowchart
 
 Skip diagrams for simple factual answers or code-focused questions.
-</ask_mode_visualization>`;
+</qa_visualization>`;
 	} else {
-		// Agent mode
 		modeSpecificGuidance = `
-<agent_mode_visualization>
-In Agent mode, prioritize code over diagrams. Use mermaid only when:
+<implementation_visualization>
+Prioritize code over diagrams. Use mermaid only when:
 
 - Explaining complex refactoring or architectural changes
 - User explicitly requests a diagram
 - Clarifying intricate logic before implementation
 
 Focus on implementation; diagrams are supplementary, not primary output.
-</agent_mode_visualization>`;
+</implementation_visualization>`;
 	}
 
 	return `${outputFormatJudgment}

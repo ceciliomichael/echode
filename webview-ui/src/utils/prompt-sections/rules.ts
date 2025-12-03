@@ -1,44 +1,80 @@
 import type { WorkspaceContext } from '../../types/workspace';
 import type { ChatMode } from '../../types/chat-mode';
+import type { Tool } from '../../types/tool';
 
-function getEditingInstructions(mode: ChatMode): string {
+function getEditingInstructions(mode: ChatMode, enabledTools: Tool[]): string {
 	const instructions: string[] = [];
+	const enabledIds = new Set(enabledTools.map(t => t.id));
 
 	if (mode === 'general') {
 		// General mode - document-focused instructions
-		instructions.push(
-			"- For managing documents, you have access to: apply_diff (for targeted edits to existing documents), write_to_file (for creating new documents or complete rewrites), delete_file (for removing files)."
-		);
-		instructions.push(
-			"- Prefer apply_diff over write_to_file when making changes to existing documents since it's more efficient for targeted edits."
-		);
-		instructions.push(
-			"- **CRITICAL for apply_diff**: Before EVERY apply_diff call, use read_file to get the current, exact content. The SEARCH blocks must match EXACTLY (100% match including whitespace). WORKFLOW: (1) Use read_file, (2) Copy EXACT text for your SEARCH blocks, (3) Call apply_diff."
-		);
-		instructions.push(
-			"- When using write_to_file, **ALWAYS provide the COMPLETE file content.** Partial updates or placeholders are STRICTLY FORBIDDEN."
-		);
+		const tools = [];
+		if (enabledIds.has('apply_diff')) tools.push('apply_diff (for targeted edits to existing documents)');
+		if (enabledIds.has('write_to_file')) tools.push('write_to_file (for creating new documents or complete rewrites)');
+		if (enabledIds.has('delete_file')) tools.push('delete_file (for removing files)');
+
+		if (tools.length > 0) {
+			instructions.push(`- For managing documents, you have access to: ${tools.join(', ')}.`);
+		}
+
+		if (enabledIds.has('apply_diff')) {
+			instructions.push(
+				"- Prefer apply_diff over write_to_file when making changes to existing documents since it's more efficient for targeted edits."
+			);
+			instructions.push(
+				"- **CRITICAL for apply_diff**: Before EVERY apply_diff call, use read_file to get the current, exact content. The SEARCH blocks must match EXACTLY (100% match including whitespace). WORKFLOW: (1) Use read_file, (2) Copy EXACT text for your SEARCH blocks, (3) Call apply_diff."
+			);
+			instructions.push(
+				"- **VERIFY BEFORE RE-EDITING**: If an edit fails or you are asked to fix a file again, FIRST use read_file to check its current state. If the content already matches your desired state, DO NOT call the edit tool again. Treat 'no changes needed' as a success."
+			);
+		}
+
+		if (enabledIds.has('write_to_file')) {
+			instructions.push(
+				"- When using write_to_file, **ALWAYS provide the COMPLETE file content.** Partial updates or placeholders are STRICTLY FORBIDDEN."
+			);
+			instructions.push(
+				"- **DIAGNOSTICS LIMIT**: If you are unable to fix a file's diagnostics after 3 attempts, STOP editing that file. Summarize the issue and ask for user guidance instead of looping."
+			);
+		}
 	} else {
 		// Agent mode - code-focused instructions
-		instructions.push(
-			"- For editing files, you have access to these tools: apply_diff (for surgical edits - targeted changes to specific lines or functions), write_to_file (for creating new files or complete file rewrites)."
-		);
-		instructions.push(
-			"- You should always prefer using apply_diff over write_to_file when making changes to existing files since write_to_file requires rewriting the entire file and is less efficient for targeted changes."
-		);
-		instructions.push(
-			"- **CRITICAL for apply_diff**: Before EVERY apply_diff call, you MUST use read_file to get the current, exact file content. The SEARCH blocks must match the file content EXACTLY (100% match including all whitespace, tabs, and line endings). Working from memory or assumptions will cause the diff to fail. WORKFLOW: (1) Use read_file, (2) Copy EXACT text from read_file output for your SEARCH blocks, (3) Call apply_diff with precise SEARCH/REPLACE blocks."
-		);
-		instructions.push(
-			"- When using the write_to_file tool to modify a file, use the tool directly with the desired content. You do not need to display the content before using the tool. **ALWAYS provide the COMPLETE file content in your response. This is NON-NEGOTIABLE.** Partial updates or placeholders like '// rest of code unchanged' or '// ... existing code ...' are STRICTLY FORBIDDEN. You MUST include ALL parts of the file, even if they haven't been modified. Failure to do so will result in incomplete or broken code, severely impacting the user's project."
-		);
+		const tools = [];
+		if (enabledIds.has('apply_diff')) tools.push('apply_diff (for surgical edits - targeted changes to specific lines or functions)');
+		if (enabledIds.has('write_to_file')) tools.push('write_to_file (for creating new files or complete file rewrites)');
+
+		if (tools.length > 0) {
+			instructions.push(`- For editing files, you have access to these tools: ${tools.join(', ')}.`);
+		}
+
+		if (enabledIds.has('apply_diff')) {
+			instructions.push(
+				"- You should always prefer using apply_diff over write_to_file when making changes to existing files since write_to_file requires rewriting the entire file and is less efficient for targeted changes."
+			);
+			instructions.push(
+				"- **CRITICAL for apply_diff**: Before EVERY apply_diff call, you MUST use read_file to get the current, exact file content. The SEARCH blocks must match the file content EXACTLY (100% match including all whitespace, tabs, and line endings). Working from memory or assumptions will cause the diff to fail. WORKFLOW: (1) Use read_file, (2) Copy EXACT text from read_file output for your SEARCH blocks, (3) Call apply_diff with precise SEARCH/REPLACE blocks."
+			);
+			instructions.push(
+				"- **VERIFY BEFORE RE-EDITING**: If an edit fails or you are asked to fix a file again, FIRST use read_file to check its current state. If the content already matches your desired state, DO NOT call the edit tool again. Treat 'no changes needed' as a success."
+			);
+		}
+
+		if (enabledIds.has('write_to_file')) {
+			instructions.push(
+				"- When using the write_to_file tool to modify a file, use the tool directly with the desired content. You do not need to display the content before using the tool. **ALWAYS provide the COMPLETE file content in your response. This is NON-NEGOTIABLE.** Partial updates or placeholders like '// rest of code unchanged' or '// ... existing code ...' are STRICTLY FORBIDDEN. You MUST include ALL parts of the file, even if they haven't been modified. Failure to do so will result in incomplete or broken code, severely impacting the user's project."
+			);
+			instructions.push(
+				"- **DIAGNOSTICS LIMIT**: If you are unable to fix a file's diagnostics after 3 attempts, STOP editing that file. Summarize the issue and ask for user guidance instead of looping."
+			);
+		}
 	}
 
 	return instructions.join("\n");
 }
 
-export function getRulesSection(workspace: WorkspaceContext | null, mode: ChatMode = 'agent'): string {
+export function getRulesSection(workspace: WorkspaceContext | null, mode: ChatMode = 'agent', enabledTools: Tool[] = []): string {
 	const cwd = workspace?.path || 'the current workspace directory';
+	const enabledIds = new Set(enabledTools.map(t => t.id));
 
 	return `====
 
@@ -49,11 +85,13 @@ RULES
 - You cannot change directories. You are stuck operating from '${cwd}', so be sure to pass in the correct 'path' parameter when using tools that require a path.
 - Do not use the ~ character or $HOME to refer to the home directory on Windows.
 
-${mode === 'agent' || mode === 'general' ? getEditingInstructions(mode) : ''}
+- **CRITICAL - Tool Availability**: You may ONLY use tools explicitly listed in your <enabled_tools> section. Do NOT invent, assume, or hallucinate tools that are not provided. If a tool is not listed, it does not exist for you.
 
-${mode !== 'general' ? `- When using the grep_search tool, craft your regex patterns carefully to balance specificity and flexibility. Based on the user's task you may use it to find code patterns, TODO comments, function definitions, or any text-based information across the project. The results include context, so analyze the surrounding code to better understand the matches. Leverage the grep_search tool in combination with other tools for more comprehensive analysis. For example, use it to find specific code patterns, then use read_file to examine the full context of interesting matches${mode === 'agent' ? ' before using apply_diff to make informed changes' : ''}.` : ''}
+${(mode === 'agent' || mode === 'general') ? getEditingInstructions(mode, enabledTools) : ''}
 
-${mode === 'agent' ? `- When creating a new project (such as an app, website, or any software project), organize all new files within a dedicated project directory unless the user specifies otherwise. Use appropriate file paths when writing files, as the write_to_file tool will automatically create any necessary directories. Structure the project logically, adhering to best practices for the specific type of project being created. Unless otherwise specified, new projects should be easily run without additional setup.` : mode === 'general' ? `- When creating documents, organize files logically within the workspace. Use appropriate file names and extensions (e.g., .md for markdown, .txt for plain text). Structure documents with clear headings and sections.` : ''}
+${(mode !== 'general' && enabledIds.has('grep_search')) ? `- When using the grep_search tool, craft your regex patterns carefully to balance specificity and flexibility. Based on the user's task you may use it to find code patterns, TODO comments, function definitions, or any text-based information across the project. The results include context, so analyze the surrounding code to better understand the matches. Leverage the grep_search tool in combination with other tools for more comprehensive analysis. For example, use it to find specific code patterns, then use read_file to examine the full context of interesting matches${(mode === 'agent' && enabledIds.has('apply_diff')) ? ' before using apply_diff to make informed changes' : ''}.` : ''}
+
+${(mode === 'agent' && enabledIds.has('write_to_file')) ? `- When creating a new project (such as an app, website, or any software project), organize all new files within a dedicated project directory unless the user specifies otherwise. Use appropriate file paths when writing files, as the write_to_file tool will automatically create any necessary directories. Structure the project logically, adhering to best practices for the specific type of project being created. Unless otherwise specified, new projects should be easily run without additional setup.` : mode === 'general' ? `- When creating documents, organize files logically within the workspace. Use appropriate file names and extensions (e.g., .md for markdown, .txt for plain text). Structure documents with clear headings and sections.` : ''}
 
 ${mode !== 'general' ? `- Be sure to consider the type of project (e.g. Python, JavaScript, web application) when determining the appropriate structure and files to include. Also consider what files may be most relevant to accomplishing the task, for example looking at a project's manifest file (package.json, requirements.txt, etc.) would help you understand the project's dependencies, which you could incorporate into any code you write.` : ''}
 

@@ -13,9 +13,6 @@ function isSpecialMention(mention: string): mention is SpecialMention {
   return SPECIAL_MENTIONS.includes(mention.toLowerCase() as SpecialMention);
 }
 
-// Maximum file content size to include (in characters)
-const MAX_FILE_CONTENT_CHARS = 50000;
-
 // Maximum number of files to expand per message
 const MAX_FILES_PER_MESSAGE = 10;
 
@@ -110,52 +107,8 @@ export function parseMentions(text: string, workspaceFiles?: string[]): string[]
 }
 
 /**
- * Read file content with size limits
- */
-async function readFileContent(filePath: string): Promise<{ content: string; truncated: boolean }> {
-  try {
-    const stat = await fs.stat(filePath);
-    
-    // Check if it's a directory
-    if (stat.isDirectory()) {
-      const entries = await fs.readdir(filePath, { withFileTypes: true });
-      const contents = entries
-        .slice(0, 100) // Limit directory listing
-        .map(entry => {
-          const type = entry.isDirectory() ? '[dir]' : '[file]';
-          return `${type} ${entry.name}`;
-        })
-        .join('\n');
-      
-      return {
-        content: contents + (entries.length > 100 ? '\n... (truncated)' : ''),
-        truncated: entries.length > 100,
-      };
-    }
-
-    // Read file content
-    const content = await fs.readFile(filePath, 'utf-8');
-    
-    if (content.length > MAX_FILE_CONTENT_CHARS) {
-      return {
-        content: content.slice(0, MAX_FILE_CONTENT_CHARS) + '\n... (truncated)',
-        truncated: true,
-      };
-    }
-
-    return { content, truncated: false };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return {
-      content: `Error reading file: ${errorMessage}`,
-      truncated: false,
-    };
-  }
-}
-
-/**
- * Expand mentions in text by appending file contents
- * Returns the expanded text with file content blocks appended
+ * Expand mentions in text by resolving file paths
+ * Returns the text with mentions replaced by resolved paths
  */
 export async function expandMentions(text: string, workspaceRoot: string): Promise<string> {
   // Get workspace files for path resolution
@@ -198,19 +151,9 @@ export async function expandMentions(text: string, workspaceRoot: string): Promi
 
     // Security check: ensure path is within workspace
     if (!absolutePath.startsWith(workspaceRoot)) {
-      contentBlocks.push(`<file_content path="${mentionPath}">\nError: Path is outside workspace\n</file_content>`);
       continue;
     }
 
-    const { content, truncated } = await readFileContent(absolutePath);
-    const truncatedNote = truncated ? ' (truncated)' : '';
-    
-    // Check if it's a directory based on the mention path
-    const isDirectory = mentionPath.endsWith('/');
-    const tag = isDirectory ? 'folder_content' : 'file_content';
-    
-    contentBlocks.push(`<${tag} path="${mentionPath}"${truncatedNote}>\n${content}\n</${tag}>`);
-    
     // Store resolved path for text replacement
     const basename = mentionPath.split('/').pop() || mentionPath;
     resolvedPaths.set(basename.toLowerCase(), mentionPath);
@@ -228,7 +171,7 @@ export async function expandMentions(text: string, workspaceRoot: string): Promi
     // Look up resolved path for file mentions
     const resolvedPath = resolvedPaths.get(unescapedMention.toLowerCase());
     if (resolvedPath) {
-      return `file '${resolvedPath}' (content included in a block below)`;
+      return resolvedPath;
     }
     
     // Not a valid file mention, keep original text (e.g., @echo stays as @echo)

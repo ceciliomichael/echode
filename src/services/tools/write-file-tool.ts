@@ -162,6 +162,24 @@ export class WriteFileTool implements ITool {
         const oldFileContent = await vscode.workspace.fs.readFile(uri);
         oldContent = Buffer.from(oldFileContent).toString('utf8');
         fileExisted = true;
+
+        // Check for identical content (no-op)
+        if (oldContent === content) {
+          console.log('[WRITE_FILE] Content matches existing file, skipping write');
+          console.log('[WRITE_FILE] ==================== SUCCESS (NO-OP) ====================');
+          return {
+            success: true,
+            data: {
+              path: filePath,
+              absolutePath,
+              action: 'no_change',
+              oldContent: oldContent,
+              newContent: content,
+              createdDirectories: [],
+              summary: `No changes made to ${filePath} (content identical to existing file)`,
+            },
+          };
+        }
       } catch {
         // File doesn't exist, this is a new file
         fileExisted = false;

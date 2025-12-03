@@ -19,8 +19,8 @@ registerToolPlugin({
   metadata: {
     id: 'plan_handoff',
     name: 'Implementation Handoff',
-    description: 'Offers to switch from Plan mode to Agent mode for implementation',
-    aiDescription: `Signal that planning is complete and offer to switch to implementation (Agent) mode.
+    description: 'Offers to transition from planning to implementation',
+    aiDescription: `Signal that planning is complete and offer to transition to implementation.
 
 **When to use:**
 - After completing your planning analysis and creating a structured plan
@@ -39,7 +39,7 @@ registerToolPlugin({
 
 **Important:**
 - Use this ONLY when the plan is truly complete
-- After the user clicks "Start Implementation", you'll switch to Agent mode with full tool access
+- After the user clicks "Start Implementation", implementation will begin with full tool access
 - The user must explicitly approve before implementation begins
 
 **Re-planning Behavior:**
@@ -47,7 +47,7 @@ registerToolPlugin({
 - Treat the new message as feedback, refinement, or new requirements
 - Update/recreate the plan, ask questions if needed, then use plan_handoff AGAIN`,
     icon: Rocket,
-    usage: 'Offer to switch from Plan mode to Agent mode for implementation',
+    usage: 'Offer to transition from planning to implementation',
     formatExample: '<function_calls>\n<invoke name="plan_handoff">\n<parameter name="summary">Brief implementation summary</parameter>\n</invoke>\n</function_calls>',
   },
   handler: {
@@ -108,7 +108,7 @@ export function PlanHandoffRenderer({ data }: PlanHandoffRendererProps) {
               className="text-[10px] leading-relaxed opacity-70"
               style={{ color: 'var(--vscode-descriptionForeground)' }}
             >
-              This will switch you to Agent mode where I can create and modify files
+              This will transition to implementation where I can create and modify files
             </div>
           </div>
         </div>
@@ -144,7 +144,7 @@ export function PlanHandoffRenderer({ data }: PlanHandoffRendererProps) {
         }}
       >
         <Rocket className="w-3.5 h-3.5" />
-        <span>{isSwitching ? 'Switching to Agent mode...' : 'Start Implementation'}</span>
+        <span>{isSwitching ? 'Transitioning to implementation...' : 'Start Implementation'}</span>
       </button>
     </div>
   );

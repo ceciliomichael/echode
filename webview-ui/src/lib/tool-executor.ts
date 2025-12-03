@@ -1,5 +1,4 @@
 import type { ToolCall, ToolExecutionResult, ParsedToolBlock } from '../types/tool';
-import type { ChatMode } from '../types/chat-mode';
 import { getToolHandler, type ToolStatusCallback, type ToolProgressCallback, isToolRegistered } from './tool-registry';
 import { extractFirstToolBlock } from './tool-parser';
 
@@ -17,18 +16,15 @@ export interface ToolCallExecutionResult {
 export interface ToolExecutorOptions {
   enabledTools: string[];
   isStoppingRef: { current: boolean };
-  mode: ChatMode;
 }
 
 export class ToolExecutor {
   private enabledTools: string[];
   private isStoppingRef: { current: boolean };
-  private mode: ChatMode;
 
   constructor(options: ToolExecutorOptions) {
     this.enabledTools = options.enabledTools;
     this.isStoppingRef = options.isStoppingRef;
-    this.mode = options.mode;
   }
 
   /**
@@ -50,22 +46,9 @@ export class ToolExecutor {
 
     // Check if tool is enabled in current mode
     if (!this.enabledTools.includes(toolCall.toolName)) {
-      let errorMessage: string;
-      if (this.mode === 'plan') {
-        errorMessage = `You are currently in Plan mode and are not allowed to use this tool: ${toolCall.toolName}.`;
-      } else if (this.mode === 'ask') {
-        // Special message for echo_search in Ask mode
-        if (toolCall.toolName === 'echo_search') {
-          errorMessage = `The echo_search tool is only available in Agent mode. Switch to Agent mode to use the sub-agent code search.`;
-        } else {
-          errorMessage = `You are currently in Ask mode and may only use read_file, list_files, grep_search, and glob_search. This tool is not allowed: ${toolCall.toolName}.`;
-        }
-      } else {
-        errorMessage = `Tool "${toolCall.toolName}" is disabled in the current configuration.`;
-      }
       return {
         success: false,
-        error: errorMessage,
+        error: `This tool is not currently available: ${toolCall.toolName}.`,
       };
     }
 

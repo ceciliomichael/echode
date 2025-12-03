@@ -18,6 +18,9 @@ export class OpenAIProvider implements ILLMProvider {
       baseURL,
     });
 
+    // Track stream state to handle late errors gracefully
+    let hasReceivedContent = false;
+
     try {
       const stream = await client.chat.completions.create({
         model: settings.model,
@@ -39,6 +42,7 @@ export class OpenAIProvider implements ILLMProvider {
         // Extract content from delta - OpenAI ALWAYS sends deltas, not cumulative
         const content = chunk.choices[0]?.delta?.content;
         if (content) {
+          hasReceivedContent = true;
           webview.webview.postMessage({
             type: 'chatStreamChunk',
             requestId,
@@ -59,6 +63,16 @@ export class OpenAIProvider implements ILLMProvider {
         // Stream was aborted, don't throw
         return;
       }
+
+      // If we received content, treat late errors as non-fatal so streamed text is preserved
+      if (hasReceivedContent) {
+        webview.webview.postMessage({
+          type: 'chatStreamComplete',
+          requestId
+        });
+        return;
+      }
+
       throw new Error(`OpenAI API Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }

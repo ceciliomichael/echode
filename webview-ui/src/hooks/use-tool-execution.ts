@@ -176,7 +176,6 @@ export function useToolExecution({
     toolExecutorRef.current = new ToolExecutor({
       enabledTools,
       isStoppingRef,
-      mode,
     });
   }, [mode, isStoppingRef]);
 

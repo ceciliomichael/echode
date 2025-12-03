@@ -2,6 +2,7 @@ import type { Message, ImageAttachment } from '../types/chat';
 import type { ChatMessage } from '../types/chat-api';
 import type { WorkspaceContext } from '../types/workspace';
 import type { ChatMode } from '../types/chat-mode';
+import type { ToolExecutionState } from '../types/tool';
 import { getSystemPrompt } from './prompts';
 import { formatToolResultsForHistory } from './tool-result-formatter';
 import { buildChatMessage, getCurrentModel, isVisionCapableModel } from './vision-utils';
@@ -82,6 +83,40 @@ export function buildContinuationHistory(
     ? currentMessages.slice(-MAX_HISTORY_MESSAGES)
     : currentMessages;
 
+  // Deduplication: Identify the LATEST execution for each file/tool pair to prevent context bloat
+  const latestExecutionIds = new Set<string>();
+  const seenKeys = new Set<string>();
+
+  // Iterate backwards to find the latest execution for each file/tool pair
+  for (let i = messagesToInclude.length - 1; i >= 0; i--) {
+    const msg = messagesToInclude[i];
+    if (msg.toolExecutions && msg.toolExecutions.size > 0) {
+      const execs = Array.from(msg.toolExecutions.values()).reverse();
+      for (const exec of execs) {
+        // If failed or no data, keep it (or skip? let's keep for error visibility)
+        if (!exec.result?.success || !exec.result.data) {
+          latestExecutionIds.add(exec.toolExecutionId);
+          continue;
+        }
+
+        const data = exec.result.data as Record<string, unknown>;
+        const path = (data.path as string) || (data.targetFile as string);
+        
+        // Only dedup stateful file tools
+        if (path && ['read_file', 'write_to_file', 'apply_diff'].includes(exec.toolName)) {
+          const key = `${exec.toolName}:${path}`;
+          if (!seenKeys.has(key)) {
+            seenKeys.add(key);
+            latestExecutionIds.add(exec.toolExecutionId);
+          }
+        } else {
+          // Keep all other tools (search, list_files, etc.)
+          latestExecutionIds.add(exec.toolExecutionId);
+        }
+      }
+    }
+  }
+
   for (const msg of messagesToInclude) {
     // Build message with vision support if available (preserves image attachments in history)
     const chatMessage = buildChatMessage(
@@ -93,8 +128,16 @@ export function buildContinuationHistory(
     continuationHistory.push(chatMessage);
 
     if (msg.toolExecutions && msg.toolExecutions.size > 0) {
+      // Filter executions based on our deduplication logic
+      const filteredExecutions = new Map<string, ToolExecutionState>();
+      msg.toolExecutions.forEach((exec, id) => {
+        if (latestExecutionIds.has(id)) {
+          filteredExecutions.set(id, exec);
+        }
+      });
+
       // Filter tool results to only include tools available in current mode
-      const toolResults = formatToolResultsForHistory(msg.toolExecutions, mode);
+      const toolResults = formatToolResultsForHistory(filteredExecutions, mode);
 
       if (toolResults.length > 0) {
         continuationHistory.push({

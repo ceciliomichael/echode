@@ -425,13 +425,13 @@ export function useChatStreaming({
         } catch (streamError) {
           const errorMessage = streamError instanceof Error ? streamError.message : 'Unknown error';
           const lowerError = errorMessage.toLowerCase();
-          
+
           // Detect retryable transient errors:
           // - HTTP errors (500, 502, 503, 504)
           // - JSON parse errors (server returned malformed response)
           // - Service unavailable
           // - Connection errors
-          const isRetryableError = 
+          const isRetryableError =
             lowerError.includes('http') ||
             lowerError.includes('500') ||
             lowerError.includes('502') ||
@@ -445,7 +445,7 @@ export function useChatStreaming({
             lowerError.includes('econnrefused') ||
             lowerError.includes('network') ||
             lowerError.includes('fetch');
-          
+
           // Check if user manually aborted
           if (abortControllerRef.current?.signal.aborted) {
             console.log('[STREAMING] User aborted, stopping retries');
@@ -453,23 +453,27 @@ export function useChatStreaming({
           } else if (isRetryableError) {
             retryCount++;
             console.warn(`[STREAMING] Transient error, auto-retrying (attempt ${retryCount}):`, errorMessage);
-            
-            // Show retry status in UI
-            assistantContent = `⟳ Retrying... (attempt ${retryCount})`;
-            updateUI();
-            
+
+            // Show retry status in UI only if nothing has streamed yet
+            if (!assistantContent) {
+              assistantContent = `⟳ Retrying... (attempt ${retryCount})`;
+              updateUI();
+            }
+
             // Brief delay before retry (exponential backoff capped at 5s)
             await new Promise(resolve => setTimeout(resolve, Math.min(1000 * retryCount, 5000)));
           } else {
-            // Non-retryable error, show it and stop
+            // Non-retryable error, stop without overwriting any streamed content
             console.error('[STREAMING] Non-retryable error:', streamError);
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === assistantMessageId
-                  ? { ...msg, content: `Error: ${errorMessage}` }
-                  : msg
-              )
-            );
+            if (!assistantContent) {
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === assistantMessageId
+                    ? { ...msg, content: `Error: ${errorMessage}` }
+                    : msg
+                )
+              );
+            }
             streamSuccess = true; // Stop retrying for non-retryable errors
           }
         }
@@ -478,13 +482,16 @@ export function useChatStreaming({
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An error occurred';
       
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMessageId
-            ? { ...msg, content: `Error: ${errorMessage}` }
-            : msg
-        )
-      );
+      // Only overwrite content with an error if nothing was ever streamed
+      if (!assistantContent) {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMessageId
+              ? { ...msg, content: `Error: ${errorMessage}` }
+              : msg
+          )
+        );
+      }
     } finally {
       // Always reset streaming state when done (both ref and state)
       isStreamingRef.current = false;

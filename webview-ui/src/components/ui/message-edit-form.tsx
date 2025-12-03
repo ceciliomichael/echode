@@ -40,6 +40,21 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
   // Get workspace files for mentions
   const workspaceFiles = useMemo(() => window.workspaceContext?.files || [], []);
 
+  // Register mentions from initial content so they get highlighted
+  // We use useMemo to ensure this runs synchronously during render
+  useMemo(() => {
+    const mentions = parseMentionFilenames(initialContent);
+    for (const mention of mentions) {
+      // Try to find the full path in workspace files
+      const matchingFile = workspaceFiles.find(f => {
+        const basename = f.split('/').pop() || f;
+        return basename.toLowerCase() === mention.toLowerCase();
+      });
+      // Register with the matched path or just the mention itself
+      registerMentionPath(mention, matchingFile || mention);
+    }
+  }, [initialContent, workspaceFiles]);
+
   // Context menu hook for @ mentions
   const handleInputChange = (newValue: string, newCursorPos?: number) => {
     setEditContent(newValue);
@@ -56,20 +71,6 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
     workspaceFiles,
     enabled: true,
   });
-
-  // Register mentions from initial content so they get highlighted
-  useEffect(() => {
-    const mentions = parseMentionFilenames(initialContent);
-    for (const mention of mentions) {
-      // Try to find the full path in workspace files
-      const matchingFile = workspaceFiles.find(f => {
-        const basename = f.split('/').pop() || f;
-        return basename.toLowerCase() === mention.toLowerCase();
-      });
-      // Register with the matched path or just the mention itself
-      registerMentionPath(mention, matchingFile || mention);
-    }
-  }, [initialContent, workspaceFiles]);
 
   useEffect(() => {
     if (textareaRef.current) {

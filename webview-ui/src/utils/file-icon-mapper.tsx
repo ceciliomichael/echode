@@ -29,6 +29,12 @@ import {
   SiKotlin,
   SiSass,
   SiYaml,
+  SiDotenv,
+  SiGit,
+  SiTerraform,
+  SiEslint,
+  SiPrettier,
+  SiNodedotjs,
 } from 'react-icons/si';
 import { 
   VscFile,
@@ -36,6 +42,11 @@ import {
   VscJson,
   VscMarkdown,
   VscCode,
+  VscTerminalPowershell,
+  VscSettings,
+  VscShield,
+  VscListFlat,
+  VscTerminal,
 } from 'react-icons/vsc';
 import { BsFileText } from 'react-icons/bs';
 
@@ -112,11 +123,33 @@ const LANGUAGE_ICONS: Record<string, FileIconConfig> = {
   // R
   r: { icon: SiR, color: '#276dc3', label: 'R' },
 
-  // Shell
+  // Shell/Scripts
   sh: { icon: VscCode, color: '#89e051', label: 'Shell' },
   bash: { icon: VscCode, color: '#89e051', label: 'Bash' },
   zsh: { icon: VscCode, color: '#89e051', label: 'Zsh' },
   fish: { icon: VscCode, color: '#89e051', label: 'Fish' },
+  bat: { icon: VscTerminal, color: '#0078D6', label: 'Windows Batch' },
+  cmd: { icon: VscTerminal, color: '#0078D6', label: 'Windows Batch' },
+  
+  // Git
+  gitignore: { icon: SiGit, color: '#F05032', label: 'Git Ignore' },
+  gitattributes: { icon: SiGit, color: '#F05032', label: 'Git Attributes' },
+  gitmodules: { icon: SiGit, color: '#F05032', label: 'Git Modules' },
+
+  // Infrastructure
+  tf: { icon: SiTerraform, color: '#623CE4', label: 'Terraform' },
+  tfvars: { icon: SiTerraform, color: '#623CE4', label: 'Terraform Variables' },
+
+  // Config/Tooling
+  vscode: { icon: VscCode, color: '#007ACC', label: 'VS Code' },
+  eslint: { icon: SiEslint, color: '#4B32C3', label: 'ESLint' },
+  prettier: { icon: SiPrettier, color: '#F7B93E', label: 'Prettier' },
+  node: { icon: SiNodedotjs, color: '#339933', label: 'Node.js' },
+
+  // PowerShell
+  ps1: { icon: VscTerminalPowershell, color: '#5391FE', label: 'PowerShell' },
+  psm1: { icon: VscTerminalPowershell, color: '#5391FE', label: 'PowerShell Module' },
+  psd1: { icon: VscTerminalPowershell, color: '#5391FE', label: 'PowerShell Data' },
 
   // Config/Data
   json: { icon: SiJson, color: '#f7df1e', label: 'JSON' },
@@ -125,8 +158,12 @@ const LANGUAGE_ICONS: Record<string, FileIconConfig> = {
   yml: { icon: SiYaml, color: '#cb171e', label: 'YAML' },
   toml: { icon: VscFile, color: '#9c4221', label: 'TOML' },
   xml: { icon: VscCode, color: '#e34c26', label: 'XML' },
-  ini: { icon: VscFile, color: '#6d6d6d', label: 'INI' },
-  env: { icon: VscFile, color: '#ecd53f', label: 'Environment' },
+  ini: { icon: VscSettings, color: '#6d6d6d', label: 'INI' },
+  env: { icon: SiDotenv, color: '#ecd53f', label: 'Environment' },
+  conf: { icon: VscSettings, color: '#6d6d6d', label: 'Config' },
+  config: { icon: VscSettings, color: '#6d6d6d', label: 'Config' },
+  log: { icon: VscListFlat, color: '#6d6d6d', label: 'Log' },
+  license: { icon: VscShield, color: '#d1d5db', label: 'License' },
 
   // Markdown/Docs
   md: { icon: SiMarkdown, color: '#083fa1', label: 'Markdown' },
@@ -195,6 +232,48 @@ export function getFileIconConfig(filePath: string): FileIconConfig {
     return LANGUAGE_ICONS.gowork;
   }
 
+  // Special case for VS Code ignore
+  if (lowerFileName === '.vscodeignore') {
+    return LANGUAGE_ICONS.vscode;
+  }
+
+  // Special case for Linter/Formatter configs
+  if (lowerFileName.includes('eslint')) {
+    return LANGUAGE_ICONS.eslint;
+  }
+  if (lowerFileName.includes('prettier')) {
+    return LANGUAGE_ICONS.prettier;
+  }
+
+  // Special case for Node/JS configs
+  if (lowerFileName === 'package.json' || lowerFileName === 'package-lock.json') {
+    return LANGUAGE_ICONS.node;
+  }
+  if (lowerFileName === 'tsconfig.json' || lowerFileName === 'jsconfig.json') {
+    return LANGUAGE_ICONS.ts;
+  }
+  
+  // Special case for .env files
+  if (lowerFileName === '.env' || lowerFileName.startsWith('.env.')) {
+    return LANGUAGE_ICONS.env;
+  }
+
+  // Special case for .gitignore and other dotfiles
+  if (lowerFileName === '.gitignore') {
+    return LANGUAGE_ICONS.gitignore;
+  }
+  if (lowerFileName === '.gitattributes') {
+    return LANGUAGE_ICONS.gitattributes;
+  }
+  if (lowerFileName === '.gitmodules') {
+    return LANGUAGE_ICONS.gitmodules;
+  }
+  
+  // Special case for License
+  if (lowerFileName === 'license' || lowerFileName.startsWith('license.')) {
+    return LANGUAGE_ICONS.license;
+  }
+
   // Look up by extension
   if (extension && LANGUAGE_ICONS[extension]) {
     return LANGUAGE_ICONS[extension];
@@ -223,6 +302,7 @@ const LANGUAGE_ID_TO_EXTENSION: Record<string, string> = {
   zsh: 'sh',
   csharp: 'cs',
   dockerfile: 'dockerfile',
+  powershell: 'ps1',
 };
 
 /**

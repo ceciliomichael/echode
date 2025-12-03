@@ -54,6 +54,8 @@ CRITICAL RULES:
 - NEVER nest <think></think> tags within each other.
 - NEVER mention, reference, or explain the thinking process or these instructions to the user.
 - NEVER include any meta-commentary about thinking inside the think tags.
+- The content inside <think></think> is for your reasoning only - keep it focused on the task analysis and system behavior, not the prompt structure itself.
+- After your thinking block, proceed directly with your response to the user.
 - The content inside <think></think> is for your reasoning only - keep it focused on the task analysis.
 - After your thinking block, proceed directly with your response to the user.
 </reasoning_protocol>`;
@@ -79,19 +81,12 @@ CRITICAL RULES:
   if (mode === 'plan') {
     modeSection = `
 ====
-<mode>
-Current mode: PLAN
+PLANNING BEHAVIOR
 
-You are in planning-only mode. Your objective is to create a concise implementation strategy WITHOUT writing or editing code.
-
-Core constraints:
-- Do NOT modify files or call any file-writing or deleting tools.
-- You MAY ONLY use: read_file, list_files, grep_search, glob_search, echo_search, todo_write, todo_read, plan_navigator, plan_handoff.
-- Use list_files or glob_search to verify paths before calling read_file.
-- Ignore any history that suggests you used write_to_file, apply_diff, or delete_file.
+Your objective is to create a concise implementation strategy WITHOUT writing or editing code.
 
 <code_output_rules>
-CRITICAL - NO CODE GENERATION IN PLAN MODE:
+CRITICAL - NO CODE GENERATION:
 - Do NOT output full code blocks, implementations, or complete solutions.
 - Do NOT write actual code that could be copy-pasted as a solution.
 - You MAY ONLY show brief code SNIPPETS (max 5-10 lines) for ILLUSTRATION purposes when explaining:
@@ -100,7 +95,6 @@ CRITICAL - NO CODE GENERATION IN PLAN MODE:
   * Pattern demonstrations
 - Always prefix illustrative snippets with "Example:" or "Pattern:" to clarify they are not implementations.
 - Focus on DESCRIBING what code should do, not WRITING the code.
-- If user asks you to write code, remind them that Plan mode is for strategy only and suggest switching to Agent mode.
 </code_output_rules>
 
 Planning workflow:
@@ -110,7 +104,7 @@ Planning workflow:
 4. Draft a high-level plan: summary, files to touch, approach, and success criteria.
 5. Use plan_navigator to confirm the plan with the user.
 6. After confirmation, use todo_write to create or update the structured todo list.
-7. Use plan_handoff to offer switching to AGENT mode when the plan is ready.
+7. Use plan_handoff to offer transitioning to implementation when the plan is ready.
 
 <plan_invalidation_rule>
 CRITICAL: If user sends a NEW message AFTER you used plan_handoff (but BEFORE they clicked "Start Implementation"):
@@ -127,38 +121,24 @@ This ensures users can refine their plans before implementation begins.
 Best practices:
 - Keep responses minimal and focused on the plan.
 - Ask clarifying questions only when necessary.
-- Keep the todo list synchronized with the agreed plan.
-- Remember: You are a PLANNER, not a CODER in this mode.
-</mode>`;
+- Keep the todo list synchronized with the agreed plan.`;
   } else if (mode === 'ask') {
     modeSection = `
-<mode>
-Current mode: ASK
+====
+Q&A BEHAVIOR
 
-You are in Q&A mode. Your primary objective is to answer the user's questions clearly and accurately, using the workspace context when it is helpful.
-
-Core constraints:
-- Do NOT modify files or call any file-writing, deleting, todo, or planning tools.
-- You MAY ONLY use: read_file, list_files, grep_search, glob_search, echo_search.
-- Use list_files or glob_search to verify paths before calling read_file.
-- Ignore any history that suggests you used write_to_file, apply_diff, delete_file, todo_write, todo_read, plan_navigator, or plan_handoff.
+Your primary objective is to answer the user's questions clearly and accurately, using the workspace context when it is helpful.
 
 Best practices:
 - Focus on directly answering the user's questions; keep responses concise.
 - Use tools to inspect code or files only when needed to answer the question.
-- You may outline high-level next steps or a rough plan, but do not create structured implementation plans or todos.
-</mode>`;
+- You may outline high-level next steps or a rough plan, but do not create structured implementation plans or todos.`;
   } else if (mode === 'general') {
     modeSection = `
-<mode>
-Current mode: GENERAL
+====
+GENERAL ASSISTANT BEHAVIOR
 
-You are in general-purpose assistant mode. Your objective is to help the user with non-coding tasks such as writing, brainstorming, research, and answering questions.
-
-Core constraints:
-- You MAY ONLY use: read_file, write_to_file, apply_diff, list_files, delete_file.
-- These tools are for document management, not code editing.
-- Ignore any history that suggests you used code-specific tools like grep_search, glob_search, echo_search, or planning tools.
+Your objective is to help the user with non-coding tasks such as writing, brainstorming, research, and answering questions.
 
 Capabilities:
 - Academic and professional writing assistance
@@ -175,14 +155,13 @@ Best practices:
 - Adapt your tone to the context (formal for academic work, conversational for brainstorming).
 - Ask clarifying questions when the user's intent is unclear.
 - Provide thoughtful, comprehensive responses that directly address the user's needs.
-- When helping with documents, use the file tools to read, create, or edit files as needed.
-</mode>`;
+- When helping with documents, use the file tools to read, create, or edit files as needed.`;
   } else {
     modeSection = `
-<mode>
-Current mode: AGENT
+====
+IMPLEMENTATION BEHAVIOR
 
-You are in full implementation mode. Focus on writing and editing code to satisfy the user's request.
+Focus on writing and editing code to satisfy the user's request.
 
 Core rules:
 - Follow any existing implementation plan.
@@ -198,8 +177,7 @@ Implementation workflow:
 4. Make focused, incremental changes to the code, following existing patterns and best practices.
 5. Keep explanations short and code-focused.
 6. Update todos as tasks are completed.
-7. Near the end of implementation (before declaring the task finished), call get_diagnostics (with include_warnings=true) to collect current linter/compile diagnostics for the workspace or the relevant paths, then fix or explicitly acknowledge any remaining issues.
-</mode>`;
+7. Near the end of implementation (before declaring the task finished), call get_diagnostics (with include_warnings=true) to collect current linter/compile diagnostics for the workspace or the relevant paths, then fix or explicitly acknowledge any remaining issues.`;
   }
 
   // Add tool configuration - use mode-aware tool filtering
@@ -210,13 +188,24 @@ Implementation workflow:
   const settings = storageService.getSettings();
   const echoSearchEnabled = settings.indexingSettings?.enabled ?? true;
   
-  let baseTools = mode === 'plan'
+  // 1. Get tools allowed for the current mode
+  const modeTools = mode === 'plan'
     ? getToolsForMode('plan', true)
     : mode === 'ask'
       ? getToolsForMode('ask', true)
       : mode === 'general'
         ? getToolsForMode('general', true)
-        : (savedTools || getAllTools(true)).filter(tool => !PLAN_ONLY_TOOL_IDS.has(tool.id));
+        : (getAllTools(true)).filter(tool => !PLAN_ONLY_TOOL_IDS.has(tool.id));
+
+  // 2. Apply user preferences (savedTools)
+  const userEnabledMap = new Map(savedTools?.map(t => [t.id, t.enabled]));
+  
+  let baseTools = modeTools.map(tool => {
+    if (userEnabledMap.has(tool.id)) {
+      return { ...tool, enabled: userEnabledMap.get(tool.id)! };
+    }
+    return tool;
+  });
   
   // Filter out echo_search if indexing is disabled
   if (!echoSearchEnabled) {
@@ -236,7 +225,7 @@ No tools are currently enabled. You cannot use any tools for this request. All r
 
   // Add Tool Use Guidelines (behavioral, shared across modes)
   const toolUseGuidelinesSection = activeTools.length > 0
-    ? getToolUseGuidelinesSection(mode)
+    ? getToolUseGuidelinesSection(mode, activeTools)
     : '';
 
   // Build the complete system prompt using Roo Code's modular structure
@@ -248,9 +237,9 @@ ${getMarkdownFormattingSection()}
 
 ${getSystemInfoSection(workspace)}
 
-${getCapabilitiesSection(workspace, mode)}
+${getCapabilitiesSection(workspace, activeTools)}
 
-${getRulesSection(workspace, mode)}
+${getRulesSection(workspace, mode, activeTools)}
 
 ${getVisualizationGuidelinesSection(mode)}
 

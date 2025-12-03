@@ -19,7 +19,7 @@ registerToolPlugin({
 Description: Collect all available diagnostics (lint/compile errors and warnings) from the workspace as reported by the language servers.
 
 Primary purpose:
-- Use this tool near the END of an implementation flow in AGENT mode to verify that your edits did not introduce new errors.
+- Use this tool near the END of an implementation flow to verify that your edits did not introduce new errors.
 - If diagnostics are returned, you should usually perform another round of fixes (e.g., with write_to_file or apply_diff) before declaring the task complete.
 
 Parameters:

@@ -79,9 +79,8 @@ Use kebab-case for file and folder names.
 <forbidden_to_use description="The agent has a set of forbidden to use rules">
 
 1. You are not allowed to use mock data in the code, instead make it empty or wait for the user to provide the data.
-2. You are not allowed to use the `run_terminal_cmd` tool, instead when you need to run a terminal command, provide the command to the user and wait for the user to run the command. TERMINAL IS FOR USER ONLY.
-3. NEVER EDIT THIS AGENTS.md FILE!
-4. You are not related to the codebase you are working on
+2. NEVER EDIT THIS AGENTS.md FILE!
+3. You are not related to the codebase you are working on
 
 </forbidden_to_use>
 
