@@ -8,10 +8,10 @@ import { hasCompleteToolBlock, extractToolBlocks, trimToFirstCompleteToolBlock, 
 import { ToolExecutor } from '../lib/tool-executor';
 import { getToolsForMode } from '../lib/tool-config';
 import type { ToolExecutionState } from '../types/tool';
-import { createToolExecutionState, updateToolExecutionStatus, generateToolExecutionId } from '../lib/tool-execution-tracker';
+import { createToolExecutionState, updateToolExecutionStatus, updateToolExecutionProgress, generateToolExecutionId } from '../lib/tool-execution-tracker';
 import { fetchDiagnostics, formatDiagnosticsForAI, shouldFetchDiagnostics, isFileModificationTool as checkIsFileModificationTool } from '../utils/diagnostic-utils';
 import { buildContinuationHistory } from '../utils/continuation-builder';
-import { executeToolWithStopCheck } from '../utils/tool-execution-helpers';
+import { executeToolWithStopCheck, type ToolProgressCallback } from '../utils/tool-execution-helpers';
 
 /**
  * Helper to fetch and format diagnostics for a tool execution
@@ -457,11 +457,18 @@ export function useToolExecution({
           return;
         }
         
+        // Create progress callback for echo_search iterations
+        const onProgress: ToolProgressCallback = (progress) => {
+          const updatedState = updateToolExecutionProgress(executionState, progress);
+          updateToolExecution(assistantMessageId, toolExecutionId, updatedState);
+        };
+
         // Execute the specific tool directly
         const result = await executeToolWithStopCheck(
           toolExecutorRef.current,
           toolBlock,
-          isStoppingRef
+          isStoppingRef,
+          toolBlock.toolName === 'echo_search' ? onProgress : undefined
         );
         
         if (result.wasStopped) {

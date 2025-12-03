@@ -1,4 +1,4 @@
-import type { ToolExecutionResult } from '../types/tool';
+import type { ToolExecutionResult, EchoSearchProgress } from '../types/tool';
 
 /**
  * Patterns that indicate internal tool protocol or system instructions
@@ -65,12 +65,18 @@ function screenFileWriteParams(
 }
 
 /**
+ * Progress callback type for tools that support streaming progress
+ */
+export type ToolProgressCallback = (progress: EchoSearchProgress) => void;
+
+/**
  * Execute tool via VSCode extension backend
  */
 export async function executeToolViaExtension(
   toolName: string,
   parameters: Record<string, unknown>,
   signal?: AbortSignal,
+  onProgress?: ToolProgressCallback,
 ): Promise<ToolExecutionResult> {
   // Screen file-writing tools for forbidden internal protocol content
   const screenResult = screenFileWriteParams(toolName, parameters);
@@ -88,6 +94,16 @@ export async function executeToolViaExtension(
     
     const handleResponse = (event: MessageEvent) => {
       const message = event.data;
+      
+      // Handle progress updates
+      if (message.type === 'toolExecutionProgress' && message.requestId === requestId) {
+        if (onProgress) {
+          onProgress(message.progress as EchoSearchProgress);
+        }
+        return;
+      }
+      
+      // Handle final result
       if (message.type === 'toolExecutionResult' && message.requestId === requestId) {
         window.removeEventListener('message', handleResponse);
         if (message.result.success) {

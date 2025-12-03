@@ -18,6 +18,7 @@ export interface ToolCall {
   status: ToolStatus;
   result?: ToolExecutionResult;
   toolExecutionId?: string;
+  progress?: EchoSearchProgress;
 }
 
 export interface ToolExecutionResult {
@@ -64,6 +65,17 @@ export interface CapturedDiagnostic {
   code?: string | number;
 }
 
+/**
+ * Progress data for echo_search tool iterations
+ */
+export interface EchoSearchProgress {
+  iteration: number;
+  maxIterations: number;
+  phase: 'starting' | 'thinking' | 'executing' | 'finalizing';
+  tools: string[];
+  message: string;
+}
+
 export interface ToolExecutionState {
   toolExecutionId: string;
   toolName: string;
@@ -75,4 +87,5 @@ export interface ToolExecutionState {
   diagnosticAttempts?: number;
   diagnostics?: CapturedDiagnostic[];
   isFetchingDiagnostics?: boolean;
+  progress?: EchoSearchProgress;
 }

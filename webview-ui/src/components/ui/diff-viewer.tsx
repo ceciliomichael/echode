@@ -245,52 +245,56 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
 
       {/* Diff Content */}
       <div
-        className="overflow-x-auto text-xs font-mono"
+        className="flex text-xs font-mono"
         style={{
           backgroundColor: 'var(--vscode-editor-background)',
-          maxHeight: '400px',
-          overflowY: 'auto',
         }}
       >
-        <div style={{ minWidth: '100%', width: 'max-content' }}>
-          {diffLines.map((line, idx) => {
-          // Skip collapsed sections entirely
-          if (line.type === 'collapsed') {
-            return null;
-          }
-
-          let bgColor: string;
-
-          if (viewOnly) {
-            bgColor = 'transparent';
-          } else {
-            switch (line.type) {
-              case 'added':
-                bgColor = 'var(--vscode-diffEditor-insertedTextBackground)';
-                break;
-              case 'removed':
-                bgColor = 'var(--vscode-diffEditor-removedTextBackground)';
-                break;
-              default:
-                bgColor = 'transparent';
+        {/* Line Numbers Column - Fixed, scrolls vertically only */}
+        <div
+          className="flex-shrink-0 select-none"
+          style={{
+            minWidth: viewOnly ? '40px' : '80px',
+            backgroundColor: 'var(--vscode-editor-background)',
+            maxHeight: '400px',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+          }}
+          onScroll={(e) => {
+            const codeContent = e.currentTarget.nextElementSibling?.querySelector('[data-code-scroll]') as HTMLElement;
+            if (codeContent) {
+              codeContent.scrollTop = e.currentTarget.scrollTop;
             }
-          }
+          }}
+        >
+          {diffLines.map((line, idx) => {
+            if (line.type === 'collapsed') {
+              return null;
+            }
 
-          return (
-            <div
-              key={idx}
-              className="flex items-start w-full"
-              style={{
-                backgroundColor: bgColor,
-              }}
-            >
-              {/* Line Number */}
+            let bgColor: string;
+            if (viewOnly) {
+              bgColor = 'transparent';
+            } else {
+              switch (line.type) {
+                case 'added':
+                  bgColor = 'var(--vscode-diffEditor-insertedTextBackground)';
+                  break;
+                case 'removed':
+                  bgColor = 'var(--vscode-diffEditor-removedTextBackground)';
+                  break;
+                default:
+                  bgColor = 'transparent';
+              }
+            }
+
+            return (
               <div
-                className="flex-shrink-0 px-2 text-right select-none min-h-[1.15rem] leading-[1.15rem]"
+                key={idx}
+                className="px-2 text-right min-h-[1.15rem] leading-[1.15rem]"
                 style={{
-                  minWidth: viewOnly ? '40px' : '50px',
                   color: 'var(--vscode-editorLineNumber-foreground)',
-                  backgroundColor: 'var(--vscode-editor-background)',
+                  backgroundColor: bgColor,
                 }}
               >
                 {!viewOnly ? (
@@ -309,17 +313,60 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
                   <span className="inline-block w-6">{line.newLineNumber}</span>
                 )}
               </div>
+            );
+          })}
+        </div>
 
-              {/* Line Content */}
-              <pre
-                className="flex-1 px-2 whitespace-pre m-0 min-h-[1.15rem] leading-[1.15rem]"
-                style={{ color: 'var(--vscode-editor-foreground)' }}
-              >
-                {line.content || ' '}
-              </pre>
-            </div>
-          );
-        })}
+        {/* Code Content Column - Scrolls both directions */}
+        <div
+          className="flex-1 overflow-auto"
+          style={{
+            maxHeight: '400px',
+          }}
+          data-code-scroll
+          onScroll={(e) => {
+            const lineNumbers = e.currentTarget.previousElementSibling as HTMLElement;
+            if (lineNumbers) {
+              lineNumbers.scrollTop = e.currentTarget.scrollTop;
+            }
+          }}
+        >
+          <div style={{ width: 'max-content', minWidth: '100%' }}>
+            {diffLines.map((line, idx) => {
+              if (line.type === 'collapsed') {
+                return null;
+              }
+
+              let bgColor: string;
+              if (viewOnly) {
+                bgColor = 'transparent';
+              } else {
+                switch (line.type) {
+                  case 'added':
+                    bgColor = 'var(--vscode-diffEditor-insertedTextBackground)';
+                    break;
+                  case 'removed':
+                    bgColor = 'var(--vscode-diffEditor-removedTextBackground)';
+                    break;
+                  default:
+                    bgColor = 'transparent';
+                }
+              }
+
+              return (
+                <pre
+                  key={idx}
+                  className="px-2 whitespace-pre m-0 min-h-[1.15rem] leading-[1.15rem]"
+                  style={{
+                    color: 'var(--vscode-editor-foreground)',
+                    backgroundColor: bgColor,
+                  }}
+                >
+                  {line.content || ' '}
+                </pre>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

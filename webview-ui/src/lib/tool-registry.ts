@@ -5,7 +5,7 @@
 
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import type { Tool, ToolExecutionResult } from '../types/tool';
+import type { Tool, ToolExecutionResult, EchoSearchProgress } from '../types/tool';
 import { getAllToolPlugins } from './tools/tool-plugin';
 // Import tools to trigger auto-registration
 import './tools/read-file-tool.tsx';
@@ -28,6 +28,11 @@ import './tools/echo-search-tool.tsx';
 export type ToolStatusCallback = (status: 'executing' | 'completed') => void;
 
 /**
+ * Tool progress callback for streaming progress updates (e.g., echo_search iterations)
+ */
+export type ToolProgressCallback = (progress: EchoSearchProgress) => void;
+
+/**
  * Tool handler interface - abstracts tool execution logic
  */
 export interface ToolHandler {
@@ -35,6 +40,7 @@ export interface ToolHandler {
     parameters: Record<string, unknown>,
     signal?: AbortSignal,
     onStatusChange?: ToolStatusCallback,
+    onProgress?: ToolProgressCallback,
   ): Promise<ToolExecutionResult>;
 }
 

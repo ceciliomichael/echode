@@ -1,5 +1,15 @@
 import type { ToolCall, ParsedToolBlock } from '../types/tool';
 
+// Unescape XML entities back to original characters
+function unescapeXml(text: string): string {
+  return text
+    .replace(/&apos;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&gt;/g, '>')
+    .replace(/&lt;/g, '<')
+    .replace(/&amp;/g, '&'); // Must be last to avoid double-unescaping
+}
+
 /**
  * Centralized regex pattern for tool blocks
  * Format: <function_calls><invoke name="TOOL_NAME"><parameter name="param">value</parameter></invoke></function_calls>
@@ -49,7 +59,10 @@ function parseXMLParameters(content: string): Record<string, unknown> {
       ? paramValue.replace(/^\n/, '').replace(/\n$/, '') 
       : paramValue.trim();
     
-    parameters[paramName] = parseParamValue(finalValue, shouldPreserveWhitespace);
+    // Unescape XML entities (e.g., from Ctrl+Enter echo_search with special chars)
+    const unescapedValue = unescapeXml(finalValue);
+    
+    parameters[paramName] = parseParamValue(unescapedValue, shouldPreserveWhitespace);
     processedParams.add(paramName);
   }
   
@@ -78,7 +91,8 @@ function parseXMLParameters(content: string): Record<string, unknown> {
     // If no closing tag found, this is a streaming parameter
     if (closingPos === -1) {
       const partialContent = content.slice(tag.pos);
-      parameters[tag.name] = partialContent; // Keep as raw string during streaming
+      // Unescape XML entities for partial content too
+      parameters[tag.name] = unescapeXml(partialContent);
     }
   }
   

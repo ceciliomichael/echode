@@ -5,6 +5,7 @@ import { SearchSnippetItem } from '../../components/ui/search-snippet-item';
 import type { ToolExecutionResult } from '../../types/tool';
 import { registerToolPlugin } from './tool-plugin';
 import { executeToolViaExtension } from '../tool-utils';
+import type { ToolProgressCallback } from '../tool-registry';
 import { getFileIconConfig } from '../../utils/file-icon-mapper';
 import { storageService } from '../../utils/storage';
 
@@ -14,6 +15,8 @@ import { storageService } from '../../utils/storage';
 async function executeEchoSearch(
   parameters: Record<string, unknown>,
   signal?: AbortSignal,
+  _onStatusChange?: unknown,
+  onProgress?: ToolProgressCallback,
 ): Promise<ToolExecutionResult> {
   // Inject indexing settings and API credentials from storage
   const settings = storageService.getSettings();
@@ -61,6 +64,7 @@ async function executeEchoSearch(
       apiSettings,
     },
     signal,
+    onProgress,
   );
 }
 

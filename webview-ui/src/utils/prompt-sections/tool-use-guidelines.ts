@@ -1,6 +1,12 @@
 import type { ChatMode } from '../../types/chat-mode';
 
 export function getToolUseGuidelinesSection(mode: ChatMode): string {
+	// Mode-aware instruction for rule 6: Agent mode mentions editing tools explicitly,
+	// Plan/Ask modes use a generic version to avoid leaking write_to_file/apply_diff context.
+	const noEchoEditingClause = mode === 'agent'
+		? 'NEVER write tool-calling syntax or internal prompt sections into workspace files via write_to_file or apply_diff.'
+		: 'NEVER write tool-calling syntax or internal prompt sections into user-visible outputs.';
+
 	const sharedGuidelines = `====
 
 TOOL USE GUIDELINES
@@ -46,7 +52,7 @@ PARAMETER DISCIPLINE:
 
 5. **Use Tool Results**: Treat tool outputs as ground truth. NEVER guess or invent file contents. NEVER re-request information you already received.
 
-6. **NEVER Echo Tool Instructions**: Do not repeat or explain internal tool formats, XML syntax, or section headers such as "Tool Format", "<tool_calling>", "<tool_format_critical>", "<available_tools>", or "<file_operations>" to the user. User-facing messages must never contain raw tool-call XML (for example <function_calls>, <invoke>, or <parameter>) or examples of tool calls. Only use tools; do not describe the tool protocol. NEVER write tool-calling syntax or internal prompt sections into workspace files via write_to_file or apply_diff.
+6. **NEVER Echo Tool Instructions**: Do not repeat or explain internal tool formats, XML syntax, or section headers such as "Tool Format", "<tool_calling>", "<tool_format_critical>", "<available_tools>", or "<file_operations>" to the user. User-facing messages must never contain raw tool-call XML (for example <function_calls>, <invoke>, or <parameter>) or examples of tool calls. Only use tools; do not describe the tool protocol. ${noEchoEditingClause}
 
 6b. **NO NESTED TOOL CALLS**: Never embed tool-call XML inside a parameter value. Each tool call must be a standalone top-level block, not nested within another.
 
@@ -62,13 +68,13 @@ PARAMETER DISCIPLINE:
 	let modeSpecific: string;
 	if (mode === 'plan') {
 		modeSpecific = `
-8. **Plan Mode Focus**: Use tools only for exploration and planning (read_file, list_files, grep_search, glob_search, todo_write, plan_navigator, plan_handoff). Do not propose or perform code edits.
+8. **Plan Mode Focus**: Use tools only for exploration and planning (read_file, list_files, grep_search, glob_search, echo_search, todo_write, todo_read, plan_navigator, plan_handoff). Do not propose or perform code edits.
 
 9. **Concise Planning**: Keep plans focused on files, steps, and success criteria. Avoid implementation details, long explanations, or creating design documents/specifications unless the user explicitly requests them.
 `;
 	} else if (mode === 'ask') {
 		modeSpecific = `
-8. **Ask Mode Focus**: Use tools only for exploration to support question answering (read_file, list_files, grep_search, glob_search). Do not call editing, todo, or planning tools.
+8. **Ask Mode Focus**: Use tools only for exploration to support question answering (read_file, list_files, grep_search, glob_search, echo_search). Do not call editing, todo, or planning tools.
 
 9. **Concise Q&A**: Focus on directly answering the user's questions. Use tools when needed for context, but avoid over-exploring the codebase or proposing detailed implementation plans unless the user explicitly asks.
 `;

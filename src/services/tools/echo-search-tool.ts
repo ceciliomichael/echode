@@ -1,6 +1,65 @@
-import { ITool, ToolExecutionResult } from './tool.interface';
+import { ITool, ToolExecutionResult, ToolProgressCallback } from './tool.interface';
 import { getWorkspaceRoot } from './utils/workspace-utils';
 import { SubAgentService, IndexingSettings, SubAgentApiSettings } from '../sub-agent/sub-agent-service';
+
+/**
+ * Progress data structure for echo_search iterations
+ */
+export interface EchoSearchProgress {
+  iteration: number;
+  maxIterations: number;
+  phase: 'starting' | 'thinking' | 'executing' | 'finalizing';
+  tools: string[];
+  message: string;
+}
+
+/**
+ * Parse SubAgentService progress message into structured progress data
+ */
+function parseProgressMessage(message: string, currentProgress: EchoSearchProgress): EchoSearchProgress {
+  const progress = { ...currentProgress, message };
+
+  // Parse "Starting search (max N turns)"
+  const maxIterMatch = message.match(/max (\d+) turns/);
+  if (maxIterMatch) {
+    progress.maxIterations = parseInt(maxIterMatch[1], 10);
+    progress.phase = 'starting';
+    return progress;
+  }
+
+  // Parse "Iteration N/M: Thinking..."
+  const iterMatch = message.match(/Iteration (\d+)\/(\d+): Thinking/);
+  if (iterMatch) {
+    progress.iteration = parseInt(iterMatch[1], 10);
+    progress.maxIterations = parseInt(iterMatch[2], 10);
+    progress.phase = 'thinking';
+    progress.tools = [];
+    return progress;
+  }
+
+  // Parse "Executing N tool(s) in parallel..."
+  const execMatch = message.match(/Executing (\d+) tool/);
+  if (execMatch) {
+    progress.phase = 'executing';
+    progress.tools = [];
+    return progress;
+  }
+
+  // Parse "  → tool_name(params)" - capture full tool call with params
+  const toolMatch = message.match(/→ (.+)$/);
+  if (toolMatch) {
+    progress.tools = [...progress.tools, toolMatch[1].trim()];
+    return progress;
+  }
+
+  // Parse "Max iterations reached" or "requesting final answer"
+  if (message.includes('final answer') || message.includes('Max iterations')) {
+    progress.phase = 'finalizing';
+    return progress;
+  }
+
+  return progress;
+}
 
 /**
  * EchoSearchTool - An LLM-powered sub-agent that iteratively searches the codebase
@@ -9,7 +68,7 @@ import { SubAgentService, IndexingSettings, SubAgentApiSettings } from '../sub-a
 export class EchoSearchTool implements ITool {
   name = 'echo_search';
 
-  async execute(parameters: Record<string, unknown>): Promise<ToolExecutionResult> {
+  async execute(parameters: Record<string, unknown>, onProgress?: ToolProgressCallback): Promise<ToolExecutionResult> {
     const query = parameters.query as string;
     const searchPath = (parameters.path as string) || '';
     const hints = (parameters.hints as string[]) || [];
@@ -42,13 +101,34 @@ export class EchoSearchTool implements ITool {
     }
 
     try {
-      const progressMessages: string[] = [];
-      const onProgress = (message: string) => {
-        progressMessages.push(message);
-        console.log(`[EchoSearch] ${message}`);
+      // Track progress state across messages
+      let currentProgress: EchoSearchProgress = {
+        iteration: 0,
+        maxIterations: 4,
+        phase: 'starting',
+        tools: [],
+        message: '',
       };
 
-      const subAgent = new SubAgentService(indexingSettings, apiSettings, onProgress);
+      const subAgentProgressCallback = (message: string) => {
+        console.log(`[EchoSearch] ${message}`);
+        
+        // Parse message into structured progress
+        currentProgress = parseProgressMessage(message, currentProgress);
+
+        // Only push updates for actual execution/tool lines so the
+        // dropdown shows the tools used in the last completed turn,
+        // instead of being overwritten by the next "Thinking" message.
+        const trimmed = message.trim();
+        const isToolLine = trimmed.startsWith('→');
+        const isExecutionLine = trimmed.startsWith('Executing ');
+
+        if (onProgress && (isToolLine || isExecutionLine)) {
+          onProgress(currentProgress);
+        }
+      };
+
+      const subAgent = new SubAgentService(indexingSettings, apiSettings, subAgentProgressCallback);
       const result = await subAgent.search(query, searchPath, hints);
 
       return {

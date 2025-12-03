@@ -40,21 +40,23 @@ Multiple tools at once (PREFERRED for efficiency):
 
 ## Tools
 
+**IMPORTANT: All paths must be RELATIVE to the workspace root. Never use absolute paths.**
+
 **grep_search** - Search code for text patterns (function names, variables, strings)
 - query: text to find (use specific identifiers, not vague descriptions)
-- path: directory to search (optional but recommended for large repos)
+- path: relative directory to search, e.g. "src" or "lib/utils" (optional)
 - includes: file filter like "*.ts" or "*.py" (optional, use to narrow scope)
 
 **glob_search** - Find files by name pattern (use FIRST to narrow candidates in large repos)
 - pattern: glob like "**/*auth*" or "*.config.*"
-- path: directory (optional)
+- path: relative directory (optional)
 
 **read_file_snippet** - Read lines from a file (use after finding relevant files)
-- path: file path
+- path: relative file path, e.g. "src/index.ts"
 - startLine, endLine: line range (max 100 lines)
 
 **list_dir** - List directory contents (use sparingly, only for structure discovery)
-- path: directory
+- path: relative directory, e.g. "src" or "." for root
 
 ## Intelligent Search Strategy
 
@@ -145,8 +147,19 @@ Describe relationships between components.
 - Score 0.9+ = directly answers query; 0.7-0.9 = supporting context; <0.7 = related but tangential
 `;
 
-export function buildSubAgentPrompt(query: string, searchPath?: string, hints?: string[]): string {
+export function buildSubAgentPrompt(query: string, searchPath?: string, hints?: string[], workspaceFiles?: string[]): string {
   let userMessage = `## Search Query\n${query}`;
+  
+  // Add workspace layout if available - helps sub-agent make smarter initial searches
+  if (workspaceFiles && workspaceFiles.length > 0) {
+    const maxFiles = 200; // Limit to avoid token bloat
+    const truncated = workspaceFiles.length > maxFiles;
+    const filesToShow = truncated ? workspaceFiles.slice(0, maxFiles) : workspaceFiles;
+    userMessage += `\n\n## Workspace Files\n${filesToShow.join('\n')}`;
+    if (truncated) {
+      userMessage += `\n... and ${workspaceFiles.length - maxFiles} more files`;
+    }
+  }
   
   if (searchPath) {
     userMessage += `\n\n## Target Directory\n${searchPath}`;

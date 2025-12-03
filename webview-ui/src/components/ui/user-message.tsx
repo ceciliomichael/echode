@@ -91,7 +91,7 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
         onClick={handleMessageClick}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        className="rounded-xl px-3 py-2 shadow-sm w-full border cursor-pointer hover:opacity-90 active:opacity-80 transition-opacity duration-150 relative"
+        className="rounded-xl px-3 py-2 shadow-sm w-full border cursor-pointer hover:opacity-90 active:opacity-80 transition-opacity duration-150 relative max-h-[200px] overflow-y-auto"
         style={{
           backgroundColor: 'var(--vscode-chat-surface)',
           borderColor: 'var(--vscode-input-border)',

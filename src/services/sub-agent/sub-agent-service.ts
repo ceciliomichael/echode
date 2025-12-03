@@ -5,6 +5,8 @@ import { GrepSearchTool } from '../tools/grep-search-tool';
 import { GlobSearchTool } from '../tools/glob-search-tool';
 import { ReadFileTool } from '../tools/read-file-tool';
 import { ListFilesTool } from '../tools/list-files-tool';
+import { getWorkspaceRoot } from '../tools/utils/workspace-utils';
+import { getWorkspaceFiles } from '../../utils/workspace-scanner';
 
 /**
  * Indexing settings from user config
@@ -137,8 +139,12 @@ export class SubAgentService {
 
     this.onProgress?.(`Starting sub-agent search for: "${query}"`);
 
+    // Get workspace files for context
+    const workspaceRoot = getWorkspaceRoot();
+    const workspaceFiles = workspaceRoot ? getWorkspaceFiles(workspaceRoot) : undefined;
+
     const conversation: ConversationMessage[] = [
-      { role: 'user', content: buildSubAgentPrompt(query, searchPath, hints) }
+      { role: 'user', content: buildSubAgentPrompt(query, searchPath, hints, workspaceFiles) }
     ];
 
     let iteration = 0;

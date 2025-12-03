@@ -32,6 +32,16 @@ function truncateContent(content: string, maxChars: number): string {
   return `${content.slice(0, maxChars)}\n...[truncated file content]`;
 }
 
+// Escape XML special characters to prevent breaking tool block parsing
+function escapeXml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
 interface ChatStreamingProps {
   messages: Message[];
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
@@ -134,9 +144,11 @@ export function useChatStreaming({
         
         // Create synthetic assistant content with echo_search tool block
         // Must match the expected format: <function_calls><invoke name="tool">...
+        // Escape XML special characters to prevent breaking the tool block structure
+        const escapedContent = escapeXml(content);
         const syntheticToolBlock = `<function_calls>
 <invoke name="echo_search">
-<parameter name="query">${content}</parameter>
+<parameter name="query">${escapedContent}</parameter>
 </invoke>
 </function_calls>`;
         

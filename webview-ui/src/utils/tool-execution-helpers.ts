@@ -1,5 +1,10 @@
 import type { ToolExecutor } from '../lib/tool-executor';
-import type { ParsedToolBlock } from '../types/tool';
+import type { ParsedToolBlock, EchoSearchProgress } from '../types/tool';
+
+/**
+ * Progress callback for echo_search tool iterations
+ */
+export type ToolProgressCallback = (progress: EchoSearchProgress) => void;
 
 interface ToolExecutionResult {
   executedToolCalls: Array<{
@@ -18,14 +23,20 @@ interface ToolExecutionResult {
 export async function executeToolWithStopCheck(
   toolExecutor: ToolExecutor,
   toolBlock: ParsedToolBlock,
-  isStoppingRef: React.MutableRefObject<boolean>
+  isStoppingRef: React.MutableRefObject<boolean>,
+  onProgress?: ToolProgressCallback
 ): Promise<ToolExecutionResult> {
   try {
-    const toolResult = await toolExecutor.execute({
-      toolName: toolBlock.toolName,
-      parameters: toolBlock.parameters,
-      status: 'executing',
-    });
+    const toolResult = await toolExecutor.execute(
+      {
+        toolName: toolBlock.toolName,
+        parameters: toolBlock.parameters,
+        status: 'executing',
+      },
+      undefined, // signal
+      undefined, // onStatusChange
+      onProgress // progress callback for echo_search
+    );
 
     // Check if stopped during execution
     if (isStoppingRef.current) {

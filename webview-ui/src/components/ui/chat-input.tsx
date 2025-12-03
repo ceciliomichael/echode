@@ -7,6 +7,7 @@ import { ChatModelSelector } from './chat-model-selector';
 import { ContextMenu } from './context-menu';
 import { MentionHighlighter } from './mention-highlighter';
 import { useContextMenu } from '../../hooks/use-context-menu';
+import { useWorkspaceContext } from '../../hooks/use-workspace-context';
 import { clearMentionPaths, removeMention, getMentionPath, unescapeSpaces } from '../../utils/mention-utils';
 import type { TodoTask } from '../../types/todo';
 import type { ImageAttachment } from '../../types/chat';
@@ -37,8 +38,9 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Get workspace files for mentions
-  const workspaceFiles = window.workspaceContext?.files || [];
+  // Get workspace files for mentions - use reactive hook so it updates when files change
+  const workspace = useWorkspaceContext();
+  const workspaceFiles = workspace?.files || [];
 
   // Context menu hook for @ mentions
   const handleInputChange = (newValue: string, newCursorPos?: number) => {

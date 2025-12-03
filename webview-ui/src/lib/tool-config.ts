@@ -101,9 +101,10 @@ These are the ONLY tools you may use. Do not invent or hallucinate other tool na
 
 <file_operations>
 **Critical Rules:**
-1. Always call read_file before editing code.
-2. Never guess file contents; rely on read_file and tool results.
-3. Paths without extensions (no dot after last slash) are DIRECTORIES.
+1. Always use RELATIVE paths (e.g., "src/index.ts", not "/Users/.../src/index.ts"). Never use absolute paths.
+2. Always call read_file before editing code.
+3. Never guess file contents; rely on read_file and tool results.
+4. Paths without extensions (no dot after last slash) are DIRECTORIES.
 
 **Directory vs File:**
 - DIRECTORY (e.g., src/app, src/routes, api):

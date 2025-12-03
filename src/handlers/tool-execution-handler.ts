@@ -1,6 +1,10 @@
 import * as vscode from 'vscode';
 import { defaultRegistry } from '../services/tools/tool-registry';
 import { ReadFileTool, WriteFileTool, ListFilesTool, GrepSearchTool, GlobSearchTool, DeleteFileTool, TodoWriteTool, TodoReadTool, PlanNavigatorTool, PlanHandoffTool, ApplyDiffTool, GetDiagnosticsTool, EchoSearchTool } from '../services/tools';
+import { getWorkspaceFiles, getAgentsConfig } from '../utils/workspace-scanner';
+
+// Tools that modify the file system and require workspace refresh
+const FILE_MODIFYING_TOOLS = new Set(['write_to_file', 'delete_file', 'apply_diff']);
 
 // Register tools
 defaultRegistry.registerTool(new ReadFileTool());
@@ -34,6 +38,12 @@ interface ToolExecutionResponse {
   };
 }
 
+interface ToolExecutionProgressMessage {
+  type: 'toolExecutionProgress';
+  requestId: string;
+  progress: unknown;
+}
+
 /**
  * Handle tool execution requests from webview
  */
@@ -59,7 +69,17 @@ export async function handleToolExecution(
       return;
     }
 
-    const result = await tool.execute(parameters);
+    // Create progress callback that sends updates to webview
+    const onProgress = (progress: unknown) => {
+      const progressMessage: ToolExecutionProgressMessage = {
+        type: 'toolExecutionProgress',
+        requestId,
+        progress,
+      };
+      webviewView.webview.postMessage(progressMessage);
+    };
+
+    const result = await tool.execute(parameters, onProgress);
 
     const response: ToolExecutionResponse = {
       type: 'toolExecutionResult',
@@ -72,6 +92,23 @@ export async function handleToolExecution(
     };
 
     webviewView.webview.postMessage(response);
+
+    // If a file-modifying tool succeeded, send fresh workspace info so mentions update
+    if (result.success && FILE_MODIFYING_TOOLS.has(toolName)) {
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      if (workspaceFolders && workspaceFolders.length > 0) {
+        const workspaceInfo = {
+          path: workspaceFolders[0].uri.fsPath,
+          name: workspaceFolders[0].name,
+          files: getWorkspaceFiles(workspaceFolders[0].uri.fsPath),
+          agentsConfig: getAgentsConfig(workspaceFolders[0].uri.fsPath)
+        };
+        webviewView.webview.postMessage({
+          type: 'workspaceInfo',
+          workspace: workspaceInfo
+        });
+      }
+    }
   } catch (error) {
     console.error(`Tool execution error (${toolName}):`, error);
     const response: ToolExecutionResponse = {

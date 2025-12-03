@@ -192,6 +192,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
               status: executionState?.status || (token.isClosed ? 'completed' : 'pending'),
               result: executionState?.result,
               toolExecutionId: token.toolExecutionId,
+              progress: executionState?.progress,
             };
             
             return (
@@ -321,13 +322,17 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
 }
 
 export const AssistantMessage = memo(AssistantMessageComponent, (prev, next) => {
-  // Compare toolExecutions maps by size and entries
+  // Compare toolExecutions maps by size and entries (including progress)
   const toolExecutionsEqual = 
     prev.toolExecutions === next.toolExecutions ||
     (prev.toolExecutions?.size === next.toolExecutions?.size &&
      Array.from(prev.toolExecutions?.entries() || []).every(([key, value]) => {
        const nextValue = next.toolExecutions?.get(key);
-       return nextValue?.status === value.status && nextValue?.result === value.result;
+       return nextValue?.status === value.status && 
+              nextValue?.result === value.result &&
+              nextValue?.progress?.iteration === value.progress?.iteration &&
+              nextValue?.progress?.phase === value.progress?.phase &&
+              (nextValue?.progress?.tools?.length || 0) === (value.progress?.tools?.length || 0);
      }));
   
   return prev.content === next.content && 

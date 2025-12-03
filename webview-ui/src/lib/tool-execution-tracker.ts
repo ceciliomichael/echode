@@ -1,4 +1,4 @@
-import type { ToolExecutionState, ToolStatus } from '../types/tool';
+import type { ToolExecutionState, ToolStatus, EchoSearchProgress } from '../types/tool';
 
 /**
  * Generate unique tool execution ID based on message ID and tool index
@@ -39,5 +39,18 @@ export function updateToolExecutionStatus(
     completedAt: status === 'completed' || status === 'error' || status === 'aborted' 
       ? Date.now() 
       : state.completedAt,
+  };
+}
+
+/**
+ * Update tool execution progress (for echo_search iterations)
+ */
+export function updateToolExecutionProgress(
+  state: ToolExecutionState,
+  progress: EchoSearchProgress
+): ToolExecutionState {
+  return {
+    ...state,
+    progress,
   };
 }

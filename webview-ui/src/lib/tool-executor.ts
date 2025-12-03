@@ -1,6 +1,6 @@
 import type { ToolCall, ToolExecutionResult, ParsedToolBlock } from '../types/tool';
 import type { ChatMode } from '../types/chat-mode';
-import { getToolHandler, type ToolStatusCallback, isToolRegistered } from './tool-registry';
+import { getToolHandler, type ToolStatusCallback, type ToolProgressCallback, isToolRegistered } from './tool-registry';
 import { extractFirstToolBlock } from './tool-parser';
 
 export interface ToolCallExecutionResult {
@@ -38,6 +38,7 @@ export class ToolExecutor {
     toolCall: ToolCall,
     signal?: AbortSignal,
     onStatusChange?: ToolStatusCallback,
+    onProgress?: ToolProgressCallback,
   ): Promise<ToolExecutionResult> {
     // Check if tool is registered (exists in the system)
     if (!isToolRegistered(toolCall.toolName)) {
@@ -81,6 +82,7 @@ export class ToolExecutor {
       toolCall.parameters,
       signal,
       onStatusChange,
+      onProgress,
     );
   }
 
