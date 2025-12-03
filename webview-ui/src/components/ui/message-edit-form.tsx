@@ -73,13 +73,18 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
   });
 
   useEffect(() => {
-    if (textareaRef.current) {
-      const textarea = textareaRef.current;
-      textarea.focus();
-      textarea.style.height = 'auto';
-      textarea.style.height = `${textarea.scrollHeight}px`;
-      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-    }
+    // Use requestAnimationFrame to ensure DOM is ready before focusing
+    // This fixes focus issues when restoring editing state from session history
+    const frameId = requestAnimationFrame(() => {
+      if (textareaRef.current) {
+        const textarea = textareaRef.current;
+        textarea.focus();
+        textarea.style.height = 'auto';
+        textarea.style.height = `${textarea.scrollHeight}px`;
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+      }
+    });
+    return () => cancelAnimationFrame(frameId);
   }, []);
 
   useEffect(() => {
