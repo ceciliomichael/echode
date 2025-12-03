@@ -76,7 +76,7 @@ export function ProviderDropdown({ value, onChange }: ProviderDropdownProps) {
             style={{ borderColor: 'var(--vscode-input-border)' }}
           >
             <div
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl border"
               style={{
                 backgroundColor: 'var(--vscode-input-background)',
                 borderColor: 'var(--vscode-input-border)'

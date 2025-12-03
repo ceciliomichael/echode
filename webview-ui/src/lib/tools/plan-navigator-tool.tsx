@@ -121,7 +121,7 @@ export function PlanNavigatorRenderer({ data }: { data: unknown }) {
               type="button"
               onClick={() => handleOptionClick(option, index)}
               disabled={isInteractionDisabled}
-              className="w-full text-left px-3 py-2 rounded-lg border text-xs transition-all"
+              className="w-full text-left px-3 py-2 rounded-xl border text-xs transition-all"
               style={{
                 backgroundColor: isClicked 
                   ? 'rgba(249, 115, 22, 0.15)'

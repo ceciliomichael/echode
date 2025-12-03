@@ -90,7 +90,7 @@ export function ModeDropdown({ mode, onModeChange, disabled = false, direction =
       {/* Dropdown Panel */}
       {isOpen && (
         <div
-          className={`absolute left-0 w-52 rounded-lg border p-1.5 z-[100] ${direction === 'down' ? 'top-full mt-1' : 'bottom-full mb-1'}`}
+          className={`absolute left-0 w-52 rounded-xl border p-1.5 z-[100] ${direction === 'down' ? 'top-full mt-1' : 'bottom-full mb-1'}`}
           style={{
             backgroundColor: 'var(--vscode-dropdown-background)',
             borderColor: 'var(--vscode-input-border)',
@@ -106,7 +106,7 @@ export function ModeDropdown({ mode, onModeChange, disabled = false, direction =
                   key={option.value}
                   type="button"
                   onClick={() => handleSelect(option.value)}
-                  className="w-full px-2 py-1.5 text-left rounded-lg transition-opacity hover:opacity-80 active:opacity-70 flex items-start gap-1.5 border"
+                  className="w-full px-2 py-1.5 text-left rounded-xl transition-opacity hover:opacity-80 active:opacity-70 flex items-start gap-1.5 border"
                   style={{
                     backgroundColor:
                       isSelected

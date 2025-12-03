@@ -27,7 +27,7 @@ export function SettingsSidebar({ activeTab, onTabChange }: SettingsSidebarProps
         <nav className="space-y-1.5">
           <button
             onClick={() => onTabChange('api')}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs rounded-lg transition-all border"
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs rounded-xl transition-all border"
             style={{
               backgroundColor: activeTab === 'api' ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent',
               color: activeTab === 'api' ? 'var(--vscode-list-activeSelectionForeground)' : 'var(--vscode-foreground)',
@@ -49,7 +49,7 @@ export function SettingsSidebar({ activeTab, onTabChange }: SettingsSidebarProps
           </button>
           <button
             onClick={() => onTabChange('system')}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs rounded-lg transition-all border"
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs rounded-xl transition-all border"
             style={{
               backgroundColor: activeTab === 'system' ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent',
               color: activeTab === 'system' ? 'var(--vscode-list-activeSelectionForeground)' : 'var(--vscode-foreground)',
@@ -71,7 +71,7 @@ export function SettingsSidebar({ activeTab, onTabChange }: SettingsSidebarProps
           </button>
           <button
             onClick={() => onTabChange('tools')}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs rounded-lg transition-all border"
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs rounded-xl transition-all border"
             style={{
               backgroundColor: activeTab === 'tools' ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent',
               color: activeTab === 'tools' ? 'var(--vscode-list-activeSelectionForeground)' : 'var(--vscode-foreground)',
@@ -93,7 +93,7 @@ export function SettingsSidebar({ activeTab, onTabChange }: SettingsSidebarProps
           </button>
           <button
             onClick={() => onTabChange('indexing')}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs rounded-lg transition-all border"
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs rounded-xl transition-all border"
             style={{
               backgroundColor: activeTab === 'indexing' ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent',
               color: activeTab === 'indexing' ? 'var(--vscode-list-activeSelectionForeground)' : 'var(--vscode-foreground)',
@@ -115,7 +115,7 @@ export function SettingsSidebar({ activeTab, onTabChange }: SettingsSidebarProps
           </button>
           <button
             onClick={() => onTabChange('autocomplete')}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs rounded-lg transition-all border"
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs rounded-xl transition-all border"
             style={{
               backgroundColor: activeTab === 'autocomplete' ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent',
               color: activeTab === 'autocomplete' ? 'var(--vscode-list-activeSelectionForeground)' : 'var(--vscode-foreground)',

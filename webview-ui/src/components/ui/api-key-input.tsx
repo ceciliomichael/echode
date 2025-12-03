@@ -35,7 +35,7 @@ export function ApiKeyInput({ value, onChange }: ApiKeyInputProps) {
         <button
           type="button"
           onClick={() => setShowApiKey(!showApiKey)}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors"
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-xl transition-colors"
           style={{ color: 'var(--vscode-foreground)' }}
           onMouseEnter={(e) => {
             e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)';

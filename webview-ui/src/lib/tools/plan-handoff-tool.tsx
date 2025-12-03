@@ -85,7 +85,7 @@ export function PlanHandoffRenderer({ data }: PlanHandoffRendererProps) {
     <div className="py-3 px-1">
       {/* Info Section */}
       <div 
-        className="px-3 py-2 rounded-lg mb-3 border"
+        className="px-3 py-2 rounded-xl mb-3 border"
         style={{
           backgroundColor: 'var(--vscode-input-background)',
           borderColor: 'var(--vscode-input-border)',
@@ -119,7 +119,7 @@ export function PlanHandoffRenderer({ data }: PlanHandoffRendererProps) {
         type="button"
         onClick={handleImplementClick}
         disabled={isDisabled}
-        className="w-full px-3 py-2.5 rounded-lg border text-xs font-medium transition-all flex items-center justify-center gap-2"
+        className="w-full px-3 py-2.5 rounded-xl border text-xs font-medium transition-all flex items-center justify-center gap-2"
         style={{
           backgroundColor: isSwitching
             ? 'rgba(249, 115, 22, 0.15)'

@@ -104,7 +104,7 @@ export function AutocompleteTab({ autocompleteSettings, onChange }: Autocomplete
         {/* Status indicator */}
         {autocompleteSettings.enabled && autocompleteSettings.model && (
           <div
-            className="flex items-center gap-2 p-3 rounded-lg"
+            className="flex items-center gap-2 p-3 rounded-xl"
             style={{
               backgroundColor: 'var(--vscode-inputValidation-infoBackground)',
               borderColor: 'var(--vscode-inputValidation-infoBorder)',
@@ -122,7 +122,7 @@ export function AutocompleteTab({ autocompleteSettings, onChange }: Autocomplete
 
         {autocompleteSettings.enabled && !autocompleteSettings.model && (
           <div
-            className="flex items-center gap-2 p-3 rounded-lg"
+            className="flex items-center gap-2 p-3 rounded-xl"
             style={{
               backgroundColor: 'var(--vscode-inputValidation-warningBackground)',
             }}

@@ -73,7 +73,7 @@ export function ToolsTab({ enabledTools, onChange }: ToolsTabProps) {
       <div className="mb-4 sm:mb-6">
         <button
           onClick={handleClearAllSettings}
-          className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm transition-all hover:opacity-80"
+          className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm transition-all hover:opacity-80"
           style={{
             backgroundColor: 'var(--vscode-button-secondaryBackground)',
             color: 'var(--vscode-button-secondaryForeground)',
@@ -93,7 +93,7 @@ export function ToolsTab({ enabledTools, onChange }: ToolsTabProps) {
           return (
             <div
               key={metadata.id}
-              className="rounded-lg border p-4 transition-all"
+              className="rounded-xl border p-4 transition-all"
               style={{
                 backgroundColor: 'var(--vscode-input-background)',
                 borderColor: enabled 

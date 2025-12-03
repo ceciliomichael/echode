@@ -38,7 +38,7 @@ export function SystemPromptTab({ value, onChange }: SystemPromptTabProps) {
           onChange={(e) => onChange(e.target.value)}
           placeholder="Enter your custom instructions here...&#10;&#10;Example:&#10;- Always provide code examples when explaining concepts&#10;- Use concise language and avoid unnecessary explanations&#10;- Focus on best practices and modern patterns"
           rows={14}
-          className="w-full px-4 py-3 text-sm rounded-lg border resize-none transition-all font-mono"
+          className="w-full px-4 py-3 text-sm rounded-xl border resize-none transition-all font-mono"
           style={{
             backgroundColor: 'var(--vscode-input-background)',
             color: 'var(--vscode-input-foreground)',

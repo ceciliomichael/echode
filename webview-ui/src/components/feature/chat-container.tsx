@@ -189,6 +189,7 @@ export function ChatContainer() {
       <Dropdown
         isOpen={isHistoryOpen}
         onClose={closeHistory}
+        variant="fullwidth"
       >
         <HistoryDropdown
           onLoadSession={loadSession}

@@ -215,7 +215,7 @@ export function ChatModelSelector({ provider: activeProvider, model: activeModel
 
       {isOpen && (
         <div
-          className={`absolute left-0 w-52 rounded-lg border z-[100] ${
+          className={`absolute left-0 w-52 rounded-xl border z-[100] ${
             direction === 'down' ? 'top-full mt-1' : 'bottom-full mb-1'
           }`}
           style={{
