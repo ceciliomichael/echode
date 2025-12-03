@@ -215,22 +215,22 @@ export function ChatModelSelector({ provider: activeProvider, model: activeModel
 
       {isOpen && (
         <div
-          className={`absolute left-0 w-52 rounded-lg border p-1.5 z-[100] ${
+          className={`absolute left-0 w-52 rounded-lg border z-[100] ${
             direction === 'down' ? 'top-full mt-1' : 'bottom-full mb-1'
           }`}
           style={{
-            backgroundColor: 'var(--vscode-dropdown-background)',
+            backgroundColor: 'var(--vscode-editor-background)',
             borderColor: 'var(--vscode-input-border)',
           }}
         >
           <div
-            className="py-1 border-b"
+            className="p-2 border-b"
             style={{ borderColor: 'var(--vscode-input-border)' }}
           >
             <div
               className="relative rounded-md border"
               style={{
-                backgroundColor: 'var(--vscode-editor-background)',
+                backgroundColor: 'var(--vscode-input-background)',
                 borderColor: 'var(--vscode-input-border)',
               }}
             >
@@ -254,8 +254,8 @@ export function ChatModelSelector({ provider: activeProvider, model: activeModel
           </div>
 
           <div
-            className="overflow-y-auto max-h-48 mt-1"
-            style={{ backgroundColor: 'var(--vscode-input-background)' }}
+            className="overflow-y-auto max-h-48"
+            style={{ backgroundColor: 'transparent' }}
           >
             {anyLoading && !hasSearch && (
               <div className="px-2 py-1.5 text-[11px] opacity-70">
@@ -269,7 +269,7 @@ export function ChatModelSelector({ provider: activeProvider, model: activeModel
                   No models match your search.
                 </div>
               ) : (
-                <div className="flex flex-col gap-1 pb-1">
+                <div className="flex flex-col">
                   {filteredResults.map((item) => {
                     const isSelected =
                       item.provider === activeProvider && item.model === activeModel;
@@ -279,7 +279,7 @@ export function ChatModelSelector({ provider: activeProvider, model: activeModel
                         key={`${item.provider}:${item.model}`}
                         type="button"
                         onClick={() => handleSelectModel(item.provider, item.model)}
-                        className="w-full px-2 py-1 text-left rounded-md transition-colors flex items-center justify-between border"
+                        className="w-full px-3 py-1.5 text-left transition-colors flex items-center justify-between"
                         style={{
                           backgroundColor: isSelected
                             ? 'var(--vscode-list-activeSelectionBackground)'
@@ -287,9 +287,6 @@ export function ChatModelSelector({ provider: activeProvider, model: activeModel
                           color: isSelected
                             ? 'var(--vscode-list-activeSelectionForeground)'
                             : 'var(--vscode-foreground)',
-                          borderColor: isSelected
-                            ? 'var(--vscode-list-activeSelectionBackground)'
-                            : 'var(--vscode-input-border)',
                         }}
                         onMouseEnter={(e) => {
                           if (!isSelected) {
@@ -315,7 +312,7 @@ export function ChatModelSelector({ provider: activeProvider, model: activeModel
                 </div>
               )
             ) : (
-              <div className="flex flex-col gap-1 pb-1">
+              <div className="flex flex-col">
                 {PROVIDER_OPTIONS
                   .filter((providerOption) => {
                     const providerModels = modelsByProvider[providerOption.value] || [];
@@ -327,8 +324,8 @@ export function ChatModelSelector({ provider: activeProvider, model: activeModel
                     const isActiveProvider = provider === activeProvider;
 
                     return (
-                      <div key={provider} className="pt-0.5 pb-1">
-                        <div className="flex items-center justify-between mb-1">
+                      <div key={provider} className="pt-1">
+                        <div className="flex items-center justify-between mb-0.5 px-3">
                           <span className="text-[11px] font-semibold opacity-70">
                             {providerOption.label}
                           </span>
@@ -337,7 +334,7 @@ export function ChatModelSelector({ provider: activeProvider, model: activeModel
                           )}
                         </div>
 
-                        <div className="flex flex-col gap-1">
+                        <div className="flex flex-col">
                           {providerModels.map((model) => {
                             const isSelected =
                               provider === activeProvider && model === activeModel;
@@ -347,7 +344,7 @@ export function ChatModelSelector({ provider: activeProvider, model: activeModel
                                 key={`${provider}:${model}`}
                                 type="button"
                                 onClick={() => handleSelectModel(provider, model)}
-                                className="w-full px-2 py-1 text-left rounded-md transition-colors flex items-center justify-between border"
+                                className="w-full px-3 py-1.5 text-left transition-colors flex items-center justify-between"
                                 style={{
                                   backgroundColor: isSelected
                                     ? 'var(--vscode-list-activeSelectionBackground)'
@@ -355,9 +352,6 @@ export function ChatModelSelector({ provider: activeProvider, model: activeModel
                                   color: isSelected
                                     ? 'var(--vscode-list-activeSelectionForeground)'
                                     : 'var(--vscode-foreground)',
-                                  borderColor: isSelected
-                                    ? 'var(--vscode-list-activeSelectionBackground)'
-                                    : 'var(--vscode-input-border)',
                                 }}
                                 onMouseEnter={(e) => {
                                   if (!isSelected) {

@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useRef } from 'react';
 
 /**
  * Normalize content by converting escaped sequences to actual characters.
@@ -218,6 +218,8 @@ function filterDiffWithContext(diffLines: DiffLine[], contextLines: number | und
 }
 
 const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = false, viewOnly = false, startLineNumber = 1, endLineNumber, contextLines }: DiffViewerProps) => {
+  const lineNumbersRef = useRef<HTMLDivElement>(null);
+
   const diffLines = useMemo(
     () => {
       const diff = computeDiff(oldContent, newContent, isStreaming, startLineNumber);
@@ -250,71 +252,48 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
           backgroundColor: 'var(--vscode-editor-background)',
         }}
       >
-        {/* Line Numbers Column - Fixed, scrolls vertically only */}
+        {/* Line Numbers Column - Fixed, no scrollbar */}
         <div
-          className="flex-shrink-0 select-none"
+          className="flex-shrink-0 select-none overflow-hidden"
           style={{
             minWidth: viewOnly ? '40px' : '80px',
             backgroundColor: 'var(--vscode-editor-background)',
             maxHeight: '400px',
-            overflowY: 'auto',
-            overflowX: 'hidden',
-          }}
-          onScroll={(e) => {
-            const codeContent = e.currentTarget.nextElementSibling?.querySelector('[data-code-scroll]') as HTMLElement;
-            if (codeContent) {
-              codeContent.scrollTop = e.currentTarget.scrollTop;
-            }
           }}
         >
-          {diffLines.map((line, idx) => {
-            if (line.type === 'collapsed') {
-              return null;
-            }
-
-            let bgColor: string;
-            if (viewOnly) {
-              bgColor = 'transparent';
-            } else {
-              switch (line.type) {
-                case 'added':
-                  bgColor = 'var(--vscode-diffEditor-insertedTextBackground)';
-                  break;
-                case 'removed':
-                  bgColor = 'var(--vscode-diffEditor-removedTextBackground)';
-                  break;
-                default:
-                  bgColor = 'transparent';
+          <div ref={lineNumbersRef}>
+            {diffLines.map((line, idx) => {
+              if (line.type === 'collapsed') {
+                return null;
               }
-            }
 
-            return (
-              <div
-                key={idx}
-                className="px-2 text-right min-h-[1.15rem] leading-[1.15rem]"
-                style={{
-                  color: 'var(--vscode-editorLineNumber-foreground)',
-                  backgroundColor: bgColor,
-                }}
-              >
-                {!viewOnly ? (
-                  <>
-                    {line.oldLineNumber !== undefined && (
-                      <span className="inline-block w-6">{line.oldLineNumber}</span>
-                    )}
-                    {line.oldLineNumber === undefined && <span className="inline-block w-6">-</span>}
-                    <span className="mx-1">|</span>
-                    {line.newLineNumber !== undefined && (
-                      <span className="inline-block w-6">{line.newLineNumber}</span>
-                    )}
-                    {line.newLineNumber === undefined && <span className="inline-block w-6">-</span>}
-                  </>
-                ) : (
-                  <span className="inline-block w-6">{line.newLineNumber}</span>
-                )}
-              </div>
-            );
-          })}
+              return (
+                <div
+                  key={idx}
+                  className="px-2 text-right min-h-[1.15rem] leading-[1.15rem]"
+                  style={{
+                    color: 'var(--vscode-editorLineNumber-foreground)',
+                  }}
+                >
+                  {!viewOnly ? (
+                    <>
+                      {line.oldLineNumber !== undefined && (
+                        <span className="inline-block w-6">{line.oldLineNumber}</span>
+                      )}
+                      {line.oldLineNumber === undefined && <span className="inline-block w-6">-</span>}
+                      <span className="mx-1">|</span>
+                      {line.newLineNumber !== undefined && (
+                        <span className="inline-block w-6">{line.newLineNumber}</span>
+                      )}
+                      {line.newLineNumber === undefined && <span className="inline-block w-6">-</span>}
+                    </>
+                  ) : (
+                    <span className="inline-block w-6">{line.newLineNumber}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Code Content Column - Scrolls both directions */}
@@ -323,11 +302,9 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
           style={{
             maxHeight: '400px',
           }}
-          data-code-scroll
           onScroll={(e) => {
-            const lineNumbers = e.currentTarget.previousElementSibling as HTMLElement;
-            if (lineNumbers) {
-              lineNumbers.scrollTop = e.currentTarget.scrollTop;
+            if (lineNumbersRef.current) {
+              lineNumbersRef.current.style.transform = `translateY(-${e.currentTarget.scrollTop}px)`;
             }
           }}
         >

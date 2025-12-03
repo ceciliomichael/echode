@@ -6,6 +6,9 @@ import { getWorkspaceFiles, getAgentsConfig } from '../utils/workspace-scanner';
 // Tools that modify the file system and require workspace refresh
 const FILE_MODIFYING_TOOLS = new Set(['write_to_file', 'delete_file', 'apply_diff']);
 
+// Track active tool executions for cancellation
+const activeToolExecutions = new Map<string, AbortController>();
+
 // Register tools
 defaultRegistry.registerTool(new ReadFileTool());
 defaultRegistry.registerTool(new WriteFileTool());
@@ -28,6 +31,12 @@ interface ToolExecutionMessage {
   parameters: Record<string, unknown>;
 }
 
+interface ToolAbortMessage {
+  type: 'abortToolExecution';
+  requestId: string;
+  toolName: string;
+}
+
 interface ToolExecutionResponse {
   type: 'toolExecutionResult';
   requestId: string;
@@ -48,10 +57,26 @@ interface ToolExecutionProgressMessage {
  * Handle tool execution requests from webview
  */
 export async function handleToolExecution(
-  data: ToolExecutionMessage,
+  data: ToolExecutionMessage | ToolAbortMessage,
   webviewView: vscode.WebviewView | vscode.WebviewPanel,
 ): Promise<void> {
+  
+  // Handle abort request
+  if (data.type === 'abortToolExecution') {
+    const controller = activeToolExecutions.get(data.requestId);
+    if (controller) {
+      console.log(`[ToolHandler] Aborting tool execution ${data.requestId}`);
+      controller.abort();
+      activeToolExecutions.delete(data.requestId);
+    }
+    return;
+  }
+
   const { requestId, toolName, parameters } = data;
+
+  // Create abort controller for this execution
+  const abortController = new AbortController();
+  activeToolExecutions.set(requestId, abortController);
 
   try {
     const tool = defaultRegistry.getTool(toolName);
@@ -79,7 +104,8 @@ export async function handleToolExecution(
       webviewView.webview.postMessage(progressMessage);
     };
 
-    const result = await tool.execute(parameters, onProgress);
+    // Execute tool with cancellation signal
+    const result = await tool.execute(parameters, onProgress, abortController.signal);
 
     const response: ToolExecutionResponse = {
       type: 'toolExecutionResult',
@@ -110,6 +136,12 @@ export async function handleToolExecution(
       }
     }
   } catch (error) {
+    // Check if it was aborted
+    if (abortController.signal.aborted) {
+      console.log(`[ToolHandler] Tool execution ${requestId} aborted locally`);
+      return; // Do not send error response for aborted requests
+    }
+
     console.error(`Tool execution error (${toolName}):`, error);
     const response: ToolExecutionResponse = {
       type: 'toolExecutionResult',
@@ -120,5 +152,7 @@ export async function handleToolExecution(
       }
     };
     webviewView.webview.postMessage(response);
+  } finally {
+    activeToolExecutions.delete(requestId);
   }
 }

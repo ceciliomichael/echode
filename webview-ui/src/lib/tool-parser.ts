@@ -11,22 +11,118 @@ function unescapeXml(text: string): string {
 }
 
 /**
- * Centralized regex pattern for tool blocks
- * Format: <function_calls><invoke name="TOOL_NAME"><parameter name="param">value</parameter></invoke></function_calls>
- * 
- * Pattern breakdown:
- * - <function_calls> - Opening wrapper tag
- * - ([\s\S]*?) - Non-greedy content capture (invoke blocks with parameters)
- * - </function_calls> - Closing wrapper tag
+ * Find the matching closing tag for a given opening tag position
+ * Uses balanced tag counting to handle nested content that may contain similar-looking tags
+ * (e.g., HTML content with </script> inside a parameter)
  */
-const TOOL_BLOCK_REGEX = /<function_calls>([\s\S]*?)<\/function_calls>/;
-const TOOL_BLOCK_REGEX_GLOBAL = /<function_calls>([\s\S]*?)<\/function_calls>/g;
+function findMatchingClosingTag(
+  content: string,
+  openTagEnd: number,
+  openTag: string,
+  closeTag: string
+): number {
+  let depth = 1;
+  let pos = openTagEnd;
+  
+  while (pos < content.length && depth > 0) {
+    const nextOpen = content.indexOf(openTag, pos);
+    const nextClose = content.indexOf(closeTag, pos);
+    
+    // No more closing tags found
+    if (nextClose === -1) {
+      return -1;
+    }
+    
+    // Check which comes first
+    if (nextOpen !== -1 && nextOpen < nextClose) {
+      // Found another opening tag first - increase depth
+      depth++;
+      pos = nextOpen + openTag.length;
+    } else {
+      // Found closing tag first - decrease depth
+      depth--;
+      if (depth === 0) {
+        return nextClose;
+      }
+      pos = nextClose + closeTag.length;
+    }
+  }
+  
+  return -1;
+}
 
 /**
- * Regex to extract invoke blocks with tool name from attribute
- * Captures: name attribute value and inner content
+ * Extract function_calls blocks using balanced tag matching
+ * This properly handles nested content that may contain </function_calls> or </invoke> text
  */
-const INVOKE_BLOCK_REGEX = /<invoke\s+name=["']([^"']+)["']>([\s\S]*?)<\/invoke>/g;
+function extractFunctionCallsBlocks(content: string): Array<{ innerContent: string; fullMatch: string; startIndex: number; endIndex: number }> {
+  const blocks: Array<{ innerContent: string; fullMatch: string; startIndex: number; endIndex: number }> = [];
+  const openTag = '<function_calls>';
+  const closeTag = '</function_calls>';
+  let searchPos = 0;
+  
+  while (searchPos < content.length) {
+    const openPos = content.indexOf(openTag, searchPos);
+    if (openPos === -1) break;
+    
+    const openTagEnd = openPos + openTag.length;
+    const closePos = findMatchingClosingTag(content, openTagEnd, openTag, closeTag);
+    
+    if (closePos === -1) {
+      // No matching closing tag - incomplete block
+      break;
+    }
+    
+    const innerContent = content.slice(openTagEnd, closePos);
+    const fullMatch = content.slice(openPos, closePos + closeTag.length);
+    
+    blocks.push({
+      innerContent,
+      fullMatch,
+      startIndex: openPos,
+      endIndex: closePos + closeTag.length
+    });
+    
+    searchPos = closePos + closeTag.length;
+  }
+  
+  return blocks;
+}
+
+/**
+ * Extract invoke blocks using balanced tag matching
+ * Handles nested content that may contain </invoke> text (e.g., in HTML/code)
+ */
+function extractInvokeBlocks(content: string): Array<{ toolName: string; innerContent: string; fullMatch: string }> {
+  const blocks: Array<{ toolName: string; innerContent: string; fullMatch: string }> = [];
+  const invokeOpenRegex = /<invoke\s+name=["']([^"']+)["']>/g;
+  const closeTag = '</invoke>';
+  
+  let match: RegExpExecArray | null;
+  while ((match = invokeOpenRegex.exec(content)) !== null) {
+    const toolName = match[1];
+    const openTagEnd = match.index + match[0].length;
+    
+    // Find matching closing tag using balanced matching
+    const closePos = findMatchingClosingTag(content, openTagEnd, '<invoke', closeTag);
+    
+    if (closePos !== -1) {
+      const innerContent = content.slice(openTagEnd, closePos);
+      const fullMatch = content.slice(match.index, closePos + closeTag.length);
+      
+      blocks.push({
+        toolName,
+        innerContent,
+        fullMatch
+      });
+    }
+  }
+  
+  return blocks;
+}
+
+// Legacy regex pattern kept for parseToolBlock backward compatibility
+const TOOL_BLOCK_REGEX = /<function_calls>([\s\S]*?)<\/function_calls>/;
 
 /**
  * Parse XML-style parameters from invoke block content
@@ -281,6 +377,7 @@ function parseInvokeBlock(
 /**
  * Parse function_calls block and extract all invoke blocks
  * Returns array of parsed tool blocks
+ * Uses balanced tag matching to handle nested content properly
  */
 function parseFunctionCallsBlock(
   contentStr: string,
@@ -288,16 +385,12 @@ function parseFunctionCallsBlock(
 ): ParsedToolBlock[] {
   const toolBlocks: ParsedToolBlock[] = [];
   
-  // Reset regex lastIndex
-  const invokeRegex = new RegExp(INVOKE_BLOCK_REGEX.source, 'g');
-  let match: RegExpExecArray | null;
+  // Use balanced tag extraction instead of regex
+  const invokeBlocks = extractInvokeBlocks(contentStr);
   
-  while ((match = invokeRegex.exec(contentStr)) !== null) {
-    const toolName = match[1];
-    const invokeContent = match[2];
-    
-    if (toolName && typeof toolName === 'string') {
-      const parsed = parseInvokeBlock(invokeContent, toolName, rawContent);
+  for (const block of invokeBlocks) {
+    if (block.toolName && typeof block.toolName === 'string') {
+      const parsed = parseInvokeBlock(block.innerContent, block.toolName, rawContent);
       if (parsed) {
         toolBlocks.push(parsed);
       }
@@ -361,6 +454,7 @@ export function hasCompleteToolBlock(content: string): boolean {
 
 /**
  * Trims content to only include up to the end of the last complete tool block
+ * Uses balanced tag matching for proper nested content handling
  */
 export function trimToLastCompleteToolBlock(content: string): string {
   if (!content || typeof content !== 'string') {
@@ -376,52 +470,33 @@ export function trimToLastCompleteToolBlock(content: string): string {
   // Clean up AI formatting mistakes
   contentWithoutThinkBlocks = cleanToolCallContent(contentWithoutThinkBlocks);
 
-  // Find all complete tool blocks
-  const toolBlocks = extractToolBlocks(contentWithoutThinkBlocks);
+  // Find all complete tool blocks using balanced matching
+  const functionCallsBlocks = extractFunctionCallsBlocks(contentWithoutThinkBlocks);
 
-  if (toolBlocks.length === 0) {
+  if (functionCallsBlocks.length === 0) {
     return content;
   }
 
-  // Find the position of the end of the last complete tool block
-  let lastToolBlockEnd = -1;
-  const regex = new RegExp(TOOL_BLOCK_REGEX_GLOBAL.source, 'g');
-  let match: RegExpExecArray | null;
-
-  regex.lastIndex = 0;
-  match = regex.exec(contentWithoutThinkBlocks);
-  while (match !== null) {
-    // Parse invoke blocks within function_calls
-    const parsedBlocks = parseFunctionCallsBlock(match[1], match[0]);
+  // Get the last valid tool block
+  let lastValidBlock: { endIndex: number } | null = null;
+  
+  for (const block of functionCallsBlocks) {
+    const parsedBlocks = parseFunctionCallsBlock(block.innerContent, block.fullMatch);
     if (parsedBlocks.length > 0) {
-      lastToolBlockEnd = match.index + match[0].length;
+      lastValidBlock = block;
     }
-    match = regex.exec(contentWithoutThinkBlocks);
   }
 
-  if (lastToolBlockEnd > 0) {
-    // Find the last tool block in the original content
-    const originalMatches: Array<{ index: number; length: number }> = [];
-    const originalRegex = new RegExp(TOOL_BLOCK_REGEX_GLOBAL.source, 'g');
-    let originalMatch: RegExpExecArray | null;
-
-    originalRegex.lastIndex = 0;
-    originalMatch = originalRegex.exec(content);
-    while (originalMatch !== null) {
-      // Parse invoke blocks
-      const parsedBlocks = parseFunctionCallsBlock(originalMatch[1], originalMatch[0]);
+  if (lastValidBlock) {
+    // Find the corresponding position in the original content
+    const originalBlocks = extractFunctionCallsBlocks(content);
+    
+    for (let i = originalBlocks.length - 1; i >= 0; i--) {
+      const block = originalBlocks[i];
+      const parsedBlocks = parseFunctionCallsBlock(block.innerContent, block.fullMatch);
       if (parsedBlocks.length > 0) {
-        originalMatches.push({
-          index: originalMatch.index,
-          length: originalMatch[0].length,
-        });
+        return content.slice(0, block.endIndex);
       }
-      originalMatch = originalRegex.exec(content);
-    }
-
-    if (originalMatches.length > 0) {
-      const lastMatch = originalMatches[originalMatches.length - 1];
-      return content.slice(0, lastMatch.index + lastMatch.length);
     }
   }
 
@@ -431,6 +506,7 @@ export function trimToLastCompleteToolBlock(content: string): string {
 /**
  * Trims content to only include up to the end of the FIRST complete tool block
  * Useful for incremental tool execution
+ * Uses balanced tag matching for proper nested content handling
  */
 export function trimToFirstCompleteToolBlock(content: string): string {
   if (!content || typeof content !== 'string') {
@@ -446,33 +522,23 @@ export function trimToFirstCompleteToolBlock(content: string): string {
   // Clean up AI formatting mistakes
   contentWithoutThinkBlocks = cleanToolCallContent(contentWithoutThinkBlocks);
 
-  // Find first valid tool block
-  const regex = new RegExp(TOOL_BLOCK_REGEX.source, 'g');
-  let match: RegExpExecArray | null;
+  // Find first valid tool block using balanced matching
+  const functionCallsBlocks = extractFunctionCallsBlocks(contentWithoutThinkBlocks);
   
-  regex.lastIndex = 0;
-  match = regex.exec(contentWithoutThinkBlocks);
-  
-  while (match !== null) {
-    const parsedBlocks = parseFunctionCallsBlock(match[1], match[0]);
+  for (const block of functionCallsBlocks) {
+    const parsedBlocks = parseFunctionCallsBlock(block.innerContent, block.fullMatch);
     if (parsedBlocks.length > 0) {
-      // Found a tool - map back to original content
-      const originalRegex = new RegExp(TOOL_BLOCK_REGEX.source, 'g');
-      let originalMatch: RegExpExecArray | null;
+      // Found a valid tool - map back to original content
+      const originalBlocks = extractFunctionCallsBlocks(content);
       
-      originalRegex.lastIndex = 0;
-      originalMatch = originalRegex.exec(content);
-      
-      while (originalMatch !== null) {
-        const originalParsedBlocks = parseFunctionCallsBlock(originalMatch[1], originalMatch[0]);
+      for (const origBlock of originalBlocks) {
+        const originalParsedBlocks = parseFunctionCallsBlock(origBlock.innerContent, origBlock.fullMatch);
         if (originalParsedBlocks.length > 0) {
-          return content.slice(0, originalMatch.index + originalMatch[0].length);
+          return content.slice(0, origBlock.endIndex);
         }
-        originalMatch = originalRegex.exec(content);
       }
       break;
     }
-    match = regex.exec(contentWithoutThinkBlocks);
   }
 
   return content;
@@ -561,6 +627,7 @@ function cleanToolCallContent(content: string): string {
 /**
  * Extracts all complete tool blocks from content
  * Excludes tool blocks that are inside <think> tags
+ * Uses balanced tag matching to handle nested content (e.g., HTML with </script>)
  */
 export function extractToolBlocks(content: string): ParsedToolBlock[] {
   // Remove all <think>...</think> blocks to prevent tool execution inside them
@@ -574,13 +641,11 @@ export function extractToolBlocks(content: string): ParsedToolBlock[] {
 
   const toolBlocks: ParsedToolBlock[] = [];
   
-  // Reset regex and search for function_calls blocks
-  const regex = new RegExp(TOOL_BLOCK_REGEX_GLOBAL.source, 'g');
-  let match: RegExpExecArray | null;
-
-  while ((match = regex.exec(contentWithoutThinkBlocks)) !== null) {
-    const innerContent = match[1];
-    const parsedBlocks = parseFunctionCallsBlock(innerContent, match[0]);
+  // Use balanced tag extraction instead of regex for proper nested content handling
+  const functionCallsBlocks = extractFunctionCallsBlocks(contentWithoutThinkBlocks);
+  
+  for (const block of functionCallsBlocks) {
+    const parsedBlocks = parseFunctionCallsBlock(block.innerContent, block.fullMatch);
     
     // Add all parsed invoke blocks
     toolBlocks.push(...parsedBlocks);

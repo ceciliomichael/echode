@@ -123,7 +123,7 @@ export class SubAgentService {
   /**
    * Execute the sub-agent search
    */
-  async search(query: string, searchPath?: string, hints?: string[]): Promise<SubAgentResult> {
+  async search(query: string, searchPath?: string, hints?: string[], signal?: AbortSignal): Promise<SubAgentResult> {
     this.stats = {
       iterations: 0,
       grepCalls: 0,
@@ -154,13 +154,17 @@ export class SubAgentService {
     this.onProgress?.(`Starting search (max ${maxIterations} turns)`);
 
     while (iteration < maxIterations) {
+      if (signal?.aborted) {
+        throw new Error('Search aborted');
+      }
+
       iteration++;
       this.stats.iterations = iteration;
 
       this.onProgress?.(`Iteration ${iteration}/${maxIterations}: Thinking...`);
 
       // Get LLM response
-      const response = await this.callLLM(conversation);
+      const response = await this.callLLM(conversation, signal);
 
       if (!response) {
         this.onProgress?.(`Error: No response from LLM`);
@@ -195,6 +199,10 @@ export class SubAgentService {
       // Execute tools IN PARALLEL for better performance
       this.onProgress?.(`Executing ${cappedToolCalls.length} tool(s) in parallel...`);
       const toolResults = await this.executeToolsParallel(cappedToolCalls);
+
+      if (signal?.aborted) {
+        throw new Error('Search aborted');
+      }
 
       // Add to conversation
       conversation.push({ role: 'assistant', content: response });
@@ -233,7 +241,7 @@ You MUST respond with this EXACT format:
 DO NOT call any more tools. Output ONLY the <search_complete> block now.`
     });
 
-    const finalResponse = await this.callLLM(conversation);
+    const finalResponse = await this.callLLM(conversation, signal);
     
     // Log for debugging
     console.log('[EchoSearch] Final response received, length:', finalResponse?.length || 0);
@@ -264,15 +272,15 @@ DO NOT call any more tools. Output ONLY the <search_complete> block now.`
   /**
    * Call the LLM based on provider
    */
-  private async callLLM(conversation: ConversationMessage[]): Promise<string | null> {
+  private async callLLM(conversation: ConversationMessage[], signal?: AbortSignal): Promise<string | null> {
     const { provider, model } = this.indexingSettings;
 
     try {
       switch (provider) {
         case 'anthropic':
-          return await this.callAnthropic(conversation, model);
+          return await this.callAnthropic(conversation, model, signal);
         case 'openai':
-          return await this.callOpenAI(conversation, model, this.apiSettings.openaiApiKey, this.apiSettings.openaiCustomUrl);
+          return await this.callOpenAI(conversation, model, this.apiSettings.openaiApiKey, this.apiSettings.openaiCustomUrl, signal);
         case 'openai-compatible':
         case 'megallm': {
           const apiKey = provider === 'megallm' ? this.apiSettings.megallmApiKey : this.apiSettings.openaiCompatibleApiKey;
@@ -281,13 +289,16 @@ DO NOT call any more tools. Output ONLY the <search_complete> block now.`
           const baseUrl = provider === 'megallm' 
             ? (this.apiSettings.megallmCustomUrl || defaultMegallmUrl)
             : this.apiSettings.openaiCompatibleCustomUrl;
-          return await this.callOpenAI(conversation, model, apiKey, baseUrl);
+          return await this.callOpenAI(conversation, model, apiKey, baseUrl, signal);
         }
         default:
           this.onProgress?.(`Provider ${provider} not supported for sub-agent`);
           return null;
       }
     } catch (error) {
+      if (signal?.aborted) {
+        throw error;
+      }
       this.onProgress?.(`LLM Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return null;
     }
@@ -296,7 +307,7 @@ DO NOT call any more tools. Output ONLY the <search_complete> block now.`
   /**
    * Call Anthropic API
    */
-  private async callAnthropic(conversation: ConversationMessage[], model: string): Promise<string> {
+  private async callAnthropic(conversation: ConversationMessage[], model: string, signal?: AbortSignal): Promise<string> {
     const client = new Anthropic({
       apiKey: this.apiSettings.anthropicApiKey,
       baseURL: this.apiSettings.anthropicCustomUrl || undefined,
@@ -310,7 +321,7 @@ DO NOT call any more tools. Output ONLY the <search_complete> block now.`
         role: m.role,
         content: m.content,
       })),
-    });
+    }, { signal });
 
     const textBlock = response.content.find(block => block.type === 'text');
     return textBlock?.type === 'text' ? textBlock.text : '';
@@ -323,7 +334,8 @@ DO NOT call any more tools. Output ONLY the <search_complete> block now.`
     conversation: ConversationMessage[],
     model: string,
     apiKey?: string,
-    baseUrl?: string
+    baseUrl?: string,
+    signal?: AbortSignal
   ): Promise<string> {
     // Normalize baseURL to ensure /v1 suffix (matching main chat providers)
     let normalizedBaseUrl = baseUrl;
@@ -346,7 +358,7 @@ DO NOT call any more tools. Output ONLY the <search_complete> block now.`
           content: m.content,
         })),
       ],
-    });
+    }, { signal });
 
     return response.choices[0]?.message?.content || '';
   }

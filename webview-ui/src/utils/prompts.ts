@@ -8,6 +8,7 @@ import {
   getCapabilitiesSection,
   getObjectiveSection,
   getRulesSection,
+  getVisualizationGuidelinesSection,
 } from './prompt-sections';
 import { getToolUseGuidelinesSection } from './prompt-sections/tool-use-guidelines';
 
@@ -217,6 +218,8 @@ ${getSystemInfoSection(workspace)}
 ${getCapabilitiesSection(workspace, mode)}
 
 ${getRulesSection(workspace, mode)}
+
+${getVisualizationGuidelinesSection(mode)}
 
 ${getObjectiveSection()}
 ${userRulesSection}

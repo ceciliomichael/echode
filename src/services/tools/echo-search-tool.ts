@@ -68,7 +68,7 @@ function parseProgressMessage(message: string, currentProgress: EchoSearchProgre
 export class EchoSearchTool implements ITool {
   name = 'echo_search';
 
-  async execute(parameters: Record<string, unknown>, onProgress?: ToolProgressCallback): Promise<ToolExecutionResult> {
+  async execute(parameters: Record<string, unknown>, onProgress?: ToolProgressCallback, signal?: AbortSignal): Promise<ToolExecutionResult> {
     const query = parameters.query as string;
     const searchPath = (parameters.path as string) || '';
     const hints = (parameters.hints as string[]) || [];

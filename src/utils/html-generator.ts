@@ -119,3 +119,284 @@ export function getSettingsHtml(
   });
 }
 
+/**
+ * Generate HTML for Mermaid preview panel
+ */
+export function getMermaidPreviewHtml(
+  webview: vscode.Webview,
+  code: string
+): string {
+  const theme = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark ? 'dark' : 'default';
+  
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} https://cdn.jsdelivr.net 'unsafe-inline';">
+  <title>Mermaid Preview</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: var(--vscode-editor-background);
+      color: var(--vscode-editor-foreground);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      font-family: var(--vscode-font-family), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    #toolbar {
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--vscode-input-border);
+      background: var(--vscode-editor-background);
+      flex-shrink: 0;
+    }
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      padding: 2px;
+      background: var(--vscode-input-background);
+      border: 1px solid var(--vscode-input-border);
+      border-radius: 4px;
+    }
+    .toolbar-divider {
+      width: 1px;
+      height: 20px;
+      background: var(--vscode-input-border);
+    }
+    button {
+      background: transparent;
+      color: var(--vscode-foreground);
+      border: none;
+      padding: 4px 8px;
+      cursor: pointer;
+      border-radius: 2px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 400;
+      transition: background 0.1s ease;
+      outline: none;
+    }
+    button:hover {
+      background: var(--vscode-toolbar-hoverBackground);
+    }
+    button:active {
+      opacity: 0.8;
+    }
+    button:focus {
+      outline: none;
+    }
+    .save-group {
+      display: flex;
+      align-items: center;
+      padding: 2px;
+      background: var(--vscode-button-secondaryBackground);
+      border: 1px solid var(--vscode-button-border); 
+      border-radius: 4px;
+    }
+    .save-group button {
+      color: var(--vscode-button-secondaryForeground);
+    }
+    .save-group button:hover {
+      background: var(--vscode-button-secondaryHoverBackground);
+    }
+    #zoom-level {
+      font-size: 11px;
+      color: var(--vscode-foreground);
+      min-width: 40px;
+      text-align: center;
+      font-weight: 500;
+    }
+    #container {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+      cursor: grab;
+      background: var(--vscode-editor-background);
+    }
+    #container.panning {
+      cursor: grabbing;
+    }
+    #diagram-wrapper {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform-origin: center center;
+      transition: transform 0.08s ease-out;
+    }
+    #footer {
+      padding: 8px 16px;
+      font-size: 11px;
+      color: var(--vscode-descriptionForeground);
+      border-top: 1px solid var(--vscode-input-border);
+      background: var(--vscode-editor-background);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #footer::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: var(--vscode-button-background);
+      border-radius: 50%;
+      opacity: 0.7;
+    }
+    /* Icon styling */
+    .icon {
+      width: 14px;
+      height: 14px;
+      stroke-width: 2;
+    }
+  </style>
+</head>
+<body>
+  <div id="toolbar">
+    <div class="toolbar-group">
+      <button onclick="zoomOut()" title="Zoom Out">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h14"/></svg>
+      </button>
+      <span id="zoom-level">100%</span>
+      <button onclick="zoomIn()" title="Zoom In">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </div>
+    <div style="width: 8px"></div>
+    <button onclick="resetView()" title="Reset View">Reset</button>
+    <button onclick="fitToView()" title="Fit to View">Fit</button>
+    <div style="flex: 1;"></div>
+    <div class="save-group">
+      <button onclick="saveSvg()" title="Save as SVG">Save SVG</button>
+    </div>
+  </div>
+  <div id="container">
+    <div id="diagram-wrapper">
+      <div class="mermaid">
+${code}
+      </div>
+    </div>
+  </div>
+  <div id="footer">Scroll to zoom • Drag to pan • Double-click to reset</div>
+  <script>
+    const vscode = acquireVsCodeApi();
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: '${theme}',
+      securityLevel: 'loose',
+    });
+
+    // Pan/Zoom state
+    let scale = 1;
+    let panX = 0;
+    let panY = 0;
+    let isPanning = false;
+    let startX = 0;
+    let startY = 0;
+
+    const container = document.getElementById('container');
+    const wrapper = document.getElementById('diagram-wrapper');
+    const zoomLabel = document.getElementById('zoom-level');
+
+    function updateTransform() {
+      wrapper.style.transform = 'translate(-50%, -50%) translate(' + panX + 'px, ' + panY + 'px) scale(' + scale + ')';
+      zoomLabel.textContent = Math.round(scale * 100) + '%';
+    }
+
+    function zoomIn() {
+      scale = Math.min(5, scale + 0.2);
+      updateTransform();
+    }
+
+    function zoomOut() {
+      scale = Math.max(0.1, scale - 0.2);
+      updateTransform();
+    }
+
+    function resetView() {
+      scale = 1;
+      panX = 0;
+      panY = 0;
+      updateTransform();
+    }
+
+    function fitToView() {
+      const svg = container.querySelector('svg');
+      if (!svg) return;
+      const rect = svg.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const scaleX = (containerRect.width - 40) / rect.width * scale;
+      const scaleY = (containerRect.height - 40) / rect.height * scale;
+      scale = Math.min(scaleX, scaleY, 2);
+      panX = 0;
+      panY = 0;
+      updateTransform();
+    }
+
+    // Mouse wheel zoom
+    container.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      scale = Math.max(0.1, Math.min(5, scale + delta));
+      updateTransform();
+    });
+
+    // Pan with mouse drag
+    container.addEventListener('mousedown', (e) => {
+      isPanning = true;
+      startX = e.clientX - panX;
+      startY = e.clientY - panY;
+      container.classList.add('panning');
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isPanning) return;
+      panX = e.clientX - startX;
+      panY = e.clientY - startY;
+      updateTransform();
+    });
+
+    window.addEventListener('mouseup', () => {
+      isPanning = false;
+      container.classList.remove('panning');
+    });
+
+    // Double-click to reset
+    container.addEventListener('dblclick', resetView);
+
+    function saveSvg() {
+      const svg = container.querySelector('svg');
+      if (svg) {
+        vscode.postMessage({
+          type: 'saveMermaidSvg',
+          svg: svg.outerHTML
+        });
+      }
+    }
+
+    // Initial auto-fit after render
+    setTimeout(() => {
+      fitToView();
+      // Notify extension that preview is ready
+      vscode.postMessage({ type: 'mermaidPreviewReady' });
+    }, 500);
+
+    // Listen for close event
+    window.addEventListener('beforeunload', () => {
+      vscode.postMessage({ type: 'mermaidPreviewClosed' });
+    });
+  </script>
+</body>
+</html>`;
+}
+

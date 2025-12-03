@@ -65,7 +65,7 @@ export function ProviderDropdown({ value, onChange }: ProviderDropdownProps) {
         <div
           className="absolute z-10 w-full mt-1 rounded-xl border overflow-hidden"
           style={{
-            backgroundColor: 'var(--vscode-input-background)',
+            backgroundColor: 'var(--vscode-editor-background)',
             borderColor: 'var(--vscode-input-border)',
             maxHeight: '300px',
             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)'
@@ -78,7 +78,7 @@ export function ProviderDropdown({ value, onChange }: ProviderDropdownProps) {
             <div
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg border"
               style={{
-                backgroundColor: 'var(--vscode-editor-background)',
+                backgroundColor: 'var(--vscode-input-background)',
                 borderColor: 'var(--vscode-input-border)'
               }}
             >
@@ -101,8 +101,7 @@ export function ProviderDropdown({ value, onChange }: ProviderDropdownProps) {
           <div
             className="overflow-y-auto"
             style={{
-              maxHeight: '240px',
-              backgroundColor: 'var(--vscode-input-background)'
+              maxHeight: '240px'
             }}
           >
             {filteredProviders.length === 0 ? (
@@ -127,7 +126,7 @@ export function ProviderDropdown({ value, onChange }: ProviderDropdownProps) {
                   }}
                   onMouseEnter={(e) => {
                     if (provider.value !== value) {
-                      e.currentTarget.style.backgroundColor = 'var(--vscode-editor-background)';
+                      e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
                     }
                   }}
                   onMouseLeave={(e) => {

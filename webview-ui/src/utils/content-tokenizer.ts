@@ -5,63 +5,94 @@
 export type ContentToken =
   | { type: 'think'; content: string; index: number; isClosed: boolean }
   | { type: 'tool'; toolName: string; parameters: Record<string, unknown>; rawContent: string; index: number; isClosed: boolean; toolExecutionId: string }
+  | { type: 'mermaid'; content: string; index: number; isClosed: boolean }
   | { type: 'text'; content: string; index: number };
+
+/**
+ * Find the matching closing tag for a given opening tag position
+ * Uses balanced tag counting to handle nested content that may contain similar-looking tags
+ */
+function findMatchingClosingTag(
+  content: string,
+  openTagEnd: number,
+  openTag: string,
+  closeTag: string
+): number {
+  let depth = 1;
+  let pos = openTagEnd;
+  
+  while (pos < content.length && depth > 0) {
+    const nextOpen = content.indexOf(openTag, pos);
+    const nextClose = content.indexOf(closeTag, pos);
+    
+    // No more closing tags found
+    if (nextClose === -1) {
+      return -1;
+    }
+    
+    // Check which comes first
+    if (nextOpen !== -1 && nextOpen < nextClose) {
+      // Found another opening tag first - increase depth
+      depth++;
+      pos = nextOpen + openTag.length;
+    } else {
+      // Found closing tag first - decrease depth
+      depth--;
+      if (depth === 0) {
+        return nextClose;
+      }
+      pos = nextClose + closeTag.length;
+    }
+  }
+  
+  return -1;
+}
 
 /**
  * Parse XML-style parameters from invoke block content
  * New format: <parameter name="paramName">value</parameter>
  * Handles both complete and partial/unclosed tags during streaming
+ * Uses balanced tag matching to handle nested content (e.g., HTML with </script>)
  */
 function parseXMLParameters(content: string): Record<string, unknown> {
   const parameters: Record<string, unknown> = {};
-  
-  // First pass: Extract all COMPLETE parameter tags with name attribute
-  // Format: <parameter name="paramName">value</parameter>
-  const paramRegex = /<parameter\s+name=["']([^"']+)["']>([\s\S]*?)<\/parameter>/g;
-  let match: RegExpExecArray | null;
   const processedParams = new Set<string>();
   
-  while ((match = paramRegex.exec(content)) !== null) {
+  // Find all parameter opening tags
+  const openingParamRegex = /<parameter\s+name=["']([^"']+)["']>/g;
+  let match: RegExpExecArray | null;
+  
+  while ((match = openingParamRegex.exec(content)) !== null) {
     const paramName = match[1];
-    const paramValue = match[2];
+    const openTagEnd = match.index + match[0].length;
     
     // Skip if already processed (handles duplicate tags)
     if (processedParams.has(paramName)) {
       continue;
     }
     
-    // Parameters that should ALWAYS be treated as raw strings (never parsed as JSON/numbers)
-    const isRawStringParam = ['old_string', 'new_string', 'content', 'diff', 'edits'].includes(paramName);
-    // Strip only leading/trailing newlines (AI adds newline after opening tag), preserve internal whitespace
-    const finalValue = isRawStringParam 
-      ? paramValue.replace(/^\n/, '').replace(/\n$/, '') 
-      : paramValue.trim();
-    // Skip parseParamValue for raw string params - they should never be converted to objects
-    parameters[paramName] = isRawStringParam ? finalValue : parseParamValue(finalValue);
-    processedParams.add(paramName);
-  }
-  
-  // Second pass: Extract PARTIAL/UNCLOSED parameter tags (streaming content)
-  const openingParamRegex = /<parameter\s+name=["']([^"']+)["']>/g;
-  const openingTags: Array<{name: string; pos: number}> = [];
-  
-  while ((match = openingParamRegex.exec(content)) !== null) {
-    openingTags.push({ name: match[1], pos: match.index + match[0].length });
-  }
-  
-  // Check each opening tag for unclosed content
-  for (const tag of openingTags) {
-    // Skip if we already have this parameter (it was complete)
-    if (parameters[tag.name] !== undefined) {continue;}
+    // Find matching closing tag using balanced matching
+    const closeTag = '</parameter>';
+    const closePos = findMatchingClosingTag(content, openTagEnd, '<parameter', closeTag);
     
-    // Extract partial content from opening tag
-    const closingTag = '</parameter>';
-    const closingPos = content.indexOf(closingTag, tag.pos);
-    
-    // If no closing tag found, this is streaming content
-    if (closingPos === -1) {
-      const partialContent = content.slice(tag.pos);
-      parameters[tag.name] = partialContent;
+    if (closePos !== -1) {
+      // Complete parameter tag found
+      const paramValue = content.slice(openTagEnd, closePos);
+      
+      // Parameters that should ALWAYS be treated as raw strings (never parsed as JSON/numbers)
+      const isRawStringParam = ['old_string', 'new_string', 'content', 'diff', 'edits', 'CodeContent'].includes(paramName);
+      // Strip only leading/trailing newlines (AI adds newline after opening tag), preserve internal whitespace
+      const finalValue = isRawStringParam 
+        ? paramValue.replace(/^\n/, '').replace(/\n$/, '') 
+        : paramValue.trim();
+      // Skip parseParamValue for raw string params - they should never be converted to objects
+      parameters[paramName] = isRawStringParam ? finalValue : parseParamValue(finalValue);
+      processedParams.add(paramName);
+    } else {
+      // No closing tag found - this is streaming content (partial parameter)
+      const partialContent = content.slice(openTagEnd);
+      parameters[paramName] = partialContent;
+      processedParams.add(paramName);
     }
   }
   
@@ -141,15 +172,62 @@ function extractCompleteJsonObjects(partialArray: string): unknown[] {
 }
 
 /**
- * Regex to extract invoke blocks with tool name from attribute
+ * Extract invoke blocks using balanced tag matching
+ * Handles nested content that may contain </invoke> text (e.g., in HTML/code)
  */
-const INVOKE_BLOCK_REGEX = /<invoke\s+name=["']([^"']+)["']>([\s\S]*?)<\/invoke>/;
+function extractInvokeBlock(content: string): { toolName: string; innerContent: string } | null {
+  const invokeOpenRegex = /<invoke\s+name=["']([^"']+)["']>/;
+  const match = invokeOpenRegex.exec(content);
+  
+  if (!match) {
+    return null;
+  }
+  
+  const toolName = match[1];
+  const openTagEnd = match.index + match[0].length;
+  const closeTag = '</invoke>';
+  
+  // Find matching closing tag using balanced matching
+  const closePos = findMatchingClosingTag(content, openTagEnd, '<invoke', closeTag);
+  
+  if (closePos !== -1) {
+    const innerContent = content.slice(openTagEnd, closePos);
+    return { toolName, innerContent };
+  }
+  
+  // No closing tag - return partial content for streaming
+  return { toolName, innerContent: content.slice(openTagEnd) };
+}
+
+/**
+ * Find matching </function_calls> tag using balanced matching
+ * Returns the position of the closing tag, or -1 if not found
+ */
+function findMatchingFunctionCallsClose(content: string, openTagEnd: number): number {
+  return findMatchingClosingTag(content, openTagEnd, '<function_calls>', '</function_calls>');
+}
 
 /**
  * Find the next tool block start position (function_calls tag)
  */
 function findNextToolStart(content: string, fromPosition: number): number {
   const pos = content.indexOf('<function_calls>', fromPosition);
+  return pos !== -1 ? pos : -1;
+}
+
+/**
+ * Find the next mermaid block start position
+ */
+function findNextMermaidStart(content: string, fromPosition: number): number {
+  const pos = content.indexOf('```mermaid', fromPosition);
+  return pos !== -1 ? pos : -1;
+}
+
+/**
+ * Find the closing ``` for a mermaid block
+ */
+function findMermaidClose(content: string, afterMermaidTag: number): number {
+  const pos = content.indexOf('```', afterMermaidTag);
   return pos !== -1 ? pos : -1;
 }
 
@@ -164,20 +242,22 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
   let toolIndex = 0;
 
   while (position < content.length) {
-    // Check for think/thinking blocks and tool blocks
+    // Check for think/thinking blocks, tool blocks, and mermaid blocks
     const thinkStart = content.indexOf('<think>', position);
     const thinkingStart = content.indexOf('<thinking>', position);
     const toolStart = findNextToolStart(content, position);
+    const mermaidStart = findNextMermaidStart(content, position);
     
     // Determine which comes first
     let nextBlockStart = -1;
-    let blockType: 'think' | 'thinking' | 'tool' | null = null;
+    let blockType: 'think' | 'thinking' | 'tool' | 'mermaid' | null = null;
     
     // Find the earliest block
     const candidates = [
       { pos: thinkStart, type: 'think' as const },
       { pos: thinkingStart, type: 'thinking' as const },
-      { pos: toolStart, type: 'tool' as const }
+      { pos: toolStart, type: 'tool' as const },
+      { pos: mermaidStart, type: 'mermaid' as const }
     ].filter(c => c.pos !== -1);
     
     if (candidates.length > 0) {
@@ -262,7 +342,8 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
       const closingTag = '</function_calls>';
       
       const contentStart = toolStart + openingTag.length;
-      const closeMarker = content.indexOf(closingTag, contentStart);
+      // Use balanced matching to find the correct closing tag
+      const closeMarker = findMatchingFunctionCallsClose(content, contentStart);
       
       if (closeMarker !== -1) {
         // Closed tool block
@@ -271,11 +352,10 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
         const rawContent = content.slice(toolStart, closeMarker + closingTagLength);
         
         try {
-          // Extract invoke block with tool name from attribute
-          const invokeMatch = innerContent.match(INVOKE_BLOCK_REGEX);
-          if (invokeMatch) {
-            const toolName = invokeMatch[1];
-            const invokeContent = invokeMatch[2];
+          // Extract invoke block with tool name using balanced matching
+          const invokeResult = extractInvokeBlock(innerContent);
+          if (invokeResult) {
+            const { toolName, innerContent: invokeContent } = invokeResult;
             const parameters = parseXMLParameters(invokeContent);
             
             // Allow all tool names - validation happens at execution time
@@ -289,7 +369,7 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
                       type: 'tool',
                       toolName,
                       parameters: { path: (file as { path: string }).path, ...(file as Record<string, unknown>) },
-                      rawContent: `<function_calls><invoke name="${toolName}"><parameter name="path">${(file as { path: string }).path}</parameter></invoke></function_calls>`,
+                      rawContent: `<function_calls><invoke name="${toolName}"><parameter name="path">${(file as { path: string }).path}</parameter></invoke></function_calls>` ,
                       index: tokenIndex++,
                       isClosed: true,
                       toolExecutionId: `${messageId}-tool-${toolIndex}-file-${fileIdx}`
@@ -310,6 +390,28 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
                 });
               }
             }
+          } else {
+            // Fallback for cases where </function_calls> is present but </invoke> has not streamed yet
+            const partialInvokeMatch = innerContent.match(/<invoke\s+name=["']([^"']+)["']>/);
+            if (partialInvokeMatch) {
+              const toolName = partialInvokeMatch[1];
+              const invokeContentStart = partialInvokeMatch.index! + partialInvokeMatch[0].length;
+              const partialInvokeContent = innerContent.slice(invokeContentStart);
+              const parameters = parseXMLParameters(partialInvokeContent);
+              
+              if (toolName && typeof toolName === 'string') {
+                tokens.push({
+                  type: 'tool',
+                  toolName,
+                  parameters,
+                  rawContent,
+                  index: tokenIndex++,
+                  // Mark as not fully closed so streaming-aware UI (e.g. planning tools) can special-case it
+                  isClosed: false,
+                  toolExecutionId: `${messageId}-tool-${toolIndex++}`
+                });
+              }
+            }
           }
           position = closeMarker + closingTagLength;
         } catch {
@@ -322,11 +424,10 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
         const rawContent = content.slice(toolStart);
         
         try {
-          // Try to extract invoke block (may be partial during streaming)
-          const invokeMatch = innerContent.match(INVOKE_BLOCK_REGEX);
-          if (invokeMatch) {
-            const toolName = invokeMatch[1];
-            const invokeContent = invokeMatch[2];
+          // Try to extract invoke block using balanced matching (may be partial during streaming)
+          const invokeResult = extractInvokeBlock(innerContent);
+          if (invokeResult) {
+            const { toolName, innerContent: invokeContent } = invokeResult;
             const parameters = parseXMLParameters(invokeContent);
             
             // Allow all tool names - validation happens at execution time
@@ -386,6 +487,34 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
         } catch {
           // XML parsing failed during streaming. Skip this block.
         }
+        position = content.length;
+        break;
+      }
+    }
+    // Process mermaid block
+    else if (blockType === 'mermaid') {
+      const contentStart = mermaidStart + 10; // length of '```mermaid'
+      const closeTag = findMermaidClose(content, contentStart);
+      
+      if (closeTag !== -1) {
+        // Closed mermaid block
+        const mermaidContent = content.slice(contentStart, closeTag).trim();
+        tokens.push({
+          type: 'mermaid',
+          content: mermaidContent,
+          index: tokenIndex++,
+          isClosed: true
+        });
+        position = closeTag + 3; // Skip past '```'
+      } else {
+        // Unclosed mermaid block (streaming)
+        const mermaidContent = content.slice(contentStart).trim();
+        tokens.push({
+          type: 'mermaid',
+          content: mermaidContent,
+          index: tokenIndex++,
+          isClosed: false
+        });
         position = content.length;
         break;
       }

@@ -11,5 +11,5 @@ export type ToolProgressCallback = (progress: unknown) => void;
 
 export interface ITool {
   name: string;
-  execute(parameters: Record<string, unknown>, onProgress?: ToolProgressCallback): Promise<ToolExecutionResult>;
+  execute(parameters: Record<string, unknown>, onProgress?: ToolProgressCallback, signal?: AbortSignal): Promise<ToolExecutionResult>;
 }

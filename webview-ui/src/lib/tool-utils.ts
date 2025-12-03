@@ -116,6 +116,11 @@ export async function executeToolViaExtension(
 
     const handleAbort = () => {
       window.removeEventListener('message', handleResponse);
+      window.vscode.postMessage({
+        type: 'abortToolExecution',
+        requestId,
+        toolName,
+      });
       reject(new Error('Tool execution aborted'));
     };
 

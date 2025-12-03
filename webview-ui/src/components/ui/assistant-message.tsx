@@ -2,6 +2,7 @@ import { memo, useMemo } from 'react';
 import { LoadingDots } from './loading-dots';
 import { ThinkBlock } from './think-block';
 import { ToolBlock } from './tool-block';
+import { MermaidBlock } from './mermaid-block';
 import { StableMarkdown } from './stable-markdown';
 import { tokenizeContent } from '../../utils/content-tokenizer';
 import type { ToolCall, ToolExecutionState } from '../../types/tool';
@@ -219,6 +220,18 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
               <div key={`text-${messageId}-${token.index}`} style={{ marginTop: textMarginTop, paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
                 <StableMarkdown 
                   content={sanitizeAssistantText(token.content)} 
+                />
+              </div>
+            );
+          }
+          
+          // Mermaid diagram - render as separate stable block
+          if (token.type === 'mermaid') {
+            return (
+              <div key={`mermaid-${messageId}-${token.index}`} style={{ marginTop, paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
+                <MermaidBlock 
+                  code={token.content} 
+                  isGenerating={!token.isClosed}
                 />
               </div>
             );

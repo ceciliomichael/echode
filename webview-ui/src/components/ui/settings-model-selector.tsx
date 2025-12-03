@@ -30,7 +30,52 @@ export function SettingsModelSelector({
 }: SettingsModelSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [openUpward, setOpenUpward] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  const DROPDOWN_HEIGHT = 280;
+
+  // Calculate and update dropdown position
+  const updatePosition = () => {
+    if (buttonRef.current) {
+      const buttonRect = buttonRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - buttonRect.bottom;
+      const spaceAbove = buttonRect.top;
+      setOpenUpward(spaceBelow < DROPDOWN_HEIGHT && spaceAbove > spaceBelow);
+    }
+  };
+
+  // Handle dropdown toggle with position detection
+  const handleToggle = () => {
+    if (!isOpen) {
+      updatePosition();
+    }
+    setIsOpen(!isOpen);
+  };
+
+  // Update position on scroll/resize while open
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handlePositionUpdate = () => {
+      if (buttonRef.current) {
+        const buttonRect = buttonRef.current.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - buttonRect.bottom;
+        const spaceAbove = buttonRect.top;
+        setOpenUpward(spaceBelow < DROPDOWN_HEIGHT && spaceAbove > spaceBelow);
+      }
+    };
+    
+    // Listen to all scroll events (capture phase) and resize
+    document.addEventListener('scroll', handlePositionUpdate, true);
+    window.addEventListener('resize', handlePositionUpdate);
+
+    return () => {
+      document.removeEventListener('scroll', handlePositionUpdate, true);
+      window.removeEventListener('resize', handlePositionUpdate);
+    };
+  }, [isOpen]);
 
   const [settings, setSettings] = useState<ApiSettings>(() => storageService.getSettings());
 
@@ -172,8 +217,9 @@ export function SettingsModelSelector({
       </label>
       <div ref={dropdownRef} className="relative">
         <button
+          ref={buttonRef}
           type="button"
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={handleToggle}
           className="w-full px-3 py-2 text-sm rounded-xl border transition-colors flex items-center justify-between"
           style={{
             backgroundColor: 'var(--vscode-input-background)',
@@ -192,12 +238,15 @@ export function SettingsModelSelector({
 
         {isOpen && (
           <div
-            className="absolute z-10 w-full mt-1 rounded-xl border overflow-hidden"
+            className={`absolute w-full rounded-xl border overflow-hidden ${
+              openUpward ? 'bottom-full mb-1' : 'top-full mt-1'
+            }`}
             style={{
-              backgroundColor: 'var(--vscode-input-background)',
+              backgroundColor: 'var(--vscode-editor-background)',
               borderColor: 'var(--vscode-input-border)',
-              maxHeight: '360px',
+              maxHeight: `${DROPDOWN_HEIGHT}px`,
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+              zIndex: 9999,
             }}
           >
             <div
@@ -207,7 +256,7 @@ export function SettingsModelSelector({
               <div
                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg border"
                 style={{
-                  backgroundColor: 'var(--vscode-editor-background)',
+                  backgroundColor: 'var(--vscode-input-background)',
                   borderColor: 'var(--vscode-input-border)',
                 }}
               >
@@ -227,7 +276,7 @@ export function SettingsModelSelector({
               </div>
             </div>
 
-            <div className="overflow-y-auto p-2" style={{ maxHeight: '280px' }}>
+            <div className="overflow-y-auto" style={{ maxHeight: '200px' }}>
               {anyLoading && !hasSearch && (
                 <div className="px-2 py-1.5 text-xs opacity-70">
                   Loading models...
@@ -240,7 +289,7 @@ export function SettingsModelSelector({
                     No models match your search.
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-1">
+                  <div className="flex flex-col">
                     {filteredResults.map((item) => {
                       const isSelected =
                         item.provider === activeProvider && item.model === activeModel;
@@ -250,7 +299,7 @@ export function SettingsModelSelector({
                           key={`${item.provider}:${item.model}`}
                           type="button"
                           onClick={() => handleSelectModel(item.provider, item.model)}
-                          className="w-full px-3 py-2 text-left rounded-lg transition-colors flex items-center justify-between border"
+                          className="w-full px-3 py-2 text-left transition-colors flex items-center justify-between"
                           style={{
                             backgroundColor: isSelected
                               ? 'var(--vscode-list-activeSelectionBackground)'
@@ -258,9 +307,6 @@ export function SettingsModelSelector({
                             color: isSelected
                               ? 'var(--vscode-list-activeSelectionForeground)'
                               : 'var(--vscode-foreground)',
-                            borderColor: isSelected
-                              ? 'var(--vscode-list-activeSelectionBackground)'
-                              : 'var(--vscode-input-border)',
                           }}
                           onMouseEnter={(e) => {
                             if (!isSelected) {
@@ -286,7 +332,7 @@ export function SettingsModelSelector({
                   </div>
                 )
               ) : (
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col">
                   {PROVIDER_OPTIONS
                     .filter((providerOption) => {
                       const providerModels = modelsByProvider[providerOption.value] || [];
@@ -299,7 +345,7 @@ export function SettingsModelSelector({
 
                       return (
                         <div key={provider} className="pt-1">
-                          <div className="flex items-center justify-between mb-1.5 px-1">
+                          <div className="flex items-center justify-between mb-1 px-3">
                             <span className="text-xs font-semibold opacity-70">
                               {providerOption.label}
                             </span>
@@ -308,7 +354,7 @@ export function SettingsModelSelector({
                             )}
                           </div>
 
-                          <div className="flex flex-col gap-1">
+                          <div className="flex flex-col">
                             {providerModels.map((model) => {
                               const isSelected =
                                 provider === activeProvider && model === activeModel;
@@ -318,7 +364,7 @@ export function SettingsModelSelector({
                                   key={`${provider}:${model}`}
                                   type="button"
                                   onClick={() => handleSelectModel(provider, model)}
-                                  className="w-full px-3 py-2 text-left rounded-lg transition-colors flex items-center justify-between border"
+                                  className="w-full px-3 py-2 text-left transition-colors flex items-center justify-between"
                                   style={{
                                     backgroundColor: isSelected
                                       ? 'var(--vscode-list-activeSelectionBackground)'
@@ -326,9 +372,6 @@ export function SettingsModelSelector({
                                     color: isSelected
                                       ? 'var(--vscode-list-activeSelectionForeground)'
                                       : 'var(--vscode-foreground)',
-                                    borderColor: isSelected
-                                      ? 'var(--vscode-list-activeSelectionBackground)'
-                                      : 'var(--vscode-input-border)',
                                   }}
                                   onMouseEnter={(e) => {
                                     if (!isSelected) {

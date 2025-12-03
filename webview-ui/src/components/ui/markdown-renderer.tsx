@@ -8,6 +8,7 @@ interface MarkdownRendererProps {
 }
 
 export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: MarkdownRendererProps) {
+  // Memoize components for stable rendering
   const markdownComponents = useMemo(() => ({
     h1: ({ ...props }) => (
       <h1 
@@ -109,20 +110,25 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: Mark
       const hasNewlines = childrenText.includes('\n');
       const isInline = inline || (!hasNewlines && !className);
 
-      return isInline ? (
-        <code
-          className="rounded px-1.5 py-0.5 text-xs font-mono border whitespace-nowrap"
-          style={{
-            display: 'inline-block',
-            backgroundColor: 'var(--vscode-textCodeBlock-background)',
-            borderColor: 'var(--vscode-input-border)',
-            color: 'var(--vscode-textLink-foreground)'
-          }}
-          {...props}
-        >
-          {children}
-        </code>
-      ) : (
+
+      if (isInline) {
+        return (
+          <code
+            className="rounded px-1.5 py-0.5 text-xs font-mono border whitespace-nowrap"
+            style={{
+              display: 'inline-block',
+              backgroundColor: 'var(--vscode-textCodeBlock-background)',
+              borderColor: 'var(--vscode-input-border)',
+              color: 'var(--vscode-textLink-foreground)'
+            }}
+            {...props}
+          >
+            {children}
+          </code>
+        );
+      }
+
+      return (
         <CodeBlock className={className}>
           {children}
         </CodeBlock>

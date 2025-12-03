@@ -3,7 +3,7 @@ import { handleApiRequest } from './handlers/api-handler';
 import { handleChatStream } from './handlers/chat-streaming-handler';
 import { handleModelFetch } from './handlers/model-fetching-handler';
 import { handleToolExecution } from './handlers/tool-execution-handler';
-import { getMainWebviewHtml, getSettingsHtml } from './utils/html-generator';
+import { getMainWebviewHtml, getSettingsHtml, getMermaidPreviewHtml } from './utils/html-generator';
 import { getWorkspaceFiles, getAgentsConfig } from './utils/workspace-scanner';
 import { ChatHistoryService } from './services/chat-history-service';
 import { ToolHistoryService } from './services/tool-history-service';
@@ -22,6 +22,7 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
   private _toolHistoryService: ToolHistoryService;
   private _isHistoryOpen: boolean = false;
   private _settingsPanel?: vscode.WebviewPanel;
+  private _mermaidPanels = new Map<string, vscode.WebviewPanel>();
   private _autocompleteService: AutocompleteService;
 
   constructor(
@@ -262,52 +263,56 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
           break;
         case 'undoToolExecutions':
           const workspaceForToolUndo = vscode.workspace.workspaceFolders;
-          if (workspaceForToolUndo && workspaceForToolUndo.length > 0) {
-            try {
-              const toolExecutions = new Map<string, ToolExecutionState>(data.toolExecutions);
-              const result = await this._toolHistoryService.undoToolExecutions(
-                toolExecutions,
-                workspaceForToolUndo[0].uri.fsPath
-              );
-              webviewView.webview.postMessage({
-                type: 'toolExecutionsUndone',
-                requestId: data.requestId,
-                success: result.success,
-                errors: result.errors,
-              });
-            } catch (error) {
-              console.error('[ToolHistory] Error undoing tool executions:', error);
-              webviewView.webview.postMessage({
-                type: 'toolExecutionsError',
-                error: error instanceof Error ? error.message : 'Failed to undo tool executions',
-                requestId: data.requestId,
-              });
-            }
+          const undoWorkspacePath = workspaceForToolUndo && workspaceForToolUndo.length > 0 
+            ? workspaceForToolUndo[0].uri.fsPath 
+            : '';
+            
+          try {
+            const toolExecutions = new Map<string, ToolExecutionState>(data.toolExecutions);
+            const result = await this._toolHistoryService.undoToolExecutions(
+              toolExecutions,
+              undoWorkspacePath
+            );
+            webviewView.webview.postMessage({
+              type: 'toolExecutionsUndone',
+              requestId: data.requestId,
+              success: result.success,
+              errors: result.errors,
+            });
+          } catch (error) {
+            console.error('[ToolHistory] Error undoing tool executions:', error);
+            webviewView.webview.postMessage({
+              type: 'toolExecutionsError',
+              error: error instanceof Error ? error.message : 'Failed to undo tool executions',
+              requestId: data.requestId,
+            });
           }
           break;
         case 'redoToolExecutions':
           const workspaceForToolRedo = vscode.workspace.workspaceFolders;
-          if (workspaceForToolRedo && workspaceForToolRedo.length > 0) {
-            try {
-              const toolExecutions = new Map<string, ToolExecutionState>(data.toolExecutions);
-              const result = await this._toolHistoryService.redoToolExecutions(
-                toolExecutions,
-                workspaceForToolRedo[0].uri.fsPath
-              );
-              webviewView.webview.postMessage({
-                type: 'toolExecutionsRedone',
-                requestId: data.requestId,
-                success: result.success,
-                errors: result.errors,
-              });
-            } catch (error) {
-              console.error('[ToolHistory] Error redoing tool executions:', error);
-              webviewView.webview.postMessage({
-                type: 'toolExecutionsError',
-                error: error instanceof Error ? error.message : 'Failed to redo tool executions',
-                requestId: data.requestId,
-              });
-            }
+          const redoWorkspacePath = workspaceForToolRedo && workspaceForToolRedo.length > 0 
+            ? workspaceForToolRedo[0].uri.fsPath 
+            : '';
+
+          try {
+            const toolExecutions = new Map<string, ToolExecutionState>(data.toolExecutions);
+            const result = await this._toolHistoryService.redoToolExecutions(
+              toolExecutions,
+              redoWorkspacePath
+            );
+            webviewView.webview.postMessage({
+              type: 'toolExecutionsRedone',
+              requestId: data.requestId,
+              success: result.success,
+              errors: result.errors,
+            });
+          } catch (error) {
+            console.error('[ToolHistory] Error redoing tool executions:', error);
+            webviewView.webview.postMessage({
+              type: 'toolExecutionsError',
+              error: error instanceof Error ? error.message : 'Failed to redo tool executions',
+              requestId: data.requestId,
+            });
           }
           break;
         case 'setSessionUiState':
@@ -325,6 +330,66 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
             uiState
           });
           break;
+        case 'openMermaidPreview':
+          this.openMermaidPreviewPanel(data.text, data.id);
+          break;
+      }
+    });
+  }
+
+  /**
+   * Open Mermaid preview panel
+   */
+  private openMermaidPreviewPanel(code: string, id?: string): void {
+    // If ID provided and panel exists, just reveal it
+    if (id && this._mermaidPanels.has(id)) {
+      this._mermaidPanels.get(id)?.reveal(vscode.ViewColumn.One);
+      return;
+    }
+
+    const panel = vscode.window.createWebviewPanel(
+      'mermaidPreview',
+      'Mermaid Preview',
+      vscode.ViewColumn.One,
+      {
+        enableScripts: true,
+        localResourceRoots: []
+      }
+    );
+
+    // Store panel if ID provided
+    if (id) {
+      this._mermaidPanels.set(id, panel);
+    }
+
+    panel.iconPath = vscode.Uri.joinPath(this._extensionUri, 'icon.svg');
+    panel.webview.html = getMermaidPreviewHtml(panel.webview, code);
+    
+    // Handle messages from the preview panel
+    panel.webview.onDidReceiveMessage(async (data) => {
+      if (data.type === 'saveMermaidSvg') {
+        const uri = await vscode.window.showSaveDialog({
+          filters: { 'SVG Images': ['svg'] },
+          defaultUri: vscode.Uri.file('diagram.svg')
+        });
+        
+        if (uri) {
+          await vscode.workspace.fs.writeFile(uri, Buffer.from(data.svg));
+          vscode.window.showInformationMessage('Diagram saved successfully!');
+        }
+      }
+    });
+
+    // Notify sidebar webview when panel is closed
+    panel.onDidDispose(() => {
+      if (id) {
+        this._mermaidPanels.delete(id);
+      }
+      if (this._view) {
+        this._view.webview.postMessage({ 
+          type: 'mermaidPreviewClosed',
+          id // Send back ID so specific block can handle it
+        });
       }
     });
   }
