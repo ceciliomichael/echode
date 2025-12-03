@@ -146,7 +146,7 @@ export function ToolsTab({ enabledTools, onChange }: ToolsTabProps) {
                   <span
                     className="inline-block h-4 w-4 transform rounded-full transition-transform"
                     style={{
-                      backgroundColor: 'var(--vscode-editor-background)',
+                      backgroundColor: '#ffffff',
                       transform: enabled ? 'translateX(1.5rem)' : 'translateX(0.25rem)',
                     }}
                   />
