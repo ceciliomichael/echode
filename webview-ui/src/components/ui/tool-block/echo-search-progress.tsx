@@ -1,4 +1,3 @@
-import { Loader2 } from 'lucide-react';
 import type { EchoSearchProgress } from '../../../types/tool';
 import { getToolIconConfig, parseToolCall } from './utils';
 
@@ -35,7 +34,6 @@ function getSplashText(phase: EchoSearchProgress['phase'], iteration: number): s
  */
 export function EchoSearchProgressIndicator({ progress }: { progress: EchoSearchProgress }) {
   const splashText = getSplashText(progress.phase, progress.iteration);
-  const isThinking = progress.phase === 'thinking' || progress.phase === 'starting';
   // Only show iteration counter when we have tools, using toolsIteration for accurate display
   const showIterationCounter = progress.toolsIteration > 0 && progress.tools.length > 0;
 
@@ -76,10 +74,9 @@ export function EchoSearchProgressIndicator({ progress }: { progress: EchoSearch
         )}
       </div>
 
-      {/* Tool List or Loading State */}
+      {/* Tool List */}
       <div>
-        {progress.tools.length > 0 ? (
-          // Show tools when we have them
+        {progress.tools.length > 0 && (
           progress.tools.map((toolCall, idx) => {
             const { tool, param } = parseToolCall(toolCall);
             const iconConfig = getToolIconConfig(toolCall);
@@ -109,19 +106,6 @@ export function EchoSearchProgressIndicator({ progress }: { progress: EchoSearch
               </div>
             );
           })
-        ) : (
-          // Empty state with spinner when thinking
-          <div
-            className="px-3 py-2.5 flex items-center gap-2 text-xs"
-            style={{ color: 'var(--vscode-descriptionForeground)' }}
-          >
-            {isThinking && (
-              <Loader2 className="w-3 h-3 animate-spin" />
-            )}
-            <span className="italic">
-              {isThinking ? 'Thinking...' : 'Waiting for tools...'}
-            </span>
-          </div>
         )}
       </div>
     </div>

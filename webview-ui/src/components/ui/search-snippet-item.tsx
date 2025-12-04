@@ -67,20 +67,20 @@ export function SearchSnippetItem({
           style={{ color: iconColor }}
         />
         <span
-          className="text-xs font-medium truncate flex-1"
+          className="text-xs font-medium truncate flex-1 min-w-0"
           style={{ color: 'var(--vscode-foreground)' }}
         >
           {path}
         </span>
         <span
-          className="text-xs opacity-50 font-mono"
+          className="text-xs opacity-50 font-mono flex-shrink-0"
           style={{ color: 'var(--vscode-descriptionForeground)' }}
         >
           {startLine}-{endLine}
         </span>
         {chipLabel && (
           <span
-            className="text-xs px-1.5 py-0.5 rounded-full"
+            className="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0"
             style={chipStyle}
           >
             {chipLabel}

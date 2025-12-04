@@ -1,4 +1,4 @@
-import { Brain } from 'lucide-react';
+import { useState, useMemo } from 'react';
 import type {
   ContextSettings,
 } from '../../types/api-settings';
@@ -9,59 +9,79 @@ interface ContextSettingsTabProps {
 }
 
 export function ContextSettingsTab({ contextSettings, onChange }: ContextSettingsTabProps) {
-  const handleMaxTokensChange = (value: string) => {
-    const numValue = parseInt(value, 10);
-    if (!isNaN(numValue) && numValue >= 1000) {
-      onChange({ ...contextSettings, maxContextTokens: numValue });
+  const [isEditing, setIsEditing] = useState(false);
+  const [inputValue, setInputValue] = useState('');
+
+  const displayValue = useMemo(() => {
+    return isEditing ? inputValue : 
+           (contextSettings.maxContextTokens === undefined || 
+            Number.isNaN(contextSettings.maxContextTokens) || 
+            contextSettings.maxContextTokens === 128000 ? '' : String(contextSettings.maxContextTokens));
+  }, [contextSettings.maxContextTokens, isEditing, inputValue]);
+
+  const handleFocus = () => {
+    setIsEditing(true);
+    setInputValue(
+      contextSettings.maxContextTokens === undefined || 
+      Number.isNaN(contextSettings.maxContextTokens) || 
+      contextSettings.maxContextTokens === 128000 ? '' : String(contextSettings.maxContextTokens)
+    );
+  };
+
+  const handleInputChange = (value: string) => {
+    if (value === '' || /^\d+$/.test(value)) {
+      setInputValue(value);
+    }
+  };
+
+  const handleCommit = () => {
+    setIsEditing(false);
+    if (inputValue === '') {
+      onChange({ ...contextSettings, maxContextTokens: 128000 });
+      return;
+    }
+
+    const parsed = Number(inputValue);
+    if (!Number.isNaN(parsed)) {
+      onChange({ ...contextSettings, maxContextTokens: parsed });
     }
   };
 
   return (
     <div className="max-w-2xl space-y-6">
-      {/* Header */}
       <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Brain size={18} style={{ color: 'var(--vscode-foreground)' }} />
-          <h2
-            className="text-sm font-bold"
-            style={{ color: 'var(--vscode-foreground)' }}
-          >
-            Context Management
-          </h2>
-        </div>
-        <p
-          className="text-xs"
-          style={{ color: 'var(--vscode-descriptionForeground)' }}
-        >
-          Configure context window settings.
-        </p>
-      </div>
-
-      {/* Context Limits */}
-      <div className="space-y-4">
-        <div className="p-4 rounded-xl border space-y-2"
-          style={{
-            backgroundColor: 'var(--vscode-input-background)',
-            borderColor: 'var(--vscode-input-border)',
+        <h2 
+          className="text-sm font-bold pb-2 border-b"
+          style={{ 
+            color: 'var(--vscode-foreground)',
+            borderColor: 'var(--vscode-panel-border)'
           }}
         >
+          Context Management
+        </h2>
+
+        <div className="space-y-2">
           <label
-            className="text-xs font-medium"
+            htmlFor="maxContextTokens"
+            className="block text-xs font-semibold"
             style={{ color: 'var(--vscode-foreground)' }}
           >
-            Max Context Tokens
+            Max Context Tokens (Optional)
           </label>
           <input
-            type="number"
-            value={contextSettings.maxContextTokens}
-            onChange={(e) => handleMaxTokensChange(e.target.value)}
-            min={1000}
-            step={1000}
-            className="w-full px-3 py-2 rounded-lg text-sm"
+            id="maxContextTokens"
+            type="text"
+            inputMode="numeric"
+            value={displayValue}
+            onChange={(e) => handleInputChange(e.target.value)}
+            onFocus={handleFocus}
+            onBlur={handleCommit}
+            placeholder="128000"
+            className="w-full px-3 py-2 text-sm rounded-xl border transition-colors"
             style={{
               backgroundColor: 'var(--vscode-input-background)',
               color: 'var(--vscode-input-foreground)',
-              border: '1px solid var(--vscode-input-border)',
+              borderColor: 'var(--vscode-input-border)',
             }}
           />
           <p

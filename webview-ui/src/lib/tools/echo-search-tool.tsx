@@ -1,4 +1,4 @@
-import { Radar } from 'lucide-react';
+import { Radar, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
 import { MarkdownRenderer } from '../../components/ui/markdown-renderer';
 import { SearchSnippetItem } from '../../components/ui/search-snippet-item';
@@ -146,6 +146,7 @@ export function SnippetItem({ snippet, isExpanded, onToggle }: SnippetItemProps)
 
 function EchoSearchRendererComponent({ data }: { data: unknown }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
 
   if (typeof data === 'object' && data !== null) {
     const result = data as EchoSearchResult;
@@ -161,26 +162,42 @@ function EchoSearchRendererComponent({ data }: { data: unknown }) {
     return (
       <div className="rounded-md overflow-hidden border border-[var(--vscode-input-border)] bg-[var(--vscode-editor-background)]">
         
-        {/* Summary */}
+        {/* Summary - Collapsible */}
         <div
-          className="px-3 py-2 border-b border-[var(--vscode-input-border)] bg-[var(--vscode-sideBar-background)] max-h-32 overflow-y-auto"
+          className="border-b border-[var(--vscode-input-border)] bg-[var(--vscode-sideBar-background)]"
         >
-          <div className="min-h-[3.5rem] pr-1 space-y-1">
-            <p
-              className="text-xs font-medium"
-              style={{ color: 'var(--vscode-foreground)' }}
-            >
+          <button
+            onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
+            className="w-full px-3 py-2 flex items-center justify-between text-left hover:bg-[var(--vscode-list-hoverBackground)] transition-colors"
+            style={{ color: 'var(--vscode-foreground)' }}
+          >
+            <span className="text-xs font-medium truncate flex-1 pr-2">
               {result.summary}
-            </p>
-            {result.highLevelAnswer && (
+            </span>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {result.highLevelAnswer && (
+                <span className="text-xs opacity-70">Details</span>
+              )}
+              {isSummaryExpanded ? (
+                <ChevronUp className="w-3 h-3" />
+              ) : (
+                <ChevronDown className="w-3 h-3" />
+              )}
+            </div>
+          </button>
+          
+          {isSummaryExpanded && result.highLevelAnswer && (
+            <div
+              className="px-3 pb-2 pt-0 border-t border-[var(--vscode-input-border)] max-h-48 overflow-y-auto"
+            >
               <div
                 className="text-xs [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:my-1 [&_ol]:my-1 [&_li]:text-xs [&_code]:text-xs"
                 style={{ color: 'var(--vscode-foreground)' }}
               >
                 <MarkdownRenderer content={result.highLevelAnswer} />
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Stats - Enhanced with more detail */}
