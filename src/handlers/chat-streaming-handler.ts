@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { LLMFactory } from '../services/llm/llm-factory';
 import { ChatMessage, ChatMessageContent, ChatStreamSettings } from '../services/llm/llm-provider.interface';
 import { expandMentions, getWorkspaceRoot } from '../services/mention-service';
+import { mergeSameRoleChatMessages } from '../utils/message-merger';
 
 interface ChatStreamRequest {
   requestId: number;
@@ -94,8 +95,11 @@ export async function handleChatStream(
       }
     }
 
+    // Merge consecutive same-role messages for cleaner context (KiloCode pattern)
+    const mergedMessages = mergeSameRoleChatMessages(processedMessages);
+    
     const provider = LLMFactory.getProvider(settings.provider);
-    await provider.streamChat(requestId, processedMessages, settings, webview, abortController.signal);
+    await provider.streamChat(requestId, mergedMessages, settings, webview, abortController.signal);
   } catch (error) {
     // Only send error if not aborted
     if (error instanceof Error && error.name !== 'AbortError') {

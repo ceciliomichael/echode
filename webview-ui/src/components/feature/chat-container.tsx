@@ -12,6 +12,10 @@ import { useChatScroll } from '../../hooks/use-chat-scroll';
 import { useExtensionMessages } from '../../hooks/use-extension-messages';
 import { usePlanEvents } from '../../hooks/use-plan-events';
 import { useTodoExtraction } from '../../hooks/use-todo-extraction';
+import { useContextUsage } from '../../hooks/use-context-usage';
+import { useWorkspaceContext } from '../../hooks/use-workspace-context';
+import { getSystemPrompt } from '../../utils/prompts';
+import { storageService } from '../../utils/storage';
 import type { ImageAttachment } from '../../types/chat';
 
 export function ChatContainer() {
@@ -38,6 +42,16 @@ export function ChatContainer() {
     updateToolResultData,
     supersedePlanningTools,
   } = useStreamingChat(tasks, mode);
+
+  // Context usage tracking
+  const workspace = useWorkspaceContext();
+  const settings = storageService.getSettings();
+  const systemPrompt = getSystemPrompt(workspace, mode);
+  const contextUsage = useContextUsage({
+    systemPrompt,
+    messages,
+    contextSettings: settings.contextSettings,
+  });
 
   const visibleMessages = messages.filter(msg => !msg.hidden);
 
@@ -183,6 +197,7 @@ export function ChatContainer() {
           model={model}
           onModelChange={setActiveProviderAndModel}
           echoSearchEnabled={echoSearchEnabled}
+          contextUsage={contextUsage}
         />
       </div>
 

@@ -26,7 +26,7 @@ const MermaidBlockComponent = ({ code, isGenerating = false }: MermaidBlockProps
   const { copied, copy } = useClipboard();
   const [svg, setSvg] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [isOpenInTab, setIsOpenInTab] = useState(false);
   const uniqueId = useId().replace(/:/g, '-');
 
@@ -115,7 +115,7 @@ const MermaidBlockComponent = ({ code, isGenerating = false }: MermaidBlockProps
         // Only respond if the closed panel matches our ID (or if no ID provided for legacy support)
         if (!message.id || message.id === uniqueId) {
           setIsOpenInTab(false);
-          setIsExpanded(true);
+          // Keep diagram collapsed when preview tab closes
         }
       }
     };

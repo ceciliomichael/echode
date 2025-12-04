@@ -7,11 +7,12 @@ import { SystemPromptTab } from './system-prompt-tab';
 import { ToolsTab } from './tools-tab';
 import { IndexingTab } from './indexing-tab';
 import { AutocompleteTab } from './autocomplete-tab';
+import { ContextSettingsTab } from './context-settings-tab';
 
 import { useProviderSettings } from '../../hooks/use-provider-settings';
 import { getAllTools } from '../../lib/tool-config';
-import type { ApiSettings, Tool, IndexingSettings, AutocompleteSettings } from '../../types/api-settings';
-import { DEFAULT_INDEXING_SETTINGS, DEFAULT_AUTOCOMPLETE_SETTINGS } from '../../types/api-settings';
+import type { ApiSettings, Tool, IndexingSettings, AutocompleteSettings, ContextSettings } from '../../types/api-settings';
+import { DEFAULT_INDEXING_SETTINGS, DEFAULT_AUTOCOMPLETE_SETTINGS, DEFAULT_CONTEXT_SETTINGS } from '../../types/api-settings';
 
 interface SetupPageProps {
   initialSettings: ApiSettings;
@@ -30,7 +31,10 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
   const [autocompleteSettings, setAutocompleteSettings] = useState<AutocompleteSettings>(
     initialSettings.autocompleteSettings || DEFAULT_AUTOCOMPLETE_SETTINGS
   );
-  const [activeTab, setActiveTab] = useState<'api' | 'system' | 'tools' | 'indexing' | 'autocomplete'>('api');
+  const [contextSettings, setContextSettings] = useState<ContextSettings>(
+    initialSettings.contextSettings || DEFAULT_CONTEXT_SETTINGS
+  );
+  const [activeTab, setActiveTab] = useState<'api' | 'system' | 'tools' | 'indexing' | 'autocomplete' | 'context'>('api');
   const [showDropdown, setShowDropdown] = useState(false);
 
   const {
@@ -52,6 +56,7 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
       setEnabledTools(initialSettings.enabledTools || getAllTools(true));
       setIndexingSettings(initialSettings.indexingSettings || DEFAULT_INDEXING_SETTINGS);
       setAutocompleteSettings(initialSettings.autocompleteSettings || DEFAULT_AUTOCOMPLETE_SETTINGS);
+      setContextSettings(initialSettings.contextSettings || DEFAULT_CONTEXT_SETTINGS);
     }, 0);
     return () => clearTimeout(timeoutId);
   }, [initialSettings]);
@@ -69,9 +74,10 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
       enabledTools,
       indexingSettings,
       autocompleteSettings,
+      contextSettings,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autocompleteSettings]);
+  }, [autocompleteSettings, contextSettings]);
 
   // Auto-save other settings with debounce
   useEffect(() => {
@@ -82,11 +88,12 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
         enabledTools,
         indexingSettings,
         autocompleteSettings,
+        contextSettings,
       });
     }, 500);
     return () => clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [provider, currentSettings, systemPrompt, enabledTools, indexingSettings]);
+  }, [provider, currentSettings, systemPrompt, enabledTools, indexingSettings, contextSettings]);
 
   return (
     <div
@@ -114,7 +121,7 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
             className="text-sm sm:text-base font-semibold"
             style={{ color: 'var(--vscode-foreground)' }}
           >
-            {activeTab === 'api' ? 'API Configuration' : activeTab === 'system' ? 'System Prompt' : activeTab === 'tools' ? 'Tool Configuration' : activeTab === 'indexing' ? 'Indexing / Code Search' : 'Autocomplete'}
+            {activeTab === 'api' ? 'API Configuration' : activeTab === 'system' ? 'System Prompt' : activeTab === 'tools' ? 'Tool Configuration' : activeTab === 'indexing' ? 'Indexing / Code Search' : activeTab === 'autocomplete' ? 'Autocomplete' : activeTab === 'context' ? 'Context Management' : ''}
           </h1>
         </div>
 
@@ -155,6 +162,13 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
             <AutocompleteTab
               autocompleteSettings={autocompleteSettings}
               onChange={setAutocompleteSettings}
+            />
+          )}
+
+          {activeTab === 'context' && (
+            <ContextSettingsTab
+              contextSettings={contextSettings}
+              onChange={setContextSettings}
             />
           )}
         </div>

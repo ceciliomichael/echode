@@ -2,14 +2,31 @@ import type { Message, ImageAttachment } from '../types/chat';
 import type { ChatMessage } from '../types/chat-api';
 import type { WorkspaceContext } from '../types/workspace';
 import type { ChatMode } from '../types/chat-mode';
-import type { ToolExecutionState } from '../types/tool';
+import type { ContextSettings } from '../types/api-settings';
 import { getSystemPrompt } from './prompts';
 import { formatToolResultsForHistory } from './tool-result-formatter';
 import { buildChatMessage, getCurrentModel, isVisionCapableModel } from './vision-utils';
+import {
+  shouldTriggerSummarization,
+  buildSummarizationRequest,
+  reconstructHistoryWithSummary,
+} from '../services/summarization-service';
+import { summarizeToolSections } from './tool-context-cleaner';
 
-const MAX_HISTORY_MESSAGES = 20;
-const MAX_TOOL_RESULTS_CHARS = 8000;
-const MAX_DIAGNOSTICS_CHARS = 4000;
+/**
+ * Context Management Constants
+ * Based on proven patterns from production AI coding assistants
+ */
+const MAX_HISTORY_MESSAGES = 20;        // Maximum conversation turns to keep
+const MAX_DIAGNOSTICS_CHARS = 4000;     // Max chars for diagnostics
+const N_MESSAGES_TO_ALWAYS_KEEP = 4;    // Always keep last N messages (like KiloCode's N=3)
+
+/**
+ * Context truncation notice - shown when older messages are removed
+ */
+const CONTEXT_TRUNCATION_NOTICE = 
+  `[NOTE] Some previous conversation history has been removed to maintain optimal context window length. ` +
+  `The initial user task and the most recent exchanges have been retained for continuity.`;
 
 interface TodoItem {
   id: string;
@@ -53,7 +70,13 @@ export function buildTodoContext(todos: TodoItem[]): string {
 }
 
 /**
- * Build continuation history for chat continuation after tool execution
+ * Build continuation history for chat continuation after tool execution.
+ * 
+ * Context Management Strategy (based on KiloCode patterns):
+ * 1. Always keep the first message (original user task for context)
+ * 2. If truncation needed, insert a notice explaining history was removed
+ * 3. Always keep the last N messages for continuity
+ * 4. Tool results are formatted concisely to avoid context bloat
  */
 export function buildContinuationHistory(
   workspace: WorkspaceContext,
@@ -78,47 +101,82 @@ export function buildContinuationHistory(
     },
   ];
 
-  // Add previous messages with their tool results (bounded for context size)
-  const messagesToInclude = currentMessages.length > MAX_HISTORY_MESSAGES
-    ? currentMessages.slice(-MAX_HISTORY_MESSAGES)
-    : currentMessages;
+  // Context management: Keep first message + last N messages, with truncation notice if needed
+  let messagesToInclude: Message[];
+  let wasTruncated = false;
 
-  // Deduplication: Identify the LATEST execution for each file/tool pair to prevent context bloat
-  const latestExecutionIds = new Set<string>();
-  const seenKeys = new Set<string>();
+  if (currentMessages.length > MAX_HISTORY_MESSAGES) {
+    // Keep first message (original task) + last N messages
+    const firstMessage = currentMessages[0];
+    const lastMessages = currentMessages.slice(-N_MESSAGES_TO_ALWAYS_KEEP);
+    
+    // Check if first message is already in the last messages (avoid duplicate)
+    if (lastMessages.includes(firstMessage)) {
+      messagesToInclude = lastMessages;
+    } else {
+      messagesToInclude = [firstMessage, ...lastMessages];
+    }
+    wasTruncated = true;
+  } else {
+    messagesToInclude = currentMessages;
+  }
 
-  // Iterate backwards to find the latest execution for each file/tool pair
-  for (let i = messagesToInclude.length - 1; i >= 0; i--) {
-    const msg = messagesToInclude[i];
-    if (msg.toolExecutions && msg.toolExecutions.size > 0) {
-      const execs = Array.from(msg.toolExecutions.values()).reverse();
-      for (const exec of execs) {
-        // If failed or no data, keep it (or skip? let's keep for error visibility)
-        if (!exec.result?.success || !exec.result.data) {
-          latestExecutionIds.add(exec.toolExecutionId);
-          continue;
-        }
+  // Add first message (original task context)
+  if (messagesToInclude.length > 0) {
+    const firstMsg = messagesToInclude[0];
+    
+    // If truncated, clean any embedded tool sections from old message content
+    const cleanedContent = wasTruncated 
+      ? summarizeToolSections(firstMsg.content)
+      : firstMsg.content;
+    
+    const chatMessage = buildChatMessage(
+      firstMsg.role,
+      cleanedContent,
+      firstMsg.attachments,
+      modelSupportsVision
+    );
+    continuationHistory.push(chatMessage);
 
-        const data = exec.result.data as Record<string, unknown>;
-        const path = (data.path as string) || (data.targetFile as string);
-        
-        // Only dedup stateful file tools
-        if (path && ['read_file', 'write_to_file', 'apply_diff'].includes(exec.toolName)) {
-          const key = `${exec.toolName}:${path}`;
-          if (!seenKeys.has(key)) {
-            seenKeys.add(key);
-            latestExecutionIds.add(exec.toolExecutionId);
-          }
-        } else {
-          // Keep all other tools (search, list_files, etc.)
-          latestExecutionIds.add(exec.toolExecutionId);
+    // Add tool results for first message if any
+    // When truncated, only add a brief summary instead of full results
+    if (firstMsg.toolExecutions && firstMsg.toolExecutions.size > 0) {
+      if (wasTruncated) {
+        // Summarize old tool results
+        const toolNames = Array.from(firstMsg.toolExecutions.values())
+          .map(t => t.toolName)
+          .slice(0, 5)
+          .join(', ');
+        continuationHistory.push({
+          role: 'user',
+          content: `[Previous tools used: ${toolNames}]`,
+        });
+      } else {
+        // Keep full tool results for recent messages
+        const toolResults = formatToolResultsForHistory(firstMsg.toolExecutions, mode);
+        if (toolResults.length > 0) {
+          continuationHistory.push({
+            role: 'user',
+            content: `<previous_tool_results>\n${toolResults.join('\n\n---\n\n')}\n</previous_tool_results>`,
+          });
         }
       }
     }
   }
 
-  for (const msg of messagesToInclude) {
-    // Build message with vision support if available (preserves image attachments in history)
+  // If truncated, add a notice so the AI knows context was removed
+  if (wasTruncated) {
+    continuationHistory.push({
+      role: 'user',
+      content: CONTEXT_TRUNCATION_NOTICE,
+    });
+  }
+
+  // Add remaining messages (skip first since we already added it)
+  for (let i = 1; i < messagesToInclude.length; i++) {
+    const msg = messagesToInclude[i];
+    
+    // Build message with vision support if available
     const chatMessage = buildChatMessage(
       msg.role,
       msg.content,
@@ -127,18 +185,9 @@ export function buildContinuationHistory(
     );
     continuationHistory.push(chatMessage);
 
+    // Add tool results for this message
     if (msg.toolExecutions && msg.toolExecutions.size > 0) {
-      // Filter executions based on our deduplication logic
-      const filteredExecutions = new Map<string, ToolExecutionState>();
-      msg.toolExecutions.forEach((exec, id) => {
-        if (latestExecutionIds.has(id)) {
-          filteredExecutions.set(id, exec);
-        }
-      });
-
-      // Filter tool results to only include tools available in current mode
-      const toolResults = formatToolResultsForHistory(filteredExecutions, mode);
-
+      const toolResults = formatToolResultsForHistory(msg.toolExecutions, mode);
       if (toolResults.length > 0) {
         continuationHistory.push({
           role: 'user',
@@ -161,21 +210,112 @@ export function buildContinuationHistory(
     content: assistantContent,
   });
 
-  // Add current tool execution result with todo context and diagnostics
+  // Build the tool result message in a structured format (like how Claude receives context)
   const todoContext = buildTodoContext(currentTodos);
 
-  const boundedToolResultText = toolResultText.length > MAX_TOOL_RESULTS_CHARS
-    ? `${toolResultText.slice(0, MAX_TOOL_RESULTS_CHARS)}\n...[truncated tool results]`
-    : toolResultText;
-
   const boundedDiagnosticsText = diagnosticsText.length > MAX_DIAGNOSTICS_CHARS
-    ? `${diagnosticsText.slice(0, MAX_DIAGNOSTICS_CHARS)}\n...[truncated diagnostics]`
+    ? `${diagnosticsText.slice(0, MAX_DIAGNOSTICS_CHARS)}\n... [truncated]`
     : diagnosticsText;
+
+  // Structure the tool result message clearly with sections
+  let toolResultMessage = '<tool_results>\n';
+  toolResultMessage += toolResultText;
+  toolResultMessage += '\n</tool_results>';
+
+  // Add diagnostics section if present
+  if (boundedDiagnosticsText.trim()) {
+    toolResultMessage += '\n\n<diagnostics>\n';
+    toolResultMessage += boundedDiagnosticsText;
+    toolResultMessage += '\n</diagnostics>';
+  }
+
+  // Add todo context if present
+  if (todoContext.trim()) {
+    toolResultMessage += '\n' + todoContext;
+  }
+
+  // Add concise continuation instruction
+  toolResultMessage += '\n\n[Continue based on the tool results above. Stay focused on the user\'s original request.]';
 
   continuationHistory.push({
     role: 'user',
-    content: `Tool execution results:\n${boundedToolResultText}${todoContext}${boundedDiagnosticsText}\n\n[INSTRUCTION: Use these tool results and diagnostics to continue. Follow your system prompt and tool rules. Respond concisely and stay focused on the original user request.]`,
+    content: toolResultMessage,
   });
 
   return continuationHistory;
+}
+
+/**
+ * Estimate token count from text using ~4 characters per token
+ */
+function estimateTokens(text: string): number {
+  if (!text) return 0;
+  return Math.ceil(text.length / 4);
+}
+
+/**
+ * Calculate total context tokens for messages
+ */
+export function calculateContextTokens(
+  systemPrompt: string,
+  messages: Message[]
+): number {
+  let tokens = estimateTokens(systemPrompt);
+  
+  for (const msg of messages) {
+    tokens += estimateTokens(msg.content);
+    
+    if (msg.toolExecutions && msg.toolExecutions.size > 0) {
+      msg.toolExecutions.forEach((execution) => {
+        tokens += estimateTokens(execution.toolName);
+        tokens += estimateTokens(JSON.stringify(execution.parameters || {}));
+        if (execution.result?.data) {
+          tokens += estimateTokens(JSON.stringify(execution.result.data));
+        }
+      });
+    }
+  }
+  
+  return tokens;
+}
+
+/**
+ * Check if summarization should be triggered and prepare the request if needed
+ */
+export function checkSummarizationNeeded(
+  messages: Message[],
+  systemPrompt: string,
+  contextSettings: ContextSettings | undefined
+): {
+  shouldSummarize: boolean;
+  request?: { prompt: string; provider: string; model: string };
+} {
+  if (!contextSettings?.enabled || !contextSettings.model) {
+    return { shouldSummarize: false };
+  }
+  
+  const totalTokens = calculateContextTokens(systemPrompt, messages);
+  const maxTokens = contextSettings.maxContextTokens;
+  
+  if (!shouldTriggerSummarization(contextSettings, totalTokens, maxTokens)) {
+    return { shouldSummarize: false };
+  }
+  
+  // Build the summarization request
+  const request = buildSummarizationRequest(messages, contextSettings);
+  
+  return {
+    shouldSummarize: true,
+    request,
+  };
+}
+
+/**
+ * Apply summary to messages and return new history
+ */
+export function applySummaryToHistory(
+  messages: Message[],
+  summaryContent: string
+): Message[] {
+  return reconstructHistoryWithSummary(messages, summaryContent);
 }

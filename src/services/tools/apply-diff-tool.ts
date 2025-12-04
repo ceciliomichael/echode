@@ -650,21 +650,40 @@ export class ApplyDiffTool implements ITool {
                 return { success: false, error: formattedError };
             }
 
-            // Reset failure counter on success and write new content
+            // Reset failure counter on success
             this.applyDiffFailureCounts.delete(absolutePath);
+
+            // Check for no-op: diff produced identical content
+            if (diffResult.content === originalContent) {
+                console.log('[APPLY_DIFF] No-op detected: diff produced identical content');
+                return {
+                    success: true,
+                    data: {
+                        message: `no_change: Diff applied but content unchanged for ${filePath}`,
+                        action: 'no_change',
+                        path: filePath,
+                        absolutePath,
+                        oldContent: originalContent,
+                        newContent: diffResult.content,
+                    },
+                };
+            }
+
+            // Write new content only if it differs
             if (diffResult.content) {
                 await vscode.workspace.fs.writeFile(uri, Buffer.from(diffResult.content, 'utf8'));
             }
 
             let partFailHint = "";
             if (diffResult.failParts && diffResult.failParts.length > 0) {
-                partFailHint = `But unable to apply all diff parts to file: ${absolutePath}, silently use <read_file> tool to check newest file version and re-apply diffs\n`;
+                partFailHint = ` (some diff parts failed - use read_file to verify)`;
             }
 
             return {
                 success: true,
                 data: {
-                    message: `Successfully applied diff to ${filePath}${partFailHint ? "\n" + partFailHint : ""}`,
+                    message: `Successfully applied diff to ${filePath}${partFailHint}`,
+                    action: 'modified',
                     path: filePath,
                     absolutePath,
                     oldContent: originalContent,

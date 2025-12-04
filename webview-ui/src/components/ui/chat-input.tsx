@@ -6,6 +6,8 @@ import { ModeDropdown } from './mode-dropdown';
 import { ChatModelSelector } from './chat-model-selector';
 import { ContextMenu } from './context-menu';
 import { MentionHighlighter } from './mention-highlighter';
+import { ContextIndicator } from './context-indicator';
+import type { ContextUsageResult } from '../../hooks/use-context-usage';
 import { useContextMenu } from '../../hooks/use-context-menu';
 import { useWorkspaceContext } from '../../hooks/use-workspace-context';
 import { clearMentionPaths, removeMention, getMentionPath, unescapeSpaces } from '../../utils/mention-utils';
@@ -27,9 +29,10 @@ interface ChatInputProps {
   model: string;
   onModelChange: (provider: Provider, model: string) => void;
   echoSearchEnabled?: boolean;
+  contextUsage?: ContextUsageResult;
 }
 
-export function ChatInput({ onSendMessage, disabled = false, isStreaming = false, onStop, todos = [], mode, onModeChange, provider, model, onModelChange, echoSearchEnabled = true }: ChatInputProps) {
+export function ChatInput({ onSendMessage, disabled = false, isStreaming = false, onStop, todos = [], mode, onModeChange, provider, model, onModelChange, echoSearchEnabled = true, contextUsage }: ChatInputProps) {
 
   const [input, setInput] = useState('');
   const [cursorPos, setCursorPos] = useState(0);
@@ -331,6 +334,12 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
             </div>
 
             <div className="flex items-center gap-1">
+              {contextUsage && (
+                <ContextIndicator
+                  usage={contextUsage}
+                  disabled={disabled}
+                />
+              )}
               {isStreaming ? (
                 <button
                   type="button"

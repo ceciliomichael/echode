@@ -20,15 +20,7 @@ const ToolBlockComponent = ({
 }: ToolBlockProps) => {
   const isEchoSearch = toolCall.toolName === 'echo_search';
 
-  // Planning tools should auto-expand to show interactive elements
-  // Auto-expand if executing or if it's a planning tool
-  // Otherwise default to collapsed
-  const shouldStartExpanded =
-    (toolCall.status === 'executing' && (!isEchoSearch || (toolCall.progress?.iteration ?? 0) > 0)) ||
-    (toolCall.status === 'pending' && !isEchoSearch) ||
-    toolCall.toolName === 'plan_navigator' ||
-    toolCall.toolName === 'plan_handoff';
-  const [isExpanded, setIsExpanded] = useState(shouldStartExpanded);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const hasAutoExpandedRef = useRef(false);
 

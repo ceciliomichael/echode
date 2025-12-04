@@ -19,6 +19,7 @@ interface SettingsModelSelectorProps {
   onChange: (provider: Provider, model: string) => void;
   label?: string;
   icon?: React.ReactNode;
+  disabled?: boolean;
 }
 
 export function SettingsModelSelector({
@@ -27,6 +28,7 @@ export function SettingsModelSelector({
   onChange,
   label = 'Model',
   icon,
+  disabled = false,
 }: SettingsModelSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -48,6 +50,7 @@ export function SettingsModelSelector({
 
   // Handle dropdown toggle with position detection
   const handleToggle = () => {
+    if (disabled) return;
     if (!isOpen) {
       updatePosition();
     }
@@ -220,7 +223,8 @@ export function SettingsModelSelector({
           ref={buttonRef}
           type="button"
           onClick={handleToggle}
-          className="w-full px-3 py-2 text-sm rounded-xl border transition-colors flex items-center justify-between"
+          disabled={disabled}
+          className="w-full px-3 py-2 text-sm rounded-xl border transition-colors flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
             backgroundColor: 'var(--vscode-input-background)',
             color: 'var(--vscode-input-foreground)',

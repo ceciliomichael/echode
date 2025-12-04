@@ -9,7 +9,7 @@ export interface AutocompleteConfig {
   baseUrl: string;
   debounceMs: number;
   maxTokens: number;
-  temperature: number;
+  temperature: number; 
 }
 
 // Simple, direct system prompt

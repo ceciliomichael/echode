@@ -30,6 +30,22 @@ export const DEFAULT_AUTOCOMPLETE_SETTINGS: AutocompleteSettings = {
   temperature: 0.2,
 };
 
+export interface ContextSettings {
+  enabled: boolean;
+  maxContextTokens: number;
+  thresholdPercent: number;
+  provider: Provider;
+  model: string;
+}
+
+export const DEFAULT_CONTEXT_SETTINGS: ContextSettings = {
+  enabled: false,
+  maxContextTokens: 128000,
+  thresholdPercent: 70,
+  provider: 'anthropic',
+  model: '',
+};
+
 export interface Tool {
   id: string;
   name: string;
@@ -75,6 +91,7 @@ export interface ApiSettings {
   chatMode?: 'agent' | 'plan' | 'ask' | 'general';
   indexingSettings?: IndexingSettings;
   autocompleteSettings?: AutocompleteSettings;
+  contextSettings?: ContextSettings;
 }
 
 export const DEFAULT_API_SETTINGS: ApiSettings = {

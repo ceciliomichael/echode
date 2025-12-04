@@ -1,6 +1,6 @@
-import { Settings, FileText, Wrench, ChevronDown, Search, Zap } from 'lucide-react';
+import { Settings, FileText, Wrench, ChevronDown, Search, Zap, Brain } from 'lucide-react';
 
-type TabType = 'api' | 'system' | 'tools' | 'indexing' | 'autocomplete';
+type TabType = 'api' | 'system' | 'tools' | 'indexing' | 'autocomplete' | 'context';
 
 interface SettingsDropdownProps {
   activeTab: TabType;
@@ -24,7 +24,7 @@ export function SettingsDropdown({ activeTab, onTabChange, isOpen, onToggle }: S
         <div className="flex items-center gap-2">
           <Settings size={16} strokeWidth={1.5} />
           <span className="text-sm font-semibold">
-            {activeTab === 'api' ? 'API Configuration' : activeTab === 'system' ? 'System Prompt' : activeTab === 'tools' ? 'Tools' : activeTab === 'indexing' ? 'Indexing' : 'Autocomplete'}
+            {activeTab === 'api' ? 'API Configuration' : activeTab === 'system' ? 'System Prompt' : activeTab === 'tools' ? 'Tools' : activeTab === 'indexing' ? 'Indexing' : activeTab === 'autocomplete' ? 'Autocomplete' : 'Context'}
           </span>
         </div>
         <ChevronDown
@@ -167,6 +167,31 @@ export function SettingsDropdown({ activeTab, onTabChange, isOpen, onToggle }: S
             >
               <Zap size={14} strokeWidth={1.5} />
               <span className="font-medium">Autocomplete</span>
+            </button>
+            <button
+              onClick={() => {
+                onTabChange('context');
+                onToggle();
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs rounded-xl transition-all border"
+              style={{
+                backgroundColor: activeTab === 'context' ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent',
+                color: activeTab === 'context' ? 'var(--vscode-list-activeSelectionForeground)' : 'var(--vscode-foreground)',
+                borderColor: activeTab === 'context' ? 'var(--vscode-focusBorder)' : 'transparent'
+              }}
+              onMouseEnter={(e) => {
+                if (activeTab !== 'context') {
+                  e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeTab !== 'context') {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
+              }}
+            >
+              <Brain size={14} strokeWidth={1.5} />
+              <span className="font-medium">Context</span>
             </button>
           </nav>
         </div>
