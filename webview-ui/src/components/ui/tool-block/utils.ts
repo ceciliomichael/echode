@@ -6,9 +6,11 @@ import { getFileIconConfig } from '../../../utils/file-icon-mapper';
  * e.g., "grep_search(authentication)" -> { tool: 'grep_search', param: 'authentication' }
  */
 export function parseToolCall(toolCall: string): { tool: string; param: string } {
-  const match = toolCall.match(/^(\w+)\((.+)\)$/);
+  // Match tool_name(param) - param can be empty or have content
+  const match = toolCall.match(/^(\w+)\((.*)\)$/);
   if (match) {
-    return { tool: match[1], param: match[2] };
+    const param = match[2].trim();
+    return { tool: match[1], param };
   }
   return { tool: toolCall, param: '' };
 }

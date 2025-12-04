@@ -19,8 +19,6 @@ export interface ContextUsageResult {
   toolResultsTokens: number;
   totalTokens: number;
   maxTokens: number;
-  thresholdPercent: number;
-  isOverThreshold: boolean;
 }
 
 interface UseContextUsageOptions {
@@ -74,10 +72,6 @@ export function useContextUsage({
     
     const totalTokens = systemPromptTokens + historyTokens + toolResultsTokens;
     const maxTokens = contextSettings.maxContextTokens;
-    const thresholdPercent = contextSettings.thresholdPercent;
-    
-    const usagePercent = maxTokens > 0 ? (totalTokens / maxTokens) * 100 : 0;
-    const isOverThreshold = usagePercent >= thresholdPercent;
     
     return {
       systemPromptTokens,
@@ -85,15 +79,6 @@ export function useContextUsage({
       toolResultsTokens,
       totalTokens,
       maxTokens,
-      thresholdPercent,
-      isOverThreshold,
     };
   }, [systemPrompt, messages, currentToolResultText, contextSettings]);
-}
-
-/**
- * Utility function to check if summarization should be triggered
- */
-export function shouldTriggerSummarization(usage: ContextUsageResult, enabled: boolean): boolean {
-  return enabled && usage.isOverThreshold;
 }

@@ -1,6 +1,6 @@
 import { memo, useEffect, useId, useState, useCallback } from 'react';
 import mermaid from 'mermaid';
-import { Check, Copy, AlertCircle, Maximize2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Check, Copy, Maximize2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useClipboard } from '../../hooks/use-clipboard';
 
 interface MermaidBlockProps {
@@ -25,7 +25,6 @@ mermaid.initialize({
 const MermaidBlockComponent = ({ code, isGenerating = false }: MermaidBlockProps) => {
   const { copied, copy } = useClipboard();
   const [svg, setSvg] = useState<string>('');
-  const [error, setError] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isOpenInTab, setIsOpenInTab] = useState(false);
   const uniqueId = useId().replace(/:/g, '-');
@@ -36,16 +35,47 @@ const MermaidBlockComponent = ({ code, isGenerating = false }: MermaidBlockProps
       return;
     }
 
+    let cancelled = false;
+
     const renderDiagram = async () => {
+      const trimmed = code.trim();
+      if (!trimmed) {
+        if (!cancelled) {
+          setSvg('');
+        }
+        return;
+      }
+
+      // Create an offscreen sandbox container so mermaid can never inject
+      // error SVGs or temporary nodes into the visible document/body.
+      const container = document.createElement('div');
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      container.style.top = '-9999px';
+      container.style.width = '0';
+      container.style.height = '0';
+      container.style.overflow = 'hidden';
+      container.style.pointerEvents = 'none';
+      container.style.opacity = '0';
+      document.body.appendChild(container);
+
       try {
-        setError(null);
-        
+        // First, validate syntax only. If Mermaid considers this invalid, skip rendering entirely
+        // so that its internal error renderer is never invoked.
+        const parseResult = await mermaid.parse(trimmed, { suppressErrors: true });
+        if (parseResult === false) {
+          if (!cancelled) {
+            setSvg('');
+          }
+          return;
+        }
+
         // Get computed colors from CSS variables for mermaid theming
         const bgColor = getCssVar('--vscode-editor-background', '#1e1e1e');
         const fgColor = getCssVar('--vscode-foreground', '#cccccc');
         const primaryColor = getCssVar('--vscode-button-background', '#0e639c');
         const borderColor = getCssVar('--vscode-input-border', '#3c3c3c');
-        
+
         // Re-initialize with computed theme colors before each render
         mermaid.initialize({
           startOnLoad: false,
@@ -71,9 +101,13 @@ const MermaidBlockComponent = ({ code, isGenerating = false }: MermaidBlockProps
             noteBorderColor: borderColor,
           },
         });
-        
-        const { svg: renderedSvg } = await mermaid.render(`mermaid-${uniqueId}`, code.trim());
-        
+
+        const { svg: renderedSvg } = await mermaid.render(`mermaid-${uniqueId}`, trimmed, container);
+
+        if (cancelled) {
+          return;
+        }
+
         // Post-process SVG to make it responsive (remove hardcoded width/height)
         // This ensures it fits within the container while preserving aspect ratio via viewBox
         const responsiveSvg = renderedSvg
@@ -82,15 +116,24 @@ const MermaidBlockComponent = ({ code, isGenerating = false }: MermaidBlockProps
           .replace(/style="[^"]*"/, 'style="max-width: 100%; max-height: 100%;"');
 
         setSvg(responsiveSvg);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to render diagram');
-        setSvg('');
+      } catch {
+        if (!cancelled) {
+          // Swallow mermaid errors; just don't render a diagram
+          setSvg('');
+        }
+      } finally {
+        // Always remove the sandbox container so no stray nodes remain
+        if (container.parentNode) {
+          container.parentNode.removeChild(container);
+        }
       }
     };
 
-    if (code.trim()) {
-      renderDiagram();
-    }
+    renderDiagram();
+
+    return () => {
+      cancelled = true;
+    };
   }, [code, uniqueId, isGenerating]);
 
   const handleCopy = () => copy(code);
@@ -220,17 +263,6 @@ const MermaidBlockComponent = ({ code, isGenerating = false }: MermaidBlockProps
               <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: 'var(--vscode-foreground)', animationDelay: '300ms' }} />
             </div>
             <span>Generating diagram...</span>
-          </div>
-        ) : error ? (
-          <div
-            className="flex items-center gap-2 text-sm p-3 rounded"
-            style={{
-              color: 'var(--vscode-errorForeground)',
-              backgroundColor: 'var(--vscode-inputValidation-errorBackground)',
-            }}
-          >
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            <span>{error}</span>
           </div>
         ) : svg ? (
           <div

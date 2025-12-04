@@ -42,6 +42,7 @@ function escapeXml(text: string): string {
     .replace(/'/g, '&apos;');
 }
 
+
 interface ChatStreamingProps {
   messages: Message[];
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
@@ -131,6 +132,9 @@ export function useChatStreaming({
       // Use override messages if provided (for edit flow), otherwise use current messages
       const messagesToSend = overrideMessages !== undefined ? overrideMessages : messages;
       
+      // Use original messages for LLM context
+      const contextMessages = messagesToSend;
+      
       // Check if current model supports vision
       const currentModel = getCurrentModel();
       const modelSupportsVision = isVisionCapableModel(currentModel);
@@ -139,7 +143,8 @@ export function useChatStreaming({
       console.log('[Chat] User message has attachments:', attachments?.length || 0);
       
       // FORCED ECHO SEARCH: Bypass LLM and execute echo_search directly
-      if (forceEchoSearch && mode === 'agent') {
+      // Enabled for Agent, Plan, and Ask modes
+      if (forceEchoSearch && (mode === 'agent' || mode === 'plan' || mode === 'ask')) {
         console.log('[Chat] Forced echo_search triggered - executing directly without LLM');
         
         // Create synthetic assistant content with echo_search tool block
@@ -207,6 +212,7 @@ export function useChatStreaming({
       }
       
       // Build chat history with system prompt + all messages + tool results
+      // Use contextMessages (potentially summarized) for LLM context
       const chatHistory: ChatMessage[] = [
         {
           role: 'system',
@@ -215,7 +221,8 @@ export function useChatStreaming({
       ];
       
       // Add messages with tool results embedded
-      for (const msg of messagesToSend) {
+      // contextMessages may be summarized (first + summary + last N) or original messages
+      for (const msg of contextMessages) {
         // Strip <think> and <thinking> blocks from message content before adding to chat history
         const contentWithoutThinking = removeThinkBlocks(msg.content);
         

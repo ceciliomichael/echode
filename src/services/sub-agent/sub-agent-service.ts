@@ -1,6 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
-import { SUB_AGENT_SYSTEM_PROMPT, buildSubAgentPrompt } from './sub-agent-prompt';
+import { 
+  EXPLORER_SYSTEM_PROMPT, 
+  SYNTHESIZER_SYSTEM_PROMPT, 
+  buildExplorerPrompt, 
+  buildSynthesizerPrompt 
+} from './sub-agent-prompt';
 import { GrepSearchTool } from '../tools/grep-search-tool';
 import { GlobSearchTool } from '../tools/glob-search-tool';
 import { ReadFileTool } from '../tools/read-file-tool';
@@ -90,6 +95,8 @@ export class SubAgentService {
   private indexingSettings: IndexingSettings;
   private apiSettings: SubAgentApiSettings;
   private onProgress?: ProgressCallback;
+  // Track whether we've actually executed any tools in this search run
+  private hasExecutedTools = false;
 
   private stats = {
     iterations: 0,
@@ -134,6 +141,9 @@ export class SubAgentService {
       totalMatches: 0,
     };
 
+    // Reset tool execution tracking for this run
+    this.hasExecutedTools = false;
+
     // Clear discovered files from previous searches
     this.discoveredFiles.clear();
 
@@ -144,15 +154,16 @@ export class SubAgentService {
     const workspaceFiles = workspaceRoot ? getWorkspaceFiles(workspaceRoot) : undefined;
 
     const conversation: ConversationMessage[] = [
-      { role: 'user', content: buildSubAgentPrompt(query, searchPath, hints, workspaceFiles) }
+      { role: 'user', content: buildExplorerPrompt(query, searchPath, hints, workspaceFiles) }
     ];
 
     let iteration = 0;
     const maxIterations = SubAgentService.MAX_ITERATIONS;
     const maxParallelCalls = SubAgentService.MAX_PARALLEL_CALLS;
 
-    this.onProgress?.(`Starting search (max ${maxIterations} turns)`);
+    this.onProgress?.(`Starting search (${maxIterations} turns)`);
 
+    // Phase 1: Force exactly maxIterations tool-based turns (no early <search_complete>)
     while (iteration < maxIterations) {
       if (signal?.aborted) {
         throw new Error('Search aborted');
@@ -163,29 +174,26 @@ export class SubAgentService {
 
       this.onProgress?.(`Iteration ${iteration}/${maxIterations}: Thinking...`);
 
-      // Get LLM response
-      const response = await this.callLLM(conversation, signal);
+      // Get LLM response using EXPLORER system prompt
+      const response = await this.callLLM(conversation, EXPLORER_SYSTEM_PROMPT, signal);
 
       if (!response) {
         this.onProgress?.(`Error: No response from LLM`);
         break;
       }
 
-      // Check if search is complete
-      if (response.includes('<search_complete>')) {
-        this.onProgress?.(`Search complete, parsing results...`);
-        return this.parseSearchComplete(response);
-      }
-
-      // Parse and execute tool calls
+      // Parse tool calls from response
+      // We ignore any <search_complete> during tool iterations - model must use all turns
       const toolCalls = this.parseToolCalls(response);
 
       if (toolCalls.length === 0) {
-        // No tool calls and no completion - add response and continue
+        // No tool calls - push model to use tools
         conversation.push({ role: 'assistant', content: response });
+        
+        const turnsRemaining = maxIterations - iteration;
         conversation.push({ 
           role: 'user', 
-          content: 'Please use the search tools to find relevant code, or provide your final answer using <search_complete>.' 
+          content: `You have ${turnsRemaining} turn(s) remaining. You MUST use grep_search, glob_search, read_file_snippet, or list_dir to explore the codebase. Do NOT provide <search_complete> yet - keep searching to gather more context.`
         });
         continue;
       }
@@ -200,6 +208,9 @@ export class SubAgentService {
       this.onProgress?.(`Executing ${cappedToolCalls.length} tool(s) in parallel...`);
       const toolResults = await this.executeToolsParallel(cappedToolCalls);
 
+      // Mark that we've actually executed tools at least once
+      this.hasExecutedTools = true;
+
       if (signal?.aborted) {
         throw new Error('Search aborted');
       }
@@ -207,41 +218,31 @@ export class SubAgentService {
       // Add to conversation
       conversation.push({ role: 'assistant', content: response });
       
-      // After 3 iterations, remind LLM to wrap up
-      const iterationReminder = iteration >= 3 
-        ? `\n\nYou've done ${iteration} iterations. If you have enough information, provide your final answer using <search_complete>. Otherwise, continue with focused searches.`
-        : '\n\nContinue searching or provide your final answer using <search_complete>.';
+      // Guide the model for remaining turns
+      const turnsRemaining = maxIterations - iteration;
+      let iterationGuide: string;
       
-      conversation.push({ role: 'user', content: `Tool results:${toolResults}${iterationReminder}` });
+      if (turnsRemaining > 0) {
+        iterationGuide = `\n\nTool results received. You have ${turnsRemaining} more turn(s) to search. Continue exploring with more targeted searches based on what you found. Do NOT provide <search_complete> yet.`;
+      } else {
+        iterationGuide = `\n\nTool results received. This was your final search turn. On the next message, you will be asked to provide your summary.`;
+      }
+      
+      conversation.push({ role: 'user', content: `Tool results:${toolResults}${iterationGuide}` });
     }
 
-    // Max iterations reached - ask for final answer with explicit format
-    this.onProgress?.(`Max iterations reached, requesting final answer...`);
+    // Phase 2: Synthesis - use SYNTHESIZER system prompt for final answer
+    // Note: We use "Synthesizing" instead of iteration message to avoid UI showing duplicate 4/4
+    this.onProgress?.(`Synthesizing findings...`);
 
+    // Add the synthesis prompt
     conversation.push({
       role: 'user',
-      content: `You have reached the maximum iterations. STOP searching and provide your final answer NOW.
-
-You MUST respond with this EXACT format:
-
-<search_complete>
-<summary>Brief summary of what you found</summary>
-<answer>Your explanation of what the codebase does based on what you found</answer>
-<snippets>
-<snippet>
-<path>path/to/relevant/file</path>
-<start_line>1</start_line>
-<end_line>50</end_line>
-<reason>Why this file is relevant</reason>
-<score>0.9</score>
-</snippet>
-</snippets>
-</search_complete>
-
-DO NOT call any more tools. Output ONLY the <search_complete> block now.`
+      content: buildSynthesizerPrompt(query)
     });
 
-    const finalResponse = await this.callLLM(conversation, signal);
+    // Use SYNTHESIZER system prompt for the final call
+    const finalResponse = await this.callLLM(conversation, SYNTHESIZER_SYSTEM_PROMPT, signal);
     
     // Log for debugging
     console.log('[EchoSearch] Final response received, length:', finalResponse?.length || 0);
@@ -272,15 +273,19 @@ DO NOT call any more tools. Output ONLY the <search_complete> block now.`
   /**
    * Call the LLM based on provider
    */
-  private async callLLM(conversation: ConversationMessage[], signal?: AbortSignal): Promise<string | null> {
+  private async callLLM(
+    conversation: ConversationMessage[], 
+    systemPrompt: string,
+    signal?: AbortSignal
+  ): Promise<string | null> {
     const { provider, model } = this.indexingSettings;
 
     try {
       switch (provider) {
         case 'anthropic':
-          return await this.callAnthropic(conversation, model, signal);
+          return await this.callAnthropic(conversation, model, systemPrompt, signal);
         case 'openai':
-          return await this.callOpenAI(conversation, model, this.apiSettings.openaiApiKey, this.apiSettings.openaiCustomUrl, signal);
+          return await this.callOpenAI(conversation, model, systemPrompt, this.apiSettings.openaiApiKey, this.apiSettings.openaiCustomUrl, signal);
         case 'openai-compatible':
         case 'megallm': {
           const apiKey = provider === 'megallm' ? this.apiSettings.megallmApiKey : this.apiSettings.openaiCompatibleApiKey;
@@ -289,7 +294,7 @@ DO NOT call any more tools. Output ONLY the <search_complete> block now.`
           const baseUrl = provider === 'megallm' 
             ? (this.apiSettings.megallmCustomUrl || defaultMegallmUrl)
             : this.apiSettings.openaiCompatibleCustomUrl;
-          return await this.callOpenAI(conversation, model, apiKey, baseUrl, signal);
+          return await this.callOpenAI(conversation, model, systemPrompt, apiKey, baseUrl, signal);
         }
         default:
           this.onProgress?.(`Provider ${provider} not supported for sub-agent`);
@@ -307,7 +312,12 @@ DO NOT call any more tools. Output ONLY the <search_complete> block now.`
   /**
    * Call Anthropic API
    */
-  private async callAnthropic(conversation: ConversationMessage[], model: string, signal?: AbortSignal): Promise<string> {
+  private async callAnthropic(
+    conversation: ConversationMessage[], 
+    model: string, 
+    systemPrompt: string,
+    signal?: AbortSignal
+  ): Promise<string> {
     const client = new Anthropic({
       apiKey: this.apiSettings.anthropicApiKey,
       baseURL: this.apiSettings.anthropicCustomUrl || undefined,
@@ -316,7 +326,7 @@ DO NOT call any more tools. Output ONLY the <search_complete> block now.`
     const response = await client.messages.create({
       model: model || 'claude-3-5-sonnet-20241022',
       max_tokens: 4096,
-      system: SUB_AGENT_SYSTEM_PROMPT,
+      system: systemPrompt,
       messages: conversation.map(m => ({
         role: m.role,
         content: m.content,
@@ -333,6 +343,7 @@ DO NOT call any more tools. Output ONLY the <search_complete> block now.`
   private async callOpenAI(
     conversation: ConversationMessage[],
     model: string,
+    systemPrompt: string,
     apiKey?: string,
     baseUrl?: string,
     signal?: AbortSignal
@@ -352,7 +363,7 @@ DO NOT call any more tools. Output ONLY the <search_complete> block now.`
       model: model || 'gpt-4o',
       max_tokens: 4096,
       messages: [
-        { role: 'system', content: SUB_AGENT_SYSTEM_PROMPT },
+        { role: 'system', content: systemPrompt },
         ...conversation.map(m => ({
           role: m.role as 'user' | 'assistant',
           content: m.content,
@@ -413,11 +424,14 @@ DO NOT call any more tools. Output ONLY the <search_complete> block now.`
   ): Promise<string> {
     // Execute all tools concurrently
     const resultPromises = toolCalls.map(async (toolCall) => {
+      // Get the most descriptive parameter for display
+      // Priority: query (for grep), pattern (for glob), path (for read/list), then any first param
       const paramDesc = toolCall.params.query 
         || toolCall.params.pattern 
         || toolCall.params.path 
-        || '';
-      this.onProgress?.(`  → ${toolCall.name}(${paramDesc.substring(0, 40)}${paramDesc.length > 40 ? '...' : ''})`);
+        || Object.values(toolCall.params).find(v => v && v.trim()) 
+        || toolCall.name;
+      this.onProgress?.(`  → ${toolCall.name}(${paramDesc.substring(0, 50)}${paramDesc.length > 50 ? '...' : ''})`);
       
       const result = await this.executeTool(toolCall);
       return `<tool_result name="${toolCall.name}">\n${result}\n</tool_result>`;

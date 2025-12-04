@@ -92,7 +92,6 @@ export function ChatContainer() {
 
   const {
     isHistoryOpen,
-    echoSearchEnabled,
     closeHistory,
   } = useExtensionMessages({
     onNewChat,
@@ -196,7 +195,6 @@ export function ChatContainer() {
           provider={provider}
           model={model}
           onModelChange={setActiveProviderAndModel}
-          echoSearchEnabled={echoSearchEnabled}
           contextUsage={contextUsage}
         />
       </div>

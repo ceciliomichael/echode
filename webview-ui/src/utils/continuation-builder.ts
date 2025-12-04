@@ -2,15 +2,9 @@ import type { Message, ImageAttachment } from '../types/chat';
 import type { ChatMessage } from '../types/chat-api';
 import type { WorkspaceContext } from '../types/workspace';
 import type { ChatMode } from '../types/chat-mode';
-import type { ContextSettings } from '../types/api-settings';
 import { getSystemPrompt } from './prompts';
 import { formatToolResultsForHistory } from './tool-result-formatter';
 import { buildChatMessage, getCurrentModel, isVisionCapableModel } from './vision-utils';
-import {
-  shouldTriggerSummarization,
-  buildSummarizationRequest,
-  reconstructHistoryWithSummary,
-} from '../services/summarization-service';
 import { summarizeToolSections } from './tool-context-cleaner';
 
 /**
@@ -277,45 +271,4 @@ export function calculateContextTokens(
   }
   
   return tokens;
-}
-
-/**
- * Check if summarization should be triggered and prepare the request if needed
- */
-export function checkSummarizationNeeded(
-  messages: Message[],
-  systemPrompt: string,
-  contextSettings: ContextSettings | undefined
-): {
-  shouldSummarize: boolean;
-  request?: { prompt: string; provider: string; model: string };
-} {
-  if (!contextSettings?.enabled || !contextSettings.model) {
-    return { shouldSummarize: false };
-  }
-  
-  const totalTokens = calculateContextTokens(systemPrompt, messages);
-  const maxTokens = contextSettings.maxContextTokens;
-  
-  if (!shouldTriggerSummarization(contextSettings, totalTokens, maxTokens)) {
-    return { shouldSummarize: false };
-  }
-  
-  // Build the summarization request
-  const request = buildSummarizationRequest(messages, contextSettings);
-  
-  return {
-    shouldSummarize: true,
-    request,
-  };
-}
-
-/**
- * Apply summary to messages and return new history
- */
-export function applySummaryToHistory(
-  messages: Message[],
-  summaryContent: string
-): Message[] {
-  return reconstructHistoryWithSummary(messages, summaryContent);
 }

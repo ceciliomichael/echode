@@ -171,6 +171,14 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
     }
 
     if (e.key === 'Enter' && !e.shiftKey) {
+      // Ctrl+Enter: submit edit as well
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        handleSubmit(e);
+        return;
+      }
+
+      // Regular Enter: submit edit
       e.preventDefault();
       handleSubmit(e);
     } else if (e.key === 'Escape') {

@@ -69,7 +69,8 @@ export interface CapturedDiagnostic {
  * Progress data for echo_search tool iterations
  */
 export interface EchoSearchProgress {
-  iteration: number;
+  iteration: number;        // Current iteration being processed
+  toolsIteration: number;   // Iteration that the current tools belong to
   maxIterations: number;
   phase: 'starting' | 'thinking' | 'executing' | 'finalizing';
   tools: string[];

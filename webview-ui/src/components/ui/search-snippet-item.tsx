@@ -91,7 +91,7 @@ export function SearchSnippetItem({
         <div>
           {reason && (
             <div
-              className="text-xs mb-1.5 px-3 leading-relaxed"
+              className="text-xs mb-1 mt-1 px-3 leading-relaxed"
               style={{ color: 'var(--vscode-foreground)', opacity: 0.85 }}
             >
               {reason}

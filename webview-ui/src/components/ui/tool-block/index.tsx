@@ -24,16 +24,20 @@ const ToolBlockComponent = ({
 
   const hasAutoExpandedRef = useRef(false);
 
-  // Auto-expand echo_search when it reaches the first iteration
+  // Auto-expand echo_search as soon as the tool starts running
   useEffect(() => {
-    if (isEchoSearch && toolCall.status === 'executing' && toolCall.progress?.iteration === 1 && !hasAutoExpandedRef.current) {
+    if (
+      isEchoSearch &&
+      (toolCall.status === 'pending' || toolCall.status === 'executing') &&
+      !hasAutoExpandedRef.current
+    ) {
       hasAutoExpandedRef.current = true;
       // Defer the state update to avoid synchronous render warning
       setTimeout(() => {
         setIsExpanded(true);
       }, 0);
     }
-  }, [isEchoSearch, toolCall.status, toolCall.progress?.iteration]);
+  }, [isEchoSearch, toolCall.status]);
 
   // Get status display
   const statusConfig = useMemo(

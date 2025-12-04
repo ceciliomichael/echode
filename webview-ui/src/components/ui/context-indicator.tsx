@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { CircleDashed } from 'lucide-react';
+import type { ChatMode } from '../../types/chat-mode';
 
 interface ContextUsage {
   systemPromptTokens: number;
@@ -7,22 +8,36 @@ interface ContextUsage {
   toolResultsTokens: number;
   totalTokens: number;
   maxTokens: number;
-  thresholdPercent: number;
 }
 
 interface ContextIndicatorProps {
   usage: ContextUsage;
   disabled?: boolean;
+  mode?: ChatMode;
 }
 
 /**
- * Get color based on context usage percentage
+ * Get color based on mode and context usage percentage
  */
-function getUsageColor(percent: number, threshold: number): string {
-  if (percent >= threshold) {
-    return '#ef4444'; // Red - at or above threshold
-  } else if (percent >= threshold * 0.8) {
-    return '#f59e0b'; // Yellow/amber - approaching threshold
+function getUsageColor(percent: number, mode?: ChatMode): string {
+  if (mode === 'agent') {
+    return '#22c55e';
+  }
+  if (mode === 'ask') {
+    return '#3b82f6';
+  }
+  if (mode === 'plan') {
+    return '#f97316';
+  }
+  if (mode === 'general') {
+    return '#a855f7';
+  }
+
+  // Warning colors for high usage
+  if (percent >= 90) {
+    return '#ef4444'; // Red - critical
+  } else if (percent >= 75) {
+    return '#f59e0b'; // Yellow/amber - warning
   }
   return '#22c55e'; // Green - safe
 }
@@ -37,7 +52,7 @@ function formatTokens(tokens: number): string {
   return tokens.toString();
 }
 
-export function ContextIndicator({ usage, disabled = false }: ContextIndicatorProps) {
+export function ContextIndicator({ usage, disabled = false, mode }: ContextIndicatorProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState<'above' | 'below'>('above');
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -46,7 +61,7 @@ export function ContextIndicator({ usage, disabled = false }: ContextIndicatorPr
     ? (usage.totalTokens / usage.maxTokens) * 100 
     : 0;
   
-  const color = getUsageColor(usagePercent, usage.thresholdPercent);
+  const color = getUsageColor(usagePercent, mode);
 
   // Calculate tooltip position when showing
   const calculatePosition = () => {
@@ -76,7 +91,6 @@ export function ContextIndicator({ usage, disabled = false }: ContextIndicatorPr
         onBlur={() => setShowTooltip(false)}
         className="p-1 rounded-md transition-opacity hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
         style={{ color }}
-        title="Context usage"
         aria-label={`Context usage: ${usagePercent.toFixed(0)}%`}
       >
         <CircleDashed className="w-4 h-4" />
@@ -170,25 +184,6 @@ export function ContextIndicator({ usage, disabled = false }: ContextIndicatorPr
                 {formatTokens(usage.totalTokens)} / {formatTokens(usage.maxTokens)}
               </span>
             </div>
-          </div>
-
-          {/* Threshold indicator */}
-          <div
-            className="mt-2 pt-2 border-t text-xs"
-            style={{
-              borderColor: 'var(--vscode-input-border)',
-              color: 'var(--vscode-descriptionForeground)',
-            }}
-          >
-            {usagePercent >= usage.thresholdPercent ? (
-              <span style={{ color: '#ef4444' }}>
-                Summarization will be triggered at next tool call
-              </span>
-            ) : (
-              <span>
-                Summarization threshold: {usage.thresholdPercent}%
-              </span>
-            )}
           </div>
         </div>
       )}

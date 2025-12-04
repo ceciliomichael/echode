@@ -19,6 +19,8 @@ const MENTION_REGEX = /@((?:[^\s@]|\\ )+)/g;
 export function MentionHighlighter({ text, scrollTop = 0, highlightAll = false }: MentionHighlighterProps) {
   const segments = useMemo(() => {
     const result: Array<{ text: string; isMention: boolean }> = [];
+
+    // Process @mentions
     let lastIndex = 0;
     let match;
 
@@ -78,23 +80,21 @@ export function MentionHighlighter({ text, scrollTop = 0, highlightAll = false }
           color: 'transparent',
         }}
       >
-        {segments.map((segment, index) => (
-          <span
-            key={index}
-            style={
-              segment.isMention
-                ? {
-                    // Blue highlight background for mentions
-                    backgroundColor: 'rgba(55, 148, 255, 0.25)',
-                    color: 'transparent',
-                    borderRadius: '3px',
-                  }
-                : undefined
-            }
-          >
-            {segment.text}
-          </span>
-        ))}
+        {segments.map((segment, index) => {
+          const style: React.CSSProperties | undefined = segment.isMention
+            ? {
+                backgroundColor: 'rgba(55, 148, 255, 0.25)',
+                color: 'transparent',
+                borderRadius: '3px',
+              }
+            : undefined;
+          
+          return (
+            <span key={index} style={style}>
+              {segment.text}
+            </span>
+          );
+        })}
       </div>
     </div>
   );

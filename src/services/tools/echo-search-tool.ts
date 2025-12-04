@@ -6,7 +6,8 @@ import { SubAgentService, IndexingSettings, SubAgentApiSettings } from '../sub-a
  * Progress data structure for echo_search iterations
  */
 export interface EchoSearchProgress {
-  iteration: number;
+  iteration: number;        // Current iteration being processed
+  toolsIteration: number;   // Iteration that the current tools belong to (for display)
   maxIterations: number;
   phase: 'starting' | 'thinking' | 'executing' | 'finalizing';
   tools: string[];
@@ -15,12 +16,18 @@ export interface EchoSearchProgress {
 
 /**
  * Parse SubAgentService progress message into structured progress data
+ * 
+ * Key behavior:
+ * - `iteration` tracks the current iteration being processed
+ * - `toolsIteration` tracks which iteration the displayed tools belong to
+ * - When tools are added, toolsIteration is updated to match iteration
+ * - This ensures the counter shows the correct iteration for the displayed tools
  */
 function parseProgressMessage(message: string, currentProgress: EchoSearchProgress): EchoSearchProgress {
   const progress = { ...currentProgress, message };
 
-  // Parse "Starting search (max N turns)"
-  const maxIterMatch = message.match(/max (\d+) turns/);
+  // Parse "Starting search (N turns)" or "Starting search (max N turns)"
+  const maxIterMatch = message.match(/\((?:max )?(\d+) turns\)/);
   if (maxIterMatch) {
     progress.maxIterations = parseInt(maxIterMatch[1], 10);
     progress.phase = 'starting';
@@ -28,20 +35,23 @@ function parseProgressMessage(message: string, currentProgress: EchoSearchProgre
   }
 
   // Parse "Iteration N/M: Thinking..."
+  // Update iteration number but DON'T update toolsIteration yet
   const iterMatch = message.match(/Iteration (\d+)\/(\d+): Thinking/);
   if (iterMatch) {
     progress.iteration = parseInt(iterMatch[1], 10);
     progress.maxIterations = parseInt(iterMatch[2], 10);
     progress.phase = 'thinking';
-    progress.tools = [];
+    // Don't clear tools or update toolsIteration - keep previous iteration's display
     return progress;
   }
 
   // Parse "Executing N tool(s) in parallel..."
+  // Clear tools and update toolsIteration to current iteration
   const execMatch = message.match(/Executing (\d+) tool/);
   if (execMatch) {
     progress.phase = 'executing';
     progress.tools = [];
+    progress.toolsIteration = progress.iteration; // Now we're executing for this iteration
     return progress;
   }
 
@@ -49,11 +59,12 @@ function parseProgressMessage(message: string, currentProgress: EchoSearchProgre
   const toolMatch = message.match(/→ (.+)$/);
   if (toolMatch) {
     progress.tools = [...progress.tools, toolMatch[1].trim()];
+    // toolsIteration already set when "Executing" was parsed
     return progress;
   }
 
-  // Parse "Max iterations reached" or "requesting final answer"
-  if (message.includes('final answer') || message.includes('Max iterations')) {
+  // Parse finalizing phase messages
+  if (message.includes('Synthesizing') || message.includes('final answer') || message.includes('Max iterations')) {
     progress.phase = 'finalizing';
     return progress;
   }
@@ -104,6 +115,7 @@ export class EchoSearchTool implements ITool {
       // Track progress state across messages
       let currentProgress: EchoSearchProgress = {
         iteration: 0,
+        toolsIteration: 0,
         maxIterations: 4,
         phase: 'starting',
         tools: [],
@@ -116,14 +128,20 @@ export class EchoSearchTool implements ITool {
         // Parse message into structured progress
         currentProgress = parseProgressMessage(message, currentProgress);
 
-        // Only push updates for actual execution/tool lines so the
-        // dropdown shows the tools used in the last completed turn,
-        // instead of being overwritten by the next "Thinking" message.
+        // Send progress updates for:
+        // 1. Starting (so UI shows initial state immediately)
+        // 2. New iteration starts (so UI shows "1/4", "2/4", etc.)
+        // 3. Execution starts (so UI knows tools are running)
+        // 4. Individual tool lines (so UI shows which tools are being used)
+        // 5. Synthesizing (final phase before result)
         const trimmed = message.trim();
-        const isToolLine = trimmed.startsWith('→');
+        const isStartingLine = trimmed.includes('Starting search');
+        const isIterationLine = trimmed.includes('Iteration') && trimmed.includes('Thinking');
         const isExecutionLine = trimmed.startsWith('Executing ');
+        const isToolLine = trimmed.startsWith('→');
+        const isSynthesizingLine = trimmed.includes('Synthesizing');
 
-        if (onProgress && (isToolLine || isExecutionLine)) {
+        if (onProgress && (isStartingLine || isIterationLine || isExecutionLine || isToolLine || isSynthesizingLine)) {
           onProgress(currentProgress);
         }
       };

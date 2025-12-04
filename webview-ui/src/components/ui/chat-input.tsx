@@ -28,11 +28,10 @@ interface ChatInputProps {
   provider: Provider;
   model: string;
   onModelChange: (provider: Provider, model: string) => void;
-  echoSearchEnabled?: boolean;
   contextUsage?: ContextUsageResult;
 }
 
-export function ChatInput({ onSendMessage, disabled = false, isStreaming = false, onStop, todos = [], mode, onModeChange, provider, model, onModelChange, echoSearchEnabled = true, contextUsage }: ChatInputProps) {
+export function ChatInput({ onSendMessage, disabled = false, isStreaming = false, onStop, todos = [], mode, onModeChange, provider, model, onModelChange, contextUsage }: ChatInputProps) {
 
   const [input, setInput] = useState('');
   const [cursorPos, setCursorPos] = useState(0);
@@ -77,7 +76,12 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
     const content = input;
     // Only use trim() to check for non-empty content, but send the original text
     if (content.trim() && !disabled) {
-      onSendMessage(content, attachments.length > 0 ? attachments : undefined, forceEchoSearch);
+      onSendMessage(
+        content,
+        attachments.length > 0 ? attachments : undefined,
+        forceEchoSearch
+      );
+      
       setInput('');
       setAttachments([]);
       clearMentionPaths(); // Clear mention path mappings after sending
@@ -90,7 +94,7 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    // Let context menu handle keyboard events first
+    // Let context menu handle keyboard events
     if (contextMenu.handleKeyDown(e)) {
       return;
     }
@@ -125,10 +129,16 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
     }
 
     if (e.key === 'Enter' && !e.shiftKey) {
+      // Ctrl+Enter: force echo_search for Agent, Plan, and Ask modes
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        handleSubmit(e, mode === 'agent' || mode === 'plan' || mode === 'ask');
+        return;
+      }
+
+      // Regular Enter: normal send
       e.preventDefault();
-      // Ctrl+Enter forces echo_search with the query (only if echo_search is enabled)
-      const forceEchoSearch = (e.ctrlKey || e.metaKey) && echoSearchEnabled;
-      handleSubmit(e, forceEchoSearch);
+      handleSubmit(e);
     }
   };
 
@@ -293,7 +303,7 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
               onSelect={handleSelect}
               onClick={handleSelect}
               onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
-              placeholder="Type your message... (use @ to mention files)"
+              placeholder="Type your message... (use @ for files)"
               disabled={disabled || isStreaming}
               rows={1}
               className="w-full px-1.5 py-1 rounded-xl bg-transparent text-sm leading-normal min-h-[36px] max-h-[100px] overflow-y-auto resize-none border-0 relative z-10 disabled:opacity-50 disabled:cursor-not-allowed placeholder:opacity-50"
@@ -338,6 +348,7 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
                 <ContextIndicator
                   usage={contextUsage}
                   disabled={disabled}
+                  mode={mode}
                 />
               )}
               {isStreaming ? (

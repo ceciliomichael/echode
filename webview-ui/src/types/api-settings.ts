@@ -31,19 +31,11 @@ export const DEFAULT_AUTOCOMPLETE_SETTINGS: AutocompleteSettings = {
 };
 
 export interface ContextSettings {
-  enabled: boolean;
   maxContextTokens: number;
-  thresholdPercent: number;
-  provider: Provider;
-  model: string;
 }
 
 export const DEFAULT_CONTEXT_SETTINGS: ContextSettings = {
-  enabled: false,
   maxContextTokens: 128000,
-  thresholdPercent: 70,
-  provider: 'anthropic',
-  model: '',
 };
 
 export interface Tool {

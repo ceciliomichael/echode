@@ -6,8 +6,6 @@
  * adapted for echode's string-based XML format.
  */
 
-import type { Message } from '../types/chat';
-
 /**
  * XML-like sections that contain tool execution data
  */
@@ -105,39 +103,6 @@ export function summarizeToolSections(content: string): string {
   cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
   
   return cleaned;
-}
-
-/**
- * Clean messages for summarization by stripping tool sections from older messages
- * while preserving them in recent messages.
- * 
- * @param messages - All messages
- * @param recentCount - Number of recent messages to preserve fully (default: 4)
- * @param mode - 'strip' removes sections entirely, 'summarize' replaces with brief summary
- */
-export function cleanMessagesForSummarization(
-  messages: Message[],
-  recentCount: number = 4,
-  mode: 'strip' | 'summarize' = 'summarize'
-): Message[] {
-  if (messages.length <= recentCount) {
-    // All messages are "recent", keep as-is
-    return messages;
-  }
-  
-  const splitIndex = messages.length - recentCount;
-  const olderMessages = messages.slice(0, splitIndex);
-  const recentMessages = messages.slice(splitIndex);
-  
-  const cleanedOlder = olderMessages.map(msg => {
-    const cleanFn = mode === 'strip' ? stripToolSections : summarizeToolSections;
-    return {
-      ...msg,
-      content: cleanFn(msg.content),
-    };
-  });
-  
-  return [...cleanedOlder, ...recentMessages];
 }
 
 /**

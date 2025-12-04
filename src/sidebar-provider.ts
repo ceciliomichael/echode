@@ -3,7 +3,6 @@ import { handleApiRequest } from './handlers/api-handler';
 import { handleChatStream } from './handlers/chat-streaming-handler';
 import { handleModelFetch } from './handlers/model-fetching-handler';
 import { handleToolExecution } from './handlers/tool-execution-handler';
-import { handleSummarization } from './handlers/summarization-handler';
 import { getMainWebviewHtml, getSettingsHtml, getMermaidPreviewHtml } from './utils/html-generator';
 import { getWorkspaceFiles, getAgentsConfig } from './utils/workspace-scanner';
 import { ChatHistoryService } from './services/chat-history-service';
@@ -228,9 +227,6 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
           break;
         case 'fetchModels':
           await handleModelFetch(data, webviewView);
-          break;
-        case 'summarize':
-          await handleSummarization(data, webviewView);
           break;
         case 'openDiff':
           await this.openDiffEditor(data.oldContent, data.newContent, data.fileName);

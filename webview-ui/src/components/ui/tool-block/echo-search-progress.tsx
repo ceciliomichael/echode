@@ -1,28 +1,47 @@
+import { Loader2 } from 'lucide-react';
 import type { EchoSearchProgress } from '../../../types/tool';
 import { getToolIconConfig, parseToolCall } from './utils';
 
 /**
- * Splash texts for echo_search progress
+ * Splash texts for echo_search progress based on phase
  */
-const ECHO_SEARCH_SPLASH_TEXTS = [
-  'Searching codebase...',
-  'Finding relevant files...',
-  'Analyzing patterns...',
-  'Exploring directories...',
-  'Scanning for matches...',
-  'Discovering context...',
-];
+const PHASE_SPLASH_TEXTS: Record<EchoSearchProgress['phase'], string[]> = {
+  starting: ['Initializing search...'],
+  thinking: [
+    'Analyzing query...',
+    'Planning search strategy...',
+    'Identifying patterns...',
+    'Formulating approach...',
+  ],
+  executing: [
+    'Searching codebase...',
+    'Finding relevant files...',
+    'Exploring directories...',
+    'Scanning for matches...',
+  ],
+  finalizing: ['Synthesizing results...'],
+};
+
+/**
+ * Get splash text based on phase and iteration
+ */
+function getSplashText(phase: EchoSearchProgress['phase'], iteration: number): string {
+  const texts = PHASE_SPLASH_TEXTS[phase];
+  return texts[iteration % texts.length];
+}
 
 /**
  * Progress indicator for echo_search tool - shows tools like final result snippets
  */
 export function EchoSearchProgressIndicator({ progress }: { progress: EchoSearchProgress }) {
-  // Pick a splash text based on iteration
-  const splashText = ECHO_SEARCH_SPLASH_TEXTS[progress.iteration % ECHO_SEARCH_SPLASH_TEXTS.length];
+  const splashText = getSplashText(progress.phase, progress.iteration);
+  const isThinking = progress.phase === 'thinking' || progress.phase === 'starting';
+  // Only show iteration counter when we have tools, using toolsIteration for accurate display
+  const showIterationCounter = progress.toolsIteration > 0 && progress.tools.length > 0;
 
   return (
     <div className="rounded-md overflow-hidden border border-[var(--vscode-input-border)] bg-[var(--vscode-editor-background)]">
-      {/* Minimal header with splash text and wave animation */}
+      {/* Header with splash text and iteration counter */}
       <div
         className="px-3 py-1.5 border-b border-[var(--vscode-input-border)] flex items-center justify-between text-xs"
       >
@@ -35,7 +54,7 @@ export function EchoSearchProgressIndicator({ progress }: { progress: EchoSearch
           `}
         </style>
         <span
-          className="font-medium"
+          className="font-medium flex items-center gap-1.5"
           style={{
             background: 'linear-gradient(90deg, var(--vscode-descriptionForeground) 0%, var(--vscode-descriptionForeground) 40%, var(--vscode-foreground) 50%, var(--vscode-descriptionForeground) 60%, var(--vscode-descriptionForeground) 100%)',
             backgroundSize: '300% 100%',
@@ -47,17 +66,20 @@ export function EchoSearchProgressIndicator({ progress }: { progress: EchoSearch
         >
           {splashText}
         </span>
-        <span
-          className="font-medium"
-          style={{ color: 'var(--vscode-descriptionForeground)' }}
-        >
-          {progress.iteration}/{progress.maxIterations}
-        </span>
+        {showIterationCounter && (
+          <span
+            className="font-medium"
+            style={{ color: 'var(--vscode-descriptionForeground)' }}
+          >
+            {progress.toolsIteration}/{progress.maxIterations}
+          </span>
+        )}
       </div>
 
-      {/* Tool List - styled like snippet items */}
+      {/* Tool List or Loading State */}
       <div>
         {progress.tools.length > 0 ? (
+          // Show tools when we have them
           progress.tools.map((toolCall, idx) => {
             const { tool, param } = parseToolCall(toolCall);
             const iconConfig = getToolIconConfig(toolCall);
@@ -88,11 +110,17 @@ export function EchoSearchProgressIndicator({ progress }: { progress: EchoSearch
             );
           })
         ) : (
+          // Empty state with spinner when thinking
           <div
-            className="px-3 py-2 text-xs italic"
+            className="px-3 py-2.5 flex items-center gap-2 text-xs"
             style={{ color: 'var(--vscode-descriptionForeground)' }}
           >
-            Analyzing codebase...
+            {isThinking && (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            )}
+            <span className="italic">
+              {isThinking ? 'Thinking...' : 'Waiting for tools...'}
+            </span>
           </div>
         )}
       </div>

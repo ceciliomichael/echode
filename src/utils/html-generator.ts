@@ -285,6 +285,7 @@ export function getMermaidPreviewHtml(
       position: absolute;
       left: 50%;
       top: 50%;
+      transform: translate(-50%, -50%);
       transform-origin: center center;
       transition: transform 0.08s ease-out;
     }
@@ -392,8 +393,11 @@ ${code}
       if (!svg) return;
       const rect = svg.getBoundingClientRect();
       const containerRect = container.getBoundingClientRect();
-      const scaleX = (containerRect.width - 40) / rect.width * scale;
-      const scaleY = (containerRect.height - 40) / rect.height * scale;
+      // Get original dimensions by dividing by current scale
+      const originalWidth = rect.width / scale;
+      const originalHeight = rect.height / scale;
+      const scaleX = (containerRect.width - 40) / originalWidth;
+      const scaleY = (containerRect.height - 40) / originalHeight;
       scale = Math.min(scaleX, scaleY, 2);
       panX = 0;
       panY = 0;
@@ -441,12 +445,19 @@ ${code}
       }
     }
 
-    // Initial auto-fit after render
-    setTimeout(() => {
-      fitToView();
-      // Notify extension that preview is ready
-      vscode.postMessage({ type: 'mermaidPreviewReady' });
-    }, 500);
+    // Initial auto-fit after render - wait for SVG to be ready
+    function waitForSvgAndFit() {
+      const svg = container.querySelector('svg');
+      if (svg && svg.getBoundingClientRect().width > 0) {
+        fitToView();
+        vscode.postMessage({ type: 'mermaidPreviewReady' });
+      } else {
+        requestAnimationFrame(waitForSvgAndFit);
+      }
+    }
+    
+    // Start checking after mermaid has had time to initialize
+    setTimeout(waitForSvgAndFit, 100);
 
     // Listen for close event
     window.addEventListener('beforeunload', () => {
