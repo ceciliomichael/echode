@@ -4,6 +4,7 @@ import type {
   AutocompleteSettings,
 } from '../../types/api-settings';
 import { SettingsModelSelector } from '../ui/settings-model-selector';
+import { ToggleSwitch } from '../ui/toggle-switch';
 
 interface AutocompleteTabProps {
   autocompleteSettings: AutocompleteSettings;
@@ -13,6 +14,10 @@ interface AutocompleteTabProps {
 export function AutocompleteTab({ autocompleteSettings, onChange }: AutocompleteTabProps) {
   const handleModelChange = (provider: Provider, model: string) => {
     onChange({ ...autocompleteSettings, provider, model });
+  };
+
+  const handleToggleEnabled = () => {
+    onChange({ ...autocompleteSettings, enabled: !autocompleteSettings.enabled });
   };
 
   return (
@@ -39,47 +44,30 @@ export function AutocompleteTab({ autocompleteSettings, onChange }: Autocomplete
 
       {/* Enable Toggle */}
       <div
-        className="p-4 rounded-xl border"
+        className="flex items-center justify-between p-3 rounded-xl border"
         style={{
           backgroundColor: 'var(--vscode-input-background)',
           borderColor: 'var(--vscode-input-border)',
         }}
       >
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col gap-1">
-            <span
-              className="text-sm font-medium"
-              style={{ color: 'var(--vscode-foreground)' }}
-            >
-              Enable Autocomplete
-            </span>
-            <span
-              className="text-xs"
-              style={{ color: 'var(--vscode-descriptionForeground)' }}
-            >
-              Show inline suggestions while typing
-            </span>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={autocompleteSettings.enabled}
-            onClick={() => onChange({ ...autocompleteSettings, enabled: !autocompleteSettings.enabled })}
-            className="relative w-11 h-6 rounded-full transition-colors"
-            style={{
-              backgroundColor: autocompleteSettings.enabled
-                ? 'var(--vscode-button-background)'
-                : 'var(--vscode-input-border)',
-            }}
+        <div className="flex flex-col gap-1">
+          <span
+            className="text-sm font-medium"
+            style={{ color: 'var(--vscode-foreground)' }}
           >
-            <span
-              className="absolute top-1 left-1 w-4 h-4 rounded-full transition-transform bg-white"
-              style={{
-                transform: autocompleteSettings.enabled ? 'translateX(20px)' : 'translateX(0)',
-              }}
-            />
-          </button>
+            Enable Autocomplete
+          </span>
+          <span
+            className="text-xs"
+            style={{ color: 'var(--vscode-descriptionForeground)' }}
+          >
+            Show inline suggestions while typing
+          </span>
         </div>
+        <ToggleSwitch
+          checked={autocompleteSettings.enabled}
+          onChange={handleToggleEnabled}
+        />
       </div>
 
       {/* Model Selector */}

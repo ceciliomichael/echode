@@ -85,9 +85,9 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
   const toolIdsList = enabledTools.map(t => `\`${t.id}\``).join(', ');
   const explicitToolList = `
 <enabled_tools>
-The following tools are AVAILABLE and ENABLED for your use: ${toolIdsList}
+YOUR COMPLETE TOOLSET: ${toolIdsList}
 
-These are the ONLY tools you may use. Do not invent or hallucinate other tool names.
+STRICT CONSTRAINT: You have ONLY these ${enabledTools.length} tools. No other tools exist. If a tool name is not listed above, you CANNOT use it. Never invent, assume, or hallucinate tool names.
 </enabled_tools>
 
 `;

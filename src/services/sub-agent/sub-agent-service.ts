@@ -431,7 +431,8 @@ export class SubAgentService {
         || toolCall.params.path 
         || Object.values(toolCall.params).find(v => v && v.trim()) 
         || toolCall.name;
-      this.onProgress?.(`  → ${toolCall.name}(${paramDesc.substring(0, 50)}${paramDesc.length > 50 ? '...' : ''})`);
+      // Send full path (no truncation) so UI can determine file icon correctly
+      this.onProgress?.(`  → ${toolCall.name}(${paramDesc})`);
       
       const result = await this.executeTool(toolCall);
       return `<tool_result name="${toolCall.name}">\n${result}\n</tool_result>`;

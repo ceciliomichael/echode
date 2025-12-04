@@ -38,7 +38,7 @@ export function EchoSearchProgressIndicator({ progress }: { progress: EchoSearch
   const showIterationCounter = progress.toolsIteration > 0 && progress.tools.length > 0;
 
   return (
-    <div className="rounded-md overflow-hidden border border-[var(--vscode-input-border)] bg-[var(--vscode-editor-background)]">
+    <div className="rounded-xl overflow-hidden border border-[var(--vscode-input-border)] bg-[var(--vscode-editor-background)]">
       {/* Header with splash text and iteration counter */}
       <div
         className="px-3 py-1.5 border-b border-[var(--vscode-input-border)] flex items-center justify-between text-xs"
@@ -92,7 +92,7 @@ export function EchoSearchProgressIndicator({ progress }: { progress: EchoSearch
                   style={{ color: iconConfig.color }}
                 />
                 <span
-                  className="text-xs font-medium truncate flex-1"
+                  className="text-xs font-medium truncate flex-1 min-w-0"
                   style={{ color: 'var(--vscode-foreground)' }}
                 >
                   {param || tool}

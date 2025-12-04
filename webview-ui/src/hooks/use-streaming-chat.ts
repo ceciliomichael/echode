@@ -49,9 +49,10 @@ export function useStreamingChat(
     setCurrentSessionId(currentSessionIdRef.current);
   }, []);
 
-  const saveCurrentSession = useCallback(() => {
-    // CRITICAL: Use messagesRef.current to get the LATEST messages, not stale closure
-    const currentMessages = messagesRef.current;
+  const saveCurrentSession = useCallback((overrideMessages?: Message[]) => {
+    // Prefer explicitly provided messages when saving synchronously after an update,
+    // otherwise fall back to messagesRef.current for general saves.
+    const currentMessages = overrideMessages ?? messagesRef.current;
     
     if (currentMessages.length === 0) {return;}
 

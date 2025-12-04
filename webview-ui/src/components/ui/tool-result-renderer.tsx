@@ -57,7 +57,7 @@ export function renderToolResult(
     if ('files' in data && Array.isArray((data as { files: unknown[] }).files)) {
       const multiResult = data as { files: Array<{ content: string; path: string; startLine?: number; endLine?: number }> };
       return (
-        <div className="space-y-4 px-3 py-2">
+        <div className="space-y-4 px-3 py-3">
           {multiResult.files.map((file, index) => {
             const cleanContent = stripLineNumbers(file.content);
             return (
@@ -83,7 +83,7 @@ export function renderToolResult(
       const cleanContent = stripLineNumbers(result.content);
 
       return (
-        <div className="px-3 py-2">
+        <div className="px-3 py-3">
           <DiffViewer
             oldContent={undefined}
             newContent={cleanContent}
@@ -108,7 +108,7 @@ export function renderToolResult(
 
     if (result.newContent !== undefined) {
       return (
-        <div className="px-3 py-2">
+        <div className="px-3 py-3">
           <DiffViewer
             oldContent={result.oldContent ?? null}
             newContent={result.newContent}
@@ -129,7 +129,7 @@ export function renderToolResult(
 
     if (result.newContent !== undefined && result.oldContent !== undefined) {
       return (
-        <div className="px-3 py-2">
+        <div className="px-3 py-3">
           <DiffViewer
             oldContent={result.oldContent ?? null}
             newContent={result.newContent}
@@ -144,14 +144,14 @@ export function renderToolResult(
   // Use registered renderer for other tools
   const renderer = getToolRenderer(toolName);
   if (renderer) {
-    return <div className="px-3 py-2">{renderer(data) as ReactNode}</div>;
+    return <div className="px-3 py-3">{renderer(data) as ReactNode}</div>;
   }
 
   // Default fallback
   return (
-    <div className="px-3 py-2">
+    <div className="px-3 py-3">
       <pre
-        className="text-xs font-mono whitespace-pre overflow-x-auto p-2 rounded"
+        className="text-xs font-mono whitespace-pre overflow-x-auto p-2 rounded-xl"
         style={{
           color: 'var(--vscode-input-foreground)',
           backgroundColor: 'var(--vscode-textCodeBlock-background)',

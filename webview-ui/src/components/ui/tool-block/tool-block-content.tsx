@@ -24,7 +24,7 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded }: ToolBlockCo
           !toolCall.result && (
             <>
               {toolCall.toolName === 'write_to_file' && toolCall.parameters.content ? (
-                <div className="px-3 py-2">
+                <div className="px-3 py-3">
                   <DiffViewer
                     oldContent={undefined}
                     newContent={toolCall.parameters.content as string}
@@ -34,12 +34,12 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded }: ToolBlockCo
                   />
                 </div>
               ) : toolCall.toolName === 'echo_search' && toolCall.progress ? (
-                <div className="px-3 py-2">
+                <div className="px-3 py-3">
                   <EchoSearchProgressIndicator progress={toolCall.progress} />
                 </div>
               ) : (
                 <div
-                  className="px-3 py-2"
+                  className="px-3 py-3"
                   style={{
                     backgroundColor: 'var(--vscode-editor-background)',
                   }}
@@ -66,7 +66,7 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded }: ToolBlockCo
               </div>
             ) : (
               <div
-                className="px-3 py-2"
+                className="px-3 py-3"
                 style={{
                   backgroundColor: 'var(--vscode-inputValidation-errorBackground)',
                 }}

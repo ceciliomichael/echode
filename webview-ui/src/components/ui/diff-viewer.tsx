@@ -229,7 +229,7 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
   );
 
   return (
-    <div className="w-full rounded-md overflow-hidden border border-[var(--vscode-input-border)]">
+    <div className="w-full rounded-xl overflow-hidden border border-[var(--vscode-input-border)]">
       {/* Diff Header */}
       <div
         className="flex items-center justify-between px-3 py-1.5 text-xs font-medium border-b"

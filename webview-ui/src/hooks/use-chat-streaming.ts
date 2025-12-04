@@ -60,7 +60,7 @@ interface ChatStreamingProps {
     toolIndex?: number,
     userAttachments?: ImageAttachment[]
   ) => Promise<void>;
-  saveSession: () => void;
+  saveSession: (overrideMessages?: Message[]) => void;
   mode: ChatMode;
 }
 
@@ -106,11 +106,17 @@ export function useChatStreaming({
       attachments,
       hidden: isHidden,
     };
-    setMessages((prev) => [...prev, userMessage]);
     
-    // Save immediately after user message to ensure it's persisted even if AI crashes
-    // Use setTimeout to allow state update to propagate to messagesRef
-    setTimeout(() => saveSession(), 0);
+    // Build the next messages array explicitly so we can save synchronously
+    const baseMessages = overrideMessages ?? messages;
+    const nextMessages = [...baseMessages, userMessage];
+
+    // Save immediately with the precise nextMessages snapshot so history is
+    // persisted even if the extension reloads before React state effects run
+    saveSession(nextMessages);
+
+    // Then update React state
+    setMessages(nextMessages);
 
     // Create a new assistant message for AI responses
     let assistantContent = '';
