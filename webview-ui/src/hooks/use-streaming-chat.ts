@@ -1,492 +1,132 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { v4 as uuidv4 } from 'uuid';
-import type { Message, ImageAttachment } from '../types/chat';
-import type { ToolExecutionState } from '../types/tool';
-import type { ChatSession } from '../types/chat-session';
+import { useCallback } from 'react';
 import type { ChatMode } from '../types/chat-mode';
 import { useToolExecution } from './use-tool-execution';
 import { useChatStreaming } from './use-chat-streaming';
 import { storageService } from '../utils/storage';
-import { toolHistoryApi } from '../services/tool-history-api';
-import { setSessionEditingMessage, setSessionRevertPreview, loadSessionUiState } from '../utils/session-ui-state';
-
-// Planning tool names that should be superseded when user sends a new message
-const PLANNING_TOOL_NAMES = ['plan_navigator', 'plan_handoff'];
+import {
+  useChatState,
+  useSessionManagement,
+  useMessageActions,
+  useEditRevert,
+} from './chat';
 
 export function useStreamingChat(
-  currentTodos?: Array<{ id: string; content: string; status: string }>,
+  _currentTodos?: Array<{ id: string; content: string; status: string }>,
   mode: ChatMode = 'agent'
 ) {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [isExecutingTool, setIsExecutingTool] = useState(false);
-  const [revertPreviewMessageId, setRevertPreviewMessageId] = useState<string | null>(null);
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(storageService.getCurrentSessionId());
-  const currentSessionIdRef = useRef<string | null>(storageService.getCurrentSessionId());
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const sendingMessageRef = useRef(false);
-  const isStreamingRef = useRef(false);
-  const isStoppingRef = useRef(false);
-  const messagesRef = useRef<Message[]>(messages);
+  // Core state management
+  const state = useChatState();
 
-  // Keep messagesRef in sync with messages state
-  useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
+  // Session management (save, load, ensure ID)
+  const {
+    ensureSessionId,
+    saveCurrentSession,
+    loadSession,
+  } = useSessionManagement({
+    messagesRef: state.messagesRef,
+    currentSessionIdRef: state.currentSessionIdRef,
+    setMessages: state.setMessages,
+    setCurrentSessionId: state.setCurrentSessionId,
+    setEditingMessageId: state.setEditingMessageId,
+    setRevertPreviewMessageId: state.setRevertPreviewMessageId,
+  });
 
-  const ensureSessionId = useCallback(() => {
-    if (!currentSessionIdRef.current) {
-      const newId = uuidv4();
-      currentSessionIdRef.current = newId;
-      storageService.setCurrentSessionId(newId);
-    }
-    return currentSessionIdRef.current;
-  }, []);
-
-  // Sync state with ref
-  useEffect(() => {
-    setCurrentSessionId(currentSessionIdRef.current);
-  }, []);
-
-  const saveCurrentSession = useCallback((overrideMessages?: Message[]) => {
-    // Prefer explicitly provided messages when saving synchronously after an update,
-    // otherwise fall back to messagesRef.current for general saves.
-    const currentMessages = overrideMessages ?? messagesRef.current;
-    
-    if (currentMessages.length === 0) {return;}
-
-    const sessionId = ensureSessionId();
-
-    const session: ChatSession = {
-      id: sessionId,
-      title: storageService.generateTitle(currentMessages),
-      timestamp: Date.now(),
-      createdAt: Date.now(),
-      messages: currentMessages.map(msg => ({
-        ...msg,
-        timestamp: msg.timestamp instanceof Date ? msg.timestamp.toISOString() : msg.timestamp,
-        // Serialize toolExecutions Map to array for JSON storage
-        toolExecutions: msg.toolExecutions ? Array.from(msg.toolExecutions.entries()) : undefined,
-      })),
-      metadata: {
-        messageCount: currentMessages.length,
-        preview: storageService.getPreview(currentMessages),
-      },
-    };
-
-    storageService.saveSession(session);
-  }, [ensureSessionId, messagesRef]);
-
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      
-      if (message.type === 'sessionLoaded' && message.session) {
-        const session = message.session as ChatSession;
-        currentSessionIdRef.current = session.id;
-        setCurrentSessionId(session.id);
-        storageService.setCurrentSessionId(session.id);
-        
-        // Load and restore session UI state from database
-        if (session.uiState) {
-          loadSessionUiState(session.id, session.uiState);
-          setEditingMessageId(session.uiState.editingMessageId);
-          setRevertPreviewMessageId(session.uiState.revertPreviewMessageId);
-        } else {
-          // Fallback for sessions without UI state
-          setEditingMessageId(null);
-          setRevertPreviewMessageId(null);
-        }
-        
-        setMessages(session.messages.map(msg => ({
-          id: msg.id,
-          role: msg.role,
-          content: msg.content,
-          timestamp: new Date(msg.timestamp),
-          hidden: msg.hidden,
-          attachments: msg.attachments,
-          // Deserialize toolExecutions array back to Map and fix stale 'executing' states
-          toolExecutions: msg.toolExecutions ? new Map(
-            msg.toolExecutions.map(([id, execution]) => {
-              let fixedExecution = execution;
-
-              // Ensure planning tools from history always render their interactive UI
-              const isPlanningTool =
-                fixedExecution.toolName === 'plan_navigator' ||
-                fixedExecution.toolName === 'plan_handoff';
-
-              if (isPlanningTool && !fixedExecution.result) {
-                // Synthesize a minimal success result so the renderer can show buttons
-                // For plan_navigator, preserve parameters as data so question/options persist
-                const preservedData = fixedExecution.toolName === 'plan_navigator'
-                  ? { question: fixedExecution.parameters.question, options: fixedExecution.parameters.options }
-                  : {};
-                
-                fixedExecution = {
-                  ...fixedExecution,
-                  result: { success: true, data: preservedData },
-                };
-              }
-
-              // Fix tool executions stuck in 'executing' state from saved history
-              if (fixedExecution.status === 'executing' && fixedExecution.result) {
-                // If there's a result, determine final status
-                const finalStatus = fixedExecution.result.success ? 'completed' : 'error';
-                fixedExecution = { ...fixedExecution, status: finalStatus };
-              }
-
-              return [id, fixedExecution];
-            })
-          ) : undefined,
-        })));
-      } else if (message.type === 'sessionDeleted' && message.sessionId) {
-        // Clear chat if the deleted session is the current one
-        if (currentSessionIdRef.current === message.sessionId) {
-          setMessages([]);
-          currentSessionIdRef.current = null;
-          setCurrentSessionId(null);
-          storageService.clearCurrentSessionId();
-          setEditingMessageId(null);
-          setRevertPreviewMessageId(null);
-        }
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
-
-  const updateMessage = useCallback((messageId: string, newContent: string) => {
-    setMessages(prev =>
-      prev.map(msg =>
-        msg.id === messageId
-          ? { ...msg, content: newContent }
-          : msg
-      )
-    );
-  }, []);
-
-  const updateToolExecution = useCallback((messageId: string, toolExecutionId: string, state: ToolExecutionState) => {
-    setMessages(prev =>
-      prev.map(msg => {
-        if (msg.id === messageId) {
-          const toolExecutions = new Map(msg.toolExecutions || []);
-          toolExecutions.set(toolExecutionId, state);
-          return { ...msg, toolExecutions };
-        }
-        return msg;
-      })
-    );
-  }, []);
+  // Message update actions
+  const {
+    updateMessage,
+    updateToolExecution,
+    updateToolResultData,
+    supersedePlanningTools,
+  } = useMessageActions({
+    setMessages: state.setMessages,
+  });
 
   // Tool execution hook
   const { executeToolAndContinue } = useToolExecution({
-    setMessages,
-    setIsExecutingTool,
-    setIsStreaming,
-    isStreamingRef,
-    isStoppingRef,
-    abortControllerRef,
-    sendingMessageRef,
+    setMessages: state.setMessages,
+    setIsExecutingTool: state.setIsExecutingTool,
+    setIsStreaming: state.setIsStreaming,
+    isStreamingRef: state.isStreamingRef,
+    isStoppingRef: state.isStoppingRef,
+    abortControllerRef: state.abortControllerRef,
+    sendingMessageRef: state.sendingMessageRef,
     updateToolExecution,
-    messagesRef,
-    currentTodos,
+    messagesRef: state.messagesRef,
     saveSession: saveCurrentSession,
     mode,
   });
 
   // Chat streaming hook
   const { sendMessage } = useChatStreaming({
-    messages,
-    setMessages,
-    setIsStreaming,
-    setIsExecutingTool,
-    isStreamingRef,
-    sendingMessageRef,
-    abortControllerRef,
+    messages: state.messages,
+    setMessages: state.setMessages,
+    setIsStreaming: state.setIsStreaming,
+    setIsExecutingTool: state.setIsExecutingTool,
+    setIsCompressing: state.setIsCompressing,
+    setCompressedContextTokens: state.setCompressedContextTokens,
+    setCompressedMessages: state.setCompressedMessages,
+    setCompressionAnchorId: state.setCompressionAnchorId,
+    compressedMessagesRef: state.compressedMessagesRef,
+    compressedContextTokensRef: state.compressedContextTokensRef,
+    isStreamingRef: state.isStreamingRef,
+    sendingMessageRef: state.sendingMessageRef,
+    abortControllerRef: state.abortControllerRef,
     executeToolAndContinue,
     saveSession: saveCurrentSession,
     mode,
   });
 
-  const editMessage = useCallback(async (messageId: string, newContent: string, attachments?: ImageAttachment[]) => {
-    const messageIndex = messages.findIndex(msg => msg.id === messageId);
-    if (messageIndex === -1) {return;}
+  // Edit and revert operations
+  const {
+    editMessage,
+    handleRevertPreview,
+    handleEditStart,
+    handleEditCancel,
+    handleCancelRevert,
+  } = useEditRevert({
+    messages: state.messages,
+    setMessages: state.setMessages,
+    setIsStreaming: state.setIsStreaming,
+    setIsExecutingTool: state.setIsExecutingTool,
+    setRevertPreviewMessageId: state.setRevertPreviewMessageId,
+    setEditingMessageId: state.setEditingMessageId,
+    currentSessionIdRef: state.currentSessionIdRef,
+    revertPreviewMessageId: state.revertPreviewMessageId,
+    compressionAnchorId: state.compressionAnchorId,
+    ensureSessionId,
+    sendMessage,
+    clearCompression: state.clearCompression,
+    abortAndReset: state.abortAndReset,
+  });
 
-    // Step 1: Abort any ongoing API call and wait for cleanup
-    if (abortControllerRef.current) {
-      isStoppingRef.current = true;
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-      
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    
-    // Reset stopping flag
-    isStoppingRef.current = false;
-    isStreamingRef.current = false;
-    setIsStreaming(false);
-    setIsExecutingTool(false);
-    sendingMessageRef.current = false;
-    
-    // Step 2: Undo all tool executions from messages after the edited one
-    // IMPORTANT: Undo in reverse order (latest to earliest) to properly handle file operations
-    const messagesToRevert = messages.slice(messageIndex).reverse();
-    for (const msg of messagesToRevert) {
-      if (msg.toolExecutions && msg.toolExecutions.size > 0) {
-        try {
-          await toolHistoryApi.undoToolExecutions(msg.toolExecutions);
-        } catch (error) {
-          console.error('[Chat] Failed to undo tool executions:', error);
-        }
-      }
-    }
-    
-    // Step 3: Clear revert preview and session UI state
-    setRevertPreviewMessageId(null);
-    const sessionId = ensureSessionId();
-    setSessionEditingMessage(sessionId, null);
-    setSessionRevertPreview(sessionId, null);
-    setEditingMessageId(null);
-    
-    // Step 4: Get truncated message history (everything before the edited message)
-    const truncatedMessages = messages.slice(0, messageIndex);
-    
-    // Step 5: Clear all messages subsequent to the one being edited (Cursor-style)
-    setMessages(truncatedMessages);
-
-    // Step 6: Send the new message with explicit message history and attachments
-    await sendMessage(newContent, attachments, truncatedMessages);
-  }, [messages, sendMessage, ensureSessionId]);
-
+  // Clear chat
   const clearChat = useCallback(() => {
-    setMessages([]);
-    currentSessionIdRef.current = null;
-    setCurrentSessionId(null);
+    state.setMessages([]);
+    state.clearCompression();
+    state.clearSessionRef();
+    state.setCurrentSessionId(null);
     storageService.clearCurrentSessionId();
-    setEditingMessageId(null);
-    setRevertPreviewMessageId(null);
-  }, []);
+    state.setEditingMessageId(null);
+    state.setRevertPreviewMessageId(null);
+  }, [state]);
 
+  // Abort stream
   const abortStream = useCallback(() => {
-    if (abortControllerRef.current) {
-      isStoppingRef.current = true;
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-      // Immediately set streaming to false (both ref and state)
-      isStreamingRef.current = false;
-      setIsStreaming(false);
-      // Reset sending flag to allow next message
-      sendingMessageRef.current = false;
-      isStoppingRef.current = false;
+    if (state.abortAndReset()) {
+      state.setIsStreaming(false);
     }
-  }, []);
-
-  const loadSession = useCallback((sessionId: string) => {
-    if (window.vscode) {
-      window.vscode.postMessage({ type: 'getSession', sessionId });
-    }
-  }, []);
-
-  const handleRevertPreview = useCallback(async (messageId: string) => {
-    const messageIndex = messages.findIndex(msg => msg.id === messageId);
-    if (messageIndex === -1) {
-      console.warn('[Chat] Message not found', messageId);
-      return;
-    }
-
-    // If AI is streaming, abort it first
-    if (abortControllerRef.current) {
-      isStoppingRef.current = true;
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-      
-      isStreamingRef.current = false;
-      setIsStreaming(false);
-      setIsExecutingTool(false);
-      sendingMessageRef.current = false;
-      isStoppingRef.current = false;
-      
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-
-    try {
-      // Undo all tool executions from messages after the target message
-      // IMPORTANT: Undo in reverse order (latest to earliest) to properly handle file operations
-      const messagesToRevert = messages.slice(messageIndex).reverse();
-      console.log(`[Revert] Starting revert from message index ${messageIndex}, reverting ${messagesToRevert.length} messages`);
-      
-      for (const msg of messagesToRevert) {
-        if (msg.toolExecutions && msg.toolExecutions.size > 0) {
-          console.log(`[Revert] Undoing ${msg.toolExecutions.size} tool executions from message ${msg.id}`);
-          await toolHistoryApi.undoToolExecutions(msg.toolExecutions);
-        }
-      }
-      
-      console.log('[Revert] All tool executions undone successfully');
-      
-      setRevertPreviewMessageId(messageId);
-      
-      // Set session UI state to remember we're in revert preview
-      const sessionId = ensureSessionId();
-      setSessionEditingMessage(sessionId, messageId);
-      setSessionRevertPreview(sessionId, messageId);
-      setEditingMessageId(messageId);
-    } catch (error) {
-      console.error('[Chat] Failed to apply revert preview:', error);
-    }
-  }, [messages, ensureSessionId]);
-
-  const handleEditStart = useCallback((messageId: string) => {
-    const sessionId = ensureSessionId();
-    setSessionEditingMessage(sessionId, messageId);
-    setEditingMessageId(messageId);
-  }, [ensureSessionId]);
-
-  const handleEditCancel = useCallback(() => {
-    const sessionId = currentSessionIdRef.current;
-    if (sessionId) {
-      setSessionEditingMessage(sessionId, null);
-    }
-    setEditingMessageId(null);
-  }, []);
-
-  const handleCancelRevert = useCallback(async () => {
-    if (!revertPreviewMessageId) {
-      return;
-    }
-
-    try {
-      // Find the message we reverted from
-      const messageIndex = messages.findIndex(msg => msg.id === revertPreviewMessageId);
-      if (messageIndex !== -1) {
-        // Re-apply tool executions from messages after the revert point
-        const messagesToReapply = messages.slice(messageIndex);
-        console.log(`[CancelRevert] Re-applying ${messagesToReapply.length} messages from index ${messageIndex}`);
-        
-        for (const msg of messagesToReapply) {
-          if (msg.toolExecutions && msg.toolExecutions.size > 0) {
-            console.log(`[CancelRevert] Redoing ${msg.toolExecutions.size} tool executions from message ${msg.id}`);
-            await toolHistoryApi.redoToolExecutions(msg.toolExecutions);
-          }
-        }
-        
-        console.log('[CancelRevert] All tool executions re-applied successfully');
-      }
-      
-      setRevertPreviewMessageId(null);
-      
-      // Clear session UI state
-      const sessionId = currentSessionIdRef.current;
-      if (sessionId) {
-        setSessionEditingMessage(sessionId, null);
-        setSessionRevertPreview(sessionId, null);
-      }
-      setEditingMessageId(null);
-    } catch (error) {
-      console.error('[Chat] Failed to cancel revert:', error);
-    }
-  }, [revertPreviewMessageId, messages]);
-
-  const updateToolResultData = useCallback((toolName: string, updateFn: (data: unknown) => unknown) => {
-    setMessages(prevMessages => {
-      const newMessages = [...prevMessages];
-      const lastMessage = newMessages[newMessages.length - 1];
-      
-      if (lastMessage?.role === 'assistant' && lastMessage.toolExecutions) {
-        // Create a new Map to trigger React re-render
-        const newToolExecutions = new Map(lastMessage.toolExecutions);
-        
-        for (const [execId, execution] of newToolExecutions.entries()) {
-          if (execution.toolName === toolName && execution.result?.data) {
-            // Update the result data
-            const updatedExecution: ToolExecutionState = {
-              ...execution,
-              result: {
-                ...execution.result,
-                data: updateFn(execution.result.data),
-              },
-            };
-            newToolExecutions.set(execId, updatedExecution);
-          }
-        }
-        
-        // Update the message with new toolExecutions Map
-        lastMessage.toolExecutions = newToolExecutions;
-      }
-      
-      return newMessages;
-    });
-  }, []);
-
-  // Mark all planning tools (plan_navigator, plan_handoff) as superseded
-  // Called when user sends a new message to disable previous interactive buttons
-  const supersedePlanningTools = useCallback(() => {
-    setMessages(prevMessages => {
-      let hasChanges = false;
-      
-      const newMessages = prevMessages.map(msg => {
-        if (msg.role !== 'assistant' || !msg.toolExecutions) {
-          return msg;
-        }
-        
-        const newToolExecutions = new Map(msg.toolExecutions);
-        let messageChanged = false;
-        
-        for (const [execId, execution] of newToolExecutions.entries()) {
-          if (!PLANNING_TOOL_NAMES.includes(execution.toolName)) {
-            continue;
-          }
-          
-          const data = execution.result?.data as Record<string, unknown> | undefined;
-          
-          // Skip if already superseded or already interacted with
-          if (data?.superseded) {
-            continue;
-          }
-          
-          // For plan_navigator: skip if already has selectedIndex
-          if (execution.toolName === 'plan_navigator' && data?.selectedIndex !== undefined) {
-            continue;
-          }
-          
-          // For plan_handoff: skip if already clicked
-          if (execution.toolName === 'plan_handoff' && data?.clicked) {
-            continue;
-          }
-          
-          // Mark as superseded
-          const updatedExecution: ToolExecutionState = {
-            ...execution,
-            result: {
-              ...execution.result,
-              success: execution.result?.success ?? true,
-              data: { ...data, superseded: true },
-            },
-          };
-          newToolExecutions.set(execId, updatedExecution);
-          messageChanged = true;
-          hasChanges = true;
-        }
-        
-        if (messageChanged) {
-          return { ...msg, toolExecutions: newToolExecutions };
-        }
-        return msg;
-      });
-      
-      return hasChanges ? newMessages : prevMessages;
-    });
-  }, []);
+  }, [state]);
 
   return {
-    messages,
-    isStreaming,
-    isExecutingTool,
-    revertPreviewMessageId,
-    editingMessageId,
-    currentSessionId,
+    messages: state.messages,
+    isStreaming: state.isStreaming,
+    isExecutingTool: state.isExecutingTool,
+    isCompressing: state.isCompressing,
+    compressedContextTokens: state.compressedContextTokens,
+    compressedMessages: state.compressedMessages,
+    revertPreviewMessageId: state.revertPreviewMessageId,
+    editingMessageId: state.editingMessageId,
+    currentSessionId: state.currentSessionId,
     sendMessage,
     editMessage,
     updateMessage,
@@ -499,5 +139,6 @@ export function useStreamingChat(
     handleCancelRevert,
     updateToolResultData,
     supersedePlanningTools,
+    saveCurrentSession,
   };
-};
+}

@@ -5,11 +5,12 @@ import { MentionText } from './mention-text';
 import type { ImageAttachment } from '../../types/chat';
 import type { ChatMode } from '../../types/chat-mode';
 import type { Provider } from '../../types/api-settings';
+import type { ContextUsageResult } from '../../hooks/use-context-usage';
 
 interface UserMessageProps {
   content: string;
   messageId: string;
-  onEdit: (messageId: string, newContent: string, attachments?: ImageAttachment[]) => void;
+  onEdit: (messageId: string, newContent: string, attachments?: ImageAttachment[], forceEchoSearch?: boolean) => void;
   onUpdate: (messageId: string, newContent: string) => void;
   isEditing: boolean;
   onEditStart: (messageId: string) => void;
@@ -21,9 +22,10 @@ interface UserMessageProps {
   provider: Provider;
   model: string;
   onModelChange: (provider: Provider, model: string) => void;
+  contextUsage?: ContextUsageResult;
 }
 
-export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, attachments, mode, onModeChange, provider, model, onModelChange }: UserMessageProps) {
+export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, attachments, mode, onModeChange, provider, model, onModelChange, contextUsage }: UserMessageProps) {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -57,8 +59,8 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
     }
   };
 
-  const handleSubmit = (newContent: string, attachments?: ImageAttachment[]) => {
-    onEdit(messageId, newContent, attachments);
+  const handleSubmit = (newContent: string, attachments?: ImageAttachment[], forceEchoSearch?: boolean) => {
+    onEdit(messageId, newContent, attachments, forceEchoSearch);
   };
 
   const handleSave = (newContent: string) => {
@@ -79,6 +81,7 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
           provider={provider}
           model={model}
           onModelChange={onModelChange}
+          contextUsage={contextUsage}
         />
       </div>
     );

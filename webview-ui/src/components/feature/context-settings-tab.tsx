@@ -1,7 +1,10 @@
 import { useState, useMemo } from 'react';
+import { Cpu } from 'lucide-react';
 import type {
   ContextSettings,
+  Provider,
 } from '../../types/api-settings';
+import { SettingsModelSelector } from '../ui/settings-model-selector';
 
 interface ContextSettingsTabProps {
   contextSettings: ContextSettings;
@@ -11,6 +14,10 @@ interface ContextSettingsTabProps {
 export function ContextSettingsTab({ contextSettings, onChange }: ContextSettingsTabProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [inputValue, setInputValue] = useState('');
+
+  const handleSummarizerModelChange = (provider: Provider, model: string) => {
+    onChange({ ...contextSettings, summarizerProvider: provider, summarizerModel: model });
+  };
 
   const displayValue = useMemo(() => {
     return isEditing ? inputValue : 
@@ -91,6 +98,34 @@ export function ContextSettingsTab({ contextSettings, onChange }: ContextSetting
             Maximum tokens for context window
           </p>
         </div>
+      </div>
+
+      {/* Context Summarizer Model */}
+      <div className="space-y-4">
+        <h2
+          className="text-sm font-bold pb-2 border-b"
+          style={{
+            color: 'var(--vscode-foreground)',
+            borderColor: 'var(--vscode-panel-border)',
+          }}
+        >
+          Context Summarizer
+        </h2>
+        <p
+          className="text-xs"
+          style={{ color: 'var(--vscode-descriptionForeground)' }}
+        >
+          When context exceeds the limit, this model compresses older conversation 
+          history into a summary while preserving key context for the AI.
+        </p>
+
+        <SettingsModelSelector
+          provider={contextSettings.summarizerProvider}
+          model={contextSettings.summarizerModel}
+          onChange={handleSummarizerModelChange}
+          icon={<Cpu size={14} className="flex-shrink-0" />}
+          label="Summarizer Model"
+        />
       </div>
     </div>
   );

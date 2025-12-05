@@ -81,6 +81,7 @@ interface ContextIndicatorProps {
   usage: ContextUsage;
   disabled?: boolean;
   mode?: ChatMode;
+  isCompressing?: boolean;
 }
 
 /**
@@ -119,7 +120,7 @@ function formatTokens(tokens: number): string {
   return tokens.toString();
 }
 
-export function ContextIndicator({ usage, disabled = false, mode }: ContextIndicatorProps) {
+export function ContextIndicator({ usage, disabled = false, mode, isCompressing = false }: ContextIndicatorProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState<'above' | 'below'>('above');
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -160,7 +161,9 @@ export function ContextIndicator({ usage, disabled = false, mode }: ContextIndic
         style={{ color }}
         aria-label={`Context usage: ${usagePercent.toFixed(0)}%`}
       >
-        <DashedProgressCircle percent={usagePercent} color={color} size={16} />
+        <div className={isCompressing ? 'animate-spin' : ''}>
+          <DashedProgressCircle percent={usagePercent} color={color} size={16} />
+        </div>
       </button>
 
       {showTooltip && (

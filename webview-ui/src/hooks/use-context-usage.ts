@@ -26,6 +26,7 @@ interface UseContextUsageOptions {
   messages: Message[];
   currentToolResultText?: string;
   contextSettings?: ContextSettings;
+  compressedContextTokens?: number | null;
 }
 
 /**
@@ -36,6 +37,7 @@ export function useContextUsage({
   messages,
   currentToolResultText = '',
   contextSettings = DEFAULT_CONTEXT_SETTINGS,
+  compressedContextTokens,
 }: UseContextUsageOptions): ContextUsageResult {
   return useMemo(() => {
     // Calculate system prompt tokens
@@ -70,7 +72,10 @@ export function useContextUsage({
       toolResultsTokens += estimateTokens(currentToolResultText);
     }
     
-    const totalTokens = systemPromptTokens + historyTokens + toolResultsTokens;
+    // Use compressed context tokens if available (after summarization)
+    // Otherwise use the calculated total
+    const calculatedTotal = systemPromptTokens + historyTokens + toolResultsTokens;
+    const totalTokens = compressedContextTokens ?? calculatedTotal;
     const maxTokens = contextSettings.maxContextTokens;
     
     return {
@@ -80,5 +85,5 @@ export function useContextUsage({
       totalTokens,
       maxTokens,
     };
-  }, [systemPrompt, messages, currentToolResultText, contextSettings]);
+  }, [systemPrompt, messages, currentToolResultText, contextSettings, compressedContextTokens]);
 }

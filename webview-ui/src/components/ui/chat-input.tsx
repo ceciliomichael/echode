@@ -21,6 +21,7 @@ interface ChatInputProps {
   onSendMessage: (message: string, attachments?: ImageAttachment[], forceEchoSearch?: boolean) => void;
   disabled?: boolean;
   isStreaming?: boolean;
+  isCompressing?: boolean;
   onStop?: () => void;
   todos?: TodoTask[];
   mode?: ChatMode;
@@ -31,7 +32,7 @@ interface ChatInputProps {
   contextUsage?: ContextUsageResult;
 }
 
-export function ChatInput({ onSendMessage, disabled = false, isStreaming = false, onStop, todos = [], mode, onModeChange, provider, model, onModelChange, contextUsage }: ChatInputProps) {
+export function ChatInput({ onSendMessage, disabled = false, isStreaming = false, isCompressing = false, onStop, todos = [], mode, onModeChange, provider, model, onModelChange, contextUsage }: ChatInputProps) {
 
   const [input, setInput] = useState('');
   const [cursorPos, setCursorPos] = useState(0);
@@ -349,6 +350,7 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
                   usage={contextUsage}
                   disabled={disabled}
                   mode={mode}
+                  isCompressing={isCompressing}
                 />
               )}
               {isStreaming ? (

@@ -11,6 +11,8 @@ import { hasCompleteToolBlock, trimToFirstCompleteToolBlock } from '../lib/tool-
 import { removeThinkBlocks } from '../utils/think-block-parser';
 import { buildChatMessage, getCurrentModel, isVisionCapableModel } from '../utils/vision-utils';
 import { isToolAvailableInMode } from '../utils/tool-history-filter';
+import { getContextCompressor } from '../services/context-compressor';
+import { storageService } from '../utils/storage';
 
 const MAX_HISTORY_MESSAGES = 20;
 const MAX_FILE_CONTENT_CHARS = 8000;
@@ -48,6 +50,12 @@ interface ChatStreamingProps {
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   setIsStreaming: React.Dispatch<React.SetStateAction<boolean>>;
   setIsExecutingTool: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsCompressing: React.Dispatch<React.SetStateAction<boolean>>;
+  setCompressedContextTokens: React.Dispatch<React.SetStateAction<number | null>>;
+  setCompressedMessages: React.Dispatch<React.SetStateAction<Message[] | null>>;
+  setCompressionAnchorId: React.Dispatch<React.SetStateAction<string | null>>;
+  compressedMessagesRef: React.MutableRefObject<Message[] | null>;
+  compressedContextTokensRef: React.MutableRefObject<number | null>;
   isStreamingRef: React.MutableRefObject<boolean>;
   sendingMessageRef: React.MutableRefObject<boolean>;
   abortControllerRef: React.MutableRefObject<AbortController | null>;
@@ -69,6 +77,12 @@ export function useChatStreaming({
   setMessages,
   setIsStreaming,
   setIsExecutingTool,
+  setIsCompressing,
+  setCompressedContextTokens,
+  setCompressedMessages,
+  setCompressionAnchorId,
+  compressedMessagesRef,
+  compressedContextTokensRef,
   isStreamingRef,
   sendingMessageRef,
   abortControllerRef,
@@ -138,8 +152,163 @@ export function useChatStreaming({
       // Use override messages if provided (for edit flow), otherwise use current messages
       const messagesToSend = overrideMessages !== undefined ? overrideMessages : messages;
       
-      // Use original messages for LLM context
-      const contextMessages = messagesToSend;
+      // Get context settings for compression check
+      const settings = storageService.getSettings();
+      const contextSettings = settings.contextSettings;
+      const compressor = getContextCompressor(contextSettings);
+      
+      // Estimate tokens for the new message
+      const newMessageTokens = Math.ceil(content.length / 4);
+      const systemPromptTokens = Math.ceil(systemPrompt.length / 4);
+      const maxTokens = contextSettings?.maxContextTokens || 128000;
+      
+      // Use refs for synchronous access to compressed context state
+      // This ensures we get the latest value even if state hasn't updated yet
+      const currentCompressedMessages = compressedMessagesRef.current;
+      const currentCompressedTokens = compressedContextTokensRef.current;
+      
+      // Determine which messages to use for LLM context:
+      // - If we have compressedMessages, use that as base (already compressed)
+      // - Otherwise use full messagesToSend
+      const contextBase = currentCompressedMessages ?? messagesToSend;
+      
+      // Analyze if compression is needed
+      let compressionAnalysis;
+      if (currentCompressedMessages !== null && currentCompressedTokens !== null) {
+        // Already compressed - check if compressed context + new message exceeds limit
+        const projectedTokens = currentCompressedTokens + newMessageTokens;
+        const needsRecompression = projectedTokens >= maxTokens;
+        
+        console.log('[Chat] Already compressed, checking re-compression:', {
+          compressedContextTokens: currentCompressedTokens,
+          compressedMessagesCount: currentCompressedMessages.length,
+          newMessageTokens,
+          projectedTokens,
+          maxTokens,
+          needsRecompression,
+        });
+        
+        if (needsRecompression) {
+          // Need to re-compress - analyze the COMPRESSED messages, not full history
+          compressionAnalysis = compressor.analyzeContext(
+            currentCompressedMessages,
+            systemPromptTokens,
+            newMessageTokens
+          );
+        } else {
+          // No need to compress - use existing compressed context
+          compressionAnalysis = {
+            needsCompression: false,
+            firstMessages: [],
+            middleMessages: [],
+            recentMessages: currentCompressedMessages,
+            estimatedTokens: projectedTokens,
+          };
+        }
+      } else {
+        // Not yet compressed - analyze full messages normally
+        compressionAnalysis = compressor.analyzeContext(
+          messagesToSend,
+          systemPromptTokens,
+          newMessageTokens
+        );
+      }
+      
+      // Debug: Log compression analysis
+      console.log('[Chat] Compression analysis:', {
+        messageCount: messagesToSend.length,
+        needsCompression: compressionAnalysis.needsCompression,
+        estimatedTokens: compressionAnalysis.estimatedTokens,
+        maxTokens,
+        alreadyCompressed: currentCompressedTokens !== null,
+        firstMsgCount: compressionAnalysis.firstMessages.length,
+        middleMsgCount: compressionAnalysis.middleMessages.length,
+        recentMsgCount: compressionAnalysis.recentMessages.length,
+      });
+      
+      // Context messages - use compressed context if available, otherwise original
+      let contextMessages = contextBase;
+      
+      if (compressionAnalysis.needsCompression && compressionAnalysis.middleMessages.length > 0) {
+        console.log('[Chat] Context compression triggered:', {
+          estimatedTokens: compressionAnalysis.estimatedTokens,
+          firstMessages: compressionAnalysis.firstMessages.length,
+          middleMessages: compressionAnalysis.middleMessages.length,
+          recentMessages: compressionAnalysis.recentMessages.length,
+        });
+        
+        // Show compressing state
+        setIsCompressing(true);
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMessageId
+              ? { ...msg, content: '...' }
+              : msg
+          )
+        );
+        
+        try {
+          // Request summary from backend
+          const summaryResult = await compressor.requestSummary(compressionAnalysis.middleMessages);
+          
+          if (summaryResult.success && summaryResult.summary) {
+            console.log('[Chat] Context compressed successfully');
+            
+            // Build compressed messages array for LLM context:
+            // [first messages] + [summary as assistant message] + [recent messages]
+            const newCompressedMessages: Message[] = [];
+            
+            // Add first messages (original user task + responses)
+            newCompressedMessages.push(...compressionAnalysis.firstMessages);
+            
+            // Add summary as an assistant message
+            if (summaryResult.summary) {
+              newCompressedMessages.push({
+                id: `compressed-summary-${Date.now()}`,
+                role: 'assistant',
+                content: `[Context Summary]\n${summaryResult.summary}`,
+                timestamp: new Date(),
+              });
+            }
+            
+            // Add recent messages
+            newCompressedMessages.push(...compressionAnalysis.recentMessages);
+            
+            contextMessages = newCompressedMessages;
+            
+            // Calculate and store compressed context token count
+            let compressedTokens = systemPromptTokens;
+            newCompressedMessages.forEach((msg) => {
+              compressedTokens += Math.ceil(msg.content.length / 4);
+            });
+            compressedTokens += newMessageTokens;
+            
+            // Store compressed messages for future use (update both state and refs)
+            setCompressedMessages(newCompressedMessages);
+            setCompressedContextTokens(compressedTokens);
+            setCompressionAnchorId(userMessage.id); // Mark this message as compression trigger
+            compressedMessagesRef.current = newCompressedMessages;
+            compressedContextTokensRef.current = compressedTokens;
+            console.log('[Chat] Compressed context, anchor:', userMessage.id, 'tokens:', compressedTokens);
+          } else {
+            console.warn('[Chat] Context compression failed:', summaryResult.error);
+            // Fall back to original messages if compression fails
+          }
+        } catch (compressionError) {
+          console.error('[Chat] Context compression error:', compressionError);
+          // Fall back to original messages
+        }
+        
+        // Compression done - reset content and switch to streaming state
+        setIsCompressing(false);
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMessageId
+              ? { ...msg, content: '' }
+              : msg
+          )
+        );
+      }
       
       // Check if current model supports vision
       const currentModel = getCurrentModel();
@@ -517,7 +686,7 @@ export function useChatStreaming({
       // Save session after stream completion
       saveSession();
     }
-  }, [messages, workspace, executeToolAndContinue, setMessages, setIsStreaming, setIsExecutingTool, isStreamingRef, sendingMessageRef, abortControllerRef, saveSession, mode]);
+  }, [messages, workspace, executeToolAndContinue, setMessages, setIsStreaming, setIsExecutingTool, setIsCompressing, setCompressedContextTokens, setCompressedMessages, setCompressionAnchorId, compressedMessagesRef, compressedContextTokensRef, isStreamingRef, sendingMessageRef, abortControllerRef, saveSession, mode]);
 
   return { sendMessage };
 }

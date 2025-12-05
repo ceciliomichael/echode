@@ -26,6 +26,16 @@ interface ChatSession {
     editingMessageId: string | null;
     revertPreviewMessageId: string | null;
   };
+  compressedContext?: {
+    messages: Array<{
+      id: string;
+      role: string;
+      content: string;
+      timestamp: string;
+      toolExecutions?: Array<[string, ToolExecutionState]>;
+    }>;
+    tokenCount: number;
+  };
 }
 
 interface ChatSessionSummary {
@@ -133,6 +143,12 @@ export class ChatHistoryService {
       if (!hasHiddenCol) {
         db.exec('ALTER TABLE messages ADD COLUMN hidden INTEGER DEFAULT 0');
       }
+      
+      // Migration: Add compressed_context column to sessions table
+      const hasCompressedContext = columns.some(col => col.name === 'compressed_context');
+      if (!hasCompressedContext) {
+        db.exec('ALTER TABLE sessions ADD COLUMN compressed_context TEXT DEFAULT NULL');
+      }
     } catch (error) {
       console.error('Migration error:', error);
     }
@@ -181,7 +197,8 @@ export class ChatHistoryService {
         SELECT id, workspace_id as workspaceId, title, timestamp, 
                created_at as createdAt, message_count as messageCount, preview,
                editing_message_id as editingMessageId,
-               revert_preview_message_id as revertPreviewMessageId
+               revert_preview_message_id as revertPreviewMessageId,
+               compressed_context as compressedContext
         FROM sessions
         WHERE id = ?
       `);
@@ -223,6 +240,16 @@ export class ChatHistoryService {
         hidden: m.hidden === 1,
       }));
       
+      // Parse compressed context if available
+      let compressedContext = undefined;
+      if (session.compressedContext) {
+        try {
+          compressedContext = JSON.parse(session.compressedContext);
+        } catch (e) {
+          console.error('Failed to parse compressed context:', e);
+        }
+      }
+      
       return {
         id: session.id,
         workspaceId: session.workspaceId,
@@ -237,7 +264,8 @@ export class ChatHistoryService {
         uiState: {
           editingMessageId: session.editingMessageId,
           revertPreviewMessageId: session.revertPreviewMessageId
-        }
+        },
+        compressedContext
       };
     } catch (error) {
       console.error('Failed to get session:', error);
@@ -252,12 +280,17 @@ export class ChatHistoryService {
         const existingStmt = this.db.prepare('SELECT id FROM sessions WHERE id = ?');
         const existing = existingStmt.get(session.id);
         
+        // Serialize compressed context to JSON if present
+        const compressedContextJson = session.compressedContext
+          ? JSON.stringify(session.compressedContext)
+          : null;
+        
         if (existing) {
           // Update session
           const updateStmt = this.db.prepare(`
             UPDATE sessions 
             SET workspace_id = ?, title = ?, timestamp = ?, 
-                message_count = ?, preview = ?
+                message_count = ?, preview = ?, compressed_context = ?
             WHERE id = ?
           `);
           
@@ -267,6 +300,7 @@ export class ChatHistoryService {
             session.timestamp,
             session.metadata.messageCount,
             session.metadata.preview,
+            compressedContextJson,
             session.id
           );
           
@@ -276,8 +310,8 @@ export class ChatHistoryService {
         } else {
           // Insert new session
           const insertStmt = this.db.prepare(`
-            INSERT INTO sessions (id, workspace_id, title, timestamp, created_at, message_count, preview)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO sessions (id, workspace_id, title, timestamp, created_at, message_count, preview, compressed_context)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
           `);
           
           insertStmt.run(
@@ -287,7 +321,8 @@ export class ChatHistoryService {
             session.timestamp,
             session.createdAt,
             session.metadata.messageCount,
-            session.metadata.preview
+            session.metadata.preview,
+            compressedContextJson
           );
         }
         

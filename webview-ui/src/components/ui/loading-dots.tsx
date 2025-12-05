@@ -1,4 +1,8 @@
-export function LoadingDots() {
+interface LoadingDotsProps {
+  label?: string;
+}
+
+export function LoadingDots({ label = 'Executing' }: LoadingDotsProps) {
   return (
     <>
       <style>
@@ -25,7 +29,7 @@ export function LoadingDots() {
           animation: 'wave-shine 2s linear infinite',
         }}
       >
-        Executing
+        {label}
       </span>
     </>
   );

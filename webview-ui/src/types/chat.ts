@@ -1,6 +1,6 @@
 import type { ToolExecutionState } from './tool';
 
-export type MessageRole = 'user' | 'assistant';
+export type MessageRole = 'user' | 'assistant' | 'system';
 
 export interface ImageAttachment {
   data: string; // base64 encoded image data

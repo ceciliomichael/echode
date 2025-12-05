@@ -3,7 +3,7 @@ import type { ImageAttachment } from './chat';
 
 export interface ChatSessionMessage {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: string | Date;
   toolExecutions?: Array<[string, ToolExecutionState]>;
@@ -25,6 +25,10 @@ export interface ChatSession {
   uiState?: {
     editingMessageId: string | null;
     revertPreviewMessageId: string | null;
+  };
+  compressedContext?: {
+    messages: ChatSessionMessage[];
+    tokenCount: number;
   };
 }
 

@@ -5,17 +5,21 @@ import { ModeDropdown } from './mode-dropdown';
 import { ChatModelSelector } from './chat-model-selector';
 import { ContextMenu } from './context-menu';
 import { MentionHighlighter } from './mention-highlighter';
+import { ContextIndicator } from './context-indicator';
+
 import { useContextMenu } from '../../hooks/use-context-menu';
 import { useDropdownDirection } from '../../hooks/use-dropdown-direction';
 import type { ImageAttachment } from '../../types/chat';
 import type { ChatMode } from '../../types/chat-mode';
+import type { ContextUsageResult } from '../../hooks/use-context-usage';
+
 import { processImageFiles } from '../../utils/image-utils';
 import { removeMention, getMentionPath, unescapeSpaces, registerMentionPath, parseMentionFilenames } from '../../utils/mention-utils';
 import type { Provider } from '../../types/api-settings';
 
 interface MessageEditFormProps {
   initialContent: string;
-  onSubmit: (content: string, attachments?: ImageAttachment[]) => void;
+  onSubmit: (content: string, attachments?: ImageAttachment[], forceEchoSearch?: boolean) => void;
   onCancel: () => void;
   onSave?: (content: string) => void;
   attachments?: ImageAttachment[];
@@ -24,9 +28,10 @@ interface MessageEditFormProps {
   provider: Provider;
   model: string;
   onModelChange: (provider: Provider, model: string) => void;
+  contextUsage?: ContextUsageResult;
 }
 
-export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, attachments, mode, onModeChange, provider, model, onModelChange }: MessageEditFormProps) {
+export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, attachments, mode, onModeChange, provider, model, onModelChange, contextUsage }: MessageEditFormProps) {
 
   const [editContent, setEditContent] = useState(initialContent);
   const [cursorPos, setCursorPos] = useState(initialContent.length);
@@ -118,11 +123,11 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [onCancel]);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = (e: FormEvent, forceEchoSearch: boolean = false) => {
     e.preventDefault();
     if (editContent.trim()) {
       const newContent = editContent.trim();
-      onSubmit(newContent, editAttachments.length > 0 ? editAttachments : undefined);
+      onSubmit(newContent, editAttachments.length > 0 ? editAttachments : undefined, forceEchoSearch);
       if (onSave) {
         onSave(newContent);
       }
@@ -171,16 +176,16 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
     }
 
     if (e.key === 'Enter' && !e.shiftKey) {
-      // Ctrl+Enter: submit edit as well
+      // Ctrl+Enter: force echo_search for Agent, Plan, and Ask modes
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        handleSubmit(e);
+        handleSubmit(e, mode === 'agent' || mode === 'plan' || mode === 'ask');
         return;
       }
 
       // Regular Enter: submit edit
       e.preventDefault();
-      handleSubmit(e);
+      handleSubmit(e, false);
     } else if (e.key === 'Escape') {
       onCancel();
     }
@@ -347,6 +352,13 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
             </div>
 
             <div className="flex items-center gap-2">
+              {contextUsage && (
+                <ContextIndicator
+                  usage={contextUsage}
+                  disabled={false}
+                  mode={mode}
+                />
+              )}
               <button
                 type="submit"
                 disabled={!editContent.trim()}

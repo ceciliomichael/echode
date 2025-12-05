@@ -32,10 +32,14 @@ export const DEFAULT_AUTOCOMPLETE_SETTINGS: AutocompleteSettings = {
 
 export interface ContextSettings {
   maxContextTokens: number;
+  summarizerProvider: Provider;
+  summarizerModel: string;
 }
 
 export const DEFAULT_CONTEXT_SETTINGS: ContextSettings = {
   maxContextTokens: 128000,
+  summarizerProvider: 'anthropic',
+  summarizerModel: '',
 };
 
 export interface Tool {

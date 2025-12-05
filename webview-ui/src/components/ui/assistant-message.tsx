@@ -11,6 +11,7 @@ interface AssistantMessageProps {
   content: string;
   messageId?: string;
   isStreaming?: boolean;
+  isCompressing?: boolean;
   toolExecutions?: Map<string, ToolExecutionState>;
 }
 
@@ -44,7 +45,7 @@ function sanitizeAssistantText(content: string): string {
   return sanitized;
 }
 
-function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming = false, toolExecutions }: AssistantMessageProps) {
+function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming = false, isCompressing = false, toolExecutions }: AssistantMessageProps) {
   // Tokenize content into stable segments
   const tokens = useMemo(() => tokenizeContent(content, messageId), [content, messageId]);
 
@@ -83,6 +84,17 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
       return true;
     });
   }, [tokens]);
+
+  // Handle compression state - show "Compressing" loading indicator
+  if (isCompressing && (content === '...' || !content)) {
+    return (
+      <div style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
+        <div className="max-w-none">
+          <LoadingDots label="Compressing" />
+        </div>
+      </div>
+    );
+  }
 
   if (!content) {
     // Show loading dots when message is empty and pipeline is active
@@ -351,5 +363,6 @@ export const AssistantMessage = memo(AssistantMessageComponent, (prev, next) => 
   return prev.content === next.content && 
          prev.messageId === next.messageId && 
          prev.isStreaming === next.isStreaming &&
+         prev.isCompressing === next.isCompressing &&
          toolExecutionsEqual;
 });

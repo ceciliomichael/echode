@@ -26,7 +26,8 @@ export function ChatContainer() {
   const { 
     messages, 
     isStreaming, 
-    isExecutingTool, 
+    isExecutingTool,
+    isCompressing,
     revertPreviewMessageId,
     editingMessageId,
     sendMessage, 
@@ -41,6 +42,8 @@ export function ChatContainer() {
     handleCancelRevert,
     updateToolResultData,
     supersedePlanningTools,
+    saveCurrentSession,
+    compressedContextTokens,
   } = useStreamingChat(tasks, mode);
 
   // Context usage tracking
@@ -51,6 +54,7 @@ export function ChatContainer() {
     systemPrompt,
     messages,
     contextSettings: settings.contextSettings,
+    compressedContextTokens,
   });
 
   const visibleMessages = messages.filter(msg => !msg.hidden);
@@ -60,7 +64,7 @@ export function ChatContainer() {
     handleScroll,
     scrollToBottom,
     setIsAutoScrollEnabled,
-  } = useChatScroll(visibleMessages.length, isStreaming, isExecutingTool);
+  } = useChatScroll(visibleMessages.length, isStreaming, isExecutingTool || isCompressing);
 
   const handleSendMessage = useCallback(async (
     content: string, 
@@ -84,11 +88,16 @@ export function ChatContainer() {
   }, [sendMessage, setIsAutoScrollEnabled, scrollToBottom]);
 
   const onNewChat = useCallback(() => {
+    // Persist the current session (if any messages) before starting a new chat
+    if (messages.length > 0) {
+      saveCurrentSession(messages);
+    }
+
     abortStream();
     clearChat();
     clearTodos();
     handleModeChange('agent');
-  }, [abortStream, clearChat, clearTodos, handleModeChange]);
+  }, [abortStream, clearChat, clearTodos, handleModeChange, messages, saveCurrentSession]);
 
   const {
     isHistoryOpen,
@@ -124,8 +133,8 @@ export function ChatContainer() {
     await handleRevertPreview(messageId);
   };
 
-  const handleEdit = async (messageId: string, newContent: string, attachments?: ImageAttachment[]) => {
-    await editMessage(messageId, newContent, attachments);
+  const handleEdit = async (messageId: string, newContent: string, attachments?: ImageAttachment[], forceEchoSearch?: boolean) => {
+    await editMessage(messageId, newContent, attachments, forceEchoSearch);
   };
 
   const handleUpdate = (messageId: string, newContent: string) => {
@@ -171,12 +180,14 @@ export function ChatContainer() {
                     onEditStart={handleEditStart}
                     onEditCancel={handleCancel}
                     onRevert={handleRevert}
-                    isStreaming={(isStreaming || isExecutingTool) && isLastAssistantMessage}
+                    isStreaming={(isStreaming || isExecutingTool || isCompressing) && isLastAssistantMessage}
+                    isCompressing={isCompressing && isLastAssistantMessage}
                     mode={mode}
                     onModeChange={handleModeChange}
                     provider={provider}
                     model={model}
                     onModelChange={setActiveProviderAndModel}
+                    contextUsage={contextUsage}
                   />
                 );
               })}
@@ -188,6 +199,7 @@ export function ChatContainer() {
         <ChatInput 
           onSendMessage={handleSendMessage} 
           isStreaming={isStreaming}
+          isCompressing={isCompressing}
           onStop={abortStream}
           todos={tasks}
           mode={mode}
