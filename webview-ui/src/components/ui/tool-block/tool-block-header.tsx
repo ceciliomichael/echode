@@ -24,25 +24,33 @@ export function ToolBlockHeader({
     <button
       type="button"
       onClick={onToggle}
-      className="w-full flex items-center justify-between px-3 py-2 transition-opacity hover:opacity-90 select-none"
+      className="group w-full flex items-center justify-between px-3 py-2 transition-opacity hover:opacity-90 select-none"
       style={{
         backgroundColor: 'var(--vscode-editor-background)',
         outline: 'none',
       }}
     >
       <div className="flex items-center gap-2 flex-1 min-w-0">
-        {/* Chevron */}
-        {isExpanded ? (
-          <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--vscode-foreground)', opacity: 0.6 }} />
-        ) : (
-          <ChevronRight className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--vscode-foreground)', opacity: 0.6 }} />
-        )}
-        
-        {/* Tool Icon (with spinner when executing) */}
-        <fileInfo.icon
-          className={`w-4 h-4 flex-shrink-0 ${fileInfo.isSpinning ? 'animate-spin' : ''}`}
-          style={{ color: fileInfo.iconColor }}
-        />
+        {/* Icon container - shows tool icon by default, chevron on hover */}
+        <div className="relative w-4 h-4 flex-shrink-0">
+          {/* Tool Icon - visible by default, hidden on hover */}
+          <fileInfo.icon
+            className={`absolute inset-0 w-4 h-4 group-hover:opacity-0 transition-opacity ${fileInfo.isSpinning ? 'animate-spin' : ''}`}
+            style={{ color: fileInfo.iconColor }}
+          />
+          {/* Chevron - hidden by default, visible on hover */}
+          {isExpanded ? (
+            <ChevronDown
+              className="absolute inset-0 w-4 h-4 opacity-0 group-hover:opacity-60 transition-opacity"
+              style={{ color: 'var(--vscode-foreground)' }}
+            />
+          ) : (
+            <ChevronRight
+              className="absolute inset-0 w-4 h-4 opacity-0 group-hover:opacity-60 transition-opacity"
+              style={{ color: 'var(--vscode-foreground)' }}
+            />
+          )}
+        </div>
 
         {/* Filename / Tool Name */}
         <span
