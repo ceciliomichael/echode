@@ -66,6 +66,14 @@ export function useChatState() {
     compressedContextTokensRef.current = tokens;
   }, []);
 
+  const restoreCompression = useCallback((msgs: Message[] | null, tokens: number | null, anchorId: string | null) => {
+    compressedMessagesRef.current = msgs;
+    compressedContextTokensRef.current = tokens;
+    setCompressedMessages(msgs);
+    setCompressedContextTokens(tokens);
+    setCompressionAnchorId(anchorId);
+  }, []);
+
   const clearSessionRef = useCallback(() => {
     currentSessionIdRef.current = null;
   }, []);
@@ -78,6 +86,7 @@ export function useChatState() {
       isStreamingRef.current = false;
       sendingMessageRef.current = false;
       isStoppingRef.current = false;
+      setIsCompressing(false); // Stop compression if in progress
       return true;
     }
     return false;
@@ -117,6 +126,7 @@ export function useChatState() {
     // Helper functions for ref mutations
     clearCompression,
     updateCompressedRefs,
+    restoreCompression,
     clearSessionRef,
     abortAndReset,
   };

@@ -25,10 +25,16 @@ export function useStreamingChat(
   } = useSessionManagement({
     messagesRef: state.messagesRef,
     currentSessionIdRef: state.currentSessionIdRef,
+    compressedMessagesRef: state.compressedMessagesRef,
+    compressedContextTokensRef: state.compressedContextTokensRef,
+    compressionAnchorId: state.compressionAnchorId,
     setMessages: state.setMessages,
     setCurrentSessionId: state.setCurrentSessionId,
     setEditingMessageId: state.setEditingMessageId,
     setRevertPreviewMessageId: state.setRevertPreviewMessageId,
+    setCompressedMessages: state.setCompressedMessages,
+    setCompressedContextTokens: state.setCompressedContextTokens,
+    setCompressionAnchorId: state.setCompressionAnchorId,
   });
 
   // Message update actions
@@ -91,11 +97,14 @@ export function useStreamingChat(
     setRevertPreviewMessageId: state.setRevertPreviewMessageId,
     setEditingMessageId: state.setEditingMessageId,
     currentSessionIdRef: state.currentSessionIdRef,
+    compressedMessagesRef: state.compressedMessagesRef,
+    compressedContextTokensRef: state.compressedContextTokensRef,
     revertPreviewMessageId: state.revertPreviewMessageId,
     compressionAnchorId: state.compressionAnchorId,
     ensureSessionId,
     sendMessage,
     clearCompression: state.clearCompression,
+    restoreCompression: state.restoreCompression,
     abortAndReset: state.abortAndReset,
   });
 

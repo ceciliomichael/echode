@@ -248,8 +248,22 @@ export function useChatStreaming({
         );
         
         try {
+          // Check if aborted before starting compression
+          if (abortControllerRef.current?.signal.aborted) {
+            console.log('[Chat] Compression aborted before start');
+            setIsCompressing(false);
+            return;
+          }
+          
           // Request summary from backend
           const summaryResult = await compressor.requestSummary(compressionAnalysis.middleMessages);
+          
+          // Check if aborted after compression completed
+          if (abortControllerRef.current?.signal.aborted) {
+            console.log('[Chat] Compression aborted after completion');
+            setIsCompressing(false);
+            return;
+          }
           
           if (summaryResult.success && summaryResult.summary) {
             console.log('[Chat] Context compressed successfully');

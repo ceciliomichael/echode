@@ -1,7 +1,13 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import type { Message, ImageAttachment } from '../../types/chat';
 import { toolHistoryApi } from '../../services/tool-history-api';
 import { setSessionEditingMessage, setSessionRevertPreview } from '../../utils/session-ui-state';
+
+interface SavedCompressionState {
+  messages: Message[] | null;
+  tokens: number | null;
+  anchorId: string | null;
+}
 
 interface EditRevertProps {
   messages: Message[];
@@ -11,6 +17,8 @@ interface EditRevertProps {
   setRevertPreviewMessageId: React.Dispatch<React.SetStateAction<string | null>>;
   setEditingMessageId: React.Dispatch<React.SetStateAction<string | null>>;
   currentSessionIdRef: React.MutableRefObject<string | null>;
+  compressedMessagesRef: React.MutableRefObject<Message[] | null>;
+  compressedContextTokensRef: React.MutableRefObject<number | null>;
   revertPreviewMessageId: string | null;
   compressionAnchorId: string | null;
   ensureSessionId: () => string;
@@ -22,6 +30,7 @@ interface EditRevertProps {
     forceEchoSearch?: boolean
   ) => Promise<void>;
   clearCompression: () => void;
+  restoreCompression: (messages: Message[] | null, tokens: number | null, anchorId: string | null) => void;
   abortAndReset: () => boolean;
 }
 
@@ -36,13 +45,18 @@ export function useEditRevert({
   setRevertPreviewMessageId,
   setEditingMessageId,
   currentSessionIdRef,
+  compressedMessagesRef,
+  compressedContextTokensRef,
   revertPreviewMessageId,
   compressionAnchorId,
   ensureSessionId,
   sendMessage,
   clearCompression,
+  restoreCompression,
   abortAndReset,
 }: EditRevertProps) {
+  // Ref to save compression state during revert preview
+  const savedCompressionRef = useRef<SavedCompressionState | null>(null);
   
   const editMessage = useCallback(async (
     messageId: string,
@@ -131,6 +145,25 @@ export function useEditRevert({
       return;
     }
 
+    // Save compression state before revert (for restore on cancel)
+    savedCompressionRef.current = {
+      messages: compressedMessagesRef.current,
+      tokens: compressedContextTokensRef.current,
+      anchorId: compressionAnchorId,
+    };
+    console.log('[Revert] Saved compression state:', savedCompressionRef.current);
+
+    // Only clear compression if reverting to a message BEFORE the compression anchor
+    // If reverting to a message after compression, the compression is still valid
+    if (compressionAnchorId) {
+      const anchorIndex = messages.findIndex(msg => msg.id === compressionAnchorId);
+      // If revert target is at or before the anchor, clear compression
+      if (anchorIndex === -1 || messageIndex <= anchorIndex) {
+        console.log('[Revert] Reverting past compression anchor, clearing compression');
+        clearCompression();
+      }
+    }
+
     // Abort if streaming
     if (abortAndReset()) {
       setIsStreaming(false);
@@ -163,8 +196,12 @@ export function useEditRevert({
     abortAndReset,
     setIsStreaming,
     setIsExecutingTool,
+    compressedMessagesRef,
+    compressedContextTokensRef,
+    compressionAnchorId,
     setRevertPreviewMessageId,
     setEditingMessageId,
+    clearCompression,
   ]);
 
   const handleEditStart = useCallback((messageId: string) => {
@@ -197,6 +234,14 @@ export function useEditRevert({
         }
       }
 
+      // Restore saved compression state
+      if (savedCompressionRef.current) {
+        const { messages: savedMessages, tokens, anchorId } = savedCompressionRef.current;
+        restoreCompression(savedMessages, tokens, anchorId);
+        console.log('[CancelRevert] Restored compression state:', savedCompressionRef.current);
+        savedCompressionRef.current = null;
+      }
+
       setRevertPreviewMessageId(null);
 
       const sessionId = currentSessionIdRef.current;
@@ -214,6 +259,7 @@ export function useEditRevert({
     currentSessionIdRef,
     setRevertPreviewMessageId,
     setEditingMessageId,
+    restoreCompression,
   ]);
 
   return {

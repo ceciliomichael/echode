@@ -29,6 +29,7 @@ export interface ChatSession {
   compressedContext?: {
     messages: ChatSessionMessage[];
     tokenCount: number;
+    anchorId: string; // ID of message that triggered compression
   };
 }
 
