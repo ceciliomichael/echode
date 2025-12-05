@@ -36,8 +36,9 @@ function stripLineNumbers(content: string): string {
     .split('\n')
     .map((line) => {
       // Match line numbers with format: "  123 | content" or "1 | content"
-      // The \s* handles variable padding, \d+ matches line number, \s+\|\s+ matches " | "
-      const match = line.match(/^\s*\d+\s+\|\s+(.*)$/);
+      // The \s* handles variable padding, \d+ matches line number, \s matches single space after pipe
+      // CRITICAL: Use \s (single space) not \s+ to preserve indentation in captured content
+      const match = line.match(/^\s*\d+\s+\|\s(.*)$/);
       return match ? match[1] : line;
     })
     .join('\n');
@@ -75,7 +76,7 @@ export function renderToolResult(
         </div>
       );
     }
-    
+
     // Handle single file
     const result = data as { content?: string; startLine?: number; endLine?: number };
     if (result.content !== undefined) {

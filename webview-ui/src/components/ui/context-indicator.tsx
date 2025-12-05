@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { ChatMode } from '../../types/chat-mode';
 
 interface DashedProgressCircleProps {
@@ -122,14 +122,29 @@ function formatTokens(tokens: number): string {
 
 export function ContextIndicator({ usage, disabled = false, mode, isCompressing = false }: ContextIndicatorProps) {
   const [showTooltip, setShowTooltip] = useState(false);
+  const [isTopTooltip, setIsTopTooltip] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState<'above' | 'below'>('above');
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const hideTimeoutRef = useRef<number | null>(null);
 
   const usagePercent = usage.maxTokens > 0 
     ? (usage.totalTokens / usage.maxTokens) * 100 
     : 0;
   
   const color = getUsageColor(usagePercent, mode);
+
+  useEffect(() => {
+    const handleTooltipHover = (event: Event) => {
+      const customEvent = event as CustomEvent<string>;
+      setIsTopTooltip(customEvent.detail === 'context');
+    };
+
+    window.addEventListener('echode-tooltip-hover', handleTooltipHover as EventListener);
+
+    return () => {
+      window.removeEventListener('echode-tooltip-hover', handleTooltipHover as EventListener);
+    };
+  }, []);
 
   // Calculate tooltip position when showing
   const calculatePosition = () => {
@@ -143,18 +158,35 @@ export function ContextIndicator({ usage, disabled = false, mode, isCompressing 
   };
 
   const handleMouseEnter = () => {
+    window.dispatchEvent(new CustomEvent('echode-tooltip-hover', { detail: 'context' }));
+    window.dispatchEvent(new CustomEvent('echode-context-indicator-hover'));
+    if (hideTimeoutRef.current !== null) {
+      window.clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
     setTooltipPosition(calculatePosition());
     setShowTooltip(true);
   };
 
+  const handleMouseLeave = () => {
+    if (hideTimeoutRef.current !== null) {
+      window.clearTimeout(hideTimeoutRef.current);
+    }
+    hideTimeoutRef.current = window.setTimeout(() => {
+      setShowTooltip(false);
+    }, 50);
+  };
+
   return (
-    <div className="relative">
+    <div 
+      className="relative"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       <button
         ref={buttonRef}
         type="button"
         disabled={disabled}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={() => setShowTooltip(false)}
         onFocus={() => setShowTooltip(true)}
         onBlur={() => setShowTooltip(false)}
         className="p-1 rounded-md transition-opacity hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -168,10 +200,11 @@ export function ContextIndicator({ usage, disabled = false, mode, isCompressing 
 
       {showTooltip && (
         <div
-          className={`absolute z-50 w-64 p-3 rounded-xl border shadow-lg ${
+          className={`absolute w-64 p-3 rounded-xl border shadow-lg ${
             tooltipPosition === 'above' ? 'bottom-full mb-2' : 'top-full mt-2'
           }`}
           style={{
+            zIndex: isTopTooltip ? 60 : 40,
             right: 0,
             backgroundColor: 'var(--vscode-editor-background)',
             borderColor: 'var(--vscode-input-border)',

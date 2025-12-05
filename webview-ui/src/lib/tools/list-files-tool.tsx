@@ -74,7 +74,7 @@ IMPORTANT: When to use list_files:
       const isEmpty = directories.length === 0 && files.length === 0;
 
       return (
-        <div className="rounded-md overflow-hidden border border-[var(--vscode-input-border)] bg-[var(--vscode-editor-background)]">
+        <div className="rounded-xl overflow-hidden border border-[var(--vscode-input-border)] bg-[var(--vscode-editor-background)]">
           {/* Content */}
           <div className="max-h-[300px] overflow-y-auto">
             {isEmpty ? (
@@ -82,19 +82,19 @@ IMPORTANT: When to use list_files:
                 Empty directory
               </div>
             ) : (
-              <div className="py-1">
+              <div>
                 {/* Directories */}
                 {directories.map((dir, index) => (
                   <div
                     key={`dir-${index}`}
-                    className="flex items-center gap-2 px-3 py-1.5 hover:bg-[var(--vscode-list-hoverBackground)] transition-colors"
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-[var(--vscode-list-hoverBackground)] border-b border-[var(--vscode-input-border)]"
                   >
                     <Folder 
                       className="w-4 h-4 flex-shrink-0" 
                       style={{ color: 'var(--vscode-charts-blue)' }}
                     />
                     <span 
-                      className="text-sm font-medium truncate"
+                      className="font-medium truncate"
                       style={{ color: 'var(--vscode-foreground)' }}
                     >
                       {dir.name}
@@ -110,14 +110,14 @@ IMPORTANT: When to use list_files:
                   return (
                     <div
                       key={`file-${index}`}
-                      className="flex items-center gap-2 px-3 py-1.5 hover:bg-[var(--vscode-list-hoverBackground)] transition-colors"
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-[var(--vscode-list-hoverBackground)] border-b border-[var(--vscode-input-border)] last:border-b-0"
                     >
                       <Icon 
                         className="w-4 h-4 flex-shrink-0" 
                         style={{ color: iconConfig.color }}
                       />
                       <span 
-                        className="text-sm truncate flex-1"
+                        className="truncate flex-1"
                         style={{ color: 'var(--vscode-foreground)' }}
                       >
                         {file.name}

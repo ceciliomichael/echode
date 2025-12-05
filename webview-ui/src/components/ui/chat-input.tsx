@@ -7,10 +7,12 @@ import { ChatModelSelector } from './chat-model-selector';
 import { ContextMenu } from './context-menu';
 import { MentionHighlighter } from './mention-highlighter';
 import { ContextIndicator } from './context-indicator';
+import { RefactorIndicator } from './refactor-indicator';
+import { useRefactorScan } from '../../hooks/use-refactor-scan';
 import type { ContextUsageResult } from '../../hooks/use-context-usage';
 import { useContextMenu } from '../../hooks/use-context-menu';
 import { useWorkspaceContext } from '../../hooks/use-workspace-context';
-import { clearMentionPaths, removeMention, getMentionPath, unescapeSpaces } from '../../utils/mention-utils';
+import { clearMentionPaths, removeMention, getMentionPath, unescapeSpaces, registerMentionPath } from '../../utils/mention-utils';
 import type { TodoTask } from '../../types/todo';
 import type { ImageAttachment } from '../../types/chat';
 import type { ChatMode } from '../../types/chat-mode';
@@ -47,6 +49,9 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
   // Get workspace files for mentions - use reactive hook so it updates when files change
   const workspace = useWorkspaceContext();
   const workspaceFiles = workspace?.files || [];
+
+  // Get refactor scan results
+  const { largeFiles, isScanning: isRefactorScanning } = useRefactorScan();
 
   // Context menu hook for @ mentions
   const handleInputChange = (newValue: string, newCursorPos?: number) => {
@@ -181,6 +186,24 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
 
   const handleRemoveAttachment = (index: number) => {
     setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleRefactorRequest = (filePath: string) => {
+    // Extract basename
+    const basename = filePath.split(/[/\\]/).pop() || filePath;
+    
+    // Register mention path so the system knows the full path
+    registerMentionPath(basename, filePath);
+    
+    // Send message
+    const message = `Refactor @${basename} following code quality principles and best practices.`;
+    
+    onSendMessage(message, undefined, false);
+    
+    // Clear mentions after a short delay to ensure processing
+    setTimeout(() => {
+      clearMentionPaths();
+    }, 100);
   };
 
   return (
@@ -348,6 +371,12 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
             </div>
 
             <div className="flex items-center gap-1">
+              <RefactorIndicator
+                largeFiles={largeFiles}
+                isScanning={isRefactorScanning}
+                disabled={disabled}
+                onRefactorRequest={handleRefactorRequest}
+              />
               {contextUsage && (
                 <ContextIndicator
                   usage={contextUsage}

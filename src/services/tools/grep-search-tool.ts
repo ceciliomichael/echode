@@ -81,9 +81,10 @@ export class GrepSearchTool implements ITool {
             patternForSearch = `\\b(?:${patternForSearch})\\b`;
           }
         } else {
-          // Escape ALL regex special characters for literal/exact search
-          // Hyphen must be at start of character class to be treated as literal
-          patternForSearch = query.replace(/[-.*+?^${}()|[\]\\]/g, '\\$&');
+          // Escape regex special characters for literal/exact search
+          // Note: hyphen doesn't need escaping outside character classes
+          // and escaping it (\-) is invalid with the 'u' (unicode) flag
+          patternForSearch = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
           if (wholeWord) {
             patternForSearch = `\\b${patternForSearch}\\b`;
           }

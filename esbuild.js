@@ -24,6 +24,7 @@ const esbuildProblemMatcherPlugin = {
 };
 
 async function main() {
+	// Main extension bundle
 	const ctx = await esbuild.context({
 		entryPoints: [
 			'src/extension.ts'
@@ -38,15 +39,32 @@ async function main() {
 		external: ['vscode', 'better-sqlite3'],
 		logLevel: 'silent',
 		plugins: [
-			/* add to the end of plugins array */
 			esbuildProblemMatcherPlugin,
 		],
 	});
+
+	// Standalone scanner script (no vscode dependency)
+	const scannerCtx = await esbuild.context({
+		entryPoints: [
+			'src/scripts/scan-large-files.ts'
+		],
+		bundle: true,
+		format: 'cjs',
+		minify: production,
+		sourcemap: false,
+		platform: 'node',
+		outfile: 'dist/scripts/scan-large-files.js',
+		logLevel: 'silent',
+	});
+
 	if (watch) {
 		await ctx.watch();
+		await scannerCtx.watch();
 	} else {
 		await ctx.rebuild();
+		await scannerCtx.rebuild();
 		await ctx.dispose();
+		await scannerCtx.dispose();
 	}
 }
 

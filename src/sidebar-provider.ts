@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
+import { spawn } from 'child_process';
 import { handleApiRequest } from './handlers/api-handler';
 import { handleChatStream } from './handlers/chat-streaming-handler';
 import { handleModelFetch } from './handlers/model-fetching-handler';
@@ -27,6 +29,9 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
   private _autocompleteService: AutocompleteService;
   private _fileWatcher?: vscode.FileSystemWatcher;
   private _workspaceUpdateDebounce?: NodeJS.Timeout;
+  private _refactorScanInProgress: boolean = false;
+  private _refactorScanComplete: boolean = false;
+  private _cachedLargeFiles: { path: string; lineCount: number }[] = [];
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -131,6 +136,118 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
     webviewView.webview.postMessage({
       type: 'workspaceInfo',
       workspace: workspaceInfo
+    });
+
+    // Also send refactor scan results
+    this.sendRefactorScanResults(webviewView);
+  }
+
+  /**
+   * Send refactor scan results (large files) to webview
+   * Spawns external Node process to avoid blocking extension host
+   */
+  private sendRefactorScanResults(webviewView: vscode.WebviewView): void {
+    // If scan already completed, send cached results
+    if (this._refactorScanComplete) {
+      webviewView.webview.postMessage({
+        type: 'refactorScanResults',
+        largeFiles: this._cachedLargeFiles
+      });
+      return;
+    }
+    
+    // Skip if scan already in progress
+    if (this._refactorScanInProgress) {
+      return;
+    }
+    this._refactorScanInProgress = true;
+    
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+      this._refactorScanInProgress = false;
+      this._refactorScanComplete = true;
+      webviewView.webview.postMessage({
+        type: 'refactorScanResults',
+        largeFiles: []
+      });
+      return;
+    }
+
+    const workspacePath = workspaceFolders[0].uri.fsPath;
+    const scriptPath = path.join(this._context.extensionPath, 'dist', 'scripts', 'scan-large-files.js');
+    
+    console.log('[Echode] Spawning scan script:', scriptPath);
+    const startTime = Date.now();
+    
+    // Spawn external Node process
+    const child = spawn('node', [scriptPath, workspacePath, '300'], {
+      cwd: workspacePath,
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    
+    let stdout = '';
+    let stderr = '';
+    
+    child.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+    
+    child.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    // Timeout after 10 seconds – only used if scan never completes
+    const timeout = setTimeout(() => {
+      // If scan already finished, don't override results
+      if (this._refactorScanComplete) {
+        return;
+      }
+
+      this._refactorScanInProgress = false;
+      this._refactorScanComplete = true;
+      this._cachedLargeFiles = [];
+
+      if (!child.killed) {
+        child.kill();
+      }
+
+      webviewView.webview.postMessage({
+        type: 'refactorScanResults',
+        largeFiles: []
+      });
+    }, 10000);
+    
+    child.on('close', (code) => {
+      const elapsed = Date.now() - startTime;
+      console.log(`[Echode] Scan completed in ${elapsed}ms, exit code: ${code}`);
+
+      // Scan finished before timeout - prevent timeout handler from firing
+      clearTimeout(timeout);
+      
+      this._refactorScanInProgress = false;
+      this._refactorScanComplete = true;
+      
+      let largeFiles: { path: string; lineCount: number }[] = [];
+      
+      if (code === 0 && stdout) {
+        try {
+          largeFiles = JSON.parse(stdout);
+          console.log(`[Echode] Found ${largeFiles.length} large files`);
+        } catch {
+          console.error('[Echode] Failed to parse scan results:', stdout);
+        }
+      } else if (stderr) {
+        console.error('[Echode] Scan script error:', stderr);
+      }
+      
+      // Cache results for subsequent requests
+      this._cachedLargeFiles = largeFiles;
+      
+      webviewView.webview.postMessage({
+        type: 'refactorScanResults',
+        largeFiles
+      });
     });
   }
 
@@ -248,6 +365,9 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
     };
 
     webviewView.webview.html = getMainWebviewHtml(webviewView.webview, this._extensionUri);
+
+    // Send initial workspace info and start refactor scan
+    this.sendWorkspaceInfo(webviewView);
 
     webviewView.webview.onDidReceiveMessage(async (data) => {
       switch (data.type) {
