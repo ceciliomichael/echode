@@ -82,6 +82,7 @@ export interface ApiSettings {
   megallmTemperature: number;
   vscodeLmTemperature: number;
   qwenCodeTemperature: number;
+  streamingTimeout: number;
   systemPrompt?: string;
   enabledTools?: Tool[];
   chatMode?: 'agent' | 'plan' | 'ask' | 'general';
@@ -116,6 +117,7 @@ export const DEFAULT_API_SETTINGS: ApiSettings = {
   megallmTemperature: 0.0,
   vscodeLmTemperature: 1.0,
   qwenCodeTemperature: 0.0,
+  streamingTimeout: 10000,
   systemPrompt: '',
 };
 

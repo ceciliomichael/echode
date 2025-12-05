@@ -57,6 +57,7 @@ interface ChatStreamingProps {
   compressedMessagesRef: React.MutableRefObject<Message[] | null>;
   compressedContextTokensRef: React.MutableRefObject<number | null>;
   isStreamingRef: React.MutableRefObject<boolean>;
+  isExecutingToolRef: React.MutableRefObject<boolean>;
   sendingMessageRef: React.MutableRefObject<boolean>;
   abortControllerRef: React.MutableRefObject<AbortController | null>;
   executeToolAndContinue: (
@@ -84,6 +85,7 @@ export function useChatStreaming({
   compressedMessagesRef,
   compressedContextTokensRef,
   isStreamingRef,
+  isExecutingToolRef,
   sendingMessageRef,
   abortControllerRef,
   executeToolAndContinue,
@@ -96,6 +98,12 @@ export function useChatStreaming({
     // Prevent starting new stream if already streaming
     if (isStreamingRef.current) {
       console.warn('[Chat] Already streaming, ignoring new message request');
+      return;
+    }
+    
+    // Prevent starting new stream if tool is executing (e.g., echo_search)
+    if (isExecutingToolRef.current) {
+      console.warn('[Chat] Tool execution in progress, ignoring new message request');
       return;
     }
     
@@ -700,7 +708,7 @@ export function useChatStreaming({
       // Save session after stream completion
       saveSession();
     }
-  }, [messages, workspace, executeToolAndContinue, setMessages, setIsStreaming, setIsExecutingTool, setIsCompressing, setCompressedContextTokens, setCompressedMessages, setCompressionAnchorId, compressedMessagesRef, compressedContextTokensRef, isStreamingRef, sendingMessageRef, abortControllerRef, saveSession, mode]);
+  }, [messages, workspace, executeToolAndContinue, setMessages, setIsStreaming, setIsExecutingTool, setIsCompressing, setCompressedContextTokens, setCompressedMessages, setCompressionAnchorId, compressedMessagesRef, compressedContextTokensRef, isStreamingRef, isExecutingToolRef, sendingMessageRef, abortControllerRef, saveSession, mode]);
 
   return { sendMessage };
 }

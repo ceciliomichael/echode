@@ -176,8 +176,9 @@ export function useToolExecution({
     toolExecutorRef.current = new ToolExecutor({
       enabledTools,
       isStoppingRef,
+      abortControllerRef,
     });
-  }, [mode, isStoppingRef]);
+  }, [mode, isStoppingRef, abortControllerRef]);
 
   const executeToolAndContinue = useCallback(
     async (
@@ -244,6 +245,11 @@ export function useToolExecution({
             setIsExecutingTool(false);
             return;
           }
+          
+          // Create a new AbortController for tool execution
+          // This is needed because the stream was aborted to execute the tool
+          const toolAbortController = new AbortController();
+          abortControllerRef.current = toolAbortController;
           
           // Execute all tools in parallel using the tool executor
           const parallelResult = await toolExecutorRef.current.executeToolBlocksInParallel(parallelizableBlocks);
@@ -455,6 +461,11 @@ export function useToolExecution({
           setIsExecutingTool(false);
           return;
         }
+        
+        // Create a new AbortController for tool execution
+        // This is needed because the stream was aborted to execute the tool
+        const toolAbortController = new AbortController();
+        abortControllerRef.current = toolAbortController;
         
         // Create progress callback for echo_search iterations
         const onProgress: ToolProgressCallback = (progress) => {

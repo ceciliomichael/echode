@@ -58,6 +58,7 @@ interface SummarizerRequest {
     baseURL?: string;
     maxTokens?: number;
     temperature?: number;
+    streamingTimeout?: number;
   };
 }
 
@@ -109,6 +110,7 @@ export async function handleContextSummarizer(
         baseURL: settings.baseURL || '',
         maxTokens: settings.maxTokens || 4096,
         temperature: settings.temperature ?? 0.3,
+        streamingTimeout: settings.streamingTimeout,
       },
       {
         webview: {

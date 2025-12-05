@@ -33,6 +33,7 @@ export function useChatState() {
   const sendingMessageRef = useRef(false);
   const isStreamingRef = useRef(false);
   const isStoppingRef = useRef(false);
+  const isExecutingToolRef = useRef(false);
   const messagesRef = useRef<Message[]>(messages);
   const compressedMessagesRef = useRef<Message[] | null>(null);
   const compressedContextTokensRef = useRef<number | null>(null);
@@ -41,6 +42,10 @@ export function useChatState() {
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+
+  useEffect(() => {
+    isExecutingToolRef.current = isExecutingTool;
+  }, [isExecutingTool]);
 
   useEffect(() => {
     compressedMessagesRef.current = compressedMessages;
@@ -79,18 +84,32 @@ export function useChatState() {
   }, []);
 
   const abortAndReset = useCallback(() => {
+    // Set stopping flag FIRST - this will be checked by async tool execution
+    // Do NOT reset isStoppingRef here - let tool execution code reset it after handling
+    isStoppingRef.current = true;
+    
+    // Abort any pending HTTP request
     if (abortControllerRef.current) {
-      isStoppingRef.current = true;
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
-      isStreamingRef.current = false;
-      sendingMessageRef.current = false;
-      isStoppingRef.current = false;
-      setIsCompressing(false); // Stop compression if in progress
-      return true;
     }
-    return false;
-  }, []);
+    
+    // Reset all streaming/execution states
+    isStreamingRef.current = false;
+    isExecutingToolRef.current = false;
+    sendingMessageRef.current = false;
+    setIsCompressing(false);
+    setIsExecutingTool(false);
+    setIsStreaming(false);
+    
+    // Schedule reset of stopping flag after current execution cycle
+    // This ensures async code has time to check the flag
+    setTimeout(() => {
+      isStoppingRef.current = false;
+    }, 100);
+    
+    return true;
+  }, [setIsCompressing, setIsExecutingTool, setIsStreaming]);
 
   return {
     // State
@@ -120,6 +139,7 @@ export function useChatState() {
     sendingMessageRef,
     isStreamingRef,
     isStoppingRef,
+    isExecutingToolRef,
     messagesRef,
     compressedMessagesRef,
     compressedContextTokensRef,

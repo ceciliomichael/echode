@@ -1,5 +1,6 @@
 import { ProviderConfigSection } from '../ui/provider-config-section';
 import { GenerationParamsSection } from '../ui/generation-params-section';
+import { RequestSettingsSection } from '../ui/request-settings-section';
 import type { Provider } from '../../types/api-settings';
 
 interface ApiConfigTabProps {
@@ -9,12 +10,14 @@ interface ApiConfigTabProps {
   qwenCodeOauthPath?: string;
   maxTokens: number;
   temperature: number;
+  streamingTimeout: number;
   onProviderChange: (value: Provider) => void;
   onCustomBaseUrlChange: (value: string) => void;
   onApiKeyChange: (value: string) => void;
   onQwenCodeOauthPathChange?: (value: string) => void;
   onMaxTokensChange: (value: number) => void;
   onTemperatureChange: (value: number) => void;
+  onStreamingTimeoutChange: (value: number) => void;
 }
 
 export function ApiConfigTab({
@@ -24,12 +27,14 @@ export function ApiConfigTab({
   qwenCodeOauthPath,
   maxTokens,
   temperature,
+  streamingTimeout,
   onProviderChange,
   onCustomBaseUrlChange,
   onApiKeyChange,
   onQwenCodeOauthPathChange,
   onMaxTokensChange,
-  onTemperatureChange
+  onTemperatureChange,
+  onStreamingTimeoutChange
 }: ApiConfigTabProps) {
   return (
     <div className="max-w-2xl space-y-6">
@@ -50,6 +55,11 @@ export function ApiConfigTab({
         temperature={temperature}
         onMaxTokensChange={onMaxTokensChange}
         onTemperatureChange={onTemperatureChange}
+      />
+
+      <RequestSettingsSection
+        streamingTimeout={streamingTimeout}
+        onStreamingTimeoutChange={onStreamingTimeoutChange}
       />
     </div>
   );

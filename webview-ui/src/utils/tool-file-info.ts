@@ -1,4 +1,4 @@
-import { Loader, Folder, Search, FileSearch, Trash2, Radar, type LucideIcon } from 'lucide-react';
+import { Loader, Folder, Search, FileSearch, Trash2, Radar, XCircle, type LucideIcon } from 'lucide-react';
 import type { IconType } from 'react-icons';
 import { getToolMetadata } from '../lib/tool-registry';
 import { getFileIconConfig, extractFileName } from './file-icon-mapper';
@@ -29,6 +29,21 @@ export function getToolFileInfo(
     }
   }
   const isExecuting = isStreaming || status === 'pending' || status === 'executing';
+  const isAborted = status === 'aborted';
+
+  // Helper to get icon based on state
+  const getIcon = (defaultIcon: LucideIcon | IconType) => {
+    if (isAborted) return XCircle;
+    if (isExecuting) return Loader;
+    return defaultIcon;
+  };
+
+  // Helper to get icon color based on state
+  const getIconColor = (defaultColor: string) => {
+    if (isAborted) return 'var(--vscode-errorForeground)';
+    if (isExecuting) return 'var(--vscode-charts-blue)';
+    return defaultColor;
+  };
 
   // For write_to_file and read_file, ALWAYS prioritize showing filename
   if ((toolName === 'write_to_file' || toolName === 'read_file') && path) {
@@ -38,8 +53,8 @@ export function getToolFileInfo(
     return {
       displayName: fileName,
       fullPath: path,
-      icon: isExecuting ? Loader : iconConfig.icon,
-      iconColor: isExecuting ? 'var(--vscode-charts-blue)' : iconConfig.color,
+      icon: getIcon(iconConfig.icon),
+      iconColor: getIconColor(iconConfig.color),
       isSpinning: isExecuting,
     };
   }
@@ -50,8 +65,8 @@ export function getToolFileInfo(
     return {
       displayName: displayPath,
       fullPath: path || '',
-      icon: isExecuting ? Loader : Folder,
-      iconColor: 'var(--vscode-charts-blue)',
+      icon: getIcon(Folder),
+      iconColor: getIconColor('var(--vscode-charts-blue)'),
       isSpinning: isExecuting,
     };
   }
@@ -63,10 +78,8 @@ export function getToolFileInfo(
     return {
       displayName: truncatedQuery ? `Search: ${truncatedQuery}` : 'Search',
       fullPath: path || '',
-      icon: isExecuting ? Loader : Search,
-      iconColor: isExecuting
-        ? 'var(--vscode-charts-blue)'
-        : 'var(--vscode-editor-foreground)',
+      icon: getIcon(Search),
+      iconColor: getIconColor('var(--vscode-editor-foreground)'),
       isSpinning: isExecuting,
     };
   }
@@ -80,10 +93,8 @@ export function getToolFileInfo(
     return {
       displayName,
       fullPath: path || '',
-      icon: isExecuting ? Loader : Radar,
-      iconColor: isExecuting
-        ? 'var(--vscode-charts-blue)'
-        : 'var(--vscode-editor-foreground)',
+      icon: getIcon(Radar),
+      iconColor: getIconColor('var(--vscode-editor-foreground)'),
       isSpinning: isExecuting,
     };
   }
@@ -102,10 +113,8 @@ export function getToolFileInfo(
     return {
       displayName: truncatedPattern || 'Glob Search',
       fullPath: path || '',
-      icon: isExecuting ? Loader : FileSearch,
-      iconColor: isExecuting
-        ? 'var(--vscode-charts-blue)'
-        : 'var(--vscode-editor-foreground)',
+      icon: getIcon(FileSearch),
+      iconColor: getIconColor('var(--vscode-editor-foreground)'),
       isSpinning: isExecuting,
     };
   }
@@ -116,8 +125,8 @@ export function getToolFileInfo(
     return {
       displayName: fileName,
       fullPath: path || '',
-      icon: isExecuting ? Loader : Trash2,
-      iconColor: isExecuting ? 'var(--vscode-charts-blue)' : 'var(--vscode-errorForeground)',
+      icon: getIcon(Trash2),
+      iconColor: getIconColor('var(--vscode-errorForeground)'),
       isSpinning: isExecuting,
     };
   }
@@ -129,8 +138,8 @@ export function getToolFileInfo(
     return {
       displayName: fileName,
       fullPath: path,
-      icon: isExecuting ? Loader : iconConfig.icon,
-      iconColor: isExecuting ? 'var(--vscode-charts-blue)' : iconConfig.color,
+      icon: getIcon(iconConfig.icon),
+      iconColor: getIconColor(iconConfig.color),
       isSpinning: isExecuting,
     };
   }
@@ -140,8 +149,8 @@ export function getToolFileInfo(
   return {
     displayName: metadata?.name || toolName,
     fullPath: '',
-    icon: isExecuting ? Loader : (metadata?.icon || getFileIconConfig('').icon),
-    iconColor: isExecuting ? 'var(--vscode-charts-blue)' : 'var(--vscode-editor-foreground)',
+    icon: getIcon(metadata?.icon || getFileIconConfig('').icon),
+    iconColor: getIconColor('var(--vscode-editor-foreground)'),
     isSpinning: isExecuting,
   };
 }

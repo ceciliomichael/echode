@@ -43,6 +43,7 @@ export function useProviderSettings(initialSettings: ApiSettings) {
   const [qwenCodeTemperature, setQwenCodeTemperature] = useState(initialSettings.qwenCodeTemperature);
   
   const [qwenCodeOauthPath, setQwenCodeOauthPath] = useState(initialSettings.qwenCodeOauthPath || '');
+  const [streamingTimeout, setStreamingTimeout] = useState(initialSettings.streamingTimeout || 10000);
 
   const [model, setModel] = useState(initialSettings.model);
 
@@ -98,6 +99,7 @@ export function useProviderSettings(initialSettings: ApiSettings) {
       setVscodeLmTemperature(initialSettings.vscodeLmTemperature);
       setQwenCodeTemperature(initialSettings.qwenCodeTemperature);
       setQwenCodeOauthPath(initialSettings.qwenCodeOauthPath || '');
+      setStreamingTimeout(initialSettings.streamingTimeout || 10000);
     }, 0);
     return () => clearTimeout(timeoutId);
   }, [initialSettings]);
@@ -196,6 +198,10 @@ export function useProviderSettings(initialSettings: ApiSettings) {
     setQwenCodeOauthPath(value);
   };
 
+  const handleStreamingTimeoutChange = (value: number) => {
+    setStreamingTimeout(value);
+  };
+
   // Build complete settings object
   const buildSettings = (): ApiSettings => {
     const persisted = storageService.getSettings();
@@ -232,6 +238,7 @@ export function useProviderSettings(initialSettings: ApiSettings) {
       megallmTemperature: initialSettings.megallmTemperature,
       vscodeLmTemperature,
       qwenCodeTemperature,
+      streamingTimeout,
     };
   };
 
@@ -246,6 +253,8 @@ export function useProviderSettings(initialSettings: ApiSettings) {
     handleTemperatureChange,
     handleApiKeyChange,
     handleQwenCodeOauthPathChange,
+    handleStreamingTimeoutChange,
+    streamingTimeout,
     buildSettings,
     allSettings: {
       anthropicCustomUrl,

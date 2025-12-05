@@ -150,12 +150,13 @@ export function useSetupForm(
         megallmTemperature: initialSettings.megallmTemperature,
         vscodeLmTemperature,
         qwenCodeTemperature,
+        streamingTimeout: initialSettings.streamingTimeout,
         systemPrompt 
       });
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [provider, anthropicCustomUrl, openaiCustomUrl, openaiCompatibleCustomUrl, model, anthropicModel, openaiModel, openaiCompatibleModel, vscodeLmModel, qwenCodeModel, apiKey, anthropicApiKey, openaiApiKey, openaiCompatibleApiKey, qwenCodeOauthPath, anthropicMaxTokens, openaiMaxTokens, openaiCompatibleMaxTokens, vscodeLmMaxTokens, qwenCodeMaxTokens, anthropicTemperature, openaiTemperature, openaiCompatibleTemperature, vscodeLmTemperature, qwenCodeTemperature, systemPrompt, onSave]);
+  }, [provider, anthropicCustomUrl, openaiCustomUrl, openaiCompatibleCustomUrl, model, anthropicModel, openaiModel, openaiCompatibleModel, vscodeLmModel, qwenCodeModel, apiKey, anthropicApiKey, openaiApiKey, openaiCompatibleApiKey, qwenCodeOauthPath, anthropicMaxTokens, openaiMaxTokens, openaiCompatibleMaxTokens, vscodeLmMaxTokens, qwenCodeMaxTokens, anthropicTemperature, openaiTemperature, openaiCompatibleTemperature, vscodeLmTemperature, qwenCodeTemperature, systemPrompt, onSave, initialSettings.megallmMaxTokens, initialSettings.megallmTemperature, initialSettings.streamingTimeout]);
 
   // Handle provider change with model persistence
   const handleProviderChange = (newProvider: Provider) => {

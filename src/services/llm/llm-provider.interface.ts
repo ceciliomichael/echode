@@ -22,6 +22,8 @@ export interface ChatStreamSettings {
   temperature?: number;
   qwenCodeOauthPath?: string;
   enabledTools?: Array<{ id: string; enabled: boolean }>;
+  /** Timeout in ms before retry if no streaming data received (default: 10000) */
+  streamingTimeout?: number;
 }
 
 export interface ILLMProvider {

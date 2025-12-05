@@ -29,13 +29,18 @@ function getSplashText(phase: EchoSearchProgress['phase'], iteration: number): s
   return texts[iteration % texts.length];
 }
 
+interface EchoSearchProgressIndicatorProps {
+  progress: EchoSearchProgress;
+  isAborted?: boolean;
+}
+
 /**
  * Progress indicator for echo_search tool - shows tools like final result snippets
  */
-export function EchoSearchProgressIndicator({ progress }: { progress: EchoSearchProgress }) {
-  const splashText = getSplashText(progress.phase, progress.iteration);
+export function EchoSearchProgressIndicator({ progress, isAborted = false }: EchoSearchProgressIndicatorProps) {
+  const splashText = isAborted ? 'Aborted' : getSplashText(progress.phase, progress.iteration);
   // Only show iteration counter when we have tools, using toolsIteration for accurate display
-  const showIterationCounter = progress.toolsIteration > 0 && progress.tools.length > 0;
+  const showIterationCounter = !isAborted && progress.toolsIteration > 0 && progress.tools.length > 0;
 
   return (
     <div className="rounded-xl overflow-hidden border border-[var(--vscode-input-border)] bg-[var(--vscode-editor-background)]">
@@ -53,7 +58,9 @@ export function EchoSearchProgressIndicator({ progress }: { progress: EchoSearch
         </style>
         <span
           className="font-medium flex items-center gap-1.5"
-          style={{
+          style={isAborted ? {
+            color: 'var(--vscode-descriptionForeground)',
+          } : {
             background: 'linear-gradient(90deg, var(--vscode-descriptionForeground) 0%, var(--vscode-descriptionForeground) 40%, var(--vscode-foreground) 50%, var(--vscode-descriptionForeground) 60%, var(--vscode-descriptionForeground) 100%)',
             backgroundSize: '300% 100%',
             WebkitBackgroundClip: 'text',

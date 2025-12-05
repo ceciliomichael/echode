@@ -46,6 +46,8 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
     handleTemperatureChange,
     handleApiKeyChange,
     handleQwenCodeOauthPathChange,
+    handleStreamingTimeoutChange,
+    streamingTimeout,
     buildSettings,
   } = useProviderSettings(initialSettings);
 
@@ -93,7 +95,7 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
     }, 500);
     return () => clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [provider, currentSettings, systemPrompt, enabledTools, indexingSettings, contextSettings]);
+  }, [provider, currentSettings, systemPrompt, enabledTools, indexingSettings, contextSettings, streamingTimeout]);
 
   return (
     <div
@@ -134,12 +136,14 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
               qwenCodeOauthPath={currentSettings.qwenCodeOauthPath}
               maxTokens={currentSettings.maxTokens}
               temperature={currentSettings.temperature}
+              streamingTimeout={streamingTimeout}
               onProviderChange={handleProviderChange}
               onCustomBaseUrlChange={handleCustomUrlChange}
               onApiKeyChange={handleApiKeyChange}
               onQwenCodeOauthPathChange={handleQwenCodeOauthPathChange}
               onMaxTokensChange={handleMaxTokensChange}
               onTemperatureChange={handleTemperatureChange}
+              onStreamingTimeoutChange={handleStreamingTimeoutChange}
             />
           )}
 

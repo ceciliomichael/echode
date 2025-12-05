@@ -12,6 +12,14 @@ interface ToolBlockContentProps {
 }
 
 export function ToolBlockContent({ toolCall, fileInfo, isExpanded }: ToolBlockContentProps) {
+  const isAborted = toolCall.status === 'aborted';
+  
+  // Check if we have streamed content to preserve
+  // For echo_search, always preserve on abort (even without progress)
+  const hasStreamedContent = 
+    (toolCall.toolName === 'write_to_file' && toolCall.parameters.content) ||
+    (toolCall.toolName === 'echo_search' && (toolCall.progress || isAborted));
+
   return (
     <div
       className={`overflow-hidden transition-all duration-300 ease-in-out ${
@@ -20,8 +28,8 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded }: ToolBlockCo
     >
       <div className="border-t" style={{ borderColor: 'var(--vscode-input-border)' }}>
         {/* Processing indicator or Real-time Streaming */}
-        {(toolCall.status === 'executing' || toolCall.status === 'pending') &&
-          !toolCall.result && (
+        {((toolCall.status === 'executing' || toolCall.status === 'pending' || (isAborted && hasStreamedContent)) &&
+          !toolCall.result?.success) && (
             <>
               {toolCall.toolName === 'write_to_file' && toolCall.parameters.content ? (
                 <div className="px-3 py-3">
@@ -29,15 +37,18 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded }: ToolBlockCo
                     oldContent={undefined}
                     newContent={toolCall.parameters.content as string}
                     fileName={fileInfo.displayName}
-                    isStreaming={true}
+                    isStreaming={!isAborted}
                     viewOnly={true}
                   />
                 </div>
-              ) : toolCall.toolName === 'echo_search' && toolCall.progress ? (
+              ) : toolCall.toolName === 'echo_search' && (toolCall.progress || isAborted) ? (
                 <div className="px-3 py-3">
-                  <EchoSearchProgressIndicator progress={toolCall.progress} />
+                  <EchoSearchProgressIndicator 
+                    progress={toolCall.progress || { iteration: 0, toolsIteration: 0, maxIterations: 4, phase: 'starting', tools: [], message: '' }} 
+                    isAborted={isAborted} 
+                  />
                 </div>
-              ) : (
+              ) : !isAborted ? (
                 <div
                   className="px-3 py-3"
                   style={{
@@ -53,12 +64,12 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded }: ToolBlockCo
                       : 'Executing tool...'}
                   </div>
                 </div>
-              )}
+              ) : null}
             </>
           )}
 
-        {/* Result */}
-        {toolCall.result && (
+        {/* Result - only show if not aborted (aborted handled above) */}
+        {toolCall.result && !isAborted && (
           <div className="overflow-x-auto">
             {toolCall.result.success ? (
               <div style={{ color: 'var(--vscode-editor-foreground)' }}>

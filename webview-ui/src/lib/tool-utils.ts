@@ -20,7 +20,22 @@ export async function executeToolViaExtension(
       return;
     }
 
+    // Check if already aborted before starting
+    if (signal?.aborted) {
+      reject(new Error('Tool execution aborted'));
+      return;
+    }
+
     const requestId = Math.random().toString(36).substring(7);
+    let isCompleted = false;
+    
+    const cleanup = () => {
+      isCompleted = true;
+      window.removeEventListener('message', handleResponse);
+      if (signal) {
+        signal.removeEventListener('abort', handleAbort);
+      }
+    };
     
     const handleResponse = (event: MessageEvent) => {
       const message = event.data;
@@ -35,7 +50,7 @@ export async function executeToolViaExtension(
       
       // Handle final result
       if (message.type === 'toolExecutionResult' && message.requestId === requestId) {
-        window.removeEventListener('message', handleResponse);
+        cleanup();
         if (message.result.success) {
           resolve(message.result);
         } else {
@@ -45,7 +60,9 @@ export async function executeToolViaExtension(
     };
 
     const handleAbort = () => {
-      window.removeEventListener('message', handleResponse);
+      if (isCompleted) return; // Already completed, ignore abort
+      cleanup();
+      // Send abort message to extension backend
       window.vscode.postMessage({
         type: 'abortToolExecution',
         requestId,

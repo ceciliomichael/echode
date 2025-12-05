@@ -198,11 +198,16 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
             }
             
             // Normal tool rendering (single file or other tools)
+            // Determine status: if no executionState and tool isn't closed and not streaming = aborted
+            const derivedStatus = executionState?.status || (
+              token.isClosed ? 'completed' : (isStreaming ? 'pending' : 'aborted')
+            );
+            
             const toolCall: ToolCall = {
               toolName: token.toolName,
               // Prioritize execution parameters as they are authoritative during execution
               parameters: executionState?.parameters || token.parameters,
-              status: executionState?.status || (token.isClosed ? 'completed' : 'pending'),
+              status: derivedStatus,
               result: executionState?.result,
               toolExecutionId: token.toolExecutionId,
               progress: executionState?.progress,

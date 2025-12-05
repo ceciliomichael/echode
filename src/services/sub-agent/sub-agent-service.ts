@@ -1,5 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
+
+const DEFAULT_REQUEST_TIMEOUT = 10000; // 10 seconds
 import { 
   EXPLORER_SYSTEM_PROMPT, 
   SYNTHESIZER_SYSTEM_PROMPT, 
@@ -131,6 +133,11 @@ export class SubAgentService {
    * Execute the sub-agent search
    */
   async search(query: string, searchPath?: string, hints?: string[], signal?: AbortSignal): Promise<SubAgentResult> {
+    // Check abort FIRST before any work
+    if (signal?.aborted) {
+      throw new Error('Search aborted');
+    }
+
     this.stats = {
       iterations: 0,
       grepCalls: 0,
@@ -147,11 +154,21 @@ export class SubAgentService {
     // Clear discovered files from previous searches
     this.discoveredFiles.clear();
 
+    // Check abort before expensive workspace file scanning
+    if (signal?.aborted) {
+      throw new Error('Search aborted');
+    }
+
     this.onProgress?.(`Starting sub-agent search for: "${query}"`);
 
     // Get workspace files for context
     const workspaceRoot = getWorkspaceRoot();
     const workspaceFiles = workspaceRoot ? getWorkspaceFiles(workspaceRoot) : undefined;
+
+    // Check abort after expensive file scanning
+    if (signal?.aborted) {
+      throw new Error('Search aborted');
+    }
 
     const conversation: ConversationMessage[] = [
       { role: 'user', content: buildExplorerPrompt(query, searchPath, hints, workspaceFiles) }
@@ -173,6 +190,11 @@ export class SubAgentService {
       this.stats.iterations = iteration;
 
       this.onProgress?.(`Iteration ${iteration}/${maxIterations}: Thinking...`);
+
+      // Check abort before LLM call
+      if (signal?.aborted) {
+        throw new Error('Search aborted');
+      }
 
       // Get LLM response using EXPLORER system prompt
       const response = await this.callLLM(conversation, EXPLORER_SYSTEM_PROMPT, signal);
@@ -206,7 +228,7 @@ export class SubAgentService {
 
       // Execute tools IN PARALLEL for better performance
       this.onProgress?.(`Executing ${cappedToolCalls.length} tool(s) in parallel...`);
-      const toolResults = await this.executeToolsParallel(cappedToolCalls);
+      const toolResults = await this.executeToolsParallel(cappedToolCalls, signal);
 
       // Mark that we've actually executed tools at least once
       this.hasExecutedTools = true;
@@ -234,6 +256,11 @@ export class SubAgentService {
     // Phase 2: Synthesis - use SYNTHESIZER system prompt for final answer
     // Note: We use "Synthesizing" instead of iteration message to avoid UI showing duplicate 4/4
     this.onProgress?.(`Synthesizing findings...`);
+
+    // Check abort before synthesis
+    if (signal?.aborted) {
+      throw new Error('Search aborted');
+    }
 
     // Add the synthesis prompt
     conversation.push({
@@ -310,7 +337,7 @@ export class SubAgentService {
   }
 
   /**
-   * Call Anthropic API
+   * Call Anthropic API with timeout retry (does not affect iteration count)
    */
   private async callAnthropic(
     conversation: ConversationMessage[], 
@@ -318,27 +345,87 @@ export class SubAgentService {
     systemPrompt: string,
     signal?: AbortSignal
   ): Promise<string> {
+    let attempt = 0;
+    
+    while (true) {
+      if (signal?.aborted) {
+        throw new Error('Aborted');
+      }
+      
+      attempt++;
+      try {
+        return await this.executeAnthropicCall(conversation, model, systemPrompt, signal);
+      } catch (error) {
+        if (signal?.aborted) {
+          throw error;
+        }
+        
+        // Check if it's a timeout error (no response within timeout)
+        if (error instanceof Error && error.name === 'TimeoutError') {
+          this.onProgress?.(`Request timeout, retrying (attempt ${attempt})...`);
+          continue; // Retry
+        }
+        throw error; // Other errors, propagate
+      }
+    }
+  }
+
+  private async executeAnthropicCall(
+    conversation: ConversationMessage[], 
+    model: string, 
+    systemPrompt: string,
+    signal?: AbortSignal
+  ): Promise<string> {
+    // Check abort before starting
+    if (signal?.aborted) {
+      throw new Error('Aborted');
+    }
+
     const client = new Anthropic({
       apiKey: this.apiSettings.anthropicApiKey,
       baseURL: this.apiSettings.anthropicCustomUrl || undefined,
     });
 
-    const response = await client.messages.create({
-      model: model || 'claude-3-5-sonnet-20241022',
-      max_tokens: 4096,
-      system: systemPrompt,
-      messages: conversation.map(m => ({
-        role: m.role,
-        content: m.content,
-      })),
-    }, { signal });
+    // Create a timeout promise
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        const error = new Error('Request timed out');
+        error.name = 'TimeoutError';
+        reject(error);
+      }, DEFAULT_REQUEST_TIMEOUT);
+    });
+
+    // Create abort promise that rejects when signal is aborted
+    const abortPromise = signal ? new Promise<never>((_, reject) => {
+      const abortHandler = () => reject(new Error('Aborted'));
+      signal.addEventListener('abort', abortHandler, { once: true });
+    }) : null;
+
+    // Race between the API call, timeout, and abort
+    const racers: Promise<Anthropic.Message>[] = [
+      client.messages.create({
+        model: model || 'claude-3-5-sonnet-20241022',
+        max_tokens: 4096,
+        system: systemPrompt,
+        messages: conversation.map(m => ({
+          role: m.role,
+          content: m.content,
+        })),
+      }, { signal }),
+      timeoutPromise,
+    ];
+    if (abortPromise) {
+      racers.push(abortPromise);
+    }
+
+    const response = await Promise.race(racers);
 
     const textBlock = response.content.find(block => block.type === 'text');
     return textBlock?.type === 'text' ? textBlock.text : '';
   }
 
   /**
-   * Call OpenAI-compatible API
+   * Call OpenAI-compatible API with timeout retry (does not affect iteration count)
    */
   private async callOpenAI(
     conversation: ConversationMessage[],
@@ -348,6 +435,44 @@ export class SubAgentService {
     baseUrl?: string,
     signal?: AbortSignal
   ): Promise<string> {
+    let attempt = 0;
+    
+    while (true) {
+      if (signal?.aborted) {
+        throw new Error('Aborted');
+      }
+      
+      attempt++;
+      try {
+        return await this.executeOpenAICall(conversation, model, systemPrompt, apiKey, baseUrl, signal);
+      } catch (error) {
+        if (signal?.aborted) {
+          throw error;
+        }
+        
+        // Check if it's a timeout error (no response within timeout)
+        if (error instanceof Error && error.name === 'TimeoutError') {
+          this.onProgress?.(`Request timeout, retrying (attempt ${attempt})...`);
+          continue; // Retry
+        }
+        throw error; // Other errors, propagate
+      }
+    }
+  }
+
+  private async executeOpenAICall(
+    conversation: ConversationMessage[],
+    model: string,
+    systemPrompt: string,
+    apiKey?: string,
+    baseUrl?: string,
+    signal?: AbortSignal
+  ): Promise<string> {
+    // Check abort before starting
+    if (signal?.aborted) {
+      throw new Error('Aborted');
+    }
+
     // Normalize baseURL to ensure /v1 suffix (matching main chat providers)
     let normalizedBaseUrl = baseUrl;
     if (baseUrl && !baseUrl.endsWith('/v1')) {
@@ -359,17 +484,41 @@ export class SubAgentService {
       baseURL: normalizedBaseUrl || undefined,
     });
 
-    const response = await client.chat.completions.create({
-      model: model || 'gpt-4o',
-      max_tokens: 4096,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...conversation.map(m => ({
-          role: m.role as 'user' | 'assistant',
-          content: m.content,
-        })),
-      ],
-    }, { signal });
+    // Create a timeout promise
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        const error = new Error('Request timed out');
+        error.name = 'TimeoutError';
+        reject(error);
+      }, DEFAULT_REQUEST_TIMEOUT);
+    });
+
+    // Create abort promise that rejects when signal is aborted
+    const abortPromise = signal ? new Promise<never>((_, reject) => {
+      const abortHandler = () => reject(new Error('Aborted'));
+      signal.addEventListener('abort', abortHandler, { once: true });
+    }) : null;
+
+    // Race between the API call, timeout, and abort
+    const racers: Promise<OpenAI.Chat.Completions.ChatCompletion>[] = [
+      client.chat.completions.create({
+        model: model || 'gpt-4o',
+        max_tokens: 4096,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...conversation.map(m => ({
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+          })),
+        ],
+      }, { signal }),
+      timeoutPromise,
+    ];
+    if (abortPromise) {
+      racers.push(abortPromise);
+    }
+
+    const response = await Promise.race(racers);
 
     return response.choices[0]?.message?.content || '';
   }
@@ -420,10 +569,16 @@ export class SubAgentService {
    * Execute multiple tools in parallel for better performance
    */
   private async executeToolsParallel(
-    toolCalls: Array<{ name: string; params: Record<string, string> }>
+    toolCalls: Array<{ name: string; params: Record<string, string> }>,
+    signal?: AbortSignal
   ): Promise<string> {
     // Execute all tools concurrently
     const resultPromises = toolCalls.map(async (toolCall) => {
+      // Check for abort before each tool
+      if (signal?.aborted) {
+        return `<tool_result name="${toolCall.name}">\nAborted\n</tool_result>`;
+      }
+      
       // Get the most descriptive parameter for display
       // Priority: query (for grep), pattern (for glob), path (for read/list), then any first param
       const paramDesc = toolCall.params.query 

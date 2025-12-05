@@ -16,15 +16,25 @@ export interface ToolCallExecutionResult {
 export interface ToolExecutorOptions {
   enabledTools: string[];
   isStoppingRef: { current: boolean };
+  abortControllerRef?: { current: AbortController | null };
 }
 
 export class ToolExecutor {
   private enabledTools: string[];
   private isStoppingRef: { current: boolean };
+  private abortControllerRef?: { current: AbortController | null };
 
   constructor(options: ToolExecutorOptions) {
     this.enabledTools = options.enabledTools;
     this.isStoppingRef = options.isStoppingRef;
+    this.abortControllerRef = options.abortControllerRef;
+  }
+
+  /**
+   * Get the current abort signal from the abort controller ref
+   */
+  private getAbortSignal(): AbortSignal | undefined {
+    return this.abortControllerRef?.current?.signal;
   }
 
   /**
@@ -61,9 +71,12 @@ export class ToolExecutor {
       };
     }
 
+    // Use provided signal or fall back to the abort controller ref's signal
+    const effectiveSignal = signal ?? this.getAbortSignal();
+    
     return await handler.execute(
       toolCall.parameters,
-      signal,
+      effectiveSignal,
       onStatusChange,
       onProgress,
     );

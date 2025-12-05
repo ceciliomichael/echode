@@ -4,7 +4,9 @@ import * as os from 'os';
 import * as path from 'path';
 import OpenAI from 'openai';
 import { ILLMProvider, ChatMessage, ChatStreamSettings } from './llm-provider.interface';
+import { StreamingTimeoutError } from '../../utils/streaming-timeout';
 
+const DEFAULT_STREAMING_TIMEOUT = 10000; // 10 seconds
 const QWEN_OAUTH_BASE_URL = 'https://chat.qwen.ai';
 const QWEN_OAUTH_TOKEN_ENDPOINT = `${QWEN_OAUTH_BASE_URL}/api/v1/oauth2/token`;
 const QWEN_OAUTH_CLIENT_ID = 'f0304373b74a44d2b584a3fb70ca9e56';
@@ -47,21 +49,74 @@ export class QwenProvider implements ILLMProvider {
     webview: vscode.WebviewView | vscode.WebviewPanel,
     signal: AbortSignal
   ): Promise<void> {
-    try {
-      await this.ensureAuthenticated(settings);
-      
-      // Create OpenAI client with Qwen credentials
-      if (!this.client) {
-        this.client = new OpenAI({
-          apiKey: this.credentials!.access_token,
-          baseURL: this.getBaseUrl(this.credentials!),
-        });
-      } else {
-        // Update credentials if they changed
-        this.client.apiKey = this.credentials!.access_token;
-        this.client.baseURL = this.getBaseUrl(this.credentials!);
+    const timeoutMs = settings.streamingTimeout ?? DEFAULT_STREAMING_TIMEOUT;
+    let attempt = 0;
+
+    while (true) {
+      if (signal.aborted) {
+        return;
       }
 
+      attempt++;
+      try {
+        await this.executeStream(requestId, messages, settings, webview, signal, timeoutMs);
+        return; // Success, exit retry loop
+      } catch (error: any) {
+        if (signal.aborted) {
+          return;
+        }
+        
+        // Handle 401 token expiry
+        if (error.status === 401) {
+          this.credentials = await this.refreshAccessToken(this.credentials!, settings);
+          this.client = null; // Reset client to use new credentials
+          continue; // Retry with new credentials
+        }
+        
+        if (error instanceof StreamingTimeoutError) {
+          console.log(`[QwenProvider] Streaming timeout, retrying (attempt ${attempt})...`);
+          continue; // Retry
+        }
+        throw error; // Other errors, propagate
+      }
+    }
+  }
+
+  private async executeStream(
+    requestId: number,
+    messages: ChatMessage[],
+    settings: ChatStreamSettings,
+    webview: vscode.WebviewView | vscode.WebviewPanel,
+    signal: AbortSignal,
+    timeoutMs: number
+  ): Promise<void> {
+    await this.ensureAuthenticated(settings);
+    
+    // Create OpenAI client with Qwen credentials
+    if (!this.client) {
+      this.client = new OpenAI({
+        apiKey: this.credentials!.access_token,
+        baseURL: this.getBaseUrl(this.credentials!),
+      });
+    } else {
+      // Update credentials if they changed
+      this.client.apiKey = this.credentials!.access_token;
+      this.client.baseURL = this.getBaseUrl(this.credentials!);
+    }
+
+    let hasReceivedFirstChunk = false;
+    let timeoutId: NodeJS.Timeout | null = null;
+
+    // Create timeout promise for first chunk
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        if (!hasReceivedFirstChunk) {
+          reject(new StreamingTimeoutError('No streaming data received within timeout'));
+        }
+      }, timeoutMs);
+    });
+
+    try {
       const stream = await this.client.chat.completions.create({
         model: settings.model,
         messages: messages.map(m => ({
@@ -76,29 +131,46 @@ export class QwenProvider implements ILLMProvider {
       // Qwen returns cumulative content, not deltas - track full content to extract only new text
       let fullContent = '';
 
-      for await (const chunk of stream) {
-        if (signal.aborted) {
-          break;
-        }
-
-        const content = chunk.choices[0]?.delta?.content;
-        if (content) {
-          // Extract only the new text by comparing with previous full content
-          let newText = content;
-          if (content.startsWith(fullContent)) {
-            newText = content.substring(fullContent.length);
+      const processStream = async () => {
+        for await (const chunk of stream) {
+          if (signal.aborted) {
+            break;
           }
-          fullContent = content;
 
-          if (newText) {
-            webview.webview.postMessage({
-              type: 'chatStreamChunk',
-              requestId,
-              chunk: newText
-            });
+          const content = chunk.choices[0]?.delta?.content;
+          if (content) {
+            // Mark first chunk received and clear timeout
+            if (!hasReceivedFirstChunk) {
+              hasReceivedFirstChunk = true;
+              if (timeoutId) {
+                clearTimeout(timeoutId);
+                timeoutId = null;
+              }
+            }
+
+            // Extract only the new text by comparing with previous full content
+            let newText = content;
+            if (content.startsWith(fullContent)) {
+              newText = content.substring(fullContent.length);
+            }
+            fullContent = content;
+
+            if (newText) {
+              webview.webview.postMessage({
+                type: 'chatStreamChunk',
+                requestId,
+                chunk: newText
+              });
+            }
           }
         }
-      }
+      };
+
+      // Race between stream processing and timeout
+      await Promise.race([
+        processStream(),
+        timeoutPromise
+      ]);
       
       if (!signal.aborted) {
         webview.webview.postMessage({
@@ -106,20 +178,25 @@ export class QwenProvider implements ILLMProvider {
           requestId
         });
       }
-      
-    } catch (error: any) {
+    } catch (error) {
+      // Clean up timeout
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+
       if (signal.aborted) {
         return;
       }
       
-      // Handle 401 token expiry
-      if (error.status === 401) {
-        this.credentials = await this.refreshAccessToken(this.credentials!, settings);
-        this.client = null; // Reset client to use new credentials
-        return this.streamChat(requestId, messages, settings, webview, signal);
+      if (error instanceof StreamingTimeoutError) {
+        throw error; // Let retry logic handle this
       }
       
       throw new Error(`Qwen API Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     }
   }
 

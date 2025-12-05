@@ -80,6 +80,11 @@ export class EchoSearchTool implements ITool {
   name = 'echo_search';
 
   async execute(parameters: Record<string, unknown>, onProgress?: ToolProgressCallback, signal?: AbortSignal): Promise<ToolExecutionResult> {
+    // Check abort FIRST before any work
+    if (signal?.aborted) {
+      return { success: false, error: 'Aborted' };
+    }
+
     const query = parameters.query as string;
     const searchPath = (parameters.path as string) || '';
     const hints = (parameters.hints as string[]) || [];
@@ -124,7 +129,7 @@ export class EchoSearchTool implements ITool {
 
       const subAgentProgressCallback = (message: string) => {
         console.log(`[EchoSearch] ${message}`);
-        
+
         // Parse message into structured progress
         currentProgress = parseProgressMessage(message, currentProgress);
 
@@ -147,7 +152,7 @@ export class EchoSearchTool implements ITool {
       };
 
       const subAgent = new SubAgentService(indexingSettings, apiSettings, subAgentProgressCallback);
-      const result = await subAgent.search(query, searchPath, hints);
+      const result = await subAgent.search(query, searchPath, hints, signal);
 
       return {
         success: true,

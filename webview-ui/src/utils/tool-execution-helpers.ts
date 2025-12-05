@@ -38,8 +38,14 @@ export async function executeToolWithStopCheck(
       onProgress // progress callback for echo_search
     );
 
-    // Check if stopped during execution
-    if (isStoppingRef.current) {
+    // Check if stopped during execution or if the result indicates abort
+    const isAbortResult = !toolResult.success && (
+      isStoppingRef.current ||
+      toolResult.error?.toLowerCase().includes('abort') ||
+      toolResult.error?.toLowerCase().includes('stopped')
+    );
+
+    if (isAbortResult) {
       return {
         executedToolCalls: [
           {
@@ -73,6 +79,27 @@ export async function executeToolWithStopCheck(
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
+    // Check if this is an abort error (from signal abort or user stop)
+    const isAbortError = errorMessage.toLowerCase().includes('abort') || 
+                         errorMessage.toLowerCase().includes('stopped') ||
+                         isStoppingRef.current;
+    
+    if (isAbortError) {
+      return {
+        executedToolCalls: [
+          {
+            toolName: toolBlock.toolName,
+            parameters: toolBlock.parameters,
+            status: 'aborted' as const,
+            result: { success: false, error: 'Stopped by user' },
+          },
+        ],
+        toolResults: [],
+        wasStopped: true,
+      };
+    }
+    
     return {
       executedToolCalls: [
         {

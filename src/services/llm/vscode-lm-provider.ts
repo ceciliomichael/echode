@@ -1,5 +1,8 @@
 import * as vscode from 'vscode';
 import { ILLMProvider, ChatMessage, ChatStreamSettings } from './llm-provider.interface';
+import { StreamingTimeoutError } from '../../utils/streaming-timeout';
+
+const DEFAULT_STREAMING_TIMEOUT = 10000; // 10 seconds
 
 export class VSCodeLMProvider implements ILLMProvider {
   async streamChat(
@@ -9,48 +12,93 @@ export class VSCodeLMProvider implements ILLMProvider {
     webview: vscode.WebviewView | vscode.WebviewPanel,
     signal: AbortSignal
   ): Promise<void> {
-    try {
-      // Select the language model based on the model name from settings
-      const modelFamily = this.getModelFamily(settings.model);
-      
-      const models = await vscode.lm.selectChatModels({
-        vendor: 'copilot',
-        family: modelFamily,
-      });
+    const timeoutMs = settings.streamingTimeout ?? DEFAULT_STREAMING_TIMEOUT;
+    let attempt = 0;
 
-      if (models.length === 0) {
-        throw new Error('No VS Code language models available. Please ensure GitHub Copilot is enabled.');
+    while (true) {
+      if (signal.aborted) {
+        return;
       }
 
-      const [model] = models;
-
-      // Convert messages to LanguageModelChatMessage format
-      const chatMessages = messages.map(msg => {
-        // Extract text content (VS Code LM API doesn't support images yet)
-        let textContent: string;
-        if (typeof msg.content === 'string') {
-          textContent = msg.content;
-        } else {
-          // Extract text from multimodal content
-          textContent = msg.content
-            .filter(c => c.type === 'text' && c.text)
-            .map(c => c.text)
-            .join('\n') || '';
+      attempt++;
+      try {
+        await this.executeStream(requestId, messages, settings, webview, signal, timeoutMs);
+        return; // Success, exit retry loop
+      } catch (error) {
+        if (signal.aborted) {
+          return;
         }
-        
-        if (msg.role === 'system') {
-          return vscode.LanguageModelChatMessage.User(textContent);
-        } else if (msg.role === 'user') {
-          return vscode.LanguageModelChatMessage.User(textContent);
-        } else {
-          return vscode.LanguageModelChatMessage.Assistant(textContent);
+        if (error instanceof StreamingTimeoutError) {
+          console.log(`[VSCodeLMProvider] Streaming timeout, retrying (attempt ${attempt})...`);
+          continue; // Retry
         }
-      });
+        throw error; // Other errors, propagate
+      }
+    }
+  }
 
-      // Create cancellation token from abort signal
-      const tokenSource = new vscode.CancellationTokenSource();
-      signal.addEventListener('abort', () => tokenSource.cancel());
+  private async executeStream(
+    requestId: number,
+    messages: ChatMessage[],
+    settings: ChatStreamSettings,
+    webview: vscode.WebviewView | vscode.WebviewPanel,
+    signal: AbortSignal,
+    timeoutMs: number
+  ): Promise<void> {
+    // Select the language model based on the model name from settings
+    const modelFamily = this.getModelFamily(settings.model);
+    
+    const models = await vscode.lm.selectChatModels({
+      vendor: 'copilot',
+      family: modelFamily,
+    });
 
+    if (models.length === 0) {
+      throw new Error('No VS Code language models available. Please ensure GitHub Copilot is enabled.');
+    }
+
+    const [model] = models;
+
+    // Convert messages to LanguageModelChatMessage format
+    const chatMessages = messages.map(msg => {
+      // Extract text content (VS Code LM API doesn't support images yet)
+      let textContent: string;
+      if (typeof msg.content === 'string') {
+        textContent = msg.content;
+      } else {
+        // Extract text from multimodal content
+        textContent = msg.content
+          .filter(c => c.type === 'text' && c.text)
+          .map(c => c.text)
+          .join('\n') || '';
+      }
+      
+      if (msg.role === 'system') {
+        return vscode.LanguageModelChatMessage.User(textContent);
+      } else if (msg.role === 'user') {
+        return vscode.LanguageModelChatMessage.User(textContent);
+      } else {
+        return vscode.LanguageModelChatMessage.Assistant(textContent);
+      }
+    });
+
+    // Create cancellation token from abort signal
+    const tokenSource = new vscode.CancellationTokenSource();
+    signal.addEventListener('abort', () => tokenSource.cancel());
+
+    let hasReceivedFirstChunk = false;
+    let timeoutId: NodeJS.Timeout | null = null;
+
+    // Create timeout promise for first chunk
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        if (!hasReceivedFirstChunk) {
+          reject(new StreamingTimeoutError('No streaming data received within timeout'));
+        }
+      }, timeoutMs);
+    });
+
+    try {
       // Send request to the language model
       const request = await model.sendRequest(
         chatMessages,
@@ -60,18 +108,35 @@ export class VSCodeLMProvider implements ILLMProvider {
         tokenSource.token
       );
 
-      // Stream the response
-      for await (const fragment of request.text) {
-        if (signal.aborted) {
-          break;
-        }
+      const processStream = async () => {
+        // Stream the response
+        for await (const fragment of request.text) {
+          if (signal.aborted) {
+            break;
+          }
 
-        webview.webview.postMessage({
-          type: 'chatStreamChunk',
-          requestId,
-          chunk: fragment,
-        });
-      }
+          // Mark first chunk received and clear timeout
+          if (!hasReceivedFirstChunk) {
+            hasReceivedFirstChunk = true;
+            if (timeoutId) {
+              clearTimeout(timeoutId);
+              timeoutId = null;
+            }
+          }
+
+          webview.webview.postMessage({
+            type: 'chatStreamChunk',
+            requestId,
+            chunk: fragment,
+          });
+        }
+      };
+
+      // Race between stream processing and timeout
+      await Promise.race([
+        processStream(),
+        timeoutPromise
+      ]);
 
       // Signal completion if not aborted
       if (!signal.aborted) {
@@ -84,8 +149,18 @@ export class VSCodeLMProvider implements ILLMProvider {
       // Clean up
       tokenSource.dispose();
     } catch (error) {
+      // Clean up timeout
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      tokenSource.dispose();
+
       if (signal.aborted) {
         return;
+      }
+
+      if (error instanceof StreamingTimeoutError) {
+        throw error; // Let retry logic handle this
       }
 
       // Handle VS Code Language Model specific errors
@@ -97,6 +172,10 @@ export class VSCodeLMProvider implements ILLMProvider {
       throw new Error(
         `VS Code LM Error: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     }
   }
 

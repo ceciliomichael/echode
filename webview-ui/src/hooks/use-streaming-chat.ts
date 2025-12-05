@@ -75,6 +75,7 @@ export function useStreamingChat(
     compressedMessagesRef: state.compressedMessagesRef,
     compressedContextTokensRef: state.compressedContextTokensRef,
     isStreamingRef: state.isStreamingRef,
+    isExecutingToolRef: state.isExecutingToolRef,
     sendingMessageRef: state.sendingMessageRef,
     abortControllerRef: state.abortControllerRef,
     executeToolAndContinue,
@@ -119,11 +120,11 @@ export function useStreamingChat(
     state.setRevertPreviewMessageId(null);
   }, [state]);
 
-  // Abort stream
+  // Abort stream and tool execution
   const abortStream = useCallback(() => {
-    if (state.abortAndReset()) {
-      state.setIsStreaming(false);
-    }
+    // abortAndReset now handles all state cleanup including
+    // isStreaming, isExecutingTool, and sets isStoppingRef for async abort
+    state.abortAndReset();
   }, [state]);
 
   return {

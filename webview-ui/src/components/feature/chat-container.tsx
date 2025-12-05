@@ -199,6 +199,7 @@ export function ChatContainer() {
         <ChatInput 
           onSendMessage={handleSendMessage} 
           isStreaming={isStreaming}
+          isExecutingTool={isExecutingTool}
           isCompressing={isCompressing}
           onStop={abortStream}
           todos={tasks}

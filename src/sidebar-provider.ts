@@ -25,6 +25,8 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
   private _settingsPanel?: vscode.WebviewPanel;
   private _mermaidPanels = new Map<string, vscode.WebviewPanel>();
   private _autocompleteService: AutocompleteService;
+  private _fileWatcher?: vscode.FileSystemWatcher;
+  private _workspaceUpdateDebounce?: NodeJS.Timeout;
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -40,7 +42,11 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
       const newWorkspacePath = this.getCurrentWorkspacePath();
       this._historyService.updateWorkspace(newWorkspacePath);
+      this.setupFileWatcher();
     });
+
+    // Setup file watcher for workspace file changes
+    this.setupFileWatcher();
   }
 
   private getCurrentWorkspacePath(): string | undefined {
@@ -48,6 +54,40 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
     return workspaceFolders && workspaceFolders.length > 0
       ? workspaceFolders[0].uri.fsPath
       : undefined;
+  }
+
+  /**
+   * Setup file system watcher to detect file changes in workspace
+   */
+  private setupFileWatcher(): void {
+    // Dispose existing watcher if any
+    this._fileWatcher?.dispose();
+
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+      return;
+    }
+
+    // Watch for all file changes in workspace
+    this._fileWatcher = vscode.workspace.createFileSystemWatcher(
+      new vscode.RelativePattern(workspaceFolders[0], '**/*')
+    );
+
+    // Debounced update to avoid excessive refreshes
+    const debouncedUpdate = () => {
+      if (this._workspaceUpdateDebounce) {
+        clearTimeout(this._workspaceUpdateDebounce);
+      }
+      this._workspaceUpdateDebounce = setTimeout(() => {
+        if (this._view) {
+          this.sendWorkspaceInfo(this._view);
+        }
+      }, 300);
+    };
+
+    // Listen for file create, delete, and rename events
+    this._fileWatcher.onDidCreate(debouncedUpdate);
+    this._fileWatcher.onDidDelete(debouncedUpdate);
   }
 
   /**
