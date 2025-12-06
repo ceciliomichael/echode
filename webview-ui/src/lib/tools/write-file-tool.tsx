@@ -67,6 +67,22 @@ Example: Requesting to write to config.json
 </invoke>
 </function_calls>
 
+Example: Creating multiple files in parallel (use multiple invoke blocks within one function_calls block):
+<function_calls>
+<invoke name="write_to_file">
+<parameter name="path">src/components/Button.tsx</parameter>
+<parameter name="content">
+export function Button() { return <button>Click</button>; }
+</parameter>
+</invoke>
+<invoke name="write_to_file">
+<parameter name="path">src/components/Input.tsx</parameter>
+<parameter name="content">
+export function Input() { return <input />; }
+</parameter>
+</invoke>
+</function_calls>
+
 IMPORTANT: Tool Safety and Usage Guidelines:
 - ONLY use for: (1) NEW files, (2) complete rewrites, or (3) large refactors where file is now shorter
 - NEVER use write_to_file for small, localized edits to existing files; use apply_diff instead

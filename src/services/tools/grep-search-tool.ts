@@ -1,7 +1,7 @@
 import * as path from 'path';
 import { ITool, ToolExecutionResult } from './tool.interface';
 import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
-import { regexSearchFiles } from '../ripgrep';
+import { regexSearchFilesStructured } from '../ripgrep';
 
 /**
  * Grep Search Tool - Uses native ripgrep for fast regex searching
@@ -16,6 +16,8 @@ export class GrepSearchTool implements ITool {
     const query = parameters.query as string;
     const searchPath = (parameters.path as string) || '';
     const filePattern = parameters.includes as string | undefined;
+    const isRegex = (parameters.isRegex as boolean) || false;
+    const caseSensitive = (parameters.caseSensitive as boolean) || false;
 
     // Validate required parameters
     if (!query) {
@@ -45,8 +47,8 @@ export class GrepSearchTool implements ITool {
         }
       }
 
-      // Execute ripgrep search
-      const results = await regexSearchFiles(
+      // Execute ripgrep search with structured results
+      const searchResult = await regexSearchFilesStructured(
         workspaceRoot,
         absoluteSearchPath,
         query,
@@ -59,7 +61,14 @@ export class GrepSearchTool implements ITool {
           query,
           path: searchPath || '/',
           filePattern: filePattern || '*',
-          results,
+          isRegex,
+          caseSensitive,
+          // Structured results for frontend UI rendering
+          results: searchResult.results,
+          totalMatches: searchResult.totalMatches,
+          filesWithMatches: searchResult.filesWithMatches,
+          // Formatted string for AI context
+          formattedResults: searchResult.formattedString,
         },
       };
     } catch (error) {

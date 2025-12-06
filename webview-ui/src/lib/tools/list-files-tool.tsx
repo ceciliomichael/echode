@@ -27,33 +27,42 @@ Parameters:
 - path: (required) The directory path to list (relative to workspace root)
 - recursive: (optional) If 'true', list all files under this directory recursively. Defaults to false (top-level only).
 
-Usage:
-<function_calls>
-<invoke name="list_files">
-<parameter name="path">directory/path</parameter>
-</invoke>
-</function_calls>
+Examples:
 
-Example: Listing contents of src directory
+1. List a single directory:
 <function_calls>
 <invoke name="list_files">
 <parameter name="path">src</parameter>
 </invoke>
 </function_calls>
 
-Example: Listing root directory
+2. List multiple directories in parallel:
+<function_calls>
+<invoke name="list_files">
+<parameter name="path">src/components</parameter>
+</invoke>
+<invoke name="list_files">
+<parameter name="path">src/hooks</parameter>
+</invoke>
+<invoke name="list_files">
+<parameter name="path">src/utils</parameter>
+</invoke>
+</function_calls>
+
+3. List root directory:
 <function_calls>
 <invoke name="list_files">
 <parameter name="path">.</parameter>
 </invoke>
 </function_calls>
 
-IMPORTANT: When to use list_files:
+IMPORTANT:
 - Use list_files for paths WITHOUT file extensions (e.g., src/app, api, components/ui)
 - Use list_files when you receive "Cannot read directory" error from read_file
 - After listing, use read_file on specific FILES from the results (e.g., src/app/page.tsx)
 - NEVER use read_file directly on directory paths - always list_files first, then read_file on individual files
-- Very large directories may be truncated to the first 200 files for performance`,
+- Very large directories may be truncated to the first 200 files for performance
+- Use multiple <invoke> blocks within a single <function_calls> to list multiple directories in parallel`,
     icon: FolderTree,
     usage: 'List directory contents - DEFAULT for extensionless paths',
     formatExample: '<function_calls>\n<invoke name="list_files">\n<parameter name="path">src/app</parameter>\n</invoke>\n</function_calls>',

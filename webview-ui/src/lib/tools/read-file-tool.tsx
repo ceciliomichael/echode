@@ -23,30 +23,35 @@ registerToolPlugin({
     name: 'Read File',
     description: 'Read file contents - ONLY for paths WITH file extensions',
     aiDescription: `## read_file
-Description: Read contents of one or multiple files. Outputs line-numbered content for easy reference.
+Description: Read contents of a single file. Outputs line-numbered content for easy reference.
 
-**DEFAULT: Reads first 500 lines per file.** Use offset/limit for different sections.
+**DEFAULT: Reads first 500 lines.** Use offset/limit for different sections.
 
 Parameters:
-- path: (required for single file) File path with extension (e.g., src/app.ts)
-- paths: (required for multiple files) JSON array of file paths (e.g., ["src/a.ts", "src/b.ts"])
+- path: (required) File path with extension (e.g., src/app.ts)
 - offset: (optional) Start line number (1-based, default: 1)
 - limit: (optional) Number of lines to read (default: 500)
 - check_lints: (optional) If true, fetch and return lint/compile diagnostics for the file. Defaults to false.
 
 Examples:
 
-1. Single file:
+1. Read a single file:
 <function_calls>
 <invoke name="read_file">
 <parameter name="path">src/app.ts</parameter>
 </invoke>
 </function_calls>
 
-2. Multiple files (parallel read):
+2. Read multiple files in parallel (recommended for efficiency):
 <function_calls>
 <invoke name="read_file">
-<parameter name="paths">["src/components/header.tsx", "src/components/footer.tsx", "src/utils/helpers.ts"]</parameter>
+<parameter name="path">src/components/header.tsx</parameter>
+</invoke>
+<invoke name="read_file">
+<parameter name="path">src/components/footer.tsx</parameter>
+</invoke>
+<invoke name="read_file">
+<parameter name="path">src/utils/helpers.ts</parameter>
 </invoke>
 </function_calls>
 
@@ -60,10 +65,10 @@ Examples:
 </function_calls>
 
 IMPORTANT:
-- Use \`paths\` array when reading multiple related files - reads in parallel for efficiency.
 - File paths MUST have extensions (treat extension-less paths as directories) - if no extension, call list_files first, then read_file on a specific file.
 - If you get a "Cannot read directory" error, switch to list_files on that path.
-- Avoid re-reading the same file and range repeatedly in one conversation; reuse earlier results unless the file has changed.`,
+- Avoid re-reading the same file and range repeatedly in one conversation; reuse earlier results unless the file has changed.
+- Use multiple <invoke> blocks within a single <function_calls> to read multiple files in parallel.`,
     icon: FileText,
     usage: 'Read file content - ONLY for paths WITH extensions',
     formatExample: '<function_calls>\n<invoke name="read_file">\n<parameter name="path">src/app.ts</parameter>\n</invoke>\n</function_calls>',
@@ -73,52 +78,6 @@ IMPORTANT:
   },
   renderer: (data: unknown) => {
     if (typeof data === 'object' && data !== null) {
-      // Handle multiple files result
-      if ('files' in data && Array.isArray((data as { files: unknown[] }).files)) {
-        const multiResult = data as {
-          files: Array<{
-            content: string;
-            path: string;
-            startLine?: number;
-            endLine?: number;
-            totalLines?: number;
-          }>; count: number
-        };
-
-        return (
-          <div className="space-y-3">
-            <div className="text-xs font-semibold opacity-70">
-              {multiResult.count} file{multiResult.count > 1 ? 's' : ''} read
-            </div>
-            {multiResult.files.map((file, index) => {
-              const lineRangeText = file.startLine && file.endLine
-                ? `Lines ${file.startLine}-${file.endLine}`
-                : file.totalLines
-                  ? `${file.totalLines} lines`
-                  : '';
-
-              return (
-                <div key={index} className="space-y-2">
-                  <div className="flex items-center justify-between text-xs font-semibold opacity-70">
-                    <span>File: {file.path}</span>
-                    {lineRangeText && <span>{lineRangeText}</span>}
-                  </div>
-                  <pre
-                    className="text-xs font-mono whitespace-pre-wrap overflow-x-auto p-2 rounded"
-                    style={{
-                      backgroundColor: 'var(--vscode-textCodeBlock-background)',
-                      color: 'var(--vscode-editor-foreground)',
-                    }}
-                  >
-                    {file.content}
-                  </pre>
-                </div>
-              );
-            })}
-          </div>
-        );
-      }
-
       // Handle single file result
       if ('content' in data) {
         const result = data as {

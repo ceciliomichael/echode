@@ -108,14 +108,6 @@ Parameters:
 - sortBy: (optional) Sort results by 'name', 'size', or 'extension' (default: name)
 - sortOrder: (optional) Sort order 'asc' or 'desc' (default: asc)
 
-Usage:
-<function_calls>
-<invoke name="glob_search">
-<parameter name="pattern">glob pattern</parameter>
-<parameter name="path">search directory</parameter>
-</invoke>
-</function_calls>
-
 Examples:
 
 1. Find all TypeScript files:
@@ -125,11 +117,19 @@ Examples:
 </invoke>
 </function_calls>
 
-2. Find all component files in src:
+2. Search multiple patterns in parallel:
 <function_calls>
 <invoke name="glob_search">
-<parameter name="pattern">**/*Component.tsx</parameter>
-<parameter name="path">src</parameter>
+<parameter name="pattern">**/*.tsx</parameter>
+<parameter name="path">src/components</parameter>
+</invoke>
+<invoke name="glob_search">
+<parameter name="pattern">**/*.ts</parameter>
+<parameter name="path">src/hooks</parameter>
+</invoke>
+<invoke name="glob_search">
+<parameter name="pattern">**/*.ts</parameter>
+<parameter name="path">src/utils</parameter>
 </invoke>
 </function_calls>
 
@@ -145,7 +145,8 @@ IMPORTANT: Pattern Guidelines:
 - Use ** to match any characters across multiple directory levels
 - Use {a,b,c} to match multiple alternatives
 - After finding files with glob_search, use read_file to examine specific files
-- For content search (finding code/text), use grep_search instead`,
+- For content search (finding code/text), use grep_search instead
+- Use multiple <invoke> blocks within a single <function_calls> to search multiple patterns in parallel`,
     icon: FileSearch,
     usage: 'Find files based on glob patterns',
     formatExample: '<function_calls>\n<invoke name="glob_search">\n<parameter name="pattern">*.ts</parameter>\n<parameter name="path">src</parameter>\n</invoke>\n</function_calls>',

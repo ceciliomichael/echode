@@ -54,6 +54,7 @@ function findMatchingClosingTag(
 /**
  * Extract function_calls blocks using balanced tag matching
  * This properly handles nested content that may contain </function_calls> or </invoke> text
+ * Skips blocks that are inside code blocks (preceded by backticks)
  */
 function extractFunctionCallsBlocks(content: string): Array<{ innerContent: string; fullMatch: string; startIndex: number; endIndex: number }> {
   const blocks: Array<{ innerContent: string; fullMatch: string; startIndex: number; endIndex: number }> = [];
@@ -64,6 +65,12 @@ function extractFunctionCallsBlocks(content: string): Array<{ innerContent: stri
   while (searchPos < content.length) {
     const openPos = content.indexOf(openTag, searchPos);
     if (openPos === -1) break;
+
+    // Skip if preceded by backtick (inside code block or inline code)
+    if (openPos > 0 && content[openPos - 1] === '`') {
+      searchPos = openPos + openTag.length;
+      continue;
+    }
 
     const openTagEnd = openPos + openTag.length;
     const closePos = findMatchingClosingTag(content, openTagEnd, openTag, closeTag);
@@ -133,6 +140,7 @@ function findMatchingInvokeClosingTag(content: string, openTagEnd: number): numb
  * Extract invoke blocks using balanced tag matching
  * Handles nested content that may contain </invoke> text (e.g., in HTML/code)
  * Uses regex-based opening tag detection to avoid false matches on partial strings
+ * IMPORTANT: Only extracts TOP-LEVEL invoke blocks, skipping nested invokes inside parameter values
  */
 function extractInvokeBlocks(content: string): Array<{ toolName: string; innerContent: string; fullMatch: string }> {
   const blocks: Array<{ toolName: string; innerContent: string; fullMatch: string }> = [];
@@ -157,6 +165,10 @@ function extractInvokeBlocks(content: string): Array<{ toolName: string; innerCo
         innerContent,
         fullMatch
       });
+
+      // CRITICAL: Skip past this entire invoke block to avoid finding nested invokes
+      // inside parameter values (e.g., tool syntax inside write_to_file content)
+      invokeOpenRegex.lastIndex = closePos + closeTag.length;
     }
   }
 
@@ -488,11 +500,10 @@ export function trimToLastCompleteToolBlock(content: string): string {
     return content;
   }
 
-  // Remove <think> blocks before processing
-  let contentWithoutThinkBlocks = content.replace(
-    /<think>[\s\S]*?<\/think>/g,
-    '',
-  );
+  // Remove <think> and <thinking> blocks before processing
+  let contentWithoutThinkBlocks = content
+    .replace(/<think>[\s\S]*?<\/think>/g, '')
+    .replace(/<thinking>[\s\S]*?<\/thinking>/g, '');
 
   // Clean up AI formatting mistakes
   contentWithoutThinkBlocks = cleanToolCallContent(contentWithoutThinkBlocks);
@@ -540,11 +551,10 @@ export function trimToFirstCompleteToolBlock(content: string): string {
     return content;
   }
 
-  // Remove <think> blocks before processing
-  let contentWithoutThinkBlocks = content.replace(
-    /<think>[\s\S]*?<\/think>/g,
-    '',
-  );
+  // Remove <think> and <thinking> blocks before processing
+  let contentWithoutThinkBlocks = content
+    .replace(/<think>[\s\S]*?<\/think>/g, '')
+    .replace(/<thinking>[\s\S]*?<\/thinking>/g, '');
 
   // Clean up AI formatting mistakes
   contentWithoutThinkBlocks = cleanToolCallContent(contentWithoutThinkBlocks);
@@ -653,15 +663,14 @@ function cleanToolCallContent(content: string): string {
 
 /**
  * Extracts all complete tool blocks from content
- * Excludes tool blocks that are inside <think> tags
+ * Excludes tool blocks that are inside <think> or <thinking> tags
  * Uses balanced tag matching to handle nested content (e.g., HTML with </script>)
  */
 export function extractToolBlocks(content: string): ParsedToolBlock[] {
-  // Remove all <think>...</think> blocks to prevent tool execution inside them
-  let contentWithoutThinkBlocks = content.replace(
-    /<think>[\s\S]*?<\/think>/g,
-    '',
-  );
+  // Remove all <think>...</think> and <thinking>...</thinking> blocks to prevent tool execution inside them
+  let contentWithoutThinkBlocks = content
+    .replace(/<think>[\s\S]*?<\/think>/g, '')
+    .replace(/<thinking>[\s\S]*?<\/thinking>/g, '');
 
   // Clean up common AI formatting mistakes
   contentWithoutThinkBlocks = cleanToolCallContent(contentWithoutThinkBlocks);
@@ -699,56 +708,86 @@ export function isParallelizableTool(toolName: string): boolean {
     'grep_search',
     'glob_search',
     'todo_read',
+    'write_to_file',
+    'apply_diff',
   ];
   return parallelizableTools.includes(toolName);
 }
 
 /**
- * Extract multiple consecutive parallelizable tool blocks from the start of content
- * Stops when encountering a non-parallelizable tool or non-tool content
+ * Extract parallelizable tool blocks starting from a given tool index
+ * Finds the function_calls block that contains the tool at startingToolIndex
+ * and returns all parallelizable tools from that block.
  */
-export function extractParallelizableToolBlocks(content: string): ParsedToolBlock[] {
-  const allBlocks = extractToolBlocks(content);
-  const parallelBlocks: ParsedToolBlock[] = [];
-
-  // Find the position of the first tool block
-  if (allBlocks.length === 0) {
+export function extractParallelizableToolBlocks(content: string, startingToolIndex: number = 0): ParsedToolBlock[] {
+  // Remove think blocks and clean content
+  const contentWithoutThink = cleanToolCallContent(
+    content.replace(/<think>[\s\S]*?<\/think>/g, '').replace(/<thinking>[\s\S]*?<\/thinking>/g, '')
+  );
+  
+  // Get all function_calls blocks
+  const functionCallsBlocks = extractFunctionCallsBlocks(contentWithoutThink);
+  console.log(`[ToolParser] extractParallelizableToolBlocks: found ${functionCallsBlocks.length} function_calls blocks, startingToolIndex=${startingToolIndex}`);
+  
+  if (functionCallsBlocks.length === 0) {
     return [];
   }
 
-  // Check if content starts with tool blocks (allowing whitespace)
-  const trimmedContent = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-  const startsWithToolBlock = trimmedContent.startsWith('<function_calls>');
-
-  if (!startsWithToolBlock) {
-    // If content doesn't start with a tool block, only execute first tool
-    return allBlocks.length > 0 && isParallelizableTool(allBlocks[0].toolName)
-      ? [allBlocks[0]]
-      : [];
-  }
-
-  // Extract consecutive parallelizable tool blocks from the start
-  for (const block of allBlocks) {
-    if (!isParallelizableTool(block.toolName)) {
-      // Stop at the first non-parallelizable tool
+  // Find the function_calls block that contains the tool at startingToolIndex
+  let currentToolIndex = 0;
+  let targetBlock: typeof functionCallsBlocks[0] | null = null;
+  let blockStartIndex = 0;
+  
+  for (const block of functionCallsBlocks) {
+    const parsedBlocks = parseFunctionCallsBlock(block.innerContent, block.fullMatch);
+    const blockEndIndex = currentToolIndex + parsedBlocks.length;
+    
+    if (startingToolIndex >= currentToolIndex && startingToolIndex < blockEndIndex) {
+      targetBlock = block;
+      blockStartIndex = currentToolIndex;
       break;
     }
-
-    // Check if this block is consecutive (no non-tool content between blocks)
-    if (parallelBlocks.length > 0) {
-      const lastBlock = parallelBlocks[parallelBlocks.length - 1];
-      const lastBlockEnd = content.indexOf(lastBlock.rawContent) + lastBlock.rawContent.length;
-      const currentBlockStart = content.indexOf(block.rawContent);
-      const contentBetween = content.slice(lastBlockEnd, currentBlockStart).trim();
-
-      // If there's non-whitespace content between blocks, stop
-      if (contentBetween.length > 0) {
-        break;
-      }
-    }
-
-    parallelBlocks.push(block);
+    
+    currentToolIndex = blockEndIndex;
+  }
+  
+  if (!targetBlock) {
+    console.log(`[ToolParser] No block found containing toolIndex ${startingToolIndex}`);
+    return [];
   }
 
-  return parallelBlocks;
+  console.log(`[ToolParser] Found block at index ${blockStartIndex} containing toolIndex ${startingToolIndex}`);
+  
+  const parsedBlocks = parseFunctionCallsBlock(targetBlock.innerContent, targetBlock.fullMatch);
+  console.log(`[ToolParser] Parsed ${parsedBlocks.length} invoke blocks from function_calls`);
+  
+  if (parsedBlocks.length === 0) {
+    return [];
+  }
+
+  // Get only the blocks starting from the relative position within this function_calls block
+  const relativeStartIndex = startingToolIndex - blockStartIndex;
+  const blocksFromStart = parsedBlocks.slice(relativeStartIndex);
+  
+  if (blocksFromStart.length === 0) {
+    return [];
+  }
+
+  // Log each parsed block
+  blocksFromStart.forEach((block, idx) => {
+    console.log(`[ToolParser] Block ${idx}: ${block.toolName}, parallelizable: ${isParallelizableTool(block.toolName)}`);
+  });
+
+  // Check if ALL remaining tools in this function_calls block are parallelizable
+  const allParallelizable = blocksFromStart.every(block => isParallelizableTool(block.toolName));
+  
+  if (!allParallelizable) {
+    // If any tool is not parallelizable, only return the first tool for sequential execution
+    console.log(`[ToolParser] Not all tools parallelizable, returning only first`);
+    return [blocksFromStart[0]];
+  }
+
+  // All tools are parallelizable - return all for parallel execution
+  console.log(`[ToolParser] All ${blocksFromStart.length} tools are parallelizable, returning all for parallel execution`);
+  return blocksFromStart;
 }

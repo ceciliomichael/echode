@@ -40,6 +40,26 @@ interface SearchLineResult {
     column?: number;
 }
 
+// Structured result format for frontend UI rendering
+export interface GrepMatch {
+    line: number;
+    column: number;
+    text: string;
+    matchText: string;
+}
+
+export interface GrepFileResult {
+    file: string;
+    matches: GrepMatch[];
+}
+
+export interface GrepSearchResult {
+    results: GrepFileResult[];
+    formattedString: string;
+    totalMatches: number;
+    filesWithMatches: number;
+}
+
 /**
  * Helper function to check if a path exists.
  */
@@ -162,11 +182,15 @@ export async function regexSearchFiles(
 
     args.push('--context', '1', '--no-messages', directoryPath);
 
+    console.log('[GREP] Ripgrep args:', args.join(' '));
+
     let output: string;
     try {
         output = await execRipgrep(rgPath, args);
+        console.log('[GREP] Ripgrep output length:', output.length);
+        console.log('[GREP] Ripgrep output preview:', output.substring(0, 500));
     } catch (error) {
-        console.error('Error executing ripgrep:', error);
+        console.error('[GREP] Error executing ripgrep:', error);
         return 'No results found';
     }
 
@@ -216,10 +240,12 @@ export async function regexSearchFiles(
                     }
                 }
             } catch (error) {
-                console.error('Error parsing ripgrep output:', error);
+                console.error('[GREP] Error parsing ripgrep output line:', error);
             }
         }
     });
+
+    console.log('[GREP] Parsed results:', results.length, 'files');
 
     return formatResults(results, cwd);
 }
@@ -266,6 +292,147 @@ function formatResults(fileResults: SearchFileResult[], cwd: string): string {
     }
 
     return output.trim();
+}
+
+/**
+ * Convert internal SearchFileResult to structured GrepFileResult for frontend
+ */
+function toStructuredResults(fileResults: SearchFileResult[], cwd: string, query: string): GrepFileResult[] {
+    return fileResults.map((file) => {
+        const relativeFilePath = path.relative(cwd, file.file).replace(/\\/g, '/');
+        const matches: GrepMatch[] = [];
+
+        file.searchResults.forEach((result) => {
+            result.lines.forEach((line) => {
+                if (line.isMatch) {
+                    matches.push({
+                        line: line.line,
+                        column: line.column || 0,
+                        text: line.text.trimEnd(),
+                        matchText: query,
+                    });
+                }
+            });
+        });
+
+        return {
+            file: relativeFilePath,
+            matches,
+        };
+    }).filter(file => file.matches.length > 0);
+}
+
+/**
+ * Perform regex search on files using ripgrep - returns structured results for UI
+ * 
+ * @param cwd - Current working directory (for relative path calculation)
+ * @param directoryPath - The directory to search in
+ * @param regex - The regular expression to search for (Rust regex syntax)
+ * @param filePattern - Optional glob pattern to filter files
+ * @returns Structured search results with both UI-friendly array and formatted string
+ */
+export async function regexSearchFilesStructured(
+    cwd: string,
+    directoryPath: string,
+    regex: string,
+    filePattern?: string,
+): Promise<GrepSearchResult> {
+    const vscodeAppRoot = vscode.env.appRoot;
+    const rgPath = await getBinPath(vscodeAppRoot);
+
+    if (!rgPath) {
+        throw new Error('Could not find ripgrep binary');
+    }
+
+    const args = ['--json', '-e', regex];
+
+    // Add default directory excludes from excluded-patterns.ts
+    for (const dir of EXCLUDED_DIRECTORIES) {
+        args.push('-g', `!**/${dir}/**`);
+    }
+
+    // Add default file excludes from excluded-patterns.ts
+    for (const file of EXCLUDED_FILES) {
+        args.push('-g', `!${file}`);
+    }
+
+    // Only add --glob if a specific file pattern is provided
+    if (filePattern) {
+        args.push('--glob', filePattern);
+    }
+
+    args.push('--context', '1', '--no-messages', directoryPath);
+
+    let output: string;
+    try {
+        output = await execRipgrep(rgPath, args);
+    } catch (error) {
+        console.error('[GREP] Error executing ripgrep:', error);
+        return {
+            results: [],
+            formattedString: 'No results found',
+            totalMatches: 0,
+            filesWithMatches: 0,
+        };
+    }
+
+    const results: SearchFileResult[] = [];
+    let currentFile: SearchFileResult | null = null;
+
+    output.split('\n').forEach((line) => {
+        if (line) {
+            try {
+                const parsed = JSON.parse(line);
+                if (parsed.type === 'begin') {
+                    currentFile = {
+                        file: parsed.data.path.text.toString(),
+                        searchResults: [],
+                    };
+                } else if (parsed.type === 'end') {
+                    if (currentFile) {
+                        results.push(currentFile);
+                        currentFile = null;
+                    }
+                } else if ((parsed.type === 'match' || parsed.type === 'context') && currentFile) {
+                    const lineData = {
+                        line: parsed.data.line_number,
+                        text: truncateLine(parsed.data.lines.text),
+                        isMatch: parsed.type === 'match',
+                        ...(parsed.type === 'match' && { column: parsed.data.absolute_offset }),
+                    };
+
+                    const lastResult = currentFile.searchResults[currentFile.searchResults.length - 1];
+                    if (lastResult?.lines.length > 0) {
+                        const lastLine = lastResult.lines[lastResult.lines.length - 1];
+
+                        if (parsed.data.line_number <= lastLine.line + 1) {
+                            lastResult.lines.push(lineData);
+                        } else {
+                            currentFile.searchResults.push({
+                                lines: [lineData],
+                            });
+                        }
+                    } else {
+                        currentFile.searchResults.push({
+                            lines: [lineData],
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('[GREP] Error parsing ripgrep output line:', error);
+            }
+        }
+    });
+
+    const structuredResults = toStructuredResults(results, cwd, regex);
+    const totalMatches = structuredResults.reduce((sum, file) => sum + file.matches.length, 0);
+
+    return {
+        results: structuredResults,
+        formattedString: formatResults(results, cwd),
+        totalMatches,
+        filesWithMatches: structuredResults.length,
+    };
 }
 
 /**

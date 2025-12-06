@@ -215,31 +215,73 @@ function extractCompleteJsonObjects(partialArray: string): unknown[] {
 }
 
 /**
- * Extract invoke blocks using balanced tag matching
- * Handles nested content that may contain </invoke> text (e.g., in HTML/code)
+ * Extract ALL invoke blocks from content using balanced tag matching
+ * Returns array of all invoke blocks found
+ * IMPORTANT: Only extracts TOP-LEVEL invoke blocks, skipping nested invokes inside parameter values
  */
-function extractInvokeBlock(content: string): { toolName: string; innerContent: string } | null {
-  const invokeOpenRegex = /<invoke\s+name=["']([^"']+)["']>/;
-  const match = invokeOpenRegex.exec(content);
-
-  if (!match) {
-    return null;
-  }
-
-  const toolName = match[1];
-  const openTagEnd = match.index + match[0].length;
+function extractAllInvokeBlocks(content: string): Array<{ toolName: string; innerContent: string; fullMatch: string }> {
+  const blocks: Array<{ toolName: string; innerContent: string; fullMatch: string }> = [];
+  const invokeOpenRegex = /<invoke\s+name=["']([^"']+)["']>/g;
   const closeTag = '</invoke>';
 
-  // Find matching closing tag using balanced matching
-  const closePos = findMatchingClosingTag(content, openTagEnd, '<invoke', closeTag);
+  let match: RegExpExecArray | null;
+  while ((match = invokeOpenRegex.exec(content)) !== null) {
+    const toolName = match[1];
+    const openTagEnd = match.index + match[0].length;
 
-  if (closePos !== -1) {
-    const innerContent = content.slice(openTagEnd, closePos);
-    return { toolName, innerContent };
+    // Find matching closing tag using balanced matching
+    const closePos = findMatchingInvokeClosingTag(content, openTagEnd);
+
+    if (closePos !== -1) {
+      const innerContent = content.slice(openTagEnd, closePos);
+      const fullMatch = content.slice(match.index, closePos + closeTag.length);
+      blocks.push({ toolName, innerContent, fullMatch });
+      
+      // CRITICAL: Skip past this entire invoke block to avoid finding nested invokes
+      // inside parameter values (e.g., tool syntax inside write_to_file content)
+      invokeOpenRegex.lastIndex = closePos + closeTag.length;
+    } else {
+      // No closing tag - partial content for streaming (only for last block)
+      blocks.push({ toolName, innerContent: content.slice(openTagEnd), fullMatch: content.slice(match.index) });
+      break; // Stop at first incomplete block
+    }
   }
 
-  // No closing tag - return partial content for streaming
-  return { toolName, innerContent: content.slice(openTagEnd) };
+  return blocks;
+}
+
+/**
+ * Find matching closing tag for invoke using balanced tag counting
+ */
+function findMatchingInvokeClosingTag(content: string, openTagEnd: number): number {
+  let depth = 1;
+  let pos = openTagEnd;
+  const openingTagRegex = /<invoke\s+name=["'][^"']+["']>/g;
+  const closeTag = '</invoke>';
+
+  while (pos < content.length && depth > 0) {
+    openingTagRegex.lastIndex = pos;
+    const openMatch = openingTagRegex.exec(content);
+    const nextOpen = openMatch ? openMatch.index : -1;
+    const nextClose = content.indexOf(closeTag, pos);
+
+    if (nextClose === -1) {
+      return -1;
+    }
+
+    if (nextOpen !== -1 && nextOpen < nextClose) {
+      depth++;
+      pos = nextOpen + openMatch![0].length;
+    } else {
+      depth--;
+      if (depth === 0) {
+        return nextClose;
+      }
+      pos = nextClose + closeTag.length;
+    }
+  }
+
+  return -1;
 }
 
 /**
@@ -252,10 +294,26 @@ function findMatchingFunctionCallsClose(content: string, openTagEnd: number): nu
 
 /**
  * Find the next tool block start position (function_calls tag)
+ * Skips tags that are preceded by backticks (inside code blocks)
  */
 function findNextToolStart(content: string, fromPosition: number): number {
-  const pos = content.indexOf('<function_calls>', fromPosition);
-  return pos !== -1 ? pos : -1;
+  const tag = '<function_calls>';
+  let searchPos = fromPosition;
+  
+  while (searchPos < content.length) {
+    const pos = content.indexOf(tag, searchPos);
+    if (pos === -1) return -1;
+    
+    // Skip if preceded by backtick (inside code block or inline code)
+    if (pos > 0 && content[pos - 1] === '`') {
+      searchPos = pos + tag.length;
+      continue;
+    }
+    
+    return pos;
+  }
+  
+  return -1;
 }
 
 /**
@@ -389,47 +447,33 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
       const closeMarker = findMatchingFunctionCallsClose(content, contentStart);
 
       if (closeMarker !== -1) {
-        // Closed tool block
+        // Closed tool block - extract ALL invoke blocks from this function_calls
         const innerContent = content.slice(contentStart, closeMarker);
         const closingTagLength = closingTag.length;
         const rawContent = content.slice(toolStart, closeMarker + closingTagLength);
 
         try {
-          // Extract invoke block with tool name using balanced matching
-          const invokeResult = extractInvokeBlock(innerContent);
-          if (invokeResult) {
-            const { toolName, innerContent: invokeContent } = invokeResult;
-            const parameters = parseXMLParameters(invokeContent);
+          // Extract ALL invoke blocks using balanced matching
+          const invokeBlocks = extractAllInvokeBlocks(innerContent);
+          
+          if (invokeBlocks.length > 0) {
+            // Create a token for each invoke block
+            for (const invokeBlock of invokeBlocks) {
+              const { toolName, innerContent: invokeContent, fullMatch } = invokeBlock;
+              const parameters = parseXMLParameters(invokeContent);
 
-            // Allow all tool names - validation happens at execution time
-            if (toolName && typeof toolName === 'string') {
-              // Special handling for read_file with files array
-              if (toolName === 'read_file' && parameters.files && Array.isArray(parameters.files)) {
-                // Create individual tool tokens for each file in the array
-                (parameters.files as Array<unknown>).forEach((file: unknown, fileIdx: number) => {
-                  if (typeof file === 'object' && file !== null && 'path' in file) {
-                    tokens.push({
-                      type: 'tool',
-                      toolName,
-                      parameters: { path: (file as { path: string }).path, ...(file as Record<string, unknown>) },
-                      rawContent: `<function_calls><invoke name="${toolName}"><parameter name="path">${(file as { path: string }).path}</parameter></invoke></function_calls>`,
-                      index: tokenIndex++,
-                      isClosed: true,
-                      toolExecutionId: `${messageId}-tool-${toolIndex}-file-${fileIdx}`
-                    });
-                  }
-                });
-                toolIndex++;
-              } else {
-                // Regular single tool token
+              // Allow all tool names - validation happens at execution time
+              if (toolName && typeof toolName === 'string') {
+                const execId = `${messageId}-tool-${toolIndex++}`;
+                console.log(`[Tokenizer] Created tool token: toolIndex=${toolIndex-1}, execId=${execId}, toolName=${toolName}`);
                 tokens.push({
                   type: 'tool',
                   toolName,
                   parameters,
-                  rawContent,
+                  rawContent: `<function_calls>${fullMatch}</function_calls>`, // Wrap individual invoke in function_calls for consistency
                   index: tokenIndex++,
                   isClosed: true,
-                  toolExecutionId: `${messageId}-tool-${toolIndex++}`
+                  toolExecutionId: execId
                 });
               }
             }
@@ -462,45 +506,32 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
           position = closeMarker + closingTagLength;
         }
       } else {
-        // Unclosed tool block (streaming)
+        // Unclosed tool block (streaming) - extract all complete invoke blocks + partial last one
         const innerContent = content.slice(contentStart);
         const rawContent = content.slice(toolStart);
 
         try {
-          // Try to extract invoke block using balanced matching (may be partial during streaming)
-          const invokeResult = extractInvokeBlock(innerContent);
-          if (invokeResult) {
-            const { toolName, innerContent: invokeContent } = invokeResult;
-            const parameters = parseXMLParameters(invokeContent);
+          // Extract all invoke blocks (complete ones + partial last one)
+          const invokeBlocks = extractAllInvokeBlocks(innerContent);
+          
+          if (invokeBlocks.length > 0) {
+            // Create tokens for all invoke blocks found
+            for (let i = 0; i < invokeBlocks.length; i++) {
+              const invokeBlock = invokeBlocks[i];
+              const { toolName, innerContent: invokeContent, fullMatch } = invokeBlock;
+              const parameters = parseXMLParameters(invokeContent);
+              const isLastBlock = i === invokeBlocks.length - 1;
+              // Last block might be incomplete (no closing </invoke> yet)
+              const isClosed = !isLastBlock || innerContent.includes('</invoke>');
 
-            // Allow all tool names - validation happens at execution time
-            if (toolName && typeof toolName === 'string') {
-              // Special handling for read_file with files array during streaming
-              if (toolName === 'read_file' && parameters.files && Array.isArray(parameters.files)) {
-                // Create individual tool tokens for each complete file in the array
-                (parameters.files as Array<unknown>).forEach((file: unknown, fileIdx: number) => {
-                  if (typeof file === 'object' && file !== null && 'path' in file) {
-                    tokens.push({
-                      type: 'tool',
-                      toolName,
-                      parameters: { path: (file as { path: string }).path, ...(file as Record<string, unknown>) },
-                      rawContent: `<function_calls><invoke name="${toolName}"><parameter name="path">${(file as { path: string }).path}</parameter></invoke></function_calls>`,
-                      index: tokenIndex++,
-                      isClosed: false,
-                      toolExecutionId: `${messageId}-tool-${toolIndex}-file-${fileIdx}`
-                    });
-                  }
-                });
-                toolIndex++;
-              } else {
-                // Regular single tool token
+              if (toolName && typeof toolName === 'string') {
                 tokens.push({
                   type: 'tool',
                   toolName,
                   parameters,
-                  rawContent,
+                  rawContent: isClosed ? `<function_calls>${fullMatch}</function_calls>` : rawContent,
                   index: tokenIndex++,
-                  isClosed: false,
+                  isClosed,
                   toolExecutionId: `${messageId}-tool-${toolIndex++}`
                 });
               }

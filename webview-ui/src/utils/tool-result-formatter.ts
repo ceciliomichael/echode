@@ -68,11 +68,11 @@ function formatSingleToolResult(execution: ToolExecutionState): string {
 
     case 'grep_search': {
       const query = data.query as string;
-      const results = data.results as string | undefined;
+      const formattedResults = data.formattedResults as string | undefined;
 
       let output = `[grep_search] "${query}"`;
-      if (results) {
-        output += '\n' + truncateContent(results, 2000);
+      if (formattedResults) {
+        output += '\n' + truncateContent(formattedResults, 2000);
       }
       return output;
     }

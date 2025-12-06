@@ -133,11 +133,13 @@ function GrepSearchRendererComponent({ data }: { data: unknown }) {
       results: GrepFileResult[];
     };
 
-    const isEmpty = result.results.length === 0;
+    // Safety check: ensure results is an array
+    const results = Array.isArray(result.results) ? result.results : [];
+    const isEmpty = results.length === 0;
 
-    const maxMatchesPerFile = result.results.reduce(
+    const maxMatchesPerFile = results.reduce(
       (max, fileResult) =>
-        fileResult.matches.length > max ? fileResult.matches.length : max,
+        fileResult.matches?.length > max ? fileResult.matches.length : max,
       0,
     );
 
@@ -151,7 +153,7 @@ function GrepSearchRendererComponent({ data }: { data: unknown }) {
             </div>
           ) : (
             <div>
-              {result.results.map((fileResult, index) => (
+              {results.map((fileResult, index) => (
                 <GrepFileItem
                   key={index}
                   fileResult={fileResult}
@@ -198,14 +200,6 @@ Parameters:
 - isRegex: (optional) true for regex, false for plain text (default: false)
 - includes: (optional) File globs to filter (e.g., *.ts,*.tsx)
 
-Usage:
-<function_calls>
-<invoke name="grep_search">
-<parameter name="query">handleSubmit</parameter>
-<parameter name="path">src</parameter>
-</invoke>
-</function_calls>
-
 Examples:
 
 1. Find function references:
@@ -216,7 +210,23 @@ Examples:
 </invoke>
 </function_calls>
 
-2. Find interface in TypeScript files:
+2. Search multiple patterns in parallel:
+<function_calls>
+<invoke name="grep_search">
+<parameter name="query">handleSubmit</parameter>
+<parameter name="path">src</parameter>
+</invoke>
+<invoke name="grep_search">
+<parameter name="query">handleChange</parameter>
+<parameter name="path">src</parameter>
+</invoke>
+<invoke name="grep_search">
+<parameter name="query">handleClick</parameter>
+<parameter name="path">src</parameter>
+</invoke>
+</function_calls>
+
+3. Find interface in TypeScript files:
 <function_calls>
 <invoke name="grep_search">
 <parameter name="query">interface User</parameter>
@@ -229,7 +239,8 @@ IMPORTANT:
 - Only use when you know the EXACT identifier
 - For exploration or understanding code, use echo_search instead
 - Always narrow path to relevant directory
-- After finding matches, use read_file for full context`,
+- After finding matches, use read_file for full context
+- Use multiple <invoke> blocks within a single <function_calls> to search multiple patterns in parallel`,
     icon: Search,
     usage: 'Search for patterns across workspace files',
     formatExample: '<function_calls>\n<invoke name="grep_search">\n<parameter name="query">function</parameter>\n<parameter name="path">src</parameter>\n</invoke>\n</function_calls>',

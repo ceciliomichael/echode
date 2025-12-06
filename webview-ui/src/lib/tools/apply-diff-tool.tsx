@@ -128,6 +128,34 @@ You can use multi search/replace block in one diff block, but make sure to inclu
 Only use a single line of '=======' between search and replacement content, because multiple '=======' will corrupt the file.
 </parameter>
 </invoke>
+</function_calls>
+
+Example: Applying diffs to multiple files in parallel (use multiple invoke blocks within one function_calls block):
+<function_calls>
+<invoke name="apply_diff">
+<parameter name="path">src/utils/helpers.ts</parameter>
+<parameter name="diff">
+<<<<<<< SEARCH
+:start_line:5
+-------
+export function oldHelper() {
+=======
+export function newHelper() {
+>>>>>>> REPLACE
+</parameter>
+</invoke>
+<invoke name="apply_diff">
+<parameter name="path">src/components/Button.tsx</parameter>
+<parameter name="diff">
+<<<<<<< SEARCH
+:start_line:10
+-------
+const label = "Click";
+=======
+const label = "Submit";
+>>>>>>> REPLACE
+</parameter>
+</invoke>
 </function_calls>`,
         icon: FilePenLine,
         usage: 'PREFERRED for all targeted edits to existing files',

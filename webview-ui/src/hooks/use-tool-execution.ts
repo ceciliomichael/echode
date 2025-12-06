@@ -265,11 +265,15 @@ export function useToolExecution({
       })();
 
       try {
+        console.log(`[ToolExecution] executeToolAndContinue called with toolIndex=${toolIndex}`);
+        console.log(`[ToolExecution] assistantContent length: ${assistantContent.length}`);
+        
         // Keep executing tool state active
         setIsExecutingTool(true);
 
         // Extract all tool blocks and get the current one by index
         const toolBlocks = extractToolBlocks(assistantContent);
+        console.log(`[ToolExecution] extractToolBlocks returned ${toolBlocks.length} blocks`);
         const toolBlock = toolBlocks[toolIndex];
 
         if (!toolBlock) {
@@ -278,17 +282,25 @@ export function useToolExecution({
         }
 
         // Check if we can execute multiple tools in parallel
-        // Only execute in parallel if we're at the first tool and there are consecutive parallelizable tools
-        const shouldExecuteInParallel = toolIndex === 0;
-        const parallelizableBlocks = shouldExecuteInParallel ? extractParallelizableToolBlocks(assistantContent) : [];
+        // Pass the current toolIndex to find the function_calls block at that position
+        const parallelizableBlocks = extractParallelizableToolBlocks(assistantContent, toolIndex);
         const canExecuteInParallel = parallelizableBlocks.length > 1;
+
+        console.log(`[ToolExecution] toolIndex=${toolIndex}, toolBlocks.length=${toolBlocks.length}, parallelizableBlocks.length=${parallelizableBlocks.length}, canExecuteInParallel=${canExecuteInParallel}`);
+        if (parallelizableBlocks.length > 0) {
+          console.log(`[ToolExecution] Parallelizable tools:`, parallelizableBlocks.map(b => b.toolName));
+        }
 
         if (canExecuteInParallel) {
           console.log(`[ToolExecution] Detected ${parallelizableBlocks.length} parallelizable tools, executing in parallel...`);
+          console.log(`[ToolExecution] parallelizableBlocks:`, parallelizableBlocks.map(b => b.toolName));
 
           // Create execution states for all parallel tools
+          // Use toolIndex + idx to match the global tool indexing from the tokenizer
           const executionStates = parallelizableBlocks.map((block, idx) => {
-            const execId = generateToolExecutionId(assistantMessageId, idx);
+            const globalIdx = toolIndex + idx;
+            const execId = generateToolExecutionId(assistantMessageId, globalIdx);
+            console.log(`[ToolExecution] Creating parallel execution state: idx=${idx}, globalIdx=${globalIdx}, execId=${execId}, toolName=${block.toolName}`);
             const state = createToolExecutionState(
               execId,
               block.toolName,
@@ -332,8 +344,10 @@ export function useToolExecution({
           }
 
           // Update all tool execution states with results
+          console.log(`[ToolExecution] Parallel execution complete. executedToolCalls:`, parallelResult.executedToolCalls.length);
           const completedStates = parallelResult.executedToolCalls.map((executedTool, idx) => {
             const { state, execId } = executionStates[idx];
+            console.log(`[ToolExecution] Updating parallel result: idx=${idx}, execId=${execId}, toolName=${executedTool.toolName}, status=${executedTool.status}`);
             const completedState = updateToolExecutionStatus(
               state,
               executedTool.status,
@@ -446,7 +460,7 @@ export function useToolExecution({
                     continuationHistory,
                     messagesToSend,
                     userContent,
-                    parallelizableBlocks.length, // Continue from after the parallel batch
+                    toolIndex + parallelizableBlocks.length, // Continue from after the parallel batch
                     effectiveUserAttachments
                   );
                   return;

@@ -47,33 +47,13 @@ export class ReadFileTool implements ITool {
   ): Promise<ToolExecutionResult> {
     const offset = parameters.offset as number | undefined;
     const limit = parameters.limit as number | undefined;
+    const filePath = parameters.path as string | undefined;
 
-    // Extract paths - support both 'path' (single) and 'paths' (array) parameters
-    const paths: string[] = [];
-    const singlePath = parameters.path as string | undefined;
-    const multiplePaths = parameters.paths as string[] | undefined;
-
-    // Single path parameter
-    if (singlePath) {
-      paths.push(singlePath);
+    if (!filePath) {
+      return { success: false, error: 'File path is required. Use "path" parameter with a file path.' };
     }
 
-    // Multiple paths array parameter
-    if (multiplePaths && Array.isArray(multiplePaths)) {
-      paths.push(...multiplePaths);
-    }
-
-    if (paths.length === 0) {
-      return { success: false, error: 'File path is required. Use "path" for single file or "paths" array for multiple files.' };
-    }
-
-    // Single file - use direct return
-    if (paths.length === 1) {
-      return this.readSingleFile(paths[0], offset, limit, mode);
-    }
-
-    // Multiple files - read in parallel
-    return this.readMultipleFiles(paths, offset, limit, mode);
+    return this.readSingleFile(filePath, offset, limit, mode);
   }
 
   private async readSingleFile(
@@ -193,41 +173,5 @@ export class ReadFileTool implements ITool {
     }
   }
 
-  private async readMultipleFiles(
-    filePaths: string[],
-    offset: number | undefined,
-    limit: number | undefined,
-    mode?: ChatMode
-  ): Promise<ToolExecutionResult> {
-    try {
-      // Read all files in parallel
-      const results = await Promise.all(
-        filePaths.map(filePath => this.readSingleFile(filePath, offset, limit, mode))
-      );
-
-      // Check if any failed
-      const failures = results.filter(r => !r.success);
-      if (failures.length > 0) {
-        // If any file failed, return the first error
-        return failures[0];
-      }
-
-      // Combine all successful results
-      const combinedData = results.map(r => r.data);
-
-      return {
-        success: true,
-        data: {
-          files: combinedData,
-          count: combinedData.length,
-        },
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: `Failed to read multiple files: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      };
-    }
-  }
-
 }
+
