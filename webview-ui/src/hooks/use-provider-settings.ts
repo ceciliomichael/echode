@@ -25,10 +25,10 @@ export function useProviderSettings(initialSettings: ApiSettings) {
   const [vscodeLmModel, setVscodeLmModel] = useState(initialSettings.vscodeLmModel || '');
   const [qwenCodeModel, setQwenCodeModel] = useState(initialSettings.qwenCodeModel || '');
   
-  const [anthropicApiKey, setAnthropicApiKey] = useState(initialSettings.anthropicApiKey || initialSettings.apiKey || '');
-  const [openaiApiKey, setOpenaiApiKey] = useState(initialSettings.openaiApiKey || initialSettings.apiKey || '');
-  const [openaiCompatibleApiKey, setOpenaiCompatibleApiKey] = useState(initialSettings.openaiCompatibleApiKey || initialSettings.apiKey || '');
-  const [megallmApiKey, setMegallmApiKey] = useState(initialSettings.megallmApiKey || initialSettings.apiKey || '');
+  const [anthropicApiKey, setAnthropicApiKey] = useState(initialSettings.anthropicApiKey || '');
+  const [openaiApiKey, setOpenaiApiKey] = useState(initialSettings.openaiApiKey || '');
+  const [openaiCompatibleApiKey, setOpenaiCompatibleApiKey] = useState(initialSettings.openaiCompatibleApiKey || '');
+  const [megallmApiKey, setMegallmApiKey] = useState(initialSettings.megallmApiKey || '');
   
   const [anthropicMaxTokens, setAnthropicMaxTokens] = useState(initialSettings.anthropicMaxTokens);
   const [openaiMaxTokens, setOpenaiMaxTokens] = useState(initialSettings.openaiMaxTokens);
@@ -106,10 +106,10 @@ export function useProviderSettings(initialSettings: ApiSettings) {
       setOpenaiCompatibleModel(initialSettings.openaiCompatibleModel || '');
       setVscodeLmModel(initialSettings.vscodeLmModel || '');
       setQwenCodeModel(initialSettings.qwenCodeModel || '');
-      setAnthropicApiKey(initialSettings.anthropicApiKey || initialSettings.apiKey || '');
-      setOpenaiApiKey(initialSettings.openaiApiKey || initialSettings.apiKey || '');
-      setOpenaiCompatibleApiKey(initialSettings.openaiCompatibleApiKey || initialSettings.apiKey || '');
-      setMegallmApiKey(initialSettings.megallmApiKey || initialSettings.apiKey || '');
+      setAnthropicApiKey(initialSettings.anthropicApiKey || '');
+      setOpenaiApiKey(initialSettings.openaiApiKey || '');
+      setOpenaiCompatibleApiKey(initialSettings.openaiCompatibleApiKey || '');
+      setMegallmApiKey(initialSettings.megallmApiKey || '');
       setAnthropicMaxTokens(initialSettings.anthropicMaxTokens);
       setOpenaiMaxTokens(initialSettings.openaiMaxTokens);
       setOpenaiCompatibleMaxTokens(initialSettings.openaiCompatibleMaxTokens);

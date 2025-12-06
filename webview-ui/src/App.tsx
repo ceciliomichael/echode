@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { SetupPage } from './components/feature/setup-page';
 import { ChatContainer } from './components/feature/chat-container';
-import { storageService } from './utils/storage';
+import { storageService, initializeSettings } from './utils/storage';
 import { prefetchAllModels } from './hooks/use-model-fetcher';
 import type { ApiSettings } from './types/api-settings';
+import { DEFAULT_API_SETTINGS } from './types/api-settings';
 
 declare global {
   interface Window {
@@ -12,10 +13,18 @@ declare global {
 }
 
 function App() {
-  const [settings, setSettings] = useState<ApiSettings>(storageService.getSettings());
-  const [showSetup, setShowSetup] = useState(() => {
-    return window.isSettingsPanel || !storageService.hasSettings();
-  });
+  const [settings, setSettings] = useState<ApiSettings>(DEFAULT_API_SETTINGS);
+  const [showSetup, setShowSetup] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Initialize settings from backend on mount
+  useEffect(() => {
+    initializeSettings().then((loadedSettings) => {
+      setSettings(loadedSettings);
+      setShowSetup(window.isSettingsPanel || !storageService.hasSettings());
+      setIsLoading(false);
+    });
+  }, []);
 
   // Prefetch models at app startup to populate cache (runs once)
   useEffect(() => {
@@ -75,6 +84,11 @@ function App() {
       setShowSetup(false);
     }
   };
+
+  // Show nothing while loading settings from backend
+  if (isLoading) {
+    return <div className="h-screen" />;
+  }
 
   if (window.isSettingsPanel || showSetup) {
     return (

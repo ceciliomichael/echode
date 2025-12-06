@@ -1,6 +1,6 @@
 /**
  * Session-scoped UI state management for edit and revert flows
- * Persisted in better-sqlite3 database via extension backend
+ * Persisted in JSON files via extension backend
  */
 
 interface SessionUiState {

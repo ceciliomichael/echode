@@ -10,6 +10,7 @@ import { getMainWebviewHtml, getSettingsHtml, getMermaidPreviewHtml } from './ut
 import { getWorkspaceFiles, getAgentsConfig } from './utils/workspace-scanner';
 import { ChatHistoryService } from './services/chat-history-service';
 import { ToolHistoryService } from './services/tool-history-service';
+import { getSettingsService } from './services/settings-service';
 
 import { AutocompleteService } from './autocomplete';
 import type { ToolExecutionState } from './types/tool-execution';
@@ -354,6 +355,18 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
         case 'fetchModels':
           await handleModelFetch(data, panel);
           break;
+        case 'getApiSettings':
+          const settingsPanelSettings = getSettingsService().getSettings();
+          panel.webview.postMessage({ type: 'apiSettingsLoaded', settings: settingsPanelSettings });
+          break;
+        case 'saveApiSettings':
+          getSettingsService().saveSettings(data.settings);
+          panel.webview.postMessage({ type: 'apiSettingsSaved' });
+          break;
+        case 'clearApiSettings':
+          getSettingsService().clearSettings();
+          panel.webview.postMessage({ type: 'apiSettingsCleared' });
+          break;
       }
     });
   }
@@ -530,6 +543,18 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
           break;
         case 'summarizeContext':
           await handleContextSummarizer(data, webviewView);
+          break;
+        case 'getApiSettings':
+          const apiSettings = getSettingsService().getSettings();
+          webviewView.webview.postMessage({ type: 'apiSettingsLoaded', settings: apiSettings });
+          break;
+        case 'saveApiSettings':
+          getSettingsService().saveSettings(data.settings);
+          webviewView.webview.postMessage({ type: 'apiSettingsSaved' });
+          break;
+        case 'clearApiSettings':
+          getSettingsService().clearSettings();
+          webviewView.webview.postMessage({ type: 'apiSettingsCleared' });
           break;
       }
     });

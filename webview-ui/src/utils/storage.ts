@@ -4,76 +4,123 @@ import { DEFAULT_CHAT_MODE } from '../types/chat-mode';
 import type { ChatSession } from '../types/chat-session';
 import type { Message } from '../types/chat';
 
-const STORAGE_KEY = 'echode_api_settings';
 const CURRENT_SESSION_KEY = 'echode_current_session_id';
+
+// In-memory cache for settings (loaded from extension backend)
+let cachedSettings: ApiSettings | null = null;
+let settingsLoadPromise: Promise<ApiSettings> | null = null;
+let settingsLoadedFromBackend = false;
+
+// Normalize settings - set generic apiKey/model from active provider (read-only mirror)
+function normalizeSettings(parsed: Partial<ApiSettings>): ApiSettings {
+  const normalized: ApiSettings = {
+    ...DEFAULT_API_SETTINGS,
+    ...parsed,
+  };
+
+  const provider: Provider = normalized.provider;
+
+  // Set generic apiKey/model to mirror the active provider (for convenience/compatibility)
+  // Each provider keeps its own separate API key - NO cross-provider backfill
+  if (provider === 'anthropic') {
+    normalized.apiKey = normalized.anthropicApiKey || '';
+    normalized.model = normalized.anthropicModel || '';
+  } else if (provider === 'openai') {
+    normalized.apiKey = normalized.openaiApiKey || '';
+    normalized.model = normalized.openaiModel || '';
+  } else if (provider === 'openai-compatible') {
+    normalized.apiKey = normalized.openaiCompatibleApiKey || '';
+    normalized.model = normalized.openaiCompatibleModel || '';
+  } else if (provider === 'megallm') {
+    normalized.apiKey = normalized.megallmApiKey || '';
+    normalized.model = normalized.megallmModel || '';
+  } else if (provider === 'qwen-code') {
+    normalized.apiKey = '';
+    normalized.model = normalized.qwenCodeModel || '';
+  } else if (provider === 'vscode-lm') {
+    normalized.apiKey = '';
+    normalized.model = normalized.vscodeLmModel || '';
+  }
+
+  return normalized;
+}
+
+// Request settings from extension backend
+function requestSettingsFromBackend(): Promise<ApiSettings> {
+  if (settingsLoadPromise) {
+    return settingsLoadPromise;
+  }
+
+  settingsLoadPromise = new Promise((resolve) => {
+    const handler = (event: MessageEvent) => {
+      const message = event.data;
+      if (message.type === 'apiSettingsLoaded') {
+        window.removeEventListener('message', handler);
+        const normalized = normalizeSettings(message.settings || {});
+        cachedSettings = normalized;
+        settingsLoadedFromBackend = true;
+        settingsLoadPromise = null;
+        resolve(normalized);
+      }
+    };
+
+    window.addEventListener('message', handler);
+
+    if (window.vscode) {
+      window.vscode.postMessage({ type: 'getApiSettings' });
+    } else {
+      // Fallback if vscode API not available
+      window.removeEventListener('message', handler);
+      settingsLoadPromise = null;
+      resolve({ ...DEFAULT_API_SETTINGS });
+    }
+
+    // Timeout fallback
+    setTimeout(() => {
+      window.removeEventListener('message', handler);
+      if (!settingsLoadedFromBackend) {
+        settingsLoadPromise = null;
+        resolve(cachedSettings || { ...DEFAULT_API_SETTINGS });
+      }
+    }, 3000);
+  });
+
+  return settingsLoadPromise;
+}
+
+// Initialize settings on load
+export function initializeSettings(): Promise<ApiSettings> {
+  return requestSettingsFromBackend();
+}
 
 export const storageService = {
   getSettings(): ApiSettings {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (!stored) {
-        return { ...DEFAULT_API_SETTINGS };
-      }
-      const parsed = JSON.parse(stored) as ApiSettings;
-
-      // Normalize settings to ensure per-provider fields are populated
-      const normalized: ApiSettings = {
-        ...DEFAULT_API_SETTINGS,
-        ...parsed,
-      };
-
-      const provider: Provider = normalized.provider;
-
-      // Backfill provider-specific API keys from generic apiKey when missing
-      if (!normalized.anthropicApiKey && normalized.apiKey) {
-        normalized.anthropicApiKey = normalized.apiKey;
-      }
-      if (!normalized.openaiApiKey && normalized.apiKey) {
-        normalized.openaiApiKey = normalized.apiKey;
-      }
-      if (!normalized.openaiCompatibleApiKey && normalized.apiKey) {
-        normalized.openaiCompatibleApiKey = normalized.apiKey;
-      }
-
-      // Backfill provider-specific models from generic model when missing
-      if (!normalized.anthropicModel && normalized.model) {
-        normalized.anthropicModel = normalized.model;
-      }
-      if (!normalized.openaiModel && normalized.model) {
-        normalized.openaiModel = normalized.model;
-      }
-      if (!normalized.openaiCompatibleModel && normalized.model) {
-        normalized.openaiCompatibleModel = normalized.model;
-      }
-      if (!normalized.vscodeLmModel && normalized.model) {
-        normalized.vscodeLmModel = normalized.model;
-      }
-
-      // Ensure generic apiKey/model mirror the active provider for convenience
-      if (provider === 'anthropic') {
-        normalized.apiKey = normalized.anthropicApiKey || '';
-        normalized.model = normalized.anthropicModel || '';
-      } else if (provider === 'openai') {
-        normalized.apiKey = normalized.openaiApiKey || '';
-        normalized.model = normalized.openaiModel || '';
-      } else if (provider === 'openai-compatible') {
-        normalized.apiKey = normalized.openaiCompatibleApiKey || '';
-        normalized.model = normalized.openaiCompatibleModel || '';
-      } else if (provider === 'vscode-lm') {
-        // VS Code LM does not require apiKey
-        normalized.apiKey = '';
-        normalized.model = normalized.vscodeLmModel || '';
-      }
-
-      return normalized;
-    } catch {
-      return { ...DEFAULT_API_SETTINGS };
+    // Return cached settings if available, otherwise return defaults
+    // The actual settings will be loaded asynchronously
+    if (cachedSettings) {
+      return cachedSettings;
     }
+    // Trigger async load if not started
+    if (!settingsLoadPromise && !settingsLoadedFromBackend) {
+      requestSettingsFromBackend();
+    }
+    return { ...DEFAULT_API_SETTINGS };
+  },
+
+  getSettingsAsync(): Promise<ApiSettings> {
+    if (cachedSettings && settingsLoadedFromBackend) {
+      return Promise.resolve(cachedSettings);
+    }
+    return requestSettingsFromBackend();
   },
 
   saveSettings(settings: ApiSettings): void {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+      cachedSettings = settings;
+      // Save to extension backend
+      if (window.vscode) {
+        window.vscode.postMessage({ type: 'saveApiSettings', settings });
+      }
       // Dispatch custom event for same-window listeners
       window.dispatchEvent(new CustomEvent('settingsUpdated', { detail: settings }));
     } catch {
@@ -83,7 +130,11 @@ export const storageService = {
 
   clearSettings(): void {
     try {
-      localStorage.removeItem(STORAGE_KEY);
+      cachedSettings = null;
+      settingsLoadedFromBackend = false;
+      if (window.vscode) {
+        window.vscode.postMessage({ type: 'clearApiSettings' });
+      }
     } catch {
       console.error('Failed to clear settings');
     }

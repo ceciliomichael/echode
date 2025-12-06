@@ -20,9 +20,9 @@ export function useSetupForm(
   const [vscodeLmModel, setVscodeLmModel] = useState(initialSettings.vscodeLmModel || '');
   const [qwenCodeModel, setQwenCodeModel] = useState(initialSettings.qwenCodeModel || '');
   const [apiKey, setApiKey] = useState(initialSettings.apiKey);
-  const [anthropicApiKey, setAnthropicApiKey] = useState(initialSettings.anthropicApiKey || initialSettings.apiKey || '');
-  const [openaiApiKey, setOpenaiApiKey] = useState(initialSettings.openaiApiKey || initialSettings.apiKey || '');
-  const [openaiCompatibleApiKey, setOpenaiCompatibleApiKey] = useState(initialSettings.openaiCompatibleApiKey || initialSettings.apiKey || '');
+  const [anthropicApiKey, setAnthropicApiKey] = useState(initialSettings.anthropicApiKey || '');
+  const [openaiApiKey, setOpenaiApiKey] = useState(initialSettings.openaiApiKey || '');
+  const [openaiCompatibleApiKey, setOpenaiCompatibleApiKey] = useState(initialSettings.openaiCompatibleApiKey || '');
   const [qwenCodeOauthPath, setQwenCodeOauthPath] = useState(initialSettings.qwenCodeOauthPath || '');
   const [anthropicMaxTokens, setAnthropicMaxTokens] = useState(initialSettings.anthropicMaxTokens);
   const [openaiMaxTokens, setOpenaiMaxTokens] = useState(initialSettings.openaiMaxTokens);
@@ -67,9 +67,9 @@ export function useSetupForm(
       setVscodeLmModel(initialSettings.vscodeLmModel || '');
       setQwenCodeModel(initialSettings.qwenCodeModel || '');
       setApiKey(initialSettings.apiKey);
-      setAnthropicApiKey(initialSettings.anthropicApiKey || initialSettings.apiKey || '');
-      setOpenaiApiKey(initialSettings.openaiApiKey || initialSettings.apiKey || '');
-      setOpenaiCompatibleApiKey(initialSettings.openaiCompatibleApiKey || initialSettings.apiKey || '');
+      setAnthropicApiKey(initialSettings.anthropicApiKey || '');
+      setOpenaiApiKey(initialSettings.openaiApiKey || '');
+      setOpenaiCompatibleApiKey(initialSettings.openaiCompatibleApiKey || '');
       setQwenCodeOauthPath(initialSettings.qwenCodeOauthPath || '');
       setAnthropicMaxTokens(initialSettings.anthropicMaxTokens);
       setOpenaiMaxTokens(initialSettings.openaiMaxTokens);

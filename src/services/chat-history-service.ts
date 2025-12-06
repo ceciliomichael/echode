@@ -2,8 +2,17 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
-import Database from 'better-sqlite3';
 import type { ToolExecutionState } from '../types/tool-execution';
+
+interface ChatMessage {
+  id: string;
+  role: string;
+  content: string;
+  timestamp: string;
+  toolExecutions?: Array<[string, ToolExecutionState]>;
+  attachments?: unknown;
+  hidden?: boolean;
+}
 
 interface ChatSession {
   id: string;
@@ -11,13 +20,7 @@ interface ChatSession {
   timestamp: number;
   createdAt: number;
   workspaceId: string;
-  messages: Array<{
-    id: string;
-    role: string;
-    content: string;
-    timestamp: string;
-    toolExecutions?: Array<[string, ToolExecutionState]>;
-  }>;
+  messages: ChatMessage[];
   metadata: {
     messageCount: number;
     preview: string;
@@ -27,13 +30,7 @@ interface ChatSession {
     revertPreviewMessageId: string | null;
   };
   compressedContext?: {
-    messages: Array<{
-      id: string;
-      role: string;
-      content: string;
-      timestamp: string;
-      toolExecutions?: Array<[string, ToolExecutionState]>;
-    }>;
+    messages: ChatMessage[];
     tokenCount: number;
   };
 }
@@ -47,12 +44,24 @@ interface ChatSessionSummary {
   preview: string;
 }
 
+interface IndexEntry {
+  id: string;
+  workspaceId: string;
+  title: string;
+  timestamp: number;
+  createdAt: number;
+  messageCount: number;
+  preview: string;
+}
+
 const MAX_SESSIONS = 100;
 
 export class ChatHistoryService {
   private workspaceId: string;
-  private db: Database.Database;
   private storageDir: string;
+  private sessionsDir: string;
+  private indexPath: string;
+  private indexCache: IndexEntry[] | null = null;
 
   constructor(
     private context: vscode.ExtensionContext,
@@ -60,100 +69,19 @@ export class ChatHistoryService {
   ) {
     this.workspaceId = this.generateWorkspaceId(workspacePath);
     this.storageDir = path.join(os.homedir(), '.echode', 'history');
+    this.sessionsDir = path.join(this.storageDir, 'sessions');
+    this.indexPath = path.join(this.storageDir, 'index.json');
     this.ensureStorageDirectory();
-    this.db = this.initDatabase();
   }
 
   private ensureStorageDirectory(): void {
     try {
-      if (!fs.existsSync(this.storageDir)) {
-        fs.mkdirSync(this.storageDir, { recursive: true });
+      if (!fs.existsSync(this.sessionsDir)) {
+        fs.mkdirSync(this.sessionsDir, { recursive: true });
       }
     } catch (error) {
-      console.error('Failed to create storage directory:', error);
+      console.error('[ChatHistory] Failed to create storage directory:', error);
     }
-  }
-
-  private initDatabase(): Database.Database {
-    const dbPath = path.join(this.storageDir, 'chat-history.db');
-    const db = new Database(dbPath);
-    
-    // Enable WAL mode for better concurrent performance
-    db.pragma('journal_mode = WAL');
-    
-    // Create sessions table
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS sessions (
-        id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        title TEXT NOT NULL,
-        timestamp INTEGER NOT NULL,
-        created_at INTEGER NOT NULL,
-        message_count INTEGER DEFAULT 0,
-        preview TEXT DEFAULT '',
-        editing_message_id TEXT DEFAULT NULL,
-        revert_preview_message_id TEXT DEFAULT NULL
-      );
-      
-      CREATE INDEX IF NOT EXISTS idx_workspace_timestamp 
-        ON sessions(workspace_id, timestamp DESC);
-      
-      CREATE TABLE IF NOT EXISTS messages (
-        id TEXT PRIMARY KEY,
-        session_id TEXT NOT NULL,
-        role TEXT NOT NULL,
-        content TEXT NOT NULL,
-        timestamp TEXT NOT NULL,
-        tool_executions TEXT DEFAULT NULL,
-        attachments TEXT DEFAULT NULL,
-        hidden INTEGER DEFAULT 0,
-        FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
-      );
-      
-      CREATE INDEX IF NOT EXISTS idx_session_messages 
-        ON messages(session_id);
-    `);
-    
-    // Migration: Add UI state columns and tool_executions column if they don't exist
-    try {
-      const sessionColumns = db.pragma('table_info(sessions)') as Array<{ name: string }>;
-      const columns = sessionColumns;
-      const hasEditingMessageId = columns.some(col => col.name === 'editing_message_id');
-      const hasRevertPreviewMessageId = columns.some(col => col.name === 'revert_preview_message_id');
-      
-      if (!hasEditingMessageId) {
-        db.exec('ALTER TABLE sessions ADD COLUMN editing_message_id TEXT DEFAULT NULL');
-      }
-      if (!hasRevertPreviewMessageId) {
-        db.exec('ALTER TABLE sessions ADD COLUMN revert_preview_message_id TEXT DEFAULT NULL');
-      }
-      
-      // Migration: Add tool_executions column to messages table
-      const messageColumns = db.pragma('table_info(messages)') as Array<{ name: string }>;
-      const hasToolExecutionsCol = messageColumns.some(col => col.name === 'tool_executions');
-      const hasAttachmentsCol = messageColumns.some(col => col.name === 'attachments');
-      const hasHiddenCol = messageColumns.some(col => col.name === 'hidden');
-      
-      if (!hasToolExecutionsCol) {
-        db.exec('ALTER TABLE messages ADD COLUMN tool_executions TEXT DEFAULT NULL');
-      }
-      if (!hasAttachmentsCol) {
-        db.exec('ALTER TABLE messages ADD COLUMN attachments TEXT DEFAULT NULL');
-      }
-      if (!hasHiddenCol) {
-        db.exec('ALTER TABLE messages ADD COLUMN hidden INTEGER DEFAULT 0');
-      }
-      
-      // Migration: Add compressed_context column to sessions table
-      const hasCompressedContext = columns.some(col => col.name === 'compressed_context');
-      if (!hasCompressedContext) {
-        db.exec('ALTER TABLE sessions ADD COLUMN compressed_context TEXT DEFAULT NULL');
-      }
-    } catch (error) {
-      console.error('Migration error:', error);
-    }
-    
-    return db;
   }
 
   private generateWorkspaceId(workspacePath?: string): string {
@@ -171,234 +99,185 @@ export class ChatHistoryService {
 
   updateWorkspace(workspacePath?: string): void {
     this.workspaceId = this.generateWorkspaceId(workspacePath);
+    this.indexCache = null;
+  }
+
+  private readIndex(): IndexEntry[] {
+    if (this.indexCache) {
+      return this.indexCache;
+    }
+    try {
+      if (fs.existsSync(this.indexPath)) {
+        const data = fs.readFileSync(this.indexPath, 'utf-8');
+        this.indexCache = JSON.parse(data) as IndexEntry[];
+        return this.indexCache;
+      }
+    } catch (error) {
+      console.error('[ChatHistory] Failed to read index:', error);
+    }
+    this.indexCache = [];
+    return this.indexCache;
+  }
+
+  private writeIndex(entries: IndexEntry[]): void {
+    try {
+      const tmpPath = this.indexPath + '.tmp';
+      fs.writeFileSync(tmpPath, JSON.stringify(entries, null, 2), 'utf-8');
+      fs.renameSync(tmpPath, this.indexPath);
+      this.indexCache = entries;
+    } catch (error) {
+      console.error('[ChatHistory] Failed to write index:', error);
+      throw error;
+    }
+  }
+
+  private getSessionPath(sessionId: string): string {
+    return path.join(this.sessionsDir, `${sessionId}.json`);
+  }
+
+  private readSessionFile(sessionId: string): ChatSession | null {
+    try {
+      const sessionPath = this.getSessionPath(sessionId);
+      if (fs.existsSync(sessionPath)) {
+        const data = fs.readFileSync(sessionPath, 'utf-8');
+        return JSON.parse(data) as ChatSession;
+      }
+    } catch (error) {
+      console.error('[ChatHistory] Failed to read session file:', sessionId, error);
+    }
+    return null;
+  }
+
+  private writeSessionFile(session: ChatSession): void {
+    try {
+      const sessionPath = this.getSessionPath(session.id);
+      const tmpPath = sessionPath + '.tmp';
+      fs.writeFileSync(tmpPath, JSON.stringify(session, null, 2), 'utf-8');
+      fs.renameSync(tmpPath, sessionPath);
+    } catch (error) {
+      console.error('[ChatHistory] Failed to write session file:', session.id, error);
+      throw error;
+    }
+  }
+
+  private deleteSessionFile(sessionId: string): void {
+    try {
+      const sessionPath = this.getSessionPath(sessionId);
+      if (fs.existsSync(sessionPath)) {
+        fs.unlinkSync(sessionPath);
+      }
+    } catch (error) {
+      console.error('[ChatHistory] Failed to delete session file:', sessionId, error);
+    }
   }
 
   async getAllSessions(): Promise<ChatSessionSummary[]> {
     try {
-      const stmt = this.db.prepare(`
-        SELECT id, title, timestamp, created_at as createdAt, 
-               message_count as messageCount, preview
-        FROM sessions
-        WHERE workspace_id = ?
-        ORDER BY timestamp DESC
-        LIMIT ?
-      `);
-      
-      return stmt.all(this.workspaceId, MAX_SESSIONS) as ChatSessionSummary[];
+      const index = this.readIndex();
+      const workspaceSessions = index
+        .filter(entry => entry.workspaceId === this.workspaceId)
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, MAX_SESSIONS);
+
+      return workspaceSessions.map(entry => ({
+        id: entry.id,
+        title: entry.title,
+        timestamp: entry.timestamp,
+        createdAt: entry.createdAt,
+        messageCount: entry.messageCount,
+        preview: entry.preview,
+      }));
     } catch (error) {
-      console.error('Failed to get sessions:', error);
+      console.error('[ChatHistory] Failed to get sessions:', error);
       return [];
     }
   }
 
   async getSession(sessionId: string): Promise<ChatSession | null> {
     try {
-      const sessionStmt = this.db.prepare(`
-        SELECT id, workspace_id as workspaceId, title, timestamp, 
-               created_at as createdAt, message_count as messageCount, preview,
-               editing_message_id as editingMessageId,
-               revert_preview_message_id as revertPreviewMessageId,
-               compressed_context as compressedContext
-        FROM sessions
-        WHERE id = ?
-      `);
-      
-      const session = sessionStmt.get(sessionId) as any;
-      if (!session) {
-        return null;
-      }
-      
-      const messagesStmt = this.db.prepare(`
-        SELECT id, role, content, timestamp, tool_executions, attachments, hidden
-        FROM messages
-        WHERE session_id = ?
-        ORDER BY timestamp ASC
-      `);
-      
-      const messages = messagesStmt.all(sessionId) as Array<{
-        id: string;
-        role: string;
-        content: string;
-        timestamp: string;
-        tool_executions?: string | null;
-        attachments?: string | null;
-        hidden?: number;
-      }>;
-      
-      // Parse tool_executions and attachments JSON into the expected structure
-      const mappedMessages = messages.map(m => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-        timestamp: m.timestamp,
-        toolExecutions: m.tool_executions
-          ? (JSON.parse(m.tool_executions) as Array<[string, ToolExecutionState]>)
-          : undefined,
-        attachments: m.attachments
-          ? JSON.parse(m.attachments)
-          : undefined,
-        hidden: m.hidden === 1,
-      }));
-      
-      // Parse compressed context if available
-      let compressedContext = undefined;
-      if (session.compressedContext) {
-        try {
-          compressedContext = JSON.parse(session.compressedContext);
-        } catch (e) {
-          console.error('Failed to parse compressed context:', e);
-        }
-      }
-      
-      return {
-        id: session.id,
-        workspaceId: session.workspaceId,
-        title: session.title,
-        timestamp: session.timestamp,
-        createdAt: session.createdAt,
-        messages: mappedMessages,
-        metadata: {
-          messageCount: session.messageCount,
-          preview: session.preview
-        },
-        uiState: {
-          editingMessageId: session.editingMessageId,
-          revertPreviewMessageId: session.revertPreviewMessageId
-        },
-        compressedContext
-      };
+      return this.readSessionFile(sessionId);
     } catch (error) {
-      console.error('Failed to get session:', error);
+      console.error('[ChatHistory] Failed to get session:', error);
       return null;
     }
   }
 
   async saveSession(session: ChatSession): Promise<void> {
     try {
-      const transaction = this.db.transaction(() => {
-        // Check if session exists
-        const existingStmt = this.db.prepare('SELECT id FROM sessions WHERE id = ?');
-        const existing = existingStmt.get(session.id);
-        
-        // Serialize compressed context to JSON if present
-        const compressedContextJson = session.compressedContext
-          ? JSON.stringify(session.compressedContext)
-          : null;
-        
-        if (existing) {
-          // Update session
-          const updateStmt = this.db.prepare(`
-            UPDATE sessions 
-            SET workspace_id = ?, title = ?, timestamp = ?, 
-                message_count = ?, preview = ?, compressed_context = ?
-            WHERE id = ?
-          `);
-          
-          updateStmt.run(
-            this.workspaceId,
-            session.title,
-            session.timestamp,
-            session.metadata.messageCount,
-            session.metadata.preview,
-            compressedContextJson,
-            session.id
-          );
-          
-          // Delete old messages
-          const deleteMessagesStmt = this.db.prepare('DELETE FROM messages WHERE session_id = ?');
-          deleteMessagesStmt.run(session.id);
-        } else {
-          // Insert new session
-          const insertStmt = this.db.prepare(`
-            INSERT INTO sessions (id, workspace_id, title, timestamp, created_at, message_count, preview, compressed_context)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          `);
-          
-          insertStmt.run(
-            session.id,
-            this.workspaceId,
-            session.title,
-            session.timestamp,
-            session.createdAt,
-            session.metadata.messageCount,
-            session.metadata.preview,
-            compressedContextJson
-          );
+      // Ensure workspaceId is set
+      session.workspaceId = this.workspaceId;
+
+      // Write session file atomically
+      this.writeSessionFile(session);
+
+      // Update index
+      const index = this.readIndex();
+      const existingIdx = index.findIndex(e => e.id === session.id);
+
+      const indexEntry: IndexEntry = {
+        id: session.id,
+        workspaceId: this.workspaceId,
+        title: session.title,
+        timestamp: session.timestamp,
+        createdAt: session.createdAt,
+        messageCount: session.metadata.messageCount,
+        preview: session.metadata.preview,
+      };
+
+      if (existingIdx !== -1) {
+        index[existingIdx] = indexEntry;
+      } else {
+        index.push(indexEntry);
+      }
+
+      // Enforce MAX_SESSIONS per workspace
+      const workspaceSessions = index
+        .filter(e => e.workspaceId === this.workspaceId)
+        .sort((a, b) => b.timestamp - a.timestamp);
+
+      if (workspaceSessions.length > MAX_SESSIONS) {
+        const toDelete = workspaceSessions.slice(MAX_SESSIONS);
+        for (const entry of toDelete) {
+          this.deleteSessionFile(entry.id);
         }
-        
-        // Insert messages
-        const insertMessageStmt = this.db.prepare(`
-          INSERT INTO messages (id, session_id, role, content, timestamp, tool_executions, attachments, hidden)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `);
-        
-        for (const message of session.messages) {
-          // Serialize toolExecutions to JSON if present
-          const toolExecutionsJson = message.toolExecutions
-            ? JSON.stringify(message.toolExecutions)
-            : null;
-          
-          // Serialize attachments to JSON if present
-          const attachmentsJson = (message as any).attachments
-            ? JSON.stringify((message as any).attachments)
-            : null;
-          
-          // Convert boolean hidden to integer (SQLite doesn't have boolean)
-          const hiddenInt = (message as any).hidden ? 1 : 0;
-          
-          insertMessageStmt.run(
-            message.id,
-            session.id,
-            message.role,
-            message.content,
-            message.timestamp,
-            toolExecutionsJson,
-            attachmentsJson,
-            hiddenInt
-          );
-        }
-        
-        // Clean up old sessions if over limit
-        const countStmt = this.db.prepare('SELECT COUNT(*) as count FROM sessions WHERE workspace_id = ?');
-        const result = countStmt.get(this.workspaceId) as { count: number };
-        
-        if (result.count > MAX_SESSIONS) {
-          const deleteOldStmt = this.db.prepare(`
-            DELETE FROM sessions
-            WHERE id IN (
-              SELECT id FROM sessions
-              WHERE workspace_id = ?
-              ORDER BY timestamp DESC
-              LIMIT -1 OFFSET ?
-            )
-          `);
-          deleteOldStmt.run(this.workspaceId, MAX_SESSIONS);
-        }
-      });
-      
-      transaction();
+        const idsToDelete = new Set(toDelete.map(e => e.id));
+        const filtered = index.filter(e => !idsToDelete.has(e.id));
+        this.writeIndex(filtered);
+      } else {
+        this.writeIndex(index);
+      }
     } catch (error) {
-      console.error('Failed to save session:', error);
+      console.error('[ChatHistory] Failed to save session:', error);
       throw error;
     }
   }
 
   async deleteSession(sessionId: string): Promise<void> {
     try {
-      const stmt = this.db.prepare('DELETE FROM sessions WHERE id = ?');
-      stmt.run(sessionId);
+      this.deleteSessionFile(sessionId);
+
+      const index = this.readIndex();
+      const filtered = index.filter(e => e.id !== sessionId);
+      this.writeIndex(filtered);
     } catch (error) {
-      console.error('Failed to delete session:', error);
+      console.error('[ChatHistory] Failed to delete session:', error);
       throw error;
     }
   }
 
   async clearAllSessions(): Promise<void> {
     try {
-      const stmt = this.db.prepare('DELETE FROM sessions WHERE workspace_id = ?');
-      stmt.run(this.workspaceId);
+      const index = this.readIndex();
+      const toDelete = index.filter(e => e.workspaceId === this.workspaceId);
+
+      for (const entry of toDelete) {
+        this.deleteSessionFile(entry.id);
+      }
+
+      const filtered = index.filter(e => e.workspaceId !== this.workspaceId);
+      this.writeIndex(filtered);
     } catch (error) {
-      console.error('Failed to clear sessions:', error);
+      console.error('[ChatHistory] Failed to clear sessions:', error);
       throw error;
     }
   }
@@ -408,14 +287,14 @@ export class ChatHistoryService {
     if (!firstUserMessage) {
       return 'New Chat';
     }
-    
+
     const content = firstUserMessage.content.trim();
     const maxLength = 50;
-    
+
     if (content.length <= maxLength) {
       return content;
     }
-    
+
     return content.substring(0, maxLength).trim() + '...';
   }
 
@@ -424,30 +303,26 @@ export class ChatHistoryService {
     if (!firstUserMessage) {
       return '';
     }
-    
+
     const content = firstUserMessage.content.trim();
     const maxLength = 100;
-    
+
     if (content.length <= maxLength) {
       return content;
     }
-    
+
     return content.substring(0, maxLength).trim() + '...';
   }
 
   async getSessionUiState(sessionId: string): Promise<{ editingMessageId: string | null; revertPreviewMessageId: string | null } | null> {
     try {
-      const stmt = this.db.prepare(`
-        SELECT editing_message_id as editingMessageId, 
-               revert_preview_message_id as revertPreviewMessageId
-        FROM sessions
-        WHERE id = ?
-      `);
-      
-      const result = stmt.get(sessionId) as { editingMessageId: string | null; revertPreviewMessageId: string | null } | undefined;
-      return result || null;
+      const session = this.readSessionFile(sessionId);
+      if (session?.uiState) {
+        return session.uiState;
+      }
+      return { editingMessageId: null, revertPreviewMessageId: null };
     } catch (error) {
-      console.error('Failed to get session UI state:', error);
+      console.error('[ChatHistory] Failed to get session UI state:', error);
       return null;
     }
   }
@@ -458,20 +333,19 @@ export class ChatHistoryService {
     revertPreviewMessageId: string | null
   ): Promise<void> {
     try {
-      const stmt = this.db.prepare(`
-        UPDATE sessions 
-        SET editing_message_id = ?, revert_preview_message_id = ?
-        WHERE id = ?
-      `);
-      
-      stmt.run(editingMessageId, revertPreviewMessageId, sessionId);
+      const session = this.readSessionFile(sessionId);
+      if (session) {
+        session.uiState = { editingMessageId, revertPreviewMessageId };
+        this.writeSessionFile(session);
+      }
     } catch (error) {
-      console.error('Failed to set session UI state:', error);
+      console.error('[ChatHistory] Failed to set session UI state:', error);
       throw error;
     }
   }
 
   dispose(): void {
-    this.db.close();
+    // No resources to clean up for JSON storage
+    this.indexCache = null;
   }
 }
