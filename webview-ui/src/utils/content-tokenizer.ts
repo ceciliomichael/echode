@@ -9,8 +9,41 @@ export type ContentToken =
   | { type: 'text'; content: string; index: number };
 
 /**
+ * Check if a position is inside a <parameter> value for function_calls matching
+ * Used to skip tags that appear as examples inside parameter content
+ */
+function isInsideFunctionCallsParameterValue(content: string, position: number): boolean {
+  const beforePos = content.slice(0, position);
+  let depth = 0;
+  let searchPos = 0;
+  const paramOpenRegex = /<parameter\s+name=["'][^"']+["']>/g;
+  const paramClose = '</parameter>';
+
+  while (searchPos < beforePos.length) {
+    paramOpenRegex.lastIndex = searchPos;
+    const openMatch = paramOpenRegex.exec(beforePos);
+    const nextOpen = openMatch ? openMatch.index : -1;
+    const nextClose = beforePos.indexOf(paramClose, searchPos);
+
+    if (nextOpen === -1 && nextClose === -1) break;
+
+    if (nextOpen !== -1 && (nextClose === -1 || nextOpen < nextClose)) {
+      depth++;
+      searchPos = nextOpen + openMatch![0].length;
+    } else if (nextClose !== -1) {
+      depth = Math.max(0, depth - 1);
+      searchPos = nextClose + paramClose.length;
+    } else {
+      break;
+    }
+  }
+  return depth > 0;
+}
+
+/**
  * Find the matching closing tag for a given opening tag position
  * Uses balanced tag counting to handle nested content that may contain similar-looking tags
+ * Respects parameter boundaries - ignores tags inside parameter values
  */
 function findMatchingClosingTag(
   content: string,
@@ -32,14 +65,18 @@ function findMatchingClosingTag(
 
     // Check which comes first
     if (nextOpen !== -1 && nextOpen < nextClose) {
-      // Found another opening tag first - increase depth
-      depth++;
+      // Only count as nested if NOT inside a parameter value
+      if (!isInsideFunctionCallsParameterValue(content, nextOpen)) {
+        depth++;
+      }
       pos = nextOpen + openTag.length;
     } else {
-      // Found closing tag first - decrease depth
-      depth--;
-      if (depth === 0) {
-        return nextClose;
+      // Only count as closing if NOT inside a parameter value
+      if (!isInsideFunctionCallsParameterValue(content, nextClose)) {
+        depth--;
+        if (depth === 0) {
+          return nextClose;
+        }
       }
       pos = nextClose + closeTag.length;
     }
@@ -215,6 +252,38 @@ function extractCompleteJsonObjects(partialArray: string): unknown[] {
 }
 
 /**
+ * Check if a position is inside a <parameter> value
+ * Used to skip invoke tags that appear as examples inside parameter content
+ */
+function isInsideInvokeParameterValue(content: string, position: number): boolean {
+  const beforePos = content.slice(0, position);
+  let depth = 0;
+  let searchPos = 0;
+  const paramOpenRegex = /<parameter\s+name=["'][^"']+["']>/g;
+  const paramClose = '</parameter>';
+
+  while (searchPos < beforePos.length) {
+    paramOpenRegex.lastIndex = searchPos;
+    const openMatch = paramOpenRegex.exec(beforePos);
+    const nextOpen = openMatch ? openMatch.index : -1;
+    const nextClose = beforePos.indexOf(paramClose, searchPos);
+
+    if (nextOpen === -1 && nextClose === -1) break;
+
+    if (nextOpen !== -1 && (nextClose === -1 || nextOpen < nextClose)) {
+      depth++;
+      searchPos = nextOpen + openMatch![0].length;
+    } else if (nextClose !== -1) {
+      depth = Math.max(0, depth - 1);
+      searchPos = nextClose + paramClose.length;
+    } else {
+      break;
+    }
+  }
+  return depth > 0;
+}
+
+/**
  * Extract ALL invoke blocks from content using balanced tag matching
  * Returns array of all invoke blocks found
  * IMPORTANT: Only extracts TOP-LEVEL invoke blocks, skipping nested invokes inside parameter values
@@ -226,11 +295,16 @@ function extractAllInvokeBlocks(content: string): Array<{ toolName: string; inne
 
   let match: RegExpExecArray | null;
   while ((match = invokeOpenRegex.exec(content)) !== null) {
+    // Skip invoke tags that are inside parameter values (examples in content)
+    if (isInsideInvokeParameterValue(content, match.index)) {
+      continue;
+    }
+    
     const toolName = match[1];
     const openTagEnd = match.index + match[0].length;
 
     // Find matching closing tag using balanced matching
-    const closePos = findMatchingInvokeClosingTag(content, openTagEnd);
+    const closePos = findMatchingInvokeClosingTagRespectingParams(content, openTagEnd);
 
     if (closePos !== -1) {
       const innerContent = content.slice(openTagEnd, closePos);
@@ -252,8 +326,9 @@ function extractAllInvokeBlocks(content: string): Array<{ toolName: string; inne
 
 /**
  * Find matching closing tag for invoke using balanced tag counting
+ * Respects parameter boundaries - ignores invoke tags inside parameter values
  */
-function findMatchingInvokeClosingTag(content: string, openTagEnd: number): number {
+function findMatchingInvokeClosingTagRespectingParams(content: string, openTagEnd: number): number {
   let depth = 1;
   let pos = openTagEnd;
   const openingTagRegex = /<invoke\s+name=["'][^"']+["']>/g;
@@ -270,12 +345,18 @@ function findMatchingInvokeClosingTag(content: string, openTagEnd: number): numb
     }
 
     if (nextOpen !== -1 && nextOpen < nextClose) {
-      depth++;
+      // Only count as nested if NOT inside a parameter value
+      if (!isInsideInvokeParameterValue(content, nextOpen)) {
+        depth++;
+      }
       pos = nextOpen + openMatch![0].length;
     } else {
-      depth--;
-      if (depth === 0) {
-        return nextClose;
+      // Only count as closing if NOT inside a parameter value
+      if (!isInsideInvokeParameterValue(content, nextClose)) {
+        depth--;
+        if (depth === 0) {
+          return nextClose;
+        }
       }
       pos = nextClose + closeTag.length;
     }

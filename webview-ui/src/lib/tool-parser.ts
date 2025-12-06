@@ -15,6 +15,24 @@ function unescapeXml(text: string): string {
  * Uses balanced tag counting to handle nested content that may contain similar-looking tags
  * (e.g., HTML content with </script> inside a parameter)
  */
+/**
+ * Check if a position is inside a parameter value (between <parameter...> and </parameter>)
+ * This helps avoid counting tags mentioned in text content as real tags
+ */
+function isInsideParameterValue(content: string, position: number): boolean {
+  // Find the last <parameter...> before this position
+  const beforePos = content.slice(0, position);
+  const lastParamOpen = beforePos.lastIndexOf('<parameter');
+  if (lastParamOpen === -1) return false;
+  
+  // Check if there's a </parameter> between the last <parameter and our position
+  const afterParamOpen = beforePos.slice(lastParamOpen);
+  const paramClose = afterParamOpen.indexOf('</parameter>');
+  
+  // If no close found, we're inside a parameter value
+  return paramClose === -1;
+}
+
 function findMatchingClosingTag(
   content: string,
   openTagEnd: number,
@@ -35,14 +53,19 @@ function findMatchingClosingTag(
 
     // Check which comes first
     if (nextOpen !== -1 && nextOpen < nextClose) {
-      // Found another opening tag first - increase depth
-      depth++;
+      // Only count as nested open if it's NOT inside a parameter value
+      // This prevents text like "A <function_calls> wrapper" from being counted
+      if (!isInsideParameterValue(content, nextOpen)) {
+        depth++;
+      }
       pos = nextOpen + openTag.length;
     } else {
-      // Found closing tag first - decrease depth
-      depth--;
-      if (depth === 0) {
-        return nextClose;
+      // Only count as close if it's NOT inside a parameter value
+      if (!isInsideParameterValue(content, nextClose)) {
+        depth--;
+        if (depth === 0) {
+          return nextClose;
+        }
       }
       pos = nextClose + closeTag.length;
     }
@@ -68,12 +91,14 @@ function extractFunctionCallsBlocks(content: string): Array<{ innerContent: stri
 
     // Skip if preceded by backtick (inside code block or inline code)
     if (openPos > 0 && content[openPos - 1] === '`') {
+      console.log(`[ToolParser] Skipping function_calls at ${openPos} - preceded by backtick`);
       searchPos = openPos + openTag.length;
       continue;
     }
 
     const openTagEnd = openPos + openTag.length;
     const closePos = findMatchingClosingTag(content, openTagEnd, openTag, closeTag);
+    console.log(`[ToolParser] Found function_calls at ${openPos}, closePos=${closePos}`);
 
     if (closePos === -1) {
       // No matching closing tag - incomplete block
@@ -97,10 +122,92 @@ function extractFunctionCallsBlocks(content: string): Array<{ innerContent: stri
 }
 
 /**
- * Find matching closing tag for invoke using regex-based opening tag detection.
- * This prevents false matches on partial strings like `/<invoke` in regex patterns.
+ * Check if a position is inside a parameter value for invoke blocks
+ * Uses the content from the start of the function_calls inner content
  */
-function findMatchingInvokeClosingTag(content: string, openTagEnd: number): number {
+function isInsideInvokeParameterValue(content: string, position: number): boolean {
+  // We need to check if this position is inside a <parameter>...</parameter> that belongs
+  // to an outer invoke block. This is tricky because we're inside the function_calls content.
+  
+  // Find all parameter opens and closes before this position
+  const beforePos = content.slice(0, position);
+  
+  // Count unclosed parameter tags
+  let depth = 0;
+  let searchPos = 0;
+  const paramOpenRegex = /<parameter\s+name=["'][^"']+["']>/g;
+  const paramClose = '</parameter>';
+  
+  while (searchPos < beforePos.length) {
+    paramOpenRegex.lastIndex = searchPos;
+    const openMatch = paramOpenRegex.exec(beforePos);
+    const nextOpen = openMatch ? openMatch.index : -1;
+    const nextClose = beforePos.indexOf(paramClose, searchPos);
+    
+    if (nextOpen === -1 && nextClose === -1) break;
+    
+    if (nextOpen !== -1 && (nextClose === -1 || nextOpen < nextClose)) {
+      depth++;
+      searchPos = nextOpen + openMatch![0].length;
+    } else if (nextClose !== -1) {
+      depth = Math.max(0, depth - 1);
+      searchPos = nextClose + paramClose.length;
+    } else {
+      break;
+    }
+  }
+  
+  return depth > 0;
+}
+
+/**
+ * Extract invoke blocks using balanced tag matching
+ * Handles nested content that may contain </invoke> text (e.g., in HTML/code)
+ * Uses regex-based opening tag detection to avoid false matches on partial strings
+ * IMPORTANT: Only extracts TOP-LEVEL invoke blocks, skipping nested invokes inside parameter values
+ */
+function extractInvokeBlocks(content: string): Array<{ toolName: string; innerContent: string; fullMatch: string }> {
+  const blocks: Array<{ toolName: string; innerContent: string; fullMatch: string }> = [];
+  const invokeOpenRegex = /<invoke\s+name=["']([^"']+)["']>/g;
+  const closeTag = '</invoke>';
+
+  let match: RegExpExecArray | null;
+  while ((match = invokeOpenRegex.exec(content)) !== null) {
+    // Skip invoke tags that are inside parameter values (e.g., examples in content)
+    if (isInsideInvokeParameterValue(content, match.index)) {
+      continue;
+    }
+    
+    const toolName = match[1];
+    const openTagEnd = match.index + match[0].length;
+
+    // Find matching closing tag using balanced matching that respects parameter boundaries
+    const closePos = findMatchingInvokeClosingTagRespectingParams(content, openTagEnd);
+
+    if (closePos !== -1) {
+      const innerContent = content.slice(openTagEnd, closePos);
+      const fullMatch = content.slice(match.index, closePos + closeTag.length);
+
+      blocks.push({
+        toolName,
+        innerContent,
+        fullMatch
+      });
+
+      // CRITICAL: Skip past this entire invoke block to avoid finding nested invokes
+      // inside parameter values (e.g., tool syntax inside write_to_file content)
+      invokeOpenRegex.lastIndex = closePos + closeTag.length;
+    }
+  }
+
+  return blocks;
+}
+
+/**
+ * Find matching closing tag for invoke, respecting parameter boundaries
+ * Tags inside parameter values are not counted for depth tracking
+ */
+function findMatchingInvokeClosingTagRespectingParams(content: string, openTagEnd: number): number {
   let depth = 1;
   let pos = openTagEnd;
   const openingTagRegex = /<invoke\s+name=["'][^"']+["']>/g;
@@ -120,59 +227,24 @@ function findMatchingInvokeClosingTag(content: string, openTagEnd: number): numb
 
     // Check which comes first
     if (nextOpen !== -1 && nextOpen < nextClose) {
-      // Found another opening tag first - increase depth
-      depth++;
+      // Only count if NOT inside a parameter value
+      if (!isInsideInvokeParameterValue(content, nextOpen)) {
+        depth++;
+      }
       pos = nextOpen + openMatch![0].length;
     } else {
-      // Found closing tag first - decrease depth
-      depth--;
-      if (depth === 0) {
-        return nextClose;
+      // Only count if NOT inside a parameter value
+      if (!isInsideInvokeParameterValue(content, nextClose)) {
+        depth--;
+        if (depth === 0) {
+          return nextClose;
+        }
       }
       pos = nextClose + closeTag.length;
     }
   }
 
   return -1;
-}
-
-/**
- * Extract invoke blocks using balanced tag matching
- * Handles nested content that may contain </invoke> text (e.g., in HTML/code)
- * Uses regex-based opening tag detection to avoid false matches on partial strings
- * IMPORTANT: Only extracts TOP-LEVEL invoke blocks, skipping nested invokes inside parameter values
- */
-function extractInvokeBlocks(content: string): Array<{ toolName: string; innerContent: string; fullMatch: string }> {
-  const blocks: Array<{ toolName: string; innerContent: string; fullMatch: string }> = [];
-  const invokeOpenRegex = /<invoke\s+name=["']([^"']+)["']>/g;
-  const closeTag = '</invoke>';
-
-  let match: RegExpExecArray | null;
-  while ((match = invokeOpenRegex.exec(content)) !== null) {
-    const toolName = match[1];
-    const openTagEnd = match.index + match[0].length;
-
-    // Find matching closing tag using regex-based balanced matching
-    // This correctly ignores partial matches like `/<invoke` in regex patterns
-    const closePos = findMatchingInvokeClosingTag(content, openTagEnd);
-
-    if (closePos !== -1) {
-      const innerContent = content.slice(openTagEnd, closePos);
-      const fullMatch = content.slice(match.index, closePos + closeTag.length);
-
-      blocks.push({
-        toolName,
-        innerContent,
-        fullMatch
-      });
-
-      // CRITICAL: Skip past this entire invoke block to avoid finding nested invokes
-      // inside parameter values (e.g., tool syntax inside write_to_file content)
-      invokeOpenRegex.lastIndex = closePos + closeTag.length;
-    }
-  }
-
-  return blocks;
 }
 
 // Legacy regex pattern kept for parseToolBlock backward compatibility
@@ -679,14 +751,18 @@ export function extractToolBlocks(content: string): ParsedToolBlock[] {
 
   // Use balanced tag extraction instead of regex for proper nested content handling
   const functionCallsBlocks = extractFunctionCallsBlocks(contentWithoutThinkBlocks);
+  console.log(`[ToolParser] extractToolBlocks: found ${functionCallsBlocks.length} function_calls blocks`);
 
   for (const block of functionCallsBlocks) {
+    console.log(`[ToolParser] Processing block at ${block.startIndex}-${block.endIndex}, innerContent length: ${block.innerContent.length}`);
     const parsedBlocks = parseFunctionCallsBlock(block.innerContent, block.fullMatch);
+    console.log(`[ToolParser] Parsed ${parsedBlocks.length} invoke blocks from this function_calls`);
 
     // Add all parsed invoke blocks
     toolBlocks.push(...parsedBlocks);
   }
 
+  console.log(`[ToolParser] extractToolBlocks returning ${toolBlocks.length} total blocks`);
   return toolBlocks;
 }
 
@@ -699,7 +775,9 @@ export function extractFirstToolBlock(content: string): ParsedToolBlock | null {
 }
 
 /**
- * Check if a tool is parallelizable (read-only, non-blocking)
+ * Check if a tool is parallelizable.
+ * Includes read-only tools and file modification tools (write_to_file, apply_diff).
+ * Only delete_file and other destructive tools must run sequentially.
  */
 export function isParallelizableTool(toolName: string): boolean {
   const parallelizableTools = [
@@ -707,6 +785,7 @@ export function isParallelizableTool(toolName: string): boolean {
     'list_files',
     'grep_search',
     'glob_search',
+    'echo_search',
     'todo_read',
     'write_to_file',
     'apply_diff',

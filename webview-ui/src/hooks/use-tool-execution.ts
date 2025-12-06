@@ -475,10 +475,8 @@ export function useToolExecution({
               // Stream completed successfully
               streamSuccess = true;
 
-              // Final update
-              if (pendingUpdate) {
-                updateUI();
-              }
+              // Final update - always update to ensure continuation text is displayed
+              updateUI();
             } catch (streamError) {
               const errorMessage = streamError instanceof Error ? streamError.message : 'Unknown error';
               const lowerError = errorMessage.toLowerCase();
@@ -673,11 +671,18 @@ export function useToolExecution({
               continuationContent = assistantContent;
             }
 
+            console.log('[ToolExecution] Starting continuation stream...');
+            let chunkCount = 0;
             for await (const chunk of chatApi.streamChat(
               continuationHistory,
               newAbortController.signal
             )) {
+              chunkCount++;
+              if (chunkCount <= 3) {
+                console.log(`[ToolExecution] Continuation chunk #${chunkCount}:`, chunk.substring(0, 50));
+              }
               if (newAbortController.signal.aborted) {
+                console.log('[ToolExecution] Continuation stream aborted');
                 streamSuccess = true; // User aborted, don't retry
                 break;
               }
@@ -722,11 +727,11 @@ export function useToolExecution({
 
             // Stream completed successfully
             streamSuccess = true;
+            console.log(`[ToolExecution] Continuation stream completed, ${chunkCount} chunks received`);
+            console.log(`[ToolExecution] Final continuation content length: ${continuationContent.length}`);
 
-            // Final update
-            if (pendingUpdate) {
-              updateUI();
-            }
+            // Final update - always update to ensure continuation text is displayed
+            updateUI();
           } catch (streamError) {
             const errorMessage = streamError instanceof Error ? streamError.message : 'Unknown error';
             const lowerError = errorMessage.toLowerCase();
