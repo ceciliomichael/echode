@@ -236,6 +236,15 @@ export class WriteFileTool implements ITool {
         largeFileReminder = `[${action} LARGE FILE - ${lineCount} LINES] This file exceeds the 300-line threshold. Consider refactoring into smaller, focused modules to maintain code quality.`;
       }
 
+      const refactorNotice = largeFileReminder
+        ? {
+            type: 'large_file',
+            lineCount,
+            mode,
+            message: largeFileReminder,
+          }
+        : undefined;
+
       return {
         success: true,
         data: {
@@ -247,6 +256,7 @@ export class WriteFileTool implements ITool {
           createdDirectories: fileExisted ? [] : createdDirectories,
           lineCount,
           largeFileReminder,
+          refactorNotice,
         },
       };
     } catch (error) {

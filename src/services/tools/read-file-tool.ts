@@ -120,6 +120,14 @@ export class ReadFileTool implements ITool {
 
         // Add mode-specific reminder for large files
         const refactorReminder = getLargeFileReminder(totalLines, mode);
+        const refactorNotice = refactorReminder
+          ? {
+              type: 'large_file',
+              lineCount: totalLines,
+              mode,
+              message: refactorReminder,
+            }
+          : undefined;
 
         return {
           success: true,
@@ -131,6 +139,7 @@ export class ReadFileTool implements ITool {
             endLine: defaultEnd,
             totalLines,
             refactorReminder,
+            refactorNotice,
           },
         };
       }
@@ -144,6 +153,14 @@ export class ReadFileTool implements ITool {
 
       // Add mode-specific reminder for large files
       const refactorReminder = getLargeFileReminder(totalLines, mode);
+      const refactorNotice = refactorReminder
+        ? {
+            type: 'large_file',
+            lineCount: totalLines,
+            mode,
+            message: refactorReminder,
+          }
+        : undefined;
 
       return {
         success: true,
@@ -155,6 +172,7 @@ export class ReadFileTool implements ITool {
           endLine: end,
           totalLines,
           refactorReminder,
+          refactorNotice,
         },
       };
     } catch (error) {

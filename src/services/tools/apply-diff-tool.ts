@@ -692,6 +692,15 @@ export class ApplyDiffTool implements ITool {
                 largeFileReminder = `[FILE NOW ${lineCount} LINES] This file exceeds the 300-line threshold after modification. Consider refactoring into smaller, focused modules to maintain code quality.`;
             }
 
+            const refactorNotice = largeFileReminder
+                ? {
+                    type: 'large_file',
+                    lineCount,
+                    mode,
+                    message: largeFileReminder,
+                }
+                : undefined;
+
             return {
                 success: true,
                 data: {
@@ -703,6 +712,7 @@ export class ApplyDiffTool implements ITool {
                     newContent: diffResult.content,
                     lineCount,
                     largeFileReminder,
+                    refactorNotice,
                 },
             };
 

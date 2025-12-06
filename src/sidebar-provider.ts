@@ -98,6 +98,8 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
       }
       this._workspaceUpdateDebounce = setTimeout(() => {
         if (this._view) {
+          this._refactorScanComplete = false;
+          this._cachedLargeFiles = [];
           this.sendWorkspaceInfo(this._view);
         }
       }, 300);
