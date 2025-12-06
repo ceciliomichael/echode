@@ -9,6 +9,7 @@ import { ContextIndicator } from './context-indicator';
 
 import { useContextMenu } from '../../hooks/use-context-menu';
 import { useDropdownDirection } from '../../hooks/use-dropdown-direction';
+import { useWorkspaceContext } from '../../hooks/use-workspace-context';
 import type { ImageAttachment } from '../../types/chat';
 import type { ChatMode } from '../../types/chat-mode';
 import type { ContextUsageResult } from '../../hooks/use-context-usage';
@@ -42,8 +43,9 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropdownDirection = useDropdownDirection(containerRef);
 
-  // Get workspace files for mentions
-  const workspaceFiles = useMemo(() => window.workspaceContext?.files || [], []);
+  // Get workspace files for mentions - use reactive hook so it updates when workspace changes
+  const workspace = useWorkspaceContext();
+  const workspaceFiles = useMemo(() => workspace?.files || [], [workspace]);
 
   // Register mentions from initial content so they get highlighted
   // We use useMemo to ensure this runs synchronously during render

@@ -4,6 +4,7 @@ import type { ITool, ToolExecutionResult, ChatMode } from './tool.interface';
 import { unescapeHtmlEntities } from '../../utils/text-normalization';
 import { detectCodeOmission } from '../../utils/detect-code-omission';
 import { getWorkspaceRoot, resolveAbsolutePath, getCreatedDirectories } from './utils/workspace-utils';
+import { capturePreDiagnostics, detectNewProblemsAfterEdit } from '../diagnostics';
 
 export class WriteFileTool implements ITool {
   name = 'write_to_file';
@@ -190,8 +191,9 @@ export class WriteFileTool implements ITool {
         fileExisted = false;
       }
 
-      // Skip line_count validation - rely on diagnostics feedback instead
-      console.log('[WRITE_FILE] Skipping line_count validation, diagnostics will catch errors');
+      // Capture pre-diagnostics BEFORE writing (Roo Code approach)
+      const preDiagnostics = capturePreDiagnostics();
+      console.log('[WRITE_FILE] Captured pre-diagnostics');
 
       // Track which directories will be created
       const createdDirectories = await getCreatedDirectories(filePath, workspaceRoot);
@@ -210,6 +212,17 @@ export class WriteFileTool implements ITool {
       await vscode.workspace.fs.writeFile(uri, contentBytes);
       console.log('[WRITE_FILE] File written successfully');
 
+      // Open the file in editor to trigger language server analysis
+      try {
+        await vscode.window.showTextDocument(uri, {
+          preview: false,
+          preserveFocus: true,
+        });
+        console.log('[WRITE_FILE] File opened in editor for diagnostics');
+      } catch (openError) {
+        console.warn('[WRITE_FILE] Could not open file in editor:', openError);
+      }
+
       // Post-write verification: try reading back as text
       try {
         const verifyContent = await vscode.workspace.fs.readFile(uri);
@@ -218,12 +231,17 @@ export class WriteFileTool implements ITool {
 
         if (verifyCheck.isBinary) {
           console.log('[WRITE_FILE] WARNING: Written file looks binary on read-back:', verifyCheck.reason);
-          // Could optionally revert here, but for now just warn
         } else {
           console.log('[WRITE_FILE] Post-write verification passed');
         }
       } catch (verifyError) {
         console.log('[WRITE_FILE] WARNING: Could not verify written file:', verifyError);
+      }
+
+      // Detect new problems after the edit (Roo Code approach)
+      const newProblemsMessage = await detectNewProblemsAfterEdit(preDiagnostics, workspaceRoot);
+      if (newProblemsMessage) {
+        console.log('[WRITE_FILE] New problems detected after edit');
       }
 
       console.log('[WRITE_FILE] ==================== SUCCESS ====================');
@@ -238,11 +256,11 @@ export class WriteFileTool implements ITool {
 
       const refactorNotice = largeFileReminder
         ? {
-            type: 'large_file',
-            lineCount,
-            mode,
-            message: largeFileReminder,
-          }
+          type: 'large_file',
+          lineCount,
+          mode,
+          message: largeFileReminder,
+        }
         : undefined;
 
       return {
@@ -257,6 +275,7 @@ export class WriteFileTool implements ITool {
           lineCount,
           largeFileReminder,
           refactorNotice,
+          newProblemsMessage: newProblemsMessage || undefined,
         },
       };
     } catch (error) {

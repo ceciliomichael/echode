@@ -85,11 +85,11 @@ CRITICAL RULES:
 
   // Build user-specific rules section
   const workspaceLevelRules = config.userSpecificRules && config.userSpecificRules.trim().length > 0
-    ? `====\n\nWORKSPACE-LEVEL RULES\n\n${config.userSpecificRules}`
+    ? `====\n\nWORKSPACE-LEVEL RULES (FROM AGENTS.md - HIGHEST PRIORITY)\n\nThese rules are loaded from the AGENTS.md file at the root of the current workspace.\n\nCRITICAL: If any instruction in this section conflicts with other rules in this prompt, you MUST follow this section.\n\n${config.userSpecificRules}`
     : '';
 
   const userLevelRules = customSystemPrompt && customSystemPrompt.trim().length > 0
-    ? `====\n\nUSER-LEVEL CUSTOM INSTRUCTIONS\n\n${customSystemPrompt}`
+    ? `====\n\nUSER-LEVEL CUSTOM INSTRUCTIONS (HIGHEST PRIORITY)\n\nThese rules come from the user's custom instructions/settings.\n\nCRITICAL: If any instruction in this section conflicts with other rules in this prompt, you MUST follow this section.\n\n${customSystemPrompt}`
     : '';
 
   const userRulesSection = (workspaceLevelRules || userLevelRules)
@@ -267,6 +267,7 @@ No tools are currently enabled. You cannot use any tools for this request. All r
 
   // Build the complete system prompt - optimized order for instruction following
   return `${identitySection}
+${userRulesSection}
 ${modeSection}
 
 ${getObjectiveSection(mode)}
@@ -281,5 +282,5 @@ ${getSystemInfoSection(workspace)}
 
 ${taskMemorySection}
 ${thinkingSection}
-${userRulesSection}`.trim();
+`.trim();
 }

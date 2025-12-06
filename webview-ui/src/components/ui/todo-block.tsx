@@ -147,10 +147,10 @@ export function TodoBlock({ tasks }: TodoBlockProps) {
                 type="button"
                 onClick={handlePrevPage}
                 disabled={currentPage === 0}
-                className="p-1 rounded transition-opacity hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
-                style={{ color: 'var(--vscode-input-foreground)' }}
+                className="transition-opacity hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
+                style={{ color: 'var(--vscode-descriptionForeground)' }}
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="w-3.5 h-3.5" />
               </button>
               <span className="text-xs font-medium" style={{ color: 'var(--vscode-descriptionForeground)' }}>
                 {currentPage + 1} / {totalPages}
@@ -159,10 +159,10 @@ export function TodoBlock({ tasks }: TodoBlockProps) {
                 type="button"
                 onClick={handleNextPage}
                 disabled={currentPage === totalPages - 1}
-                className="p-1 rounded transition-opacity hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
-                style={{ color: 'var(--vscode-input-foreground)' }}
+                className="transition-opacity hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
+                style={{ color: 'var(--vscode-descriptionForeground)' }}
               >
-                <ChevronRightIcon className="w-4 h-4" />
+                <ChevronRightIcon className="w-3.5 h-3.5" />
               </button>
             </div>
           )}

@@ -77,20 +77,18 @@ ${instruction}
 }
 
 /**
- * Check if tool needs diagnostics (auto-fetch for file modification tools only)
- * Note: read_file no longer auto-fetches - use check_lints parameter instead
+ * Check if tool needs external diagnostics fetch
+ * Note: write_to_file and apply_diff now handle diagnostics internally (Roo Code approach)
+ * Only read_file with check_lints=true needs external fetch
  */
 export function shouldFetchDiagnostics(toolName: string, parameters?: Record<string, unknown>): boolean {
-  // File modification tools always get diagnostics
-  if (toolName === 'write_to_file' || toolName === 'apply_diff') {
-    return true;
-  }
-
   // read_file only gets diagnostics if check_lints parameter is explicitly true
   if (toolName === 'read_file' && parameters?.check_lints === true) {
     return true;
   }
 
+  // File modification tools (write_to_file, apply_diff) now include diagnostics in their result
+  // No need for external fetch
   return false;
 }
 
@@ -99,4 +97,27 @@ export function shouldFetchDiagnostics(toolName: string, parameters?: Record<str
  */
 export function isFileModificationTool(toolName: string): boolean {
   return toolName === 'write_to_file' || toolName === 'apply_diff';
+}
+
+/**
+ * Extract diagnostics message from tool result (Roo Code approach)
+ * File modification tools include newProblemsMessage in their result data
+ */
+export function extractDiagnosticsFromResult(
+  toolName: string,
+  result?: { success: boolean; data?: unknown }
+): string {
+  if (!result?.success || !result.data) {
+    return '';
+  }
+
+  // Only file modification tools include newProblemsMessage
+  if (!isFileModificationTool(toolName)) {
+    return '';
+  }
+
+  const data = result.data as Record<string, unknown>;
+  const newProblemsMessage = data.newProblemsMessage as string | undefined;
+
+  return newProblemsMessage || '';
 }

@@ -4,6 +4,7 @@ import { distance } from 'fastest-levenshtein';
 import { ITool, ToolExecutionResult, ChatMode } from './tool.interface';
 import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
 import { unescapeHtmlEntities } from '../../utils/text-normalization';
+import { capturePreDiagnostics, detectNewProblemsAfterEdit } from '../diagnostics';
 
 // ==========================================
 // Interfaces
@@ -629,6 +630,10 @@ export class ApplyDiffTool implements ITool {
             const fileContent = await vscode.workspace.fs.readFile(uri);
             const originalContent = Buffer.from(fileContent).toString('utf8');
 
+            // Capture pre-diagnostics BEFORE applying diff (Roo Code approach)
+            const preDiagnostics = capturePreDiagnostics();
+            console.log('[APPLY_DIFF] Captured pre-diagnostics');
+
             // Apply diff
             const diffResult = await this.diffStrategy.applyDiff(
                 originalContent,
@@ -680,6 +685,23 @@ export class ApplyDiffTool implements ITool {
                 await vscode.workspace.fs.writeFile(uri, Buffer.from(diffResult.content, 'utf8'));
             }
 
+            // Open the file in editor to trigger language server analysis
+            try {
+                await vscode.window.showTextDocument(uri, {
+                    preview: false,
+                    preserveFocus: true,
+                });
+                console.log('[APPLY_DIFF] File opened in editor for diagnostics');
+            } catch (openError) {
+                console.warn('[APPLY_DIFF] Could not open file in editor:', openError);
+            }
+
+            // Detect new problems after the edit (Roo Code approach)
+            const newProblemsMessage = await detectNewProblemsAfterEdit(preDiagnostics, workspaceRoot);
+            if (newProblemsMessage) {
+                console.log('[APPLY_DIFF] New problems detected after edit');
+            }
+
             let partFailHint = "";
             if (diffResult.failParts && diffResult.failParts.length > 0) {
                 partFailHint = ` (some diff parts failed - use read_file to verify)`;
@@ -713,6 +735,7 @@ export class ApplyDiffTool implements ITool {
                     lineCount,
                     largeFileReminder,
                     refactorNotice,
+                    newProblemsMessage: newProblemsMessage || undefined,
                 },
             };
 
