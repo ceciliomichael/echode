@@ -60,6 +60,7 @@ interface ChatStreamingProps {
   isExecutingToolRef: React.MutableRefObject<boolean>;
   sendingMessageRef: React.MutableRefObject<boolean>;
   abortControllerRef: React.MutableRefObject<AbortController | null>;
+  hasStreamedContentRef: React.MutableRefObject<boolean>;
   executeToolAndContinue: (
     assistantContent: string,
     assistantMessageId: string,
@@ -88,6 +89,7 @@ export function useChatStreaming({
   isExecutingToolRef,
   sendingMessageRef,
   abortControllerRef,
+  hasStreamedContentRef,
   executeToolAndContinue,
   saveSession,
   mode,
@@ -115,6 +117,7 @@ export function useChatStreaming({
     
     sendingMessageRef.current = true;
     isStreamingRef.current = true;
+    hasStreamedContentRef.current = false;
     setIsStreaming(true);
     
     // Request fresh workspace info before sending message
@@ -563,6 +566,9 @@ export function useChatStreaming({
             }
 
             assistantContent += chunk;
+            if (!hasStreamedContentRef.current && assistantContent.length > 0) {
+              hasStreamedContentRef.current = true;
+            }
             console.log(`[STREAMING] Accumulated content length: ${assistantContent.length} chars`);
             
             // Check for complete tool block
@@ -732,7 +738,7 @@ export function useChatStreaming({
       // Save session after stream completion
       saveSession();
     }
-  }, [messages, workspace, executeToolAndContinue, setMessages, setIsStreaming, setIsExecutingTool, setIsCompressing, setCompressedContextTokens, setCompressedMessages, setCompressionAnchorId, compressedMessagesRef, compressedContextTokensRef, isStreamingRef, isExecutingToolRef, sendingMessageRef, abortControllerRef, saveSession, mode]);
+  }, [messages, workspace, executeToolAndContinue, setMessages, setIsStreaming, setIsExecutingTool, setIsCompressing, setCompressedContextTokens, setCompressedMessages, setCompressionAnchorId, compressedMessagesRef, compressedContextTokensRef, isStreamingRef, isExecutingToolRef, sendingMessageRef, abortControllerRef, hasStreamedContentRef, saveSession, mode]);
 
   return { sendMessage };
 }

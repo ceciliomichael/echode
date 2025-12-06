@@ -1,4 +1,5 @@
 import * as path from 'path';
+import * as fs from 'fs';
 import { ITool, ToolExecutionResult } from './tool.interface';
 import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
 import { listFilesWithRipgrep } from '../ripgrep';
@@ -6,6 +7,7 @@ import { listFilesWithRipgrep } from '../ripgrep';
 interface FileResult {
   path: string;
   name: string;
+  lines: number;
   type: 'file' | 'folder';
 }
 
@@ -45,15 +47,33 @@ export class GlobSearchTool implements ITool {
         excludePatterns: excludes,
       });
 
-      // Filter to only files and format results
-      const results: FileResult[] = fileResults
+      // Filter to only files and format results with line count
+      const results: FileResult[] = [];
+      const fileList = fileResults
         .filter(f => f.type === 'file')
-        .slice(0, maxResults)
-        .map(f => ({
+        .slice(0, maxResults);
+
+      for (const f of fileList) {
+        const absolutePath = path.isAbsolute(f.path)
+          ? f.path
+          : path.join(workspaceRoot, f.path);
+        
+        let lineCount = 0;
+        try {
+          const content = fs.readFileSync(absolutePath, 'utf8');
+          lineCount = content.split('\n').length;
+        } catch {
+          // If we can't read the file, default to 0 lines
+          lineCount = 0;
+        }
+
+        results.push({
           path: f.path,
           name: f.label || path.basename(f.path),
+          lines: lineCount,
           type: f.type,
-        }));
+        });
+      }
 
       return {
         success: true,

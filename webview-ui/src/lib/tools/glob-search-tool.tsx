@@ -1,84 +1,52 @@
-import { useState } from 'react';
-import { FileSearch, ChevronDown, ChevronRight } from 'lucide-react';
+import { FileSearch } from 'lucide-react';
 import type { ToolExecutionResult } from '../../types/tool';
 import { registerToolPlugin } from './tool-plugin';
 import { executeToolViaExtension } from '../tool-utils';
 import { getFileIconConfig } from '../../utils/file-icon-mapper';
+import { SearchSnippetItem } from '../../components/ui/search-snippet-item';
 
 interface GlobFileResult {
   path: string;
   name: string;
-  size: number;
-  type: 'file';
-  extension: string;
+  lines: number;
+  type: 'file' | 'folder';
 }
 
-// Format file size
-const formatSize = (bytes: number): string => {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-};
 
-function GlobFileItem({ file }: { file: GlobFileResult }) {
-  const [isExpanded, setIsExpanded] = useState(false);
+interface GlobFileItemProps {
+  file: GlobFileResult;
+  isExpanded?: boolean;
+  onToggle?: () => void;
+}
+
+function GlobFileItem({
+  file,
+}: GlobFileItemProps) {
   const iconConfig = getFileIconConfig(file.name);
   const Icon = iconConfig.icon;
 
   return (
-    <div className="border-b border-[var(--vscode-input-border)] last:border-b-0">
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[var(--vscode-list-hoverBackground)] transition-colors text-left"
-      >
-        {isExpanded ? (
-          <ChevronDown className="w-3 h-3 opacity-50 flex-shrink-0" />
-        ) : (
-          <ChevronRight className="w-3 h-3 opacity-50 flex-shrink-0" />
-        )}
-        <Icon
-          className="w-3.5 h-3.5 flex-shrink-0"
-          style={{ color: iconConfig.color }}
-        />
-        <span
-          className="text-xs font-medium truncate flex-1"
-          style={{ color: 'var(--vscode-foreground)' }}
-        >
-          {file.path}
-        </span>
-        <span
-          className="text-xs opacity-50 font-mono"
-          style={{ color: 'var(--vscode-descriptionForeground)' }}
-        >
-          {formatSize(file.size)}
-        </span>
-      </button>
-      {isExpanded && (
-        <div className="px-3 pb-2">
-          <div
-            className="text-xs p-2 rounded"
-            style={{
-              backgroundColor: 'var(--vscode-editor-background)',
-              color: 'var(--vscode-editor-foreground)',
-              border: '1px solid var(--vscode-input-border)',
-            }}
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <span className="opacity-50">Name:</span>
-              <span className="font-mono">{file.name}</span>
-            </div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="opacity-50">Extension:</span>
-              <span className="font-mono">{file.extension || 'none'}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="opacity-50">Size:</span>
-              <span className="font-mono">{formatSize(file.size)}</span>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    <SearchSnippetItem
+      path={file.path}
+      icon={Icon}
+      iconColor={iconConfig.color}
+      startLine={0}
+      endLine={0}
+      chipLabel={`${file.lines} lines`}
+      chipStyle={{
+        backgroundColor: 'transparent',
+        color: 'var(--vscode-descriptionForeground)',
+        opacity: 0.7,
+        padding: '2px 6px',
+        fontSize: '0.75rem',
+        fontFamily: 'var(--vscode-editor-font-family)',
+      }}
+      reason={undefined}
+      lines={[]}
+      hasCode={false}
+      isExpanded={false}
+      onToggle={undefined}
+    />
   );
 }
 
@@ -155,81 +123,91 @@ IMPORTANT: Pattern Guidelines:
     execute: executeGlobSearch,
   },
   renderer: (data: unknown) => {
-    if (typeof data === 'object' && data !== null) {
-      const result = data as {
-        patterns: string[];
-        searchPath: string;
-        totalFiles: number;
-        totalSkipped: number;
-        results: GlobFileResult[];
-        skippedFiles?: Array<{
-          file: string;
-          reason: 'permissionDenied' | 'tooLarge' | 'invalidType';
-        }>;
-        truncated: boolean;
-        sortBy: 'name' | 'size' | 'extension';
-        sortOrder: 'asc' | 'desc';
-      };
-
-      const isEmpty = result.results.length === 0;
-      const hasSkipped = result.skippedFiles && result.skippedFiles.length > 0;
-
-      return (
-        <div className="rounded-md overflow-hidden border border-[var(--vscode-input-border)] bg-[var(--vscode-editor-background)]">
-          {/* Content */}
-          <div className="max-h-[400px] overflow-y-auto">
-            {isEmpty ? (
-              <div className="px-3 py-4 text-xs text-center opacity-50 italic">
-                No files found
-              </div>
-            ) : (
-              <div>
-                {result.results.map((file, index) => (
-                  <GlobFileItem key={index} file={file} />
-                ))}
-
-                {/* Truncation or skip warnings */}
-                {(result.truncated || hasSkipped) && (
-                  <div className="border-t border-[var(--vscode-input-border)]">
-                    {result.truncated && (
-                      <div className="px-3 py-2 text-xs text-center opacity-50 italic">
-                        Results truncated (showing {result.totalFiles} files)
-                      </div>
-                    )}
-                    {hasSkipped && (
-                      <div className="px-3 py-2 text-xs opacity-50">
-                        <div className="font-medium mb-1">
-                          {result.totalSkipped} {result.totalSkipped === 1 ? 'file' : 'files'} skipped:
-                        </div>
-                        <div className="space-y-0.5 max-h-24 overflow-y-auto">
-                          {result.skippedFiles?.slice(0, 5).map((skipped, idx) => (
-                            <div key={idx} className="flex items-center gap-2 text-xs">
-                              <span className="font-mono truncate flex-1">{skipped.file}</span>
-                              <span className="italic opacity-70 flex-shrink-0">
-                                ({skipped.reason === 'tooLarge' ? 'too large' : 
-                                  skipped.reason === 'permissionDenied' ? 'permission denied' : 
-                                  'invalid type'})
-                              </span>
-                            </div>
-                          ))}
-                          {result.skippedFiles && result.skippedFiles.length > 5 && (
-                            <div className="text-xs italic opacity-50">
-                              ... and {result.skippedFiles.length - 5} more
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    }
-    return <div className="text-xs opacity-70">Files found successfully</div>;
+    return <GlobSearchRendererComponent data={data} />;
   },
 });
+
+function GlobSearchRendererComponent({ data }: { data: unknown }) {
+  if (typeof data === 'object' && data !== null) {
+    const result = data as {
+      patterns: string[];
+      searchPath: string;
+      totalFiles: number;
+      totalSkipped: number;
+      results: GlobFileResult[];
+      skippedFiles?: Array<{
+        file: string;
+        reason: 'permissionDenied' | 'tooLarge' | 'invalidType';
+      }>;
+      truncated: boolean;
+      sortBy: 'name' | 'size' | 'extension';
+      sortOrder: 'asc' | 'desc';
+    };
+
+    // Safety check: ensure results is an array
+    const results = Array.isArray(result.results) ? result.results : [];
+    const isEmpty = results.length === 0;
+    const hasSkipped = result.skippedFiles && result.skippedFiles.length > 0;
+
+    return (
+      <div className="rounded-md overflow-hidden border border-[var(--vscode-input-border)] bg-[var(--vscode-editor-background)]">
+        {/* Content */}
+        <div className="max-h-[400px] overflow-y-auto">
+          {isEmpty ? (
+            <div className="px-3 py-4 text-xs text-center opacity-50 italic">
+              No files found
+            </div>
+          ) : (
+            <div>
+              {results.map((file, index) => (
+                <GlobFileItem
+                  key={index}
+                  file={file}
+                />
+              ))}
+
+              {/* Truncation or skip warnings */}
+              {(result.truncated || hasSkipped) && (
+                <div className="border-t border-[var(--vscode-input-border)]">
+                  {result.truncated && (
+                    <div className="px-3 py-2 text-xs text-center opacity-50 italic">
+                      Results truncated (showing {result.totalFiles} files)
+                    </div>
+                  )}
+                  {hasSkipped && (
+                    <div className="px-3 py-2 text-xs opacity-50">
+                      <div className="font-medium mb-1">
+                        {result.totalSkipped} {result.totalSkipped === 1 ? 'file' : 'files'} skipped:
+                      </div>
+                      <div className="space-y-0.5 max-h-24 overflow-y-auto">
+                        {result.skippedFiles?.slice(0, 5).map((skipped, idx) => (
+                          <div key={idx} className="flex items-center gap-2 text-xs">
+                            <span className="font-mono truncate flex-1">{skipped.file}</span>
+                            <span className="italic opacity-70 flex-shrink-0">
+                              ({skipped.reason === 'tooLarge' ? 'too large' :
+                                skipped.reason === 'permissionDenied' ? 'permission denied' :
+                                'invalid type'})
+                            </span>
+                          </div>
+                        ))}
+                        {result.skippedFiles && result.skippedFiles.length > 5 && (
+                          <div className="text-xs italic opacity-50">
+                            ... and {result.skippedFiles.length - 5} more
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return <div className="text-xs opacity-70">Files found successfully</div>;
+}
 
 export { GlobFileItem };

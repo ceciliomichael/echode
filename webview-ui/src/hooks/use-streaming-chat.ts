@@ -1,5 +1,6 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import type { ChatMode } from '../types/chat-mode';
+import type { ImageAttachment } from '../types/chat';
 import { useToolExecution } from './use-tool-execution';
 import { useChatStreaming } from './use-chat-streaming';
 import { storageService } from '../utils/storage';
@@ -16,6 +17,9 @@ export function useStreamingChat(
 ) {
   // Core state management
   const state = useChatState();
+
+  const [abortedUserInput, setAbortedUserInput] = useState<string | null>(null);
+  const [abortedAttachments, setAbortedAttachments] = useState<ImageAttachment[] | null>(null);
 
   // Session management (save, load, ensure ID)
   const {
@@ -78,6 +82,7 @@ export function useStreamingChat(
     isExecutingToolRef: state.isExecutingToolRef,
     sendingMessageRef: state.sendingMessageRef,
     abortControllerRef: state.abortControllerRef,
+    hasStreamedContentRef: state.hasStreamedContentRef,
     executeToolAndContinue,
     saveSession: saveCurrentSession,
     mode,
@@ -118,14 +123,34 @@ export function useStreamingChat(
     storageService.clearCurrentSessionId();
     state.setEditingMessageId(null);
     state.setRevertPreviewMessageId(null);
+    setAbortedUserInput(null);
+    setAbortedAttachments(null);
   }, [state]);
 
   // Abort stream and tool execution
   const abortStream = useCallback(() => {
+    // Use refs for synchronous checks - React state may not have updated yet when user clicks Stop fast
+    const isActive = state.isStreamingRef.current || state.isExecutingToolRef.current || state.isCompressing;
+    if (isActive && !state.hasStreamedContentRef.current) {
+      const currentMessages = state.messagesRef.current;
+      if (currentMessages.length >= 2) {
+        const last = currentMessages[currentMessages.length - 1];
+        const prev = currentMessages[currentMessages.length - 2];
+
+        if (last.role === 'assistant' && prev.role === 'user' && !prev.hidden) {
+          setAbortedUserInput(prev.content);
+          setAbortedAttachments(prev.attachments ?? null);
+          const updatedMessages = currentMessages.slice(0, currentMessages.length - 2);
+          state.setMessages(updatedMessages);
+          saveCurrentSession(updatedMessages);
+        }
+      }
+    }
+
     // abortAndReset now handles all state cleanup including
     // isStreaming, isExecutingTool, and sets isStoppingRef for async abort
     state.abortAndReset();
-  }, [state]);
+  }, [state, saveCurrentSession]);
 
   return {
     messages: state.messages,
@@ -137,6 +162,8 @@ export function useStreamingChat(
     revertPreviewMessageId: state.revertPreviewMessageId,
     editingMessageId: state.editingMessageId,
     currentSessionId: state.currentSessionId,
+    abortedUserInput,
+    abortedAttachments,
     sendMessage,
     editMessage,
     updateMessage,

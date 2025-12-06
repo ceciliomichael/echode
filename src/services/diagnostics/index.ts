@@ -225,10 +225,13 @@ export async function detectNewProblemsAfterEdit(
     // Get only new problems
     const newProblems = getNewDiagnostics(preDiagnostics, postDiagnostics);
 
-    // Format to string - only include errors (not warnings) to avoid distracting the AI
+    // Format to string - include errors and warnings to help the AI catch potential issues
     const problemsString = await diagnosticsToProblemsString(
         newProblems,
-        [vscode.DiagnosticSeverity.Error],
+        [
+            vscode.DiagnosticSeverity.Error,
+            vscode.DiagnosticSeverity.Warning,
+        ],
         cwd,
         true,
         maxMessages

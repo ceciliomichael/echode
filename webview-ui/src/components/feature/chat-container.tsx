@@ -43,6 +43,8 @@ export function ChatContainer() {
     updateToolResultData,
     supersedePlanningTools,
     saveCurrentSession,
+    abortedUserInput,
+    abortedAttachments,
     compressedContextTokens,
   } = useStreamingChat(tasks, mode);
 
@@ -164,9 +166,12 @@ export function ChatContainer() {
           className={`flex-1 py-2 px-1 ${editingMessageId ? 'overflow-y-hidden' : 'overflow-y-auto'}`}
         >
           {visibleMessages.length === 0 ? (
-            <ChatEmptyState />
+            <div className="max-w-[700px] mx-auto w-full h-full">
+              <ChatEmptyState />
+            </div>
           ) : (
-            <div className="space-y-3">
+            <div className="max-w-[700px] mx-auto w-full">
+              <div className="space-y-3">
               {visibleMessages.map((message, index) => {
                 const isLastAssistantMessage = index === visibleMessages.length - 1 && message.role === 'assistant';
                 
@@ -191,25 +196,31 @@ export function ChatContainer() {
                   />
                 );
               })}
-              <div className="h-4 sm:h-6 lg:h-8" aria-hidden="true" />
+                <div className="h-4 sm:h-6 lg:h-8" aria-hidden="true" />
+              </div>
             </div>
           )}
         </div>
 
-        <ChatInput 
-          onSendMessage={handleSendMessage} 
-          isStreaming={isStreaming}
-          isExecutingTool={isExecutingTool}
-          isCompressing={isCompressing}
-          onStop={abortStream}
-          todos={tasks}
-          mode={mode}
-          onModeChange={handleModeChange}
-          provider={provider}
-          model={model}
-          onModelChange={setActiveProviderAndModel}
-          contextUsage={contextUsage}
-        />
+        <div className="max-w-[700px] mx-auto w-full px-1">
+          <ChatInput 
+            key={abortedUserInput || (abortedAttachments ? `attachments-${abortedAttachments.length}` : 'default')}
+            onSendMessage={handleSendMessage} 
+            isStreaming={isStreaming}
+            isExecutingTool={isExecutingTool}
+            isCompressing={isCompressing}
+            onStop={abortStream}
+            todos={tasks}
+            mode={mode}
+            onModeChange={handleModeChange}
+            provider={provider}
+            model={model}
+            onModelChange={setActiveProviderAndModel}
+            contextUsage={contextUsage}
+            restoredInput={abortedUserInput ?? undefined}
+            restoredAttachments={abortedAttachments ?? undefined}
+          />
+        </div>
       </div>
 
       <Dropdown

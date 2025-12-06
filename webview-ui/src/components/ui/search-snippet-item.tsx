@@ -57,11 +57,11 @@ export function SearchSnippetItem({
         onClick={handleToggle}
         className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[var(--vscode-list-hoverBackground)] transition-colors text-left"
       >
-        {expanded ? (
+        {onToggle && (expanded ? (
           <ChevronDown className="w-3 h-3 opacity-50 flex-shrink-0" />
         ) : (
           <ChevronRight className="w-3 h-3 opacity-50 flex-shrink-0" />
-        )}
+        ))}
         <Icon
           className="w-3.5 h-3.5 flex-shrink-0"
           style={{ color: iconColor }}
@@ -72,12 +72,14 @@ export function SearchSnippetItem({
         >
           {path}
         </span>
-        <span
-          className="text-xs opacity-50 font-mono flex-shrink-0"
-          style={{ color: 'var(--vscode-descriptionForeground)' }}
-        >
-          {startLine}-{endLine}
-        </span>
+        {hasCode && (
+          <span
+            className="text-xs opacity-50 font-mono flex-shrink-0"
+            style={{ color: 'var(--vscode-descriptionForeground)' }}
+          >
+            {startLine}-{endLine}
+          </span>
+        )}
         {chipLabel && (
           <span
             className="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0"
@@ -109,20 +111,23 @@ export function SearchSnippetItem({
                 <code className="block" style={{ backgroundColor: 'transparent' }}>
                   {lines.map((line) => {
                     const safeText = line.text ?? '';
+                    const showLineNumber = line.lineNumber > 0;
                     return (
                     <div
                       key={`${line.lineNumber}-${safeText.slice(0, 16)}`}
                       className="min-h-[1.15rem] leading-[1.15rem]"
                     >
-                      <span
-                        className="select-none mr-4 opacity-70 text-right inline-block"
-                        style={{
-                          color: 'var(--vscode-editorLineNumber-foreground)',
-                          minWidth: `${lineNumWidth}ch`,
-                        }}
-                      >
-                        {line.lineNumber}
-                      </span>
+                      {showLineNumber && (
+                        <span
+                          className="select-none mr-4 opacity-70 text-right inline-block"
+                          style={{
+                            color: 'var(--vscode-editorLineNumber-foreground)',
+                            minWidth: `${lineNumWidth}ch`,
+                          }}
+                        >
+                          {line.lineNumber}
+                        </span>
+                      )}
                       {safeText || '\u00A0'}
                     </div>
                   );

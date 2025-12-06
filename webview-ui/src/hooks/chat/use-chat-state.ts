@@ -22,13 +22,12 @@ export function useChatState() {
   const [revertPreviewMessageId, setRevertPreviewMessageId] = useState<string | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
 
-  // Session state
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(
-    storageService.getCurrentSessionId()
-  );
+  // Session state - always start fresh on mount
+  // Users should explicitly load a session from history to continue one
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
 
-  // Refs for synchronous access
-  const currentSessionIdRef = useRef<string | null>(storageService.getCurrentSessionId());
+  // Refs for synchronous access - start with null to prevent overwriting previous sessions
+  const currentSessionIdRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const sendingMessageRef = useRef(false);
   const isStreamingRef = useRef(false);
@@ -37,6 +36,7 @@ export function useChatState() {
   const messagesRef = useRef<Message[]>(messages);
   const compressedMessagesRef = useRef<Message[] | null>(null);
   const compressedContextTokensRef = useRef<number | null>(null);
+  const hasStreamedContentRef = useRef(false);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -52,9 +52,10 @@ export function useChatState() {
     compressedContextTokensRef.current = compressedContextTokens;
   }, [compressedMessages, compressedContextTokens]);
 
-  // Sync session state with ref on mount
+  // Clear any stale session ID from storage on mount
+  // This prevents new messages from overwriting previous sessions after reload
   useEffect(() => {
-    setCurrentSessionId(currentSessionIdRef.current);
+    storageService.clearCurrentSessionId();
   }, []);
 
   // Helper functions to modify refs (React Compiler compatible)
@@ -98,6 +99,7 @@ export function useChatState() {
     isStreamingRef.current = false;
     isExecutingToolRef.current = false;
     sendingMessageRef.current = false;
+    hasStreamedContentRef.current = false;
     setIsCompressing(false);
     setIsExecutingTool(false);
     setIsStreaming(false);
@@ -140,6 +142,7 @@ export function useChatState() {
     isStreamingRef,
     isStoppingRef,
     isExecutingToolRef,
+    hasStreamedContentRef,
     messagesRef,
     compressedMessagesRef,
     compressedContextTokensRef,

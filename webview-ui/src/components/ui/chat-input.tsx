@@ -34,15 +34,18 @@ interface ChatInputProps {
   model: string;
   onModelChange: (provider: Provider, model: string) => void;
   contextUsage?: ContextUsageResult;
+  restoredInput?: string | null;
+  restoredAttachments?: ImageAttachment[] | null;
 }
 
-export function ChatInput({ onSendMessage, disabled = false, isStreaming = false, isExecutingTool = false, isCompressing = false, onStop, todos = [], mode, onModeChange, provider, model, onModelChange, contextUsage }: ChatInputProps) {
+export function ChatInput({ onSendMessage, disabled = false, isStreaming = false, isExecutingTool = false, isCompressing = false, onStop, todos = [], mode, onModeChange, provider, model, onModelChange, contextUsage, restoredInput, restoredAttachments }: ChatInputProps) {
   // Show stop button when streaming OR executing a tool (like echo_search)
   const showStopButton = isStreaming || isExecutingTool;
 
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState(restoredInput ?? '');
   const [cursorPos, setCursorPos] = useState(0);
-  const [attachments, setAttachments] = useState<ImageAttachment[]>([]);
+  const [attachments, setAttachments] = useState<ImageAttachment[]>(restoredAttachments ?? []);
+
   const [scrollTop, setScrollTop] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
