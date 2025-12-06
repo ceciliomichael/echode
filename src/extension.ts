@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import { EchodeSidebarProvider } from './sidebar-provider';
 import { AutocompleteService } from './autocomplete';
+import { clearGitignoreCache } from './utils/workspace-scanner';
+import { clearListFilesGitignoreCache } from './services/tools/list-files-tool';
 
 export function activate(context: vscode.ExtensionContext) {
   const autocompleteService = new AutocompleteService(context);
@@ -53,6 +55,21 @@ export function activate(context: vscode.ExtensionContext) {
       sidebarProvider.openSettingsPanel();
     })
   );
+
+  // Watch for .gitignore changes and clear caches
+  const gitignoreWatcher = vscode.workspace.createFileSystemWatcher('**/.gitignore');
+
+  const clearAllGitignoreCaches = () => {
+    clearGitignoreCache();
+    clearListFilesGitignoreCache();
+    console.log('[Echode] .gitignore changed, caches cleared');
+  };
+
+  gitignoreWatcher.onDidChange(clearAllGitignoreCaches);
+  gitignoreWatcher.onDidCreate(clearAllGitignoreCaches);
+  gitignoreWatcher.onDidDelete(clearAllGitignoreCaches);
+
+  context.subscriptions.push(gitignoreWatcher);
 }
 
-export function deactivate() {}
+export function deactivate() { }

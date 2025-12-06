@@ -15,11 +15,18 @@ function getGitignorePatterns(workspacePath: string): string[] {
   return gitignoreCache.get(workspacePath) || [];
 }
 
+/**
+ * Clear the gitignore cache (useful when .gitignore changes)
+ */
+export function clearListFilesGitignoreCache(): void {
+  gitignoreCache.clear();
+}
+
 function shouldExcludeFileFromListing(name: string, workspacePath?: string, relativePath?: string): boolean {
   if (name.toLowerCase() === 'agents.md'.toLowerCase()) {
     return true;
   }
-  
+
   // Check gitignore patterns
   if (workspacePath) {
     const gitignorePatterns = getGitignorePatterns(workspacePath);
@@ -28,7 +35,7 @@ function shouldExcludeFileFromListing(name: string, workspacePath?: string, rela
       return true;
     }
   }
-  
+
   return false;
 }
 

@@ -6,7 +6,7 @@ export const EXCLUDED_DIRECTORIES = [
   '.output',
   '.vercel',
   '.netlify',
-  
+
   // Python
   '__pycache__',
   '.venv',
@@ -19,12 +19,12 @@ export const EXCLUDED_DIRECTORIES = [
   '.eggs',
   'egg-info',
   '.ipynb_checkpoints',
-  
+
   // Version Control
   '.git',
   '.svn',
   '.hg',
-  
+
   // Build outputs
   'dist',
   'build',
@@ -32,60 +32,60 @@ export const EXCLUDED_DIRECTORIES = [
   'out',
   'output',
   '_build',
-  
+
   // Rust
   'target',
-  
+
   // Go
   'vendor',
-  
+
   // Java/Kotlin/Scala
   '.gradle',
   '.mvn',
   '.m2',
-  
+
   // .NET/C#
   'bin',
   'obj',
   'packages',
   '.nuget',
-  
+
   // C/C++
   'cmake-build-debug',
   'cmake-build-release',
   'cmake-build-*',
-  
+
   // Ruby
   '.bundle',
-  
+
   // PHP
-  
+
   // Elixir/Erlang
   'deps',
   '_build',
   '.elixir_ls',
-  
+
   // Dart/Flutter
   '.dart_tool',
   '.pub-cache',
-  
+
   // Swift/iOS
   '.build',
   'DerivedData',
   'Pods',
   '.swiftpm',
-  
+
   // IDE/Editor
   '.idea',
   '.vscode',
   '.vs',
   '.fleet',
-  
+
   // Testing/Coverage
   'coverage',
   '.nyc_output',
   'htmlcov',
-  
+
   // Misc
   '.cache',
   '.temp',
@@ -106,7 +106,7 @@ export const EXCLUDED_FILES = [
   '.DS_Store',
   'Thumbs.db',
   'desktop.ini',
-  
+
   // Compiled/Binary
   '*.pyc',
   '*.pyo',
@@ -124,7 +124,7 @@ export const EXCLUDED_FILES = [
   '*.nupkg',
   '*.whl',
   '*.egg',
-  
+
   // Logs/Temp
   '*.log',
   '*.tmp',
@@ -133,7 +133,7 @@ export const EXCLUDED_FILES = [
   '*.swo',
   '*.bak',
   '*.cache',
-  
+
   // Lock files
   'package-lock.json',
   'yarn.lock',
@@ -147,23 +147,16 @@ export const EXCLUDED_FILES = [
   'pubspec.lock',
   'Podfile.lock',
   'packages.lock.json',
-  
+
   // Source maps
   '*.map',
   '*.js.map',
   '*.css.map',
-  
+
   // Minified files
   '*.min.js',
   '*.min.css',
-  
-  // Environment
-  '.env',
-  '.env.local',
-  '.env.development',
-  '.env.production',
-  '.env.test',
-  
+
   // Generated
   '*.generated.*',
   '*.g.dart',

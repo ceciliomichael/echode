@@ -30,9 +30,11 @@ function getGitignorePatterns(workspacePath: string): string[] {
 
 /**
  * Clear gitignore cache (useful when .gitignore changes)
+ * Also clears the workspaceExcludedDirs cache
  */
 export function clearGitignoreCache(): void {
   gitignoreCache.clear();
+  workspaceExcludedDirs.clear();
 }
 
 /**
@@ -54,7 +56,7 @@ export function shouldExclude(name: string, isDirectory: boolean, workspacePath?
       return true;
     }
   }
-  
+
   // Check gitignore patterns if workspace path is provided
   if (workspacePath) {
     const gitignorePatterns = getGitignorePatterns(workspacePath);
@@ -63,7 +65,7 @@ export function shouldExclude(name: string, isDirectory: boolean, workspacePath?
       return true;
     }
   }
-  
+
   return false;
 }
 
@@ -87,20 +89,20 @@ export function getAgentsConfig(workspacePath: string): string | null {
  */
 export function getWorkspaceFiles(workspacePath: string): string[] {
   const files: string[] = [];
-  
+
   const traverse = (dir: string, relativePath: string = '') => {
     try {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
-      
+
       for (const entry of entries) {
         const relPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
-        
+
         if (shouldExclude(entry.name, entry.isDirectory(), workspacePath, relPath)) {
           continue;
         }
-        
+
         const fullPath = path.join(dir, entry.name);
-        
+
         if (entry.isDirectory()) {
           traverse(fullPath, relPath);
         } else {
@@ -111,7 +113,7 @@ export function getWorkspaceFiles(workspacePath: string): string[] {
       // Skip directories that can't be read
     }
   };
-  
+
   traverse(workspacePath);
   return files.sort();
 }
@@ -164,7 +166,7 @@ function countLinesIfLarge(filePath: string, minBytes: number, threshold: number
     if (stat.size < minBytes) {
       return 0;
     }
-    
+
     const buffer = fs.readFileSync(filePath);
     let count = 1;
     for (let i = 0; i < buffer.length; i++) {
@@ -190,7 +192,7 @@ const workspaceExcludedDirs = new Map<string, Set<string>>();
 function getExcludedDirsForWorkspace(workspacePath: string): Set<string> {
   if (!workspaceExcludedDirs.has(workspacePath)) {
     const dirs = new Set(EXCLUDED_DIRECTORIES);
-    
+
     // Parse gitignore and add directory patterns
     const gitignorePatterns = getGitignorePatterns(workspacePath);
     for (const pattern of gitignorePatterns) {
@@ -200,7 +202,7 @@ function getExcludedDirsForWorkspace(workspacePath: string): Set<string> {
         dirs.add(clean);
       }
     }
-    
+
     workspaceExcludedDirs.set(workspacePath, dirs);
   }
   return workspaceExcludedDirs.get(workspacePath)!;
@@ -211,18 +213,18 @@ function getExcludedDirsForWorkspace(workspacePath: string): Set<string> {
  */
 function shouldExcludeFast(name: string, isDirectory: boolean, excludedDirs: Set<string>): boolean {
   const lower = name.toLowerCase();
-  
+
   if (isDirectory) {
     return excludedDirs.has(lower);
   }
-  
+
   // Check extension patterns for files
   for (const ext of EXCLUDED_EXTENSIONS) {
     if (lower.endsWith(ext)) {
       return true;
     }
   }
-  
+
   return false;
 }
 
@@ -235,7 +237,7 @@ export async function scanLargeFilesAsync(workspacePath: string, threshold: numb
   const largeFiles: LargeFileInfo[] = [];
   const minBytes = threshold * 20;
   const excludedDirs = getExcludedDirsForWorkspace(workspacePath);
-  
+
   const traverse = (dir: string, relativePath: string = '') => {
     let entries;
     try {
@@ -243,17 +245,17 @@ export async function scanLargeFilesAsync(workspacePath: string, threshold: numb
     } catch (_error) {
       return;
     }
-    
+
     for (const entry of entries) {
       const name = entry.name;
-      
+
       if (shouldExcludeFast(name, entry.isDirectory(), excludedDirs)) {
         continue;
       }
-      
+
       const fullPath = path.join(dir, name);
       const relPath = relativePath ? `${relativePath}/${name}` : name;
-      
+
       if (entry.isDirectory()) {
         traverse(fullPath, relPath);
       } else if (isCodeFile(name)) {
@@ -264,7 +266,7 @@ export async function scanLargeFilesAsync(workspacePath: string, threshold: numb
       }
     }
   };
-  
+
   traverse(workspacePath);
   return largeFiles.sort((a, b) => b.lineCount - a.lineCount);
 }
@@ -276,7 +278,7 @@ export function scanLargeFiles(workspacePath: string, threshold: number = 300): 
   const largeFiles: LargeFileInfo[] = [];
   const minBytes = threshold * 20;
   const excludedDirs = getExcludedDirsForWorkspace(workspacePath);
-  
+
   const traverse = (dir: string, relativePath: string = '') => {
     let entries;
     try {
@@ -284,17 +286,17 @@ export function scanLargeFiles(workspacePath: string, threshold: number = 300): 
     } catch (_error) {
       return;
     }
-    
+
     for (const entry of entries) {
       const name = entry.name;
-      
+
       if (shouldExcludeFast(name, entry.isDirectory(), excludedDirs)) {
         continue;
       }
-      
+
       const fullPath = path.join(dir, name);
       const relPath = relativePath ? `${relativePath}/${name}` : name;
-      
+
       if (entry.isDirectory()) {
         traverse(fullPath, relPath);
       } else if (isCodeFile(name)) {
@@ -305,7 +307,7 @@ export function scanLargeFiles(workspacePath: string, threshold: number = 300): 
       }
     }
   };
-  
+
   traverse(workspacePath);
   return largeFiles.sort((a, b) => b.lineCount - a.lineCount);
 }

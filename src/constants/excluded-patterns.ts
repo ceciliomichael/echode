@@ -9,7 +9,7 @@ export const EXCLUDED_DIRECTORIES = [
   '.output',
   '.vercel',
   '.netlify',
-  
+
   // Python
   '__pycache__',
   '.venv',
@@ -22,12 +22,12 @@ export const EXCLUDED_DIRECTORIES = [
   '.eggs',
   'egg-info',
   '.ipynb_checkpoints',
-  
+
   // Version Control
   '.git',
   '.svn',
   '.hg',
-  
+
   // Build outputs
   'dist',
   'build',
@@ -35,58 +35,58 @@ export const EXCLUDED_DIRECTORIES = [
   'out',
   'output',
   '_build',
-  
+
   // Rust
   'target',
-  
+
   // Go
   'vendor',
-  
+
   // Java/Kotlin/Scala
   '.gradle',
   '.mvn',
   '.m2',
-  
+
   // .NET/C#
   'bin',
   'obj',
   'packages',
   '.nuget',
-  
+
   // C/C++
   'cmake-build-debug',
   'cmake-build-release',
   'cmake-build-*',
-  
+
   // Ruby
   '.bundle',
-  
+
   // Elixir/Erlang
   'deps',
   '_build',
   '.elixir_ls',
-  
+
   // Dart/Flutter
   '.dart_tool',
   '.pub-cache',
-  
+
   // Swift/iOS
   '.build',
   'DerivedData',
   'Pods',
   '.swiftpm',
-  
+
   // IDE/Editor
   '.idea',
   '.vscode',
   '.vs',
   '.fleet',
-  
+
   // Testing/Coverage
   'coverage',
   '.nyc_output',
   'htmlcov',
-  
+
   // Misc
   '.cache',
   '.temp',
@@ -107,7 +107,7 @@ export const EXCLUDED_FILES = [
   '.DS_Store',
   'Thumbs.db',
   'desktop.ini',
-  
+
   // Compiled/Binary
   '*.pyc',
   '*.pyo',
@@ -125,7 +125,7 @@ export const EXCLUDED_FILES = [
   '*.nupkg',
   '*.whl',
   '*.egg',
-  
+
   // Logs/Temp
   '*.log',
   '*.tmp',
@@ -134,7 +134,7 @@ export const EXCLUDED_FILES = [
   '*.swo',
   '*.bak',
   '*.cache',
-  
+
   // Lock files
   'package-lock.json',
   'yarn.lock',
@@ -148,28 +148,21 @@ export const EXCLUDED_FILES = [
   'pubspec.lock',
   'Podfile.lock',
   'packages.lock.json',
-  
+
   // Source maps
   '*.map',
   '*.js.map',
   '*.css.map',
-  
+
   // Minified files
   '*.min.js',
   '*.min.css',
-  
-  // Environment
-  '.env',
-  '.env.local',
-  '.env.development',
-  '.env.production',
-  '.env.test',
-  
+
   // Generated
   '*.generated.*',
   '*.g.dart',
   '*.freezed.dart',
-  
+
   // Special
   'AGENTS.md',
 ];
@@ -181,7 +174,56 @@ export function getDefaultGrepExcludes(): string[] {
 }
 
 /**
+ * Patterns from .gitignore that should NOT be excluded
+ * These are files the AI often needs to access for context
+ */
+const GITIGNORE_PATTERNS_TO_SKIP = [
+  // Environment files - AI needs to see variable structure
+  '.env',
+  '.env.*',
+  '.env.local',
+  '.env.development',
+  '.env.production',
+  '.env.test',
+  '.env.example',
+  '*.env',
+];
+
+/**
+ * Check if a gitignore pattern matches any pattern we want to skip
+ */
+function shouldSkipGitignorePattern(pattern: string): boolean {
+  const normalized = pattern.replace(/^\/+/, '').replace(/\/+$/, '');
+
+  for (const skip of GITIGNORE_PATTERNS_TO_SKIP) {
+    // Exact match
+    if (normalized === skip) {
+      return true;
+    }
+
+    // Pattern ends with the skip pattern (e.g., "**/.env" matches ".env")
+    if (normalized.endsWith('/' + skip) || normalized.endsWith(skip)) {
+      // Check if it's specifically about env files
+      if (skip.includes('.env') && normalized.includes('.env')) {
+        return true;
+      }
+    }
+
+    // Wildcard skip pattern matching (e.g., ".env.*" should skip ".env.local")
+    if (skip.includes('*')) {
+      const skipPrefix = skip.replace('*', '');
+      if (normalized.startsWith(skipPrefix) || normalized.includes('/' + skipPrefix)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
  * Parse .gitignore file and return patterns
+ * Filters out patterns that match files the AI needs access to (e.g., .env files)
  */
 export function parseGitignore(workspacePath: string): string[] {
   const gitignorePath = path.join(workspacePath, '.gitignore');
@@ -197,7 +239,7 @@ export function parseGitignore(workspacePath: string): string[] {
 
     for (const line of lines) {
       const trimmed = line.trim();
-      
+
       // Skip empty lines and comments
       if (!trimmed || trimmed.startsWith('#')) {
         continue;
@@ -205,6 +247,11 @@ export function parseGitignore(workspacePath: string): string[] {
 
       // Skip negation patterns (lines starting with !)
       if (trimmed.startsWith('!')) {
+        continue;
+      }
+
+      // Skip patterns for files the AI needs access to
+      if (shouldSkipGitignorePattern(trimmed)) {
         continue;
       }
 
@@ -224,22 +271,22 @@ export function gitignorePatternsToGlob(patterns: string[]): string[] {
   return patterns.map(pattern => {
     // Remove trailing slashes
     let p = pattern.replace(/\/+$/, '');
-    
+
     // If pattern starts with /, it's relative to root
     if (p.startsWith('/')) {
       p = p.slice(1);
     }
-    
+
     // If pattern doesn't have path separators or wildcards at start, match anywhere
     if (!p.includes('/') && !p.startsWith('*')) {
       return `**/${p}`;
     }
-    
+
     // If it's already a glob pattern, use as-is but ensure it can match in subdirs
     if (p.includes('*')) {
       return p.startsWith('**') ? p : `**/${p}`;
     }
-    
+
     return `**/${p}/**`;
   });
 }
@@ -251,7 +298,7 @@ export function getExcludePatternsWithGitignore(workspacePath: string): string[]
   const defaultExcludes = getDefaultGrepExcludes();
   const gitignorePatterns = parseGitignore(workspacePath);
   const globPatterns = gitignorePatternsToGlob(gitignorePatterns);
-  
+
   // Combine and deduplicate
   const combined = [...new Set([...defaultExcludes, ...globPatterns])];
   return combined;
@@ -263,24 +310,24 @@ export function getExcludePatternsWithGitignore(workspacePath: string): string[]
 export function matchesGitignorePattern(filePath: string, patterns: string[]): boolean {
   const normalizedPath = filePath.replace(/\\/g, '/');
   const segments = normalizedPath.split('/');
-  
+
   for (const pattern of patterns) {
     // Simple pattern matching
     const cleanPattern = pattern.replace(/\/+$/, '');
-    
+
     // Check if any segment matches the pattern
     for (const segment of segments) {
       if (matchSimpleGlob(segment, cleanPattern)) {
         return true;
       }
     }
-    
+
     // Check if full path matches
     if (matchSimpleGlob(normalizedPath, cleanPattern)) {
       return true;
     }
   }
-  
+
   return false;
 }
 
@@ -292,23 +339,23 @@ function matchSimpleGlob(text: string, pattern: string): boolean {
   if (pattern === text) {
     return true;
   }
-  
+
   // Handle wildcard patterns like *.log
   if (pattern.startsWith('*')) {
     const suffix = pattern.slice(1);
     return text.endsWith(suffix);
   }
-  
+
   // Handle patterns like dir/*
   if (pattern.endsWith('/*')) {
     const prefix = pattern.slice(0, -2);
     return text.startsWith(prefix + '/');
   }
-  
+
   // Handle directory patterns
   if (pattern.endsWith('/')) {
     return text === pattern.slice(0, -1) || text.startsWith(pattern);
   }
-  
+
   return false;
 }
