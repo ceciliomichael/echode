@@ -9,26 +9,26 @@ function getEditingInstructions(mode: ChatMode, enabledTools: Tool[]): string {
 	if (mode === 'general') {
 		// General mode - document-focused
 		if (enabledIds.has('apply_diff')) {
-			instructions.push('- Prefer **apply_diff** for targeted edits to existing documents.');
-			instructions.push('- **CRITICAL**: Before apply_diff, use read_file. SEARCH blocks must match EXACTLY.');
+			instructions.push('- Prefer **apply_diff** for small, targeted edits to existing documents.');
+			instructions.push('- **CRITICAL (apply_diff)**: Always call read_file first and base SEARCH blocks on the latest content. Avoid repeating the same failing diff on the same file.');
 		}
 		if (enabledIds.has('write_to_file')) {
-			instructions.push('- Use **write_to_file** for new documents or complete rewrites. Always provide COMPLETE content.');
+			instructions.push('- Use **write_to_file** for new documents or complete rewrites. Always provide COMPLETE content, not partial snippets.');
 		}
 	} else if (mode === 'agent') {
 		// Agent mode - code-focused
 		if (enabledIds.has('apply_diff')) {
-			instructions.push('- Prefer **apply_diff** over write_to_file for existing files.');
-			instructions.push('- **CRITICAL for apply_diff**: MUST read_file first. SEARCH blocks require 100% exact match including whitespace.');
-			instructions.push('- If edit fails, re-read file to check current state before retrying.');
+			instructions.push('- Prefer **apply_diff** over write_to_file for existing files when making focused edits.');
+			instructions.push('- **CRITICAL (apply_diff)**: MUST read_file first. SEARCH blocks must match the latest file content, including whitespace.');
+			instructions.push('- If apply_diff fails twice for the same file, stop retrying blindly: re-read the file, adjust the diff, or switch to write_to_file.');
 		}
 		if (enabledIds.has('write_to_file')) {
-			instructions.push('- **write_to_file**: ALWAYS provide COMPLETE file content. No placeholders like "// rest unchanged".');
+			instructions.push('- **write_to_file**: ONLY for new files or full-file rewrites. ALWAYS provide the complete file content. No placeholders like "// rest unchanged".');
 		}
 	}
 
-	if (instructions.length > 0 && (enabledIds.has('apply_diff') || enabledIds.has('write_to_file'))) {
-		instructions.push('- **DIAGNOSTICS LIMIT**: After 3 failed attempts on same file, summarize issue and ask user.');
+	if (enabledIds.has('read_file')) {
+		instructions.push('- **read_file**: Avoid re-reading the same file and range repeatedly. Reuse earlier results unless the user or tools indicate the file changed.');
 	}
 
 	return instructions.length > 0 ? instructions.join('\n') : '';
@@ -43,11 +43,12 @@ export function getRulesSection(workspace: WorkspaceContext | null, mode: ChatMo
 	// Critical rules that apply universally - high priority block
 	const criticalRules = `<critical_rules>
 1. **TOOL AVAILABILITY**: Only use tools in <enabled_tools>. Never hallucinate tools.
-2. **READ BEFORE EDIT**: Never edit without read_file first in this session.
-3. **VERIFY SUCCESS**: Wait for tool confirmation before next step.
+2. **READ BEFORE EDIT**: Never call apply_diff or write_to_file on a file you have not read in this conversation.
+3. **VERIFY SUCCESS**: Wait for tool confirmation and check outputs before the next step.
 4. **NO PROTOCOL LEAK**: Never expose <function_calls> or XML syntax to user.
 5. **NO FILLER QUESTIONS**: Don't end with questions unless genuinely blocked.
 6. **NO CONVERSATIONAL OPENERS**: Never start with "Great", "Certainly", "Okay", "Sure".
+7. **AVOID LOOPS**: Do not repeat the same tool call with the same parameters when it has already succeeded or failed without changing your approach.
 </critical_rules>`;
 
 	// Workspace rules

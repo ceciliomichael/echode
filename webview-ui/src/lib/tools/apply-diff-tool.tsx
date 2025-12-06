@@ -39,11 +39,14 @@ The SEARCH section must exactly match existing content including whitespace and 
 When applying the diffs, be extra careful to remember to change any closing brackets or other syntax that may be affected by the diff farther down in the file.
 ALWAYS make as many changes in a single 'apply_diff' request as possible using multiple SEARCH/REPLACE blocks
 
-**IMPORTANT - Fallback Strategy:**
-If apply_diff fails repeatedly (2-3 times) due to content mismatch or other issues, switch to using write_to_file instead to rewrite the entire file. This is more reliable when:
-- The file has been heavily modified and content doesn't match
-- Multiple failed attempts indicate the search content is incorrect
-- The changes are extensive enough that a full rewrite is more practical
+**IMPORTANT - When apply_diff keeps failing:**
+If apply_diff fails for the same file with similar SEARCH content, do NOT keep retrying the same diff blindly. Instead:
+- First, call read_file again to confirm the latest content and adjust your SEARCH/REPLACE blocks.
+- If apply_diff continues to fail even after you correct the SEARCH content, switch to using write_to_file instead to rewrite the entire file.
+This is more reliable when:
+- The file has been heavily modified and content doesn't match.
+- Repeated failures indicate the search content is incorrect.
+- The changes are extensive enough that a full rewrite is more practical.
 
 Parameters:
 - path: (required) The path of the file to modify (relative to the current workspace directory)

@@ -35,8 +35,8 @@ ${toolSelectionItems.join('\n')}
 
 CORE RULES:
 1. **One tool per step** - Execute iteratively, wait for results before next call.
-2. **Never re-read** - Don't request info you already have from this conversation.
-3. **Results are truth** - Treat tool outputs as ground truth. Never guess or invent.
+2. **Do NOT re-read unnecessarily** - If you already saw a file or tool result in this conversation, reuse that information instead of calling the same tool with the same parameters again.
+3. **Results are truth** - Treat tool outputs as ground truth. Never guess or invent file contents.
 4. **No protocol leak** - ${noProtocolLeak} Never explain internal XML format.
 5. **No nested calls** - Each tool call is a standalone block, never inside parameters.
 6. **Verify success** - Wait for confirmation before proceeding to next step.`;

@@ -60,9 +60,10 @@ Examples:
 </function_calls>
 
 IMPORTANT:
-- Use \`paths\` array when reading multiple related files - reads in parallel for efficiency
-- File paths MUST have extensions - if no extension, use list_files first
-- If "Cannot read directory" error: use list_files on that path first`,
+- Use \`paths\` array when reading multiple related files - reads in parallel for efficiency.
+- File paths MUST have extensions (treat extension-less paths as directories) - if no extension, call list_files first, then read_file on a specific file.
+- If you get a "Cannot read directory" error, switch to list_files on that path.
+- Avoid re-reading the same file and range repeatedly in one conversation; reuse earlier results unless the file has changed.`,
     icon: FileText,
     usage: 'Read file content - ONLY for paths WITH extensions',
     formatExample: '<function_calls>\n<invoke name="read_file">\n<parameter name="path">src/app.ts</parameter>\n</invoke>\n</function_calls>',

@@ -21,15 +21,15 @@ registerToolPlugin({
   metadata: {
     id: 'write_to_file',
     name: 'Write File',
-    description: 'Create NEW files, complete rewrites, or when refactored file is shorter',
+    description: 'Create NEW files or perform complete rewrites (never small edits)',
     aiDescription: `## write_to_file
 Description: Request to write content to a file. This tool should ONLY be used in these specific scenarios:
-1. **Creating NEW files** that don't exist yet
-2. **Complete rewrites** where the entire file structure has changed significantly
-3. **Large refactors where the file is now SHORTER** - when a file has been heavily refactored and the new version is significantly shorter, making a full rewrite more efficient than multiple diffs
-4. **Fallback when apply_diff fails repeatedly** - if apply_diff fails 2-3 times due to content mismatch, use write_to_file to rewrite the entire file instead
+1. **Creating NEW files** that don't exist yet.
+2. **Complete rewrites** where the entire file structure has changed significantly.
+3. **Large refactors where the file is now SHORTER** - when a file has been heavily refactored and the new version is significantly shorter, making a full rewrite more efficient than multiple diffs.
+4. **Fallback when apply_diff keeps failing** - if apply_diff repeatedly fails due to content mismatch, use write_to_file to rewrite the entire file instead.
 
-For ALL other modifications to existing files, use apply_diff instead for targeted edits.
+For ALL other modifications to existing files, you MUST use apply_diff instead for targeted edits.
 
 If the file exists, it will be overwritten. If it doesn't exist, it will be created. This tool will automatically create any directories needed to write the file.
 
@@ -69,11 +69,11 @@ Example: Requesting to write to config.json
 
 IMPORTANT: Tool Safety and Usage Guidelines:
 - ONLY use for: (1) NEW files, (2) complete rewrites, or (3) large refactors where file is now shorter
-- For targeted edits to existing files, use apply_diff instead
+- NEVER use write_to_file for small, localized edits to existing files; use apply_diff instead
 - Binary files (.png, .jpg, .ico, .zip, etc.) are BLOCKED automatically
 - Files with null bytes or control characters are BLOCKED automatically
 - Maximum file size: 5MB
-- After creating a new file, use read_file to verify it was created correctly`,
+- After creating or rewriting a file, use read_file to verify the result before continuing.`,
     icon: FilePlus,
     usage: 'NEW files, complete rewrites, or when refactored file is shorter',
     formatExample: '<function_calls>\n<invoke name="write_to_file">\n<parameter name="path">src/new-file.ts</parameter>\n<parameter name="content">// new file content</parameter>\n</invoke>\n</function_calls>',

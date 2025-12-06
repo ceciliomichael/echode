@@ -16,7 +16,7 @@ function truncateContent(content: string, maxChars: number): string {
  */
 function formatSingleToolResult(execution: ToolExecutionState): string {
   const data = execution.result?.data as Record<string, unknown> | undefined;
-  
+
   if (!execution.result?.success) {
     return `[${execution.toolName}] ERROR: ${execution.result?.error || 'Unknown error'}`;
   }
@@ -32,19 +32,19 @@ function formatSingleToolResult(execution: ToolExecutionState): string {
       const startLine = data.startLine as number;
       const endLine = data.endLine as number;
       const content = data.content as string;
-      
+
       let header = `[read_file] ${path} (${totalLines} lines)`;
       if (startLine !== 1 || endLine !== totalLines) {
         header += ` [lines ${startLine}-${endLine}]`;
       }
-      
+
       return `${header}\n${content}`;
     }
 
     case 'write_to_file': {
       const path = data.path as string;
       const action = data.action as string;
-      
+
       if (action === 'no_change') {
         return `[write_to_file] ${path} → NO CHANGES NEEDED (file already matches desired content)`;
       }
@@ -54,7 +54,7 @@ function formatSingleToolResult(execution: ToolExecutionState): string {
     case 'apply_diff': {
       const path = data.path as string;
       const message = data.message as string;
-      
+
       if (message?.includes('no_change') || message?.includes('NO_OP')) {
         return `[apply_diff] ${path} → NO CHANGES (diff produced identical content)`;
       }
@@ -68,16 +68,11 @@ function formatSingleToolResult(execution: ToolExecutionState): string {
 
     case 'grep_search': {
       const query = data.query as string;
-      const totalMatches = data.totalMatches as number;
-      const filesWithMatches = data.filesWithMatches as number;
-      const results = data.results as Array<Record<string, unknown>> | undefined;
-      
-      let output = `[grep_search] "${query}" → ${totalMatches} matches in ${filesWithMatches} files`;
-      if (results && results.length > 0) {
-        const topFiles = results.slice(0, 5).map(r => 
-          `  ${r.file as string}: ${(r.matches as unknown[]).length} matches`
-        ).join('\n');
-        output += '\n' + topFiles;
+      const results = data.results as string | undefined;
+
+      let output = `[grep_search] "${query}"`;
+      if (results) {
+        output += '\n' + truncateContent(results, 2000);
       }
       return output;
     }
@@ -86,11 +81,11 @@ function formatSingleToolResult(execution: ToolExecutionState): string {
       const path = data.path as string;
       const directories = data.directories as Array<{ name: string }> | undefined;
       const files = data.files as Array<{ name: string }> | undefined;
-      
+
       const dirCount = directories?.length || 0;
       const fileCount = files?.length || 0;
       let output = `[list_files] ${path} → ${dirCount} directories, ${fileCount} files`;
-      
+
       if (directories && directories.length > 0) {
         output += `\n  Dirs: ${directories.slice(0, 10).map(d => d.name).join(', ')}${directories.length > 10 ? '...' : ''}`;
       }
@@ -104,7 +99,7 @@ function formatSingleToolResult(execution: ToolExecutionState): string {
       const command = data.command as string;
       const output = data.output as string | undefined;
       const exitCode = data.exitCode as number | undefined;
-      
+
       let result = `[run_terminal] \`${command}\``;
       if (exitCode !== undefined) {
         result += exitCode === 0 ? ' → SUCCESS' : ` → EXIT ${exitCode}`;
@@ -118,7 +113,7 @@ function formatSingleToolResult(execution: ToolExecutionState): string {
     case 'echo_search': {
       const query = data.query as string;
       const results = data.results as string | undefined;
-      
+
       let output = `[echo_search] "${query}"`;
       if (results) {
         output += '\n' + truncateContent(results, 2000);
@@ -155,7 +150,7 @@ export function formatToolResultsForHistory(
     if (!isToolAvailableInMode(execution.toolName, mode)) {
       return;
     }
-    
+
     if (execution.status === 'completed' && execution.result) {
       toolResults.push(formatSingleToolResult(execution));
     }
