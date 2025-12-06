@@ -277,15 +277,21 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
                 >
                   {!viewOnly ? (
                     <>
-                      {line.oldLineNumber !== undefined && (
+                      {line.type === 'removed' ? (
+                        <span className="inline-block w-6">-</span>
+                      ) : line.oldLineNumber !== undefined ? (
                         <span className="inline-block w-6">{line.oldLineNumber}</span>
+                      ) : (
+                        <span className="inline-block w-6"> </span>
                       )}
-                      {line.oldLineNumber === undefined && <span className="inline-block w-6">-</span>}
                       <span className="mx-1">|</span>
-                      {line.newLineNumber !== undefined && (
+                      {line.type === 'added' ? (
+                        <span className="inline-block w-6">+</span>
+                      ) : line.newLineNumber !== undefined ? (
                         <span className="inline-block w-6">{line.newLineNumber}</span>
+                      ) : (
+                        <span className="inline-block w-6"> </span>
                       )}
-                      {line.newLineNumber === undefined && <span className="inline-block w-6">-</span>}
                     </>
                   ) : (
                     <span className="inline-block w-6">{line.newLineNumber}</span>

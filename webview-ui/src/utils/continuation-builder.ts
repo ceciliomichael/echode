@@ -228,26 +228,8 @@ export function buildContinuationHistory(
     toolResultMessage += '\n' + todoContext;
   }
 
-  // Collect files already read in this conversation to prevent re-reading
-  const filesAlreadyRead = new Set<string>();
-  for (const msg of currentMessages) {
-    if (msg.toolExecutions) {
-      msg.toolExecutions.forEach((exec) => {
-        if (exec.toolName === 'read_file' && exec.result?.success && exec.parameters?.path) {
-          filesAlreadyRead.add(String(exec.parameters.path));
-        }
-      });
-    }
-  }
-  
-  // Add reminder about files already read
-  if (filesAlreadyRead.size > 0) {
-    const filesList = Array.from(filesAlreadyRead).slice(0, 10).join(', ');
-    toolResultMessage += `\n\n<files_already_read>\nYou have already read these files: ${filesList}\nPlease do not read them again. Use the content from earlier in this conversation.\n</files_already_read>`;
-  }
-
-  // Add concise continuation instruction
-  toolResultMessage += '\n\n[Continue based on the tool results above. Please stay focused and do not re-read files you already have.]';
+  // Simple continuation instruction
+  toolResultMessage += '\n\n[Continue. Focus on the user\'s request.]';
 
   continuationHistory.push({
     role: 'user',

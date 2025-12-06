@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Check, ChevronDown, Search, Cpu, RotateCcw } from 'lucide-react';
+import { Check, ChevronDown, Search, Cpu, RefreshCcw } from 'lucide-react';
 import type { ApiSettings, Provider } from '../../types/api-settings';
 import { storageService } from '../../utils/storage';
 import { useModelFetcher, requestModelsRefresh } from '../../hooks/use-model-fetcher';
@@ -249,30 +249,35 @@ export function SettingsModelSelector({
               className="p-2 border-b"
               style={{ borderColor: 'var(--vscode-input-border)' }}
             >
-              <div
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl border"
-                style={{
-                  backgroundColor: 'var(--vscode-input-background)',
-                  borderColor: 'var(--vscode-input-border)',
-                }}
-              >
-                <Search size={14} style={{ color: 'var(--vscode-input-foreground)', opacity: 0.6 }} />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search models..."
-                  className="flex-1 bg-transparent text-sm border-0 p-0"
+              <div className="flex items-center gap-1">
+                <div
+                  className="relative flex-1 rounded-md border"
                   style={{
-                    color: 'var(--vscode-input-foreground)',
-                    outline: 'none',
+                    backgroundColor: 'var(--vscode-input-background)',
+                    borderColor: 'var(--vscode-input-border)',
                   }}
-                  autoFocus
-                />
+                >
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search models..."
+                    className="w-full bg-transparent text-xs border-0 rounded-md py-1.5 pl-6 pr-2 placeholder-opacity-50"
+                    style={{
+                      color: 'var(--vscode-input-foreground)',
+                      outline: 'none',
+                    }}
+                    autoFocus
+                  />
+                  <Search
+                    className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none"
+                    style={{ color: 'var(--vscode-input-foreground)', opacity: 0.6 }}
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={requestModelsRefresh}
-                  className="flex items-center justify-center rounded-lg border px-2 py-1 text-[11px] min-w-[32px] h-7"
+                  className="flex items-center justify-center rounded-md border px-1.5 py-1 text-[10px] min-w-[28px] h-7"
                   style={{
                     backgroundColor: 'var(--vscode-input-background)',
                     borderColor: 'var(--vscode-input-border)',
@@ -280,7 +285,7 @@ export function SettingsModelSelector({
                   }}
                   title="Refresh models"
                 >
-                  <RotateCcw size={13} />
+                  <RefreshCcw className={anyLoading ? 'animate-spin' : ''} size={13} />
                 </button>
               </div>
             </div>

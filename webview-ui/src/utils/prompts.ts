@@ -2,13 +2,7 @@ import type { WorkspaceContext } from '../types/workspace';
 import { storageService } from './storage';
 import { getAllTools, getToolSystemPrompt, getToolsForMode, PLAN_ONLY_TOOL_IDS } from '../lib/tool-config';
 import { type ChatMode, DEFAULT_CHAT_MODE } from '../types/chat-mode';
-import {
-  getSystemInfoSection,
-  getObjectiveSection,
-  getRulesSection,
-  getVisualizationGuidelinesSection,
-} from './prompt-sections';
-import { getToolUseGuidelinesSection } from './prompt-sections/tool-use-guidelines';
+import { getSystemInfoSection } from './prompt-sections';
 
 export interface PromptConfig {
   name: string;
@@ -32,53 +26,15 @@ export function getSystemPrompt(workspace: WorkspaceContext | null, mode: ChatMo
     ? `You are ${config.name}, a general-purpose AI assistant.\n\nYou are precise, articulate, and reliable. You support a broad range of non-coding tasks, including academic and professional writing, critical analysis, research support, explanation of concepts, document organization, and structured brainstorming. Use clear, direct language with an academic tone when appropriate. Think step by step to reach sound conclusions, and keep responses concise, well-structured, and focused on the user's stated objective.`
     : `You are ${config.name}, ${config.purpose}.\n\nYou are a skilled software engineer with extensive knowledge in many programming languages, frameworks, design patterns, and best practices. You must reason carefully and logically about the code you read before editing it: analyze structure and intent, plan minimal targeted changes, and verify your conclusions using tools instead of guessing. Think step by step to reach correct decisions, but keep your final responses concise and focused on the user's goal.`;
 
-  // Task & memory guidance - shared across modes to reduce looping
-  const taskMemorySection = `====
+  // Core focus instruction - placed at top for priority
+  const focusInstruction = `<core_focus>
+Focus on the user's CURRENT message. Read it carefully. Respond to what they asked, not what you assume.
+</core_focus>`;
 
-<task_and_memory>
-Please follow these memory rules carefully:
-- Before calling read_file, grep_search, or any tool: check if you already have that information from earlier in this conversation. If yes, reuse it.
-- Once you read a file, remember its contents. Do not read the same file again unless explicitly asked.
-- One task at a time. Complete the current step before moving to the next.
-- If you feel uncertain, re-read your previous tool results instead of calling tools again.
-</task_and_memory>`;
-
-  // Thinking instruction section - applies to all modes
-  const thinkingSection = `====
-
-<reasoning_protocol>
-MANDATORY: Before responding to ANY user request, you MUST engage in structured reasoning inside <thinking></thinking> tags.
-
-**CRITICAL TAG STRUCTURE:**
-- You MUST start your response with the opening <thinking> tag FIRST.
-- You MUST close with </thinking> BEFORE your visible response.
-- NEVER output </thinking> without first outputting <thinking>.
-- NEVER skip the opening <thinking> tag.
-
-CORRECT FORMAT:
-<thinking>
-[Your internal reasoning here]
-</thinking>
-[Your response to the user]
-
-WRONG FORMAT (DO NOT DO THIS):
-</thinking>  ← NEVER start with a closing tag
-[response]
-
-When you receive a request, your thinking block must follow this flow:
-1. Deconstruct the user's request - what is the core intent?
-2. What are the explicit and implicit tasks?
-3. Formulate a step-by-step plan.
-4. Decide whether tools are needed and which action(s) to take next.
-
-CRITICAL RULES:
-- ALWAYS start with <thinking> tag before any other content.
-- ALWAYS reason inside <thinking></thinking> tags before your response.
-- NEVER nest <thinking></thinking> tags within each other.
-- NEVER mention, reference, or explain the thinking process to the user.
-- Keep thinking focused on: understanding the task, deciding if tools are needed, choosing the next action.
-- After </thinking>, proceed directly with your response.
-</reasoning_protocol>`;
+  // Simplified thinking instruction
+  const thinkingSection = `<thinking_rule>
+Start every response with <thinking>. Inside, briefly note: what did the user ask? what do I need to do? Then close with </thinking> and respond.
+</thinking_rule>`;
 
   // Combine AGENTS.md rules with custom system prompt from settings
   const customSystemPrompt = storageService.getSystemPrompt();
@@ -198,9 +154,6 @@ Implementation workflow:
   }
 
   // Add tool configuration - use mode-aware tool filtering
-  // In Plan mode: only 7 tools (read_file, list_files, grep_search, glob_search, todo_write, plan_navigator, plan_handoff)
-  // In Ask mode: only 4 tools (read_file, list_files, grep_search, glob_search)
-  // In Agent mode: respects user's tool settings from settings page, but excludes plan-only tools
   const savedTools = storageService.getEnabledTools();
   const settings = storageService.getSettings();
   const echoSearchEnabled = settings.indexingSettings?.enabled ?? true;
@@ -240,27 +193,15 @@ No tools are currently enabled. You cannot use any tools for this request. All r
 </tool_status>
 `;
 
-  // Add Tool Use Guidelines (behavioral, shared across modes)
-  const toolUseGuidelinesSection = activeTools.length > 0
-    ? getToolUseGuidelinesSection(mode, activeTools)
-    : '';
+  // Build the complete system prompt - priority order: focus first, then tools, then details
+  return `${thinkingSection}
 
-  // Build the complete system prompt - optimized order for instruction following
-  return `${identitySection}
+${focusInstruction}
+
+${identitySection}
 ${userRulesSection}
 ${modeSection}
-
-${getObjectiveSection(mode)}
-
-${getRulesSection(workspace, mode, activeTools)}
-${toolUseGuidelinesSection}
 ${toolsSection}
-
-${getVisualizationGuidelinesSection(mode)}
-
 ${getSystemInfoSection(workspace)}
-
-${taskMemorySection}
-${thinkingSection}
 `.trim();
 }

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useHoverEffect, hoverPresets } from '../../hooks/use-hover-effect';
-import { Check, Cpu, Search, RotateCcw } from 'lucide-react';
+import { Check, Cpu, Search, RefreshCcw } from 'lucide-react';
 import type { ApiSettings, Provider } from '../../types/api-settings';
 import { storageService } from '../../utils/storage';
 import { useModelFetcher, requestModelsRefresh } from '../../hooks/use-model-fetcher';
@@ -263,7 +263,7 @@ export function ChatModelSelector({ provider: activeProvider, model: activeModel
                 }}
                 title="Refresh models"
               >
-                <RotateCcw className="w-3 h-3" />
+                <RefreshCcw className={`w-3 h-3 ${anyLoading ? 'animate-spin' : ''}`} />
               </button>
             </div>
           </div>
