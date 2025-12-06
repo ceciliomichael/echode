@@ -160,7 +160,7 @@ function EchoSearchRendererComponent({ data }: { data: unknown }) {
                            (result.searchStats?.listDirCalls || 0);
 
     return (
-      <div className="rounded-md overflow-hidden border border-[var(--vscode-input-border)] bg-[var(--vscode-editor-background)]">
+      <div className="rounded-xl overflow-hidden border border-[var(--vscode-input-border)] bg-[var(--vscode-editor-background)]">
         
         {/* Summary - Collapsible */}
         <div

@@ -3,9 +3,7 @@ import { storageService } from './storage';
 import { getAllTools, getToolSystemPrompt, getToolsForMode, PLAN_ONLY_TOOL_IDS } from '../lib/tool-config';
 import { type ChatMode, DEFAULT_CHAT_MODE } from '../types/chat-mode';
 import {
-  getMarkdownFormattingSection,
   getSystemInfoSection,
-  getCapabilitiesSection,
   getObjectiveSection,
   getRulesSection,
   getVisualizationGuidelinesSection,
@@ -187,7 +185,7 @@ Implementation workflow:
   const savedTools = storageService.getEnabledTools();
   const settings = storageService.getSettings();
   const echoSearchEnabled = settings.indexingSettings?.enabled ?? true;
-  
+
   // 1. Get tools allowed for the current mode
   const modeTools = mode === 'plan'
     ? getToolsForMode('plan', true)
@@ -199,19 +197,19 @@ Implementation workflow:
 
   // 2. Apply user preferences (savedTools)
   const userEnabledMap = new Map(savedTools?.map(t => [t.id, t.enabled]));
-  
+
   let baseTools = modeTools.map(tool => {
     if (userEnabledMap.has(tool.id)) {
       return { ...tool, enabled: userEnabledMap.get(tool.id)! };
     }
     return tool;
   });
-  
+
   // Filter out echo_search if indexing is disabled
   if (!echoSearchEnabled) {
     baseTools = baseTools.filter(tool => tool.id !== 'echo_search');
   }
-  
+
   const activeTools = baseTools.filter(tool => tool.enabled);
   const toolsSection = activeTools.length > 0
     ? `
@@ -228,24 +226,20 @@ No tools are currently enabled. You cannot use any tools for this request. All r
     ? getToolUseGuidelinesSection(mode, activeTools)
     : '';
 
-  // Build the complete system prompt using Roo Code's modular structure
+  // Build the complete system prompt - optimized order for instruction following
   return `${identitySection}
+${modeSection}
 
-${thinkingSection}
-
-${getMarkdownFormattingSection()}
-
-${getSystemInfoSection(workspace)}
-
-${getCapabilitiesSection(workspace, activeTools)}
+${getObjectiveSection(mode)}
 
 ${getRulesSection(workspace, mode, activeTools)}
+${toolUseGuidelinesSection}
+${toolsSection}
 
 ${getVisualizationGuidelinesSection(mode)}
 
-${getObjectiveSection()}
-${userRulesSection}
-${modeSection}
-${toolUseGuidelinesSection}
-${toolsSection}`.trim();
+${getSystemInfoSection(workspace)}
+
+${thinkingSection}
+${userRulesSection}`.trim();
 }

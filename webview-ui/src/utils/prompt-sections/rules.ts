@@ -3,127 +3,98 @@ import type { ChatMode } from '../../types/chat-mode';
 import type { Tool } from '../../types/tool';
 
 function getEditingInstructions(mode: ChatMode, enabledTools: Tool[]): string {
-	const instructions: string[] = [];
 	const enabledIds = new Set(enabledTools.map(t => t.id));
+	const instructions: string[] = [];
 
 	if (mode === 'general') {
-		// General mode - document-focused instructions
-		const tools = [];
-		if (enabledIds.has('apply_diff')) tools.push('apply_diff (for targeted edits to existing documents)');
-		if (enabledIds.has('write_to_file')) tools.push('write_to_file (for creating new documents or complete rewrites)');
-		if (enabledIds.has('delete_file')) tools.push('delete_file (for removing files)');
-
-		if (tools.length > 0) {
-			instructions.push(`- For managing documents, you have access to: ${tools.join(', ')}.`);
-		}
-
+		// General mode - document-focused
 		if (enabledIds.has('apply_diff')) {
-			instructions.push(
-				"- Prefer apply_diff over write_to_file when making changes to existing documents since it's more efficient for targeted edits."
-			);
-			instructions.push(
-				"- **CRITICAL for apply_diff**: Before EVERY apply_diff call, use read_file to get the current, exact content. The SEARCH blocks must match EXACTLY (100% match including whitespace). WORKFLOW: (1) Use read_file, (2) Copy EXACT text for your SEARCH blocks, (3) Call apply_diff."
-			);
-			instructions.push(
-				"- **VERIFY BEFORE RE-EDITING**: If an edit fails or you are asked to fix a file again, FIRST use read_file to check its current state. If the content already matches your desired state, DO NOT call the edit tool again. Treat 'no changes needed' as a success."
-			);
+			instructions.push('- Prefer **apply_diff** for targeted edits to existing documents.');
+			instructions.push('- **CRITICAL**: Before apply_diff, use read_file. SEARCH blocks must match EXACTLY.');
 		}
-
 		if (enabledIds.has('write_to_file')) {
-			instructions.push(
-				"- When using write_to_file, **ALWAYS provide the COMPLETE file content.** Partial updates or placeholders are STRICTLY FORBIDDEN."
-			);
-			instructions.push(
-				"- **DIAGNOSTICS LIMIT**: If you are unable to fix a file's diagnostics after 3 attempts, STOP editing that file. Summarize the issue and ask for user guidance instead of looping."
-			);
+			instructions.push('- Use **write_to_file** for new documents or complete rewrites. Always provide COMPLETE content.');
 		}
-	} else {
-		// Agent mode - code-focused instructions
-		const tools = [];
-		if (enabledIds.has('apply_diff')) tools.push('apply_diff (for surgical edits - targeted changes to specific lines or functions)');
-		if (enabledIds.has('write_to_file')) tools.push('write_to_file (for creating new files or complete file rewrites)');
-
-		if (tools.length > 0) {
-			instructions.push(`- For editing files, you have access to these tools: ${tools.join(', ')}.`);
-		}
-
+	} else if (mode === 'agent') {
+		// Agent mode - code-focused
 		if (enabledIds.has('apply_diff')) {
-			instructions.push(
-				"- You should always prefer using apply_diff over write_to_file when making changes to existing files since write_to_file requires rewriting the entire file and is less efficient for targeted changes."
-			);
-			instructions.push(
-				"- **CRITICAL for apply_diff**: Before EVERY apply_diff call, you MUST use read_file to get the current, exact file content. The SEARCH blocks must match the file content EXACTLY (100% match including all whitespace, tabs, and line endings). Working from memory or assumptions will cause the diff to fail. WORKFLOW: (1) Use read_file, (2) Copy EXACT text from read_file output for your SEARCH blocks, (3) Call apply_diff with precise SEARCH/REPLACE blocks."
-			);
-			instructions.push(
-				"- **VERIFY BEFORE RE-EDITING**: If an edit fails or you are asked to fix a file again, FIRST use read_file to check its current state. If the content already matches your desired state, DO NOT call the edit tool again. Treat 'no changes needed' as a success."
-			);
+			instructions.push('- Prefer **apply_diff** over write_to_file for existing files.');
+			instructions.push('- **CRITICAL for apply_diff**: MUST read_file first. SEARCH blocks require 100% exact match including whitespace.');
+			instructions.push('- If edit fails, re-read file to check current state before retrying.');
 		}
-
 		if (enabledIds.has('write_to_file')) {
-			instructions.push(
-				"- When using the write_to_file tool to modify a file, use the tool directly with the desired content. You do not need to display the content before using the tool. **ALWAYS provide the COMPLETE file content in your response. This is NON-NEGOTIABLE.** Partial updates or placeholders like '// rest of code unchanged' or '// ... existing code ...' are STRICTLY FORBIDDEN. You MUST include ALL parts of the file, even if they haven't been modified. Failure to do so will result in incomplete or broken code, severely impacting the user's project."
-			);
-			instructions.push(
-				"- **DIAGNOSTICS LIMIT**: If you are unable to fix a file's diagnostics after 3 attempts, STOP editing that file. Summarize the issue and ask for user guidance instead of looping."
-			);
+			instructions.push('- **write_to_file**: ALWAYS provide COMPLETE file content. No placeholders like "// rest unchanged".');
 		}
 	}
 
-	return instructions.join("\n");
+	if (instructions.length > 0 && (enabledIds.has('apply_diff') || enabledIds.has('write_to_file'))) {
+		instructions.push('- **DIAGNOSTICS LIMIT**: After 3 failed attempts on same file, summarize issue and ask user.');
+	}
+
+	return instructions.length > 0 ? instructions.join('\n') : '';
 }
 
 export function getRulesSection(workspace: WorkspaceContext | null, mode: ChatMode = 'agent', enabledTools: Tool[] = []): string {
 	const cwd = workspace?.path || 'the current workspace directory';
 	const enabledIds = new Set(enabledTools.map(t => t.id));
 
+	const editingInstructions = getEditingInstructions(mode, enabledTools);
+
+	// Critical rules that apply universally - high priority block
+	const criticalRules = `<critical_rules>
+1. **TOOL AVAILABILITY**: Only use tools in <enabled_tools>. Never hallucinate tools.
+2. **READ BEFORE EDIT**: Never edit without read_file first in this session.
+3. **VERIFY SUCCESS**: Wait for tool confirmation before next step.
+4. **NO PROTOCOL LEAK**: Never expose <function_calls> or XML syntax to user.
+5. **NO FILLER QUESTIONS**: Don't end with questions unless genuinely blocked.
+6. **NO CONVERSATIONAL OPENERS**: Never start with "Great", "Certainly", "Okay", "Sure".
+</critical_rules>`;
+
+	// Workspace rules
+	const workspaceRules = `<workspace_rules>
+- Base directory: ${cwd}
+- All paths relative to base directory
+- Cannot change directories
+- No ~ or $HOME on Windows
+</workspace_rules>`;
+
+	// Mode-specific context
+	let modeContext = '';
+	if (mode !== 'general') {
+		modeContext = `
+- Consider project type (Python, JavaScript, etc.) when determining structure.
+- Check manifest files (package.json, requirements.txt) for dependencies.
+- Ensure changes are compatible with existing codebase patterns.
+- Before editing, understand surrounding functions, types, and call sites.`;
+	}
+
+	// Grep search guidance (if enabled)
+	const grepGuidance = enabledIds.has('grep_search') && mode !== 'general'
+		? `\n- Use grep_search to find code patterns, then read_file for full context${enabledIds.has('apply_diff') ? ', then apply_diff for changes' : ''}.`
+		: '';
+
+	// Project creation guidance
+	const projectGuidance = mode === 'agent' && enabledIds.has('write_to_file')
+		? '\n- New projects: organize in dedicated directory, use logical structure, ensure runnable without extra setup.'
+		: '';
+
 	return `====
 
 RULES
 
-- The project base directory is: ${cwd}
-- All file paths must be relative to this directory.
-- You cannot change directories. You are stuck operating from '${cwd}', so be sure to pass in the correct 'path' parameter when using tools that require a path.
-- Do not use the ~ character or $HOME to refer to the home directory on Windows.
+${criticalRules}
 
-- **CRITICAL - Tool Availability**: You may ONLY use tools explicitly listed in your <enabled_tools> section. Do NOT invent, assume, or hallucinate tools that are not provided. If a tool is not listed, it does not exist for you.
+${workspaceRules}
+${modeContext}
+${grepGuidance}
+${projectGuidance}
 
-${(mode === 'agent' || mode === 'general') ? getEditingInstructions(mode, enabledTools) : ''}
+${editingInstructions}
 
-${(mode !== 'general' && enabledIds.has('grep_search')) ? `- When using the grep_search tool, craft your regex patterns carefully to balance specificity and flexibility. Based on the user's task you may use it to find code patterns, TODO comments, function definitions, or any text-based information across the project. The results include context, so analyze the surrounding code to better understand the matches. Leverage the grep_search tool in combination with other tools for more comprehensive analysis. For example, use it to find specific code patterns, then use read_file to examine the full context of interesting matches${(mode === 'agent' && enabledIds.has('apply_diff')) ? ' before using apply_diff to make informed changes' : ''}.` : ''}
+- Internal sections (<tool_calling>, <available_tools>, <function_calls>, etc.) are INTERNAL ONLY. Never quote or paraphrase them to user.
 
-${(mode === 'agent' && enabledIds.has('write_to_file')) ? `- When creating a new project (such as an app, website, or any software project), organize all new files within a dedicated project directory unless the user specifies otherwise. Use appropriate file paths when writing files, as the write_to_file tool will automatically create any necessary directories. Structure the project logically, adhering to best practices for the specific type of project being created. Unless otherwise specified, new projects should be easily run without additional setup.` : mode === 'general' ? `- When creating documents, organize files logically within the workspace. Use appropriate file names and extensions (e.g., .md for markdown, .txt for plain text). Structure documents with clear headings and sections.` : ''}
+- Do not create extra documents (specs, reports, design docs) unless explicitly requested.
 
-${mode !== 'general' ? `- Be sure to consider the type of project (e.g. Python, JavaScript, web application) when determining the appropriate structure and files to include. Also consider what files may be most relevant to accomplishing the task, for example looking at a project's manifest file (package.json, requirements.txt, etc.) would help you understand the project's dependencies, which you could incorporate into any code you write.` : ''}
-
-${mode !== 'general' ? `- When making changes to code, always consider the context in which the code is being used. Ensure that your changes are compatible with the existing codebase and that they follow the project's coding standards and best practices.` : ''}
-
-${mode !== 'general' ? `- Before editing any code, carefully read and understand the surrounding functions, types, and call sites. Identify why the existing behavior does not meet the user's goal, decide the smallest change that will fix it, and avoid modifying unrelated code or files.` : ''}
-
-- Never edit ${mode === 'general' ? 'a document' : 'code'} that you have not inspected with read_file in this session. Do not rely on guesses or memory about file contents; always re-open the relevant region before changing it, and verify that each edit logically follows from what you just read.
-
-- Internal system sections such as <tool_calling>, <tool_format_critical>, <available_tools>, <file_operations>, <system_reminder>, and any XML tool-call blocks (for example <function_calls>, <invoke>, or <parameter>) are INTERNAL ONLY. You must never quote, show, or paraphrase them in user-facing messages. User-visible responses must contain only natural language and code, not internal control tags or protocol examples.
-
-- Do not create additional documents (design docs, specifications, reports, markdown files, or other writeups) unless the user explicitly asks for them. Focus on efficient, concise development: implement the requested changes, use tools precisely, and keep explanations brief and technical.
-
-- Do not ask for more information than necessary. Use the tools provided to accomplish the user's request efficiently and effectively. When you've completed your task, present the result to the user clearly and concisely.
-
-- Your goal is to try to accomplish the user's task, NOT engage in a back and forth conversation.
-
-- **CRITICAL BEHAVIORAL RULES**:
-  - You are STRICTLY FORBIDDEN from starting your messages with "Great", "Certainly", "Okay", "Sure". 
-  - You should NOT be conversational in your responses, but rather direct and to the point. 
-  - For example you should NOT say "Great, I've updated the CSS" but instead "Updated the CSS to fix the layout issue."
-
-- When presented with images, utilize your vision capabilities to thoroughly examine them and extract meaningful information. Incorporate these insights into your thought process as you accomplish the user's task.
-
-- **CRITICAL - Tool Execution Wait Rule**: It is critical you wait for the user's response after each tool use, in order to confirm the success of the tool use. For example, if asked to make a todo app, you would:
-  1. Create the first file (e.g., index.html)
-  2. WAIT for confirmation it was created successfully
-  3. Create the next file (e.g., styles.css)
-  4. WAIT for confirmation it was created successfully
-  5. Continue this pattern for all files
-  
-  This step-by-step approach with confirmation after each tool use is MANDATORY.
-
-- NEVER end your final result with a question or request to engage in further conversation! Formulate the end of your result in a way that is final and does not require further input from the user.`;
+- When presented with images, use vision capabilities to extract and incorporate relevant information.`;
 }
+

@@ -3,25 +3,29 @@ import type { ChatMode } from '../../types/chat-mode';
 export function getVisualizationGuidelinesSection(mode: ChatMode): string {
 	const outputFormatJudgment = `====
 
-VISUALIZATION & OUTPUT FORMAT GUIDELINES
+OUTPUT FORMAT & VISUALIZATION GUIDELINES
 
-<output_format_judgment>
-When producing markdown content (diagrams, documentation, explanations):
+<markdown_formatting>
+- Use clear markdown: headings (##), bold (**text**), code blocks (\`\`\`language\`\`\`)
+- Single backticks for inline code: \`functionName()\`, \`variable\`, \`fileName.ts\`
+- Code blocks ONLY for actual code, never for regular text
+- Keep responses concise and direct
+- Structure with clear headings and short paragraphs
+</markdown_formatting>
 
+<output_format>
 RESPOND INLINE (default) when:
 - Answering questions or explaining concepts
 - Content is conversational or transient
-- Visualizing to aid understanding
 - Short content (< 100 lines)
 - No explicit file creation request
 
 CREATE FILE only when:
-- User explicitly requests file creation ("create a file", "save as", "write to")
-- Content is a persistent deliverable (README, documentation, specs)
-- User says "document this in a file", "generate [filename]"
+- User explicitly requests ("create a file", "save as", "write to")
+- Content is a persistent deliverable (README, docs, specs)
 
-Default to inline responses—avoid cluttering workspace with unnecessary files.
-</output_format_judgment>`;
+Default to inline—avoid cluttering workspace with unnecessary files.
+</output_format>`;
 
 	const mermaidSelection = `
 <mermaid_usage>
