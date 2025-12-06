@@ -72,7 +72,7 @@ export function HistoryDropdown({ onLoadSession, onClose }: HistoryDropdownProps
   };
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col max-h-96">
       {/* Header */}
       <div 
         className="flex items-center justify-between px-3 py-2.5"
