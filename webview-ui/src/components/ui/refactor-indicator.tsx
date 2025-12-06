@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { FileCode, Search } from 'lucide-react';
+import { FileCode, Search, CheckCircle2 } from 'lucide-react';
 import { getFileIconConfig } from '../../utils/file-icon-mapper';
 
 interface DashedProgressCircleProps {
@@ -223,19 +223,45 @@ export function RefactorIndicator({ largeFiles, isScanning = false, disabled = f
       <button
         ref={buttonRef}
         type="button"
-        disabled={disabled || isEmpty}
+        disabled={disabled}
         onFocus={() => setShowTooltip(true)}
         onBlur={() => setShowTooltip(false)}
-        className={`py-1 rounded-md transition-opacity hover:opacity-70 disabled:opacity-50 disabled:cursor-not-allowed ${isScanning ? 'animate-pulse' : ''}`}
+        className="py-1 rounded-md transition-opacity hover:opacity-70 disabled:opacity-50 disabled:cursor-not-allowed"
         style={{ color: isEmpty ? 'var(--vscode-descriptionForeground)' : REFACTOR_COLOR }}
         aria-label={isScanning ? 'Scanning codebase...' : isEmpty ? 'No files need refactoring' : `${fileCount} files may need refactoring`}
       >
-        <DashedProgressCircle 
-          percent={isScanning ? 50 : isEmpty ? 0 : percent} 
-          color={isEmpty ? 'var(--vscode-descriptionForeground)' : REFACTOR_COLOR} 
-          size={16} 
-        />
+        <div className={isScanning ? 'animate-spin' : ''}>
+          <DashedProgressCircle 
+            percent={isScanning ? 0 : isEmpty ? 0 : percent} 
+            color={isScanning ? 'var(--vscode-descriptionForeground)' : isEmpty ? 'var(--vscode-descriptionForeground)' : REFACTOR_COLOR} 
+            size={16} 
+          />
+        </div>
       </button>
+
+      {/* Empty state tooltip */}
+      {showTooltip && isEmpty && (
+        <div
+          className={`absolute z-50 px-3 py-2 rounded-xl border shadow-lg ${
+            tooltipPosition === 'above' ? 'bottom-full mb-2' : 'top-full mt-2'
+          }`}
+          style={{
+            right: 0,
+            backgroundColor: 'var(--vscode-editor-background)',
+            borderColor: 'var(--vscode-input-border)',
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-3.5 h-3.5" style={{ color: 'var(--vscode-descriptionForeground)' }} />
+            <span
+              className="text-xs whitespace-nowrap"
+              style={{ color: 'var(--vscode-descriptionForeground)' }}
+            >
+              No large files found
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Scanning tooltip */}
       {showTooltip && isScanning && (

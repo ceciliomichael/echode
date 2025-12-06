@@ -45,7 +45,7 @@ export function formatDiagnosticsForAI(
   currentAttempts: number,
   maxIterations: number
 ): string {
-  if (!diagnostics || diagnostics.length === 0) {return '';}
+  if (!diagnostics || diagnostics.length === 0) { return ''; }
 
   const diagnosticLines = diagnostics.map((d) => {
     const source = d.source ? ` (${d.source})` : '';
@@ -77,14 +77,21 @@ ${instruction}
 }
 
 /**
- * Check if tool needs diagnostics
+ * Check if tool needs diagnostics (auto-fetch for file modification tools only)
+ * Note: read_file no longer auto-fetches - use check_lints parameter instead
  */
-export function shouldFetchDiagnostics(toolName: string): boolean {
-  return (
-    toolName === 'write_to_file' ||
-    toolName === 'apply_diff' ||
-    toolName === 'read_file'
-  );
+export function shouldFetchDiagnostics(toolName: string, parameters?: Record<string, unknown>): boolean {
+  // File modification tools always get diagnostics
+  if (toolName === 'write_to_file' || toolName === 'apply_diff') {
+    return true;
+  }
+
+  // read_file only gets diagnostics if check_lints parameter is explicitly true
+  if (toolName === 'read_file' && parameters?.check_lints === true) {
+    return true;
+  }
+
+  return false;
 }
 
 /**

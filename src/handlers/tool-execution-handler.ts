@@ -6,6 +6,14 @@ import { getWorkspaceFiles, getAgentsConfig } from '../utils/workspace-scanner';
 // Tools that modify the file system and require workspace refresh
 const FILE_MODIFYING_TOOLS = new Set(['write_to_file', 'delete_file', 'apply_diff']);
 
+// Optional callback that can be set by the sidebar provider to trigger
+// a refactor/large-file scan after successful write_to_file/apply_diff
+let onFileModificationSuccess: (() => void) | null = null;
+
+export function setFileModificationCallback(callback: (() => void) | null): void {
+  onFileModificationSuccess = callback;
+}
+
 // Track active tool executions for cancellation
 const activeToolExecutions = new Map<string, AbortController>();
 
@@ -133,6 +141,15 @@ export async function handleToolExecution(
           type: 'workspaceInfo',
           workspace: workspaceInfo
         });
+      }
+
+      // Trigger refactor scan ONLY for write_to_file and apply_diff, as requested
+      if (onFileModificationSuccess && (toolName === 'write_to_file' || toolName === 'apply_diff')) {
+        try {
+          onFileModificationSuccess();
+        } catch (scanError) {
+          console.warn('[ToolHandler] Refactor scan callback failed:', scanError);
+        }
       }
     }
   } catch (error) {

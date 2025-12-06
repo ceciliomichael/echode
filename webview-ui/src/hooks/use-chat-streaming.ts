@@ -622,6 +622,30 @@ export function useChatStreaming({
           if (pendingUpdate) {
             updateUI();
           }
+
+          // POST-STREAM SAFETY CHECK: detect tool blocks that may have completed
+          // in the final chunks but were not detected during streaming
+          if (hasCompleteToolBlock(assistantContent)) {
+            console.log('[STREAMING] ✓ Post-stream tool block detected - executing');
+
+            const trimmedContent = trimToFirstCompleteToolBlock(assistantContent);
+            assistantContent = trimmedContent;
+            updateUI();
+
+            setIsExecutingTool(true);
+
+            await executeToolAndContinue(
+              assistantContent,
+              assistantMessageId,
+              finalChatHistory,
+              messagesToSend,
+              content,
+              0,
+              attachments,
+            );
+
+            return; // Tool execution handles continuation
+          }
           
           // Stream completed successfully
           streamSuccess = true;

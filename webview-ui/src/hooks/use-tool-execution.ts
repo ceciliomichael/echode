@@ -12,6 +12,9 @@ import { createToolExecutionState, updateToolExecutionStatus, updateToolExecutio
 import { fetchDiagnostics, formatDiagnosticsForAI, shouldFetchDiagnostics, isFileModificationTool as checkIsFileModificationTool } from '../utils/diagnostic-utils';
 import { buildContinuationHistory } from '../utils/continuation-builder';
 import { executeToolWithStopCheck, type ToolProgressCallback } from '../utils/tool-execution-helpers';
+import { getContextCompressor } from '../services/context-compressor';
+import { storageService } from '../utils/storage';
+import { getSystemPrompt } from '../utils/prompts';
 
 /**
  * Helper to fetch and format diagnostics for a tool execution
@@ -32,7 +35,10 @@ async function fetchAndFormatDiagnostics(
   const filePath = (data.path as string) || 'unknown';
   const absolutePath = data.absolutePath as string;
 
-  if (!shouldFetchDiagnostics(executedTool.toolName) || !absolutePath) {
+  // Get parameters from the completed state for check_lints support
+  const toolParameters = completedState.parameters;
+
+  if (!shouldFetchDiagnostics(executedTool.toolName, toolParameters) || !absolutePath) {
     return '';
   }
 
@@ -53,13 +59,13 @@ async function fetchAndFormatDiagnostics(
   if (diagnostics && diagnostics.length > 0) {
     const isModificationTool = checkIsFileModificationTool(executedTool.toolName);
     const maxIterations = 3;
-    
+
     if (isModificationTool) {
       const currentAttempts = (diagnosticAttemptsRef.current[filePath] || 0) + 1;
       diagnosticAttemptsRef.current[filePath] = currentAttempts;
       return formatDiagnosticsForAI(diagnostics, filePath, isModificationTool, currentAttempts, maxIterations);
     }
-    
+
     return formatDiagnosticsForAI(diagnostics, filePath, isModificationTool, 0, maxIterations);
   } else {
     // No diagnostics found - reset attempts counter
@@ -81,7 +87,7 @@ async function fetchAndFormatDiagnosticsParallel(
   diagnosticAttemptsRef: React.MutableRefObject<Record<string, number>>
 ): Promise<string[]> {
   console.log(`[ToolExecution] Fetching diagnostics for ${executedTools.length} files in parallel...`);
-  
+
   const diagnosticsPromises = executedTools.map(async ({ toolName, result, state }) => {
     if (!result?.success || !('data' in result) || !result.data) {
       return '';
@@ -91,7 +97,10 @@ async function fetchAndFormatDiagnosticsParallel(
     const filePath = (data.path as string) || 'unknown';
     const absolutePath = data.absolutePath as string;
 
-    if (!shouldFetchDiagnostics(toolName) || !absolutePath) {
+    // Get parameters from the state for check_lints support
+    const toolParameters = state.parameters;
+
+    if (!shouldFetchDiagnostics(toolName, toolParameters) || !absolutePath) {
       return '';
     }
 
@@ -110,13 +119,13 @@ async function fetchAndFormatDiagnosticsParallel(
     if (diagnostics && diagnostics.length > 0) {
       const isModificationTool = checkIsFileModificationTool(toolName);
       const maxIterations = 3;
-      
+
       if (isModificationTool) {
         const currentAttempts = (diagnosticAttemptsRef.current[filePath] || 0) + 1;
         diagnosticAttemptsRef.current[filePath] = currentAttempts;
         return formatDiagnosticsForAI(diagnostics, filePath, isModificationTool, currentAttempts, maxIterations);
       }
-      
+
       return formatDiagnosticsForAI(diagnostics, filePath, isModificationTool, 0, maxIterations);
     } else {
       // No diagnostics found - reset attempts counter
@@ -131,6 +140,83 @@ async function fetchAndFormatDiagnosticsParallel(
   const results = await Promise.all(diagnosticsPromises);
   console.log(`[ToolExecution] Completed parallel diagnostics fetch for ${executedTools.length} files`);
   return results.filter(r => r.length > 0);
+}
+
+/**
+ * Estimate tokens from text (~4 chars per token)
+ */
+function estimateTokens(text: string): number {
+  if (!text) { return 0; }
+  return Math.ceil(text.length / 4);
+}
+
+/**
+ * Build context messages for continuation, applying lossless compression if needed.
+ * This uses the same ContextCompressorService as send-time compression but keeps
+ * compression local to the continuation (no React state coupling).
+ */
+async function buildCompressedContextIfNeeded(
+  workspace: ReturnType<typeof useWorkspaceContext>,
+  messages: Message[],
+  toolResultText: string,
+  diagnosticsText: string,
+  mode: ChatMode,
+): Promise<Message[]> {
+  const settings = storageService.getSettings();
+  const contextSettings = settings.contextSettings;
+
+  // If compression isn't configured, just return original messages
+  if (!contextSettings || !contextSettings.summarizerModel) {
+    return messages;
+  }
+
+  const compressor = getContextCompressor(contextSettings);
+
+  const systemPrompt = getSystemPrompt(workspace, mode);
+  const systemPromptTokens = estimateTokens(systemPrompt);
+
+  // Treat tool results + diagnostics as the new content added for this continuation
+  const newContentTokens = estimateTokens(toolResultText) + estimateTokens(diagnosticsText);
+
+  const analysis = compressor.analyzeContext(
+    messages,
+    systemPromptTokens,
+    newContentTokens,
+  );
+
+  if (!analysis.needsCompression || analysis.middleMessages.length === 0) {
+    return messages;
+  }
+
+  console.log('[ToolExecution] Context compression triggered for continuation:', {
+    estimatedTokens: analysis.estimatedTokens,
+    firstMessages: analysis.firstMessages.length,
+    middleMessages: analysis.middleMessages.length,
+    recentMessages: analysis.recentMessages.length,
+  });
+
+  const summaryResult = await compressor.requestSummary(analysis.middleMessages);
+
+  if (!summaryResult.success || !summaryResult.summary) {
+    console.warn('[ToolExecution] Continuation context compression failed:', summaryResult.error);
+    return messages;
+  }
+
+  const compressedMessages: Message[] = [];
+  compressedMessages.push(...analysis.firstMessages);
+  compressedMessages.push({
+    id: `compressed-summary-${Date.now()}`,
+    role: 'assistant',
+    content: `[Context Summary]\n${summaryResult.summary}`,
+    timestamp: new Date(),
+  });
+  compressedMessages.push(...analysis.recentMessages);
+
+  console.log('[ToolExecution] Continuation context compressed:', {
+    compressedCount: compressedMessages.length,
+  });
+
+  return compressedMessages;
 }
 
 interface ToolExecutionHookProps {
@@ -169,7 +255,7 @@ export function useToolExecution({
 
   // Initialize tool executor with mode-aware enabled tools
   const toolExecutorRef = useRef<ToolExecutor | null>(null);
-  
+
   // Recreate tool executor when mode changes to refresh enabled tools
   useEffect(() => {
     const enabledTools = getToolsForMode(mode, false).map(t => t.id);
@@ -190,37 +276,37 @@ export function useToolExecution({
       toolIndex = 0,
       userAttachments?: ImageAttachment[],
     ) => {
-      if (!toolExecutorRef.current) {return;}
-      
+      if (!toolExecutorRef.current) { return; }
+
       // If no userAttachments provided, try to find from the latest user message in history
       // This ensures images are preserved across tool execution continuations
       const effectiveUserAttachments = userAttachments ?? (() => {
         const lastUserMsg = [...messagesRef.current].reverse().find(m => m.role === 'user');
         return lastUserMsg?.attachments;
       })();
-      
+
       try {
         // Keep executing tool state active
         setIsExecutingTool(true);
-        
+
         // Extract all tool blocks and get the current one by index
         const toolBlocks = extractToolBlocks(assistantContent);
         const toolBlock = toolBlocks[toolIndex];
-        
+
         if (!toolBlock) {
           setIsExecutingTool(false);
           return;
         }
-        
+
         // Check if we can execute multiple tools in parallel
         // Only execute in parallel if we're at the first tool and there are consecutive parallelizable tools
         const shouldExecuteInParallel = toolIndex === 0;
         const parallelizableBlocks = shouldExecuteInParallel ? extractParallelizableToolBlocks(assistantContent) : [];
         const canExecuteInParallel = parallelizableBlocks.length > 1;
-        
+
         if (canExecuteInParallel) {
           console.log(`[ToolExecution] Detected ${parallelizableBlocks.length} parallelizable tools, executing in parallel...`);
-          
+
           // Create execution states for all parallel tools
           const executionStates = parallelizableBlocks.map((block, idx) => {
             const execId = generateToolExecutionId(assistantMessageId, idx);
@@ -232,7 +318,7 @@ export function useToolExecution({
             updateToolExecution(assistantMessageId, execId, state);
             return { block, state, execId };
           });
-          
+
           // Check if stopped before execution
           if (isStoppingRef.current) {
             executionStates.forEach(({ state, execId }) => {
@@ -245,15 +331,15 @@ export function useToolExecution({
             setIsExecutingTool(false);
             return;
           }
-          
+
           // Create a new AbortController for tool execution
           // This is needed because the stream was aborted to execute the tool
           const toolAbortController = new AbortController();
           abortControllerRef.current = toolAbortController;
-          
+
           // Execute all tools in parallel using the tool executor
           const parallelResult = await toolExecutorRef.current.executeToolBlocksInParallel(parallelizableBlocks);
-          
+
           if (parallelResult.wasStopped) {
             executionStates.forEach(({ state, execId }) => {
               const abortedState = updateToolExecutionStatus(state, 'aborted', {
@@ -265,7 +351,7 @@ export function useToolExecution({
             setIsExecutingTool(false);
             return;
           }
-          
+
           // Update all tool execution states with results
           const completedStates = parallelResult.executedToolCalls.map((executedTool, idx) => {
             const { state, execId } = executionStates[idx];
@@ -277,7 +363,7 @@ export function useToolExecution({
             updateToolExecution(assistantMessageId, execId, completedState);
             return { toolName: executedTool.toolName, result: executedTool.result, state: completedState };
           });
-          
+
           // Fetch diagnostics in parallel for all modified files
           const diagnosticsTexts = await fetchAndFormatDiagnosticsParallel(
             completedStates,
@@ -285,23 +371,31 @@ export function useToolExecution({
             updateToolExecution,
             diagnosticAttemptsRef
           );
-          
+
           // Check if stopped during diagnostic fetching
           if (isStoppingRef.current) {
             console.log('[Tool] User stopped during diagnostic fetching, aborting continuation');
             setIsExecutingTool(false);
             return;
           }
-          
+
           // Format tool results for AI context
           const toolResultText = parallelResult.toolResults.join('\n\n');
           const diagnosticsText = diagnosticsTexts.join('\n\n');
-          
-          // Build continuation history for chat
+
+          // Build continuation history for chat, with optional compression
           const latestWorkspace = (window.workspaceContext || workspace)!;
-          const continuationHistory = buildContinuationHistory(
+          const contextMessages = await buildCompressedContextIfNeeded(
             latestWorkspace,
             messagesRef.current,
+            toolResultText,
+            diagnosticsText,
+            mode,
+          );
+
+          const continuationHistory = buildContinuationHistory(
+            latestWorkspace,
+            contextMessages,
             userContent,
             assistantContent,
             toolResultText,
@@ -310,13 +404,13 @@ export function useToolExecution({
             mode,
             effectiveUserAttachments
           );
-          
+
           // Continue streaming with results from parallel execution
           setIsExecutingTool(false);
-          
+
           let continuationContent = assistantContent;
           let pendingUpdate = false;
-          
+
           const updateUI = () => {
             setMessages((prev) =>
               prev.map((msg) =>
@@ -327,22 +421,22 @@ export function useToolExecution({
             );
             pendingUpdate = false;
           };
-          
+
           // Auto-retry logic for HTTP errors - keeps trying until success or user abort
           let retryCount = 0;
           let streamSuccess = false;
-          
+
           while (!streamSuccess) {
             try {
               const newAbortController = new AbortController();
               abortControllerRef.current = newAbortController;
-              
+
               // Reset continuation content on retry (keep original assistant content)
               if (retryCount > 0) {
                 console.log(`[Tool] Retry attempt ${retryCount} for parallel continuation stream...`);
                 continuationContent = assistantContent;
               }
-              
+
               for await (const chunk of chatApi.streamChat(
                 continuationHistory,
                 newAbortController.signal
@@ -351,21 +445,21 @@ export function useToolExecution({
                   streamSuccess = true; // User aborted, don't retry
                   break;
                 }
-                
+
                 continuationContent += chunk;
-                
+
                 // Check for another tool block in the new content only
                 const newContent = continuationContent.slice(assistantContent.length);
                 if (hasCompleteToolBlock(newContent)) {
                   const trimmedContinuation = assistantContent + trimToFirstCompleteToolBlock(newContent);
                   continuationContent = trimmedContinuation;
-                  
+
                   if (pendingUpdate) {
                     updateUI();
                   } else {
                     updateUI();
                   }
-                  
+
                   // Abort and execute next tool (starting from the index after parallel batch)
                   newAbortController.abort();
                   setIsExecutingTool(true);
@@ -380,16 +474,16 @@ export function useToolExecution({
                   );
                   return;
                 }
-                
+
                 if (!pendingUpdate) {
                   pendingUpdate = true;
                   requestAnimationFrame(updateUI);
                 }
               }
-              
+
               // Stream completed successfully
               streamSuccess = true;
-              
+
               // Final update
               if (pendingUpdate) {
                 updateUI();
@@ -397,13 +491,13 @@ export function useToolExecution({
             } catch (streamError) {
               const errorMessage = streamError instanceof Error ? streamError.message : 'Unknown error';
               const lowerError = errorMessage.toLowerCase();
-              
+
               // Detect retryable transient errors:
               // - HTTP errors (500, 502, 503, 504)
               // - JSON parse errors (server returned malformed response)
               // - Service unavailable
               // - Connection errors
-              const isRetryableError = 
+              const isRetryableError =
                 lowerError.includes('http') ||
                 lowerError.includes('500') ||
                 lowerError.includes('502') ||
@@ -417,7 +511,7 @@ export function useToolExecution({
                 lowerError.includes('econnrefused') ||
                 lowerError.includes('network') ||
                 lowerError.includes('fetch');
-              
+
               // Check if user manually aborted
               if (abortControllerRef.current?.signal.aborted || isStoppingRef.current) {
                 console.log('[Tool] User aborted, stopping retries');
@@ -433,24 +527,24 @@ export function useToolExecution({
               }
             }
           }
-          
+
           return; // Exit after parallel execution
         }
-        
+
         // Single tool execution path (existing logic)
         // Generate tool execution ID with correct index
         const toolExecutionId = generateToolExecutionId(assistantMessageId, toolIndex);
-        
+
         // Create initial execution state (executing immediately)
         const executionState = createToolExecutionState(
           toolExecutionId,
           toolBlock.toolName,
           toolBlock.parameters
         );
-        
+
         // Update UI with executing status
         updateToolExecution(assistantMessageId, toolExecutionId, executionState);
-        
+
         // Check if stopped before execution
         if (isStoppingRef.current) {
           const abortedState = updateToolExecutionStatus(executionState, 'aborted', {
@@ -461,12 +555,12 @@ export function useToolExecution({
           setIsExecutingTool(false);
           return;
         }
-        
+
         // Create a new AbortController for tool execution
         // This is needed because the stream was aborted to execute the tool
         const toolAbortController = new AbortController();
         abortControllerRef.current = toolAbortController;
-        
+
         // Create progress callback for echo_search iterations
         const onProgress: ToolProgressCallback = (progress) => {
           const updatedState = updateToolExecutionProgress(executionState, progress);
@@ -480,7 +574,7 @@ export function useToolExecution({
           isStoppingRef,
           toolBlock.toolName === 'echo_search' ? onProgress : undefined
         );
-        
+
         if (result.wasStopped) {
           // Update to aborted status
           const abortedState = updateToolExecutionStatus(executionState, 'aborted', {
@@ -491,12 +585,12 @@ export function useToolExecution({
           setIsExecutingTool(false);
           return;
         }
-        
+
         if (result.executedToolCalls.length === 0) {
           setIsExecutingTool(false);
           return;
         }
-        
+
         // Get the execution result from tool executor
         const executedTool = result.executedToolCalls[0];
         let completedState = executionState;
@@ -509,19 +603,19 @@ export function useToolExecution({
           );
           updateToolExecution(assistantMessageId, toolExecutionId, completedState);
         }
-        
+
         // Check if this is a planning tool that requires user interaction
         const isPlanningTool = toolBlock.toolName === 'plan_navigator' || toolBlock.toolName === 'plan_handoff';
-        
+
         if (isPlanningTool) {
           // Stop execution here - wait for user to interact with the tool
           setIsExecutingTool(false);
           return;
         }
-        
+
         // Format tool results for AI context
         const toolResultText = result.toolResults.join('\n\n');
-        
+
         // Fetch diagnostics after showing result
         // Check if this is a multi-file read_file result
         let diagnosticsText = '';
@@ -530,7 +624,7 @@ export function useToolExecution({
           if ('files' in resultData && Array.isArray(resultData.files) && resultData.files.length > 1) {
             // Multi-file result - create separate tool execution states for each file
             const files = resultData.files as Array<{ path: string; absolutePath?: string; content: string; startLine?: number; endLine?: number; totalLines?: number }>;
-            
+
             // Create tool execution entries for each file so they can show "Linting" status
             files.forEach((file, fileIdx) => {
               const fileToolExecutionId = `${toolExecutionId}-file-${fileIdx}`;
@@ -548,7 +642,7 @@ export function useToolExecution({
               };
               updateToolExecution(assistantMessageId, fileToolExecutionId, fileState);
             });
-            
+
             // Now fetch diagnostics for all files in parallel
             const diagnosticsPromises = files.map(async (file, fileIdx) => {
               const fileToolExecutionId = `${toolExecutionId}-file-${fileIdx}`;
@@ -565,7 +659,7 @@ export function useToolExecution({
                 startedAt: completedState.startedAt,
                 completedAt: completedState.completedAt,
               };
-              
+
               return fetchAndFormatDiagnostics(
                 { toolName: 'read_file', result: { success: true, data: fileData } },
                 fileState,
@@ -599,19 +693,27 @@ export function useToolExecution({
             diagnosticAttemptsRef
           );
         }
-        
+
         // Check if stopped during diagnostic fetching
         if (isStoppingRef.current) {
           console.log('[Tool] User stopped during diagnostic fetching, aborting continuation');
           setIsExecutingTool(false);
           return;
         }
-        
-        // Build continuation history for chat
+
+        // Build continuation history for chat, with optional compression
         const latestWorkspace = (window.workspaceContext || workspace)!;
-        const continuationHistory = buildContinuationHistory(
+        const contextMessages = await buildCompressedContextIfNeeded(
           latestWorkspace,
           messagesRef.current,
+          toolResultText,
+          diagnosticsText,
+          mode,
+        );
+
+        const continuationHistory = buildContinuationHistory(
+          latestWorkspace,
+          contextMessages,
           userContent,
           assistantContent,
           toolResultText,
@@ -620,13 +722,13 @@ export function useToolExecution({
           mode,
           effectiveUserAttachments
         );
-        
+
         // Continue streaming - clear executing tool state
         setIsExecutingTool(false);
-        
+
         let continuationContent = assistantContent;
         let pendingUpdate = false;
-        
+
         const updateUI = () => {
           setMessages((prev) =>
             prev.map((msg) =>
@@ -637,22 +739,22 @@ export function useToolExecution({
           );
           pendingUpdate = false;
         };
-        
+
         // Auto-retry logic for HTTP errors - keeps trying until success or user abort
         let retryCount = 0;
         let streamSuccess = false;
-        
+
         while (!streamSuccess) {
           try {
             const newAbortController = new AbortController();
             abortControllerRef.current = newAbortController;
-            
+
             // Reset continuation content on retry (keep original assistant content)
             if (retryCount > 0) {
               console.log(`[Tool] Retry attempt ${retryCount} for continuation stream...`);
               continuationContent = assistantContent;
             }
-            
+
             for await (const chunk of chatApi.streamChat(
               continuationHistory,
               newAbortController.signal
@@ -661,9 +763,9 @@ export function useToolExecution({
                 streamSuccess = true; // User aborted, don't retry
                 break;
               }
-              
+
               continuationContent += chunk;
-              
+
               // Check for another tool block in the new content only
               const newContent = continuationContent.slice(assistantContent.length);
               if (hasCompleteToolBlock(newContent)) {
@@ -671,14 +773,14 @@ export function useToolExecution({
                 // This ensures we execute tools strictly one-by-one
                 const trimmedContinuation = assistantContent + trimToFirstCompleteToolBlock(newContent);
                 continuationContent = trimmedContinuation;
-                
+
                 // Update UI with trimmed content before interrupting
                 if (pendingUpdate) {
                   updateUI();
                 } else {
                   updateUI();
                 }
-                
+
                 // Abort and execute next tool
                 newAbortController.abort();
                 setIsExecutingTool(true);
@@ -693,16 +795,16 @@ export function useToolExecution({
                 );
                 return;
               }
-              
+
               if (!pendingUpdate) {
                 pendingUpdate = true;
                 requestAnimationFrame(updateUI);
               }
             }
-            
+
             // Stream completed successfully
             streamSuccess = true;
-            
+
             // Final update
             if (pendingUpdate) {
               updateUI();
@@ -710,13 +812,13 @@ export function useToolExecution({
           } catch (streamError) {
             const errorMessage = streamError instanceof Error ? streamError.message : 'Unknown error';
             const lowerError = errorMessage.toLowerCase();
-            
+
             // Detect retryable transient errors:
             // - HTTP errors (500, 502, 503, 504)
             // - JSON parse errors (server returned malformed response)
             // - Service unavailable
             // - Connection errors
-            const isRetryableError = 
+            const isRetryableError =
               lowerError.includes('http') ||
               lowerError.includes('500') ||
               lowerError.includes('502') ||
@@ -730,7 +832,7 @@ export function useToolExecution({
               lowerError.includes('econnrefused') ||
               lowerError.includes('network') ||
               lowerError.includes('fetch');
-            
+
             // Check if user manually aborted
             if (abortControllerRef.current?.signal.aborted || isStoppingRef.current) {
               console.log('[Tool] User aborted, stopping retries');
@@ -748,7 +850,7 @@ export function useToolExecution({
         }
       } catch (error) {
         console.error('[Tool] Execution error:', error);
-        
+
         // Try to extract tool info for error state update
         // But ONLY if the tool hasn't already completed successfully
         // (e.g., don't overwrite successful tool state with continuation stream errors)
@@ -756,12 +858,12 @@ export function useToolExecution({
         const toolBlock = toolBlocks[toolIndex];
         if (toolBlock) {
           const toolExecutionId = generateToolExecutionId(assistantMessageId, toolIndex);
-          
+
           // Check if this tool execution already has a successful result
           const currentMessages = messagesRef.current;
           const assistantMsg = currentMessages.find(m => m.id === assistantMessageId);
           const existingExecution = assistantMsg?.toolExecutions?.get(toolExecutionId);
-          
+
           // Only set error state if tool hasn't already completed successfully
           // HTTP errors during continuation shouldn't overwrite successful tool execution
           if (!existingExecution?.result?.success) {
@@ -790,7 +892,7 @@ export function useToolExecution({
         setIsStreaming(false);
         abortControllerRef.current = null;
         sendingMessageRef.current = false;
-        
+
         // Save session after tool execution completion
         saveSession();
       }

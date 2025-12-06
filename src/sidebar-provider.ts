@@ -4,7 +4,7 @@ import { spawn } from 'child_process';
 import { handleApiRequest } from './handlers/api-handler';
 import { handleChatStream } from './handlers/chat-streaming-handler';
 import { handleModelFetch } from './handlers/model-fetching-handler';
-import { handleToolExecution } from './handlers/tool-execution-handler';
+import { handleToolExecution, setFileModificationCallback } from './handlers/tool-execution-handler';
 import { handleContextSummarizer } from './handlers/context-summarizer-handler';
 import { getMainWebviewHtml, getSettingsHtml, getMermaidPreviewHtml } from './utils/html-generator';
 import { getWorkspaceFiles, getAgentsConfig } from './utils/workspace-scanner';
@@ -48,6 +48,19 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
       const newWorkspacePath = this.getCurrentWorkspacePath();
       this._historyService.updateWorkspace(newWorkspacePath);
       this.setupFileWatcher();
+    });
+
+    // When files are modified via write_to_file or apply_diff tools, we want to
+    // rescan the workspace for large/refactor-sensitive files. We expose a
+    // callback from the tool execution handler that we hook here.
+    setFileModificationCallback(() => {
+      // Reset cached refactor scan state so that a fresh scan is performed
+      this._refactorScanComplete = false;
+      this._cachedLargeFiles = [];
+
+      if (this._view) {
+        this.sendRefactorScanResults(this._view);
+      }
     });
 
     // Setup file watcher for workspace file changes
@@ -418,6 +431,27 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
           break;
         case 'historyPanelClosed':
           this._isHistoryOpen = false;
+          break;
+        case 'openFileInTab':
+          // Open file in editor tab without stealing focus or switching active tab
+          try {
+            const fileUri = vscode.Uri.file(data.absolutePath);
+            const previousActiveEditor = vscode.window.activeTextEditor;
+            const document = await vscode.workspace.openTextDocument(fileUri);
+            await vscode.window.showTextDocument(document, {
+              preview: false,      // Open as permanent tab, not preview
+              preserveFocus: true, // Don't steal focus from the sidebar
+            });
+            // Restore the previously active editor to keep it visible
+            if (previousActiveEditor) {
+              await vscode.window.showTextDocument(previousActiveEditor.document, {
+                viewColumn: previousActiveEditor.viewColumn,
+                preserveFocus: true,
+              });
+            }
+          } catch (error) {
+            console.warn('[OpenFileInTab] Failed to open file:', data.absolutePath, error);
+          }
           break;
         case 'fetchDiagnostics':
           await this.handleDiagnosticsFetch(data, webviewView);

@@ -90,8 +90,49 @@ function extractFunctionCallsBlocks(content: string): Array<{ innerContent: stri
 }
 
 /**
+ * Find matching closing tag for invoke using regex-based opening tag detection.
+ * This prevents false matches on partial strings like `/<invoke` in regex patterns.
+ */
+function findMatchingInvokeClosingTag(content: string, openTagEnd: number): number {
+  let depth = 1;
+  let pos = openTagEnd;
+  const openingTagRegex = /<invoke\s+name=["'][^"']+["']>/g;
+  const closeTag = '</invoke>';
+
+  while (pos < content.length && depth > 0) {
+    // Find next proper opening tag using regex (must be complete <invoke name="...">)
+    openingTagRegex.lastIndex = pos;
+    const openMatch = openingTagRegex.exec(content);
+    const nextOpen = openMatch ? openMatch.index : -1;
+    const nextClose = content.indexOf(closeTag, pos);
+
+    // No more closing tags found
+    if (nextClose === -1) {
+      return -1;
+    }
+
+    // Check which comes first
+    if (nextOpen !== -1 && nextOpen < nextClose) {
+      // Found another opening tag first - increase depth
+      depth++;
+      pos = nextOpen + openMatch![0].length;
+    } else {
+      // Found closing tag first - decrease depth
+      depth--;
+      if (depth === 0) {
+        return nextClose;
+      }
+      pos = nextClose + closeTag.length;
+    }
+  }
+
+  return -1;
+}
+
+/**
  * Extract invoke blocks using balanced tag matching
  * Handles nested content that may contain </invoke> text (e.g., in HTML/code)
+ * Uses regex-based opening tag detection to avoid false matches on partial strings
  */
 function extractInvokeBlocks(content: string): Array<{ toolName: string; innerContent: string; fullMatch: string }> {
   const blocks: Array<{ toolName: string; innerContent: string; fullMatch: string }> = [];
@@ -103,8 +144,9 @@ function extractInvokeBlocks(content: string): Array<{ toolName: string; innerCo
     const toolName = match[1];
     const openTagEnd = match.index + match[0].length;
 
-    // Find matching closing tag using balanced matching
-    const closePos = findMatchingClosingTag(content, openTagEnd, '<invoke', closeTag);
+    // Find matching closing tag using regex-based balanced matching
+    // This correctly ignores partial matches like `/<invoke` in regex patterns
+    const closePos = findMatchingInvokeClosingTag(content, openTagEnd);
 
     if (closePos !== -1) {
       const innerContent = content.slice(openTagEnd, closePos);

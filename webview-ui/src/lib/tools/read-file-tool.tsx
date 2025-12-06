@@ -29,6 +29,7 @@ Parameters:
 - paths: (required for multiple files) JSON array of file paths (e.g., ["src/a.ts", "src/b.ts"])
 - offset: (optional) Start line number (1-based, default: 1)
 - limit: (optional) Number of lines to read (default: 500)
+- check_lints: (optional) If true, fetch and return lint/compile diagnostics for the file. Defaults to false.
 
 Examples:
 
@@ -70,26 +71,28 @@ IMPORTANT:
     if (typeof data === 'object' && data !== null) {
       // Handle multiple files result
       if ('files' in data && Array.isArray((data as { files: unknown[] }).files)) {
-        const multiResult = data as { files: Array<{
-          content: string;
-          path: string;
-          startLine?: number;
-          endLine?: number;
-          totalLines?: number;
-        }>; count: number };
-        
+        const multiResult = data as {
+          files: Array<{
+            content: string;
+            path: string;
+            startLine?: number;
+            endLine?: number;
+            totalLines?: number;
+          }>; count: number
+        };
+
         return (
           <div className="space-y-3">
             <div className="text-xs font-semibold opacity-70">
               {multiResult.count} file{multiResult.count > 1 ? 's' : ''} read
             </div>
             {multiResult.files.map((file, index) => {
-              const lineRangeText = file.startLine && file.endLine 
+              const lineRangeText = file.startLine && file.endLine
                 ? `Lines ${file.startLine}-${file.endLine}`
                 : file.totalLines
-                ? `${file.totalLines} lines`
-                : '';
-              
+                  ? `${file.totalLines} lines`
+                  : '';
+
               return (
                 <div key={index} className="space-y-2">
                   <div className="flex items-center justify-between text-xs font-semibold opacity-70">
@@ -111,23 +114,23 @@ IMPORTANT:
           </div>
         );
       }
-      
+
       // Handle single file result
       if ('content' in data) {
-        const result = data as { 
-          content: string; 
-          path: string; 
-          startLine?: number; 
+        const result = data as {
+          content: string;
+          path: string;
+          startLine?: number;
           endLine?: number;
           totalLines?: number;
         };
-        
-        const lineRangeText = result.startLine && result.endLine 
+
+        const lineRangeText = result.startLine && result.endLine
           ? `Lines ${result.startLine}-${result.endLine}`
           : result.totalLines
-          ? `${result.totalLines} lines`
-          : '';
-        
+            ? `${result.totalLines} lines`
+            : '';
+
         return (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs font-semibold opacity-70">

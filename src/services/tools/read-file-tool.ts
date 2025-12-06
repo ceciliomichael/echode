@@ -26,7 +26,7 @@ export class ReadFileTool implements ITool {
     if (singlePath) {
       paths.push(singlePath);
     }
-    
+
     // Multiple paths array parameter
     if (multiplePaths && Array.isArray(multiplePaths)) {
       paths.push(...multiplePaths);
@@ -86,6 +86,11 @@ export class ReadFileTool implements ITool {
         const selectedLines = lines.slice(defaultStart, defaultEnd);
         const numberedContent = addLineNumbers(selectedLines.join('\n'), defaultStart + 1);
 
+        // Add refactor reminder for large files
+        const refactorReminder = totalLines > 300
+          ? `⚠️ **REFACTOR REQUIRED**: This file has ${totalLines} lines (exceeds 300-line threshold). Before continuing implementation, you MUST first refactor this file into smaller, focused modules. Large files violate clean code principles. Stop current work, split this file logically, then resume.`
+          : undefined;
+
         return {
           success: true,
           data: {
@@ -95,6 +100,7 @@ export class ReadFileTool implements ITool {
             startLine: defaultStart + 1,
             endLine: defaultEnd,
             totalLines,
+            refactorReminder,
           },
         };
       }
@@ -106,6 +112,11 @@ export class ReadFileTool implements ITool {
       const selectedLines = lines.slice(start, end);
       const numberedContent = addLineNumbers(selectedLines.join('\n'), start + 1);
 
+      // Add refactor reminder for large files
+      const refactorReminder = totalLines > 300
+        ? `⚠️ **REFACTOR REQUIRED**: This file has ${totalLines} lines (exceeds 300-line threshold). Before continuing implementation, you MUST first refactor this file into smaller, focused modules. Large files violate clean code principles. Stop current work, split this file logically, then resume.`
+        : undefined;
+
       return {
         success: true,
         data: {
@@ -115,6 +126,7 @@ export class ReadFileTool implements ITool {
           startLine: start + 1,
           endLine: end,
           totalLines,
+          refactorReminder,
         },
       };
     } catch (error) {
@@ -145,7 +157,7 @@ export class ReadFileTool implements ITool {
 
       // Combine all successful results
       const combinedData = results.map(r => r.data);
-      
+
       return {
         success: true,
         data: {
