@@ -60,6 +60,8 @@ const ToolBlockComponent = ({
     [toolCall, isStreaming]
   );
 
+  const hasResultContent = !!toolCall.result && toolCall.status !== 'aborted';
+
   return (
     <div
       className={`overflow-hidden w-full ${isConnectedTop ? 'mt-0' : 'mt-2'}`}
@@ -82,6 +84,7 @@ const ToolBlockComponent = ({
         statusConfig={statusConfig}
         status={toolCall.status}
         isStreaming={isStreaming}
+        hasResultContent={hasResultContent}
       />
       
       <ToolBlockContent

@@ -685,15 +685,15 @@ export class ApplyDiffTool implements ITool {
                 await vscode.workspace.fs.writeFile(uri, Buffer.from(diffResult.content, 'utf8'));
             }
 
-            // Open the file in editor to trigger language server analysis
+            // Open the file in a tab for visibility (without stealing focus)
             try {
                 await vscode.window.showTextDocument(uri, {
                     preview: false,
                     preserveFocus: true,
                 });
-                console.log('[APPLY_DIFF] File opened in editor for diagnostics');
+                console.log('[APPLY_DIFF] File opened in tab for diagnostics');
             } catch (openError) {
-                console.warn('[APPLY_DIFF] Could not open file in editor:', openError);
+                console.warn('[APPLY_DIFF] Could not open file in tab:', openError);
             }
 
             // Detect new problems after the edit (Roo Code approach)

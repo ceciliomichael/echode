@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { useHoverEffect, hoverPresets } from '../../hooks/use-hover-effect';
-import { Check, Cpu, Search } from 'lucide-react';
+import { Check, Cpu, Search, RotateCcw } from 'lucide-react';
 import type { ApiSettings, Provider } from '../../types/api-settings';
 import { storageService } from '../../utils/storage';
-import { useModelFetcher } from '../../hooks/use-model-fetcher';
+import { useModelFetcher, requestModelsRefresh } from '../../hooks/use-model-fetcher';
 
 const PROVIDER_OPTIONS: { value: Provider; label: string }[] = [
   { value: 'anthropic', label: 'Anthropic' },
@@ -227,29 +227,44 @@ export function ChatModelSelector({ provider: activeProvider, model: activeModel
             className="p-2 border-b"
             style={{ borderColor: 'var(--vscode-input-border)' }}
           >
-            <div
-              className="relative rounded-md border"
-              style={{
-                backgroundColor: 'var(--vscode-input-background)',
-                borderColor: 'var(--vscode-input-border)',
-              }}
-            >
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search models..."
-                className="w-full bg-transparent text-xs border-0 rounded-md py-1.5 pl-6 pr-2 placeholder-opacity-50"
+            <div className="flex items-center gap-1">
+              <div
+                className="relative flex-1 rounded-md border"
                 style={{
-                  color: 'var(--vscode-input-foreground)',
-                  outline: 'none',
+                  backgroundColor: 'var(--vscode-input-background)',
+                  borderColor: 'var(--vscode-input-border)',
                 }}
-                autoFocus
-              />
-              <Search
-                className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none"
-                style={{ color: 'var(--vscode-input-foreground)', opacity: 0.6 }}
-              />
+              >
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search models..."
+                  className="w-full bg-transparent text-xs border-0 rounded-md py-1.5 pl-6 pr-2 placeholder-opacity-50"
+                  style={{
+                    color: 'var(--vscode-input-foreground)',
+                    outline: 'none',
+                  }}
+                  autoFocus
+                />
+                <Search
+                  className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none"
+                  style={{ color: 'var(--vscode-input-foreground)', opacity: 0.6 }}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={requestModelsRefresh}
+                className="flex items-center justify-center rounded-md border px-1.5 py-1 text-[10px] min-w-[28px] h-7"
+                style={{
+                  backgroundColor: 'var(--vscode-input-background)',
+                  borderColor: 'var(--vscode-input-border)',
+                  color: 'var(--vscode-input-foreground)',
+                }}
+                title="Refresh models"
+              >
+                <RotateCcw className="w-3 h-3" />
+              </button>
             </div>
           </div>
 

@@ -9,38 +9,86 @@ import { ToolExecutor } from '../lib/tool-executor';
 import { getToolsForMode } from '../lib/tool-config';
 import type { ToolExecutionState } from '../types/tool';
 import { createToolExecutionState, updateToolExecutionStatus, updateToolExecutionProgress, generateToolExecutionId } from '../lib/tool-execution-tracker';
-import { fetchDiagnostics, formatDiagnosticsForAI, shouldFetchDiagnostics, isFileModificationTool as checkIsFileModificationTool, extractDiagnosticsFromResult } from '../utils/diagnostic-utils';
+import { isFileModificationTool as checkIsFileModificationTool, extractDiagnosticsFromResult } from '../utils/diagnostic-utils';
 import { buildContinuationHistory } from '../utils/continuation-builder';
 import { executeToolWithStopCheck, type ToolProgressCallback } from '../utils/tool-execution-helpers';
 import { getContextCompressor } from '../services/context-compressor';
 import { storageService } from '../utils/storage';
 import { getSystemPrompt } from '../utils/prompts';
-
 /**
- * Helper to fetch and format diagnostics for a tool execution
- * For file modification tools (Roo Code approach): diagnostics come from tool result
- * For read_file with check_lints: external fetch is still needed
+ * Extract diagnostics from tool result for file modification tools (Roo Code approach)
+ * Diagnostics are already included in the tool result - no external fetch needed
  */
-async function fetchAndFormatDiagnostics(
+function getDiagnosticsFromToolResult(
   executedTool: { toolName: string; result?: { success: boolean; data?: unknown } } | undefined,
-  completedState: ToolExecutionState,
-  assistantMessageId: string,
-  toolExecutionId: string,
-  updateToolExecution: (messageId: string, toolExecutionId: string, state: ToolExecutionState) => void,
   diagnosticAttemptsRef: React.MutableRefObject<Record<string, number>>
-): Promise<string> {
+): string {
   if (!executedTool?.result?.success || !('data' in executedTool.result) || !executedTool.result.data) {
     return '';
   }
 
   const data = executedTool.result.data as Record<string, unknown>;
   const filePath = (data.path as string) || 'unknown';
-  const absolutePath = data.absolutePath as string;
   const isModificationTool = checkIsFileModificationTool(executedTool.toolName);
 
-  // For file modification tools (Roo Code approach): diagnostics are in the result
-  if (isModificationTool) {
-    const newProblemsMessage = extractDiagnosticsFromResult(executedTool.toolName, executedTool.result);
+  // Only file modification tools have diagnostics in the result
+  if (!isModificationTool) {
+    return '';
+  }
+
+  const newProblemsMessage = extractDiagnosticsFromResult(executedTool.toolName, executedTool.result);
+  if (newProblemsMessage) {
+    // Track attempts for file modification tools
+    const currentAttempts = (diagnosticAttemptsRef.current[filePath] || 0) + 1;
+    diagnosticAttemptsRef.current[filePath] = currentAttempts;
+    const maxIterations = 3;
+
+    // Add attempt tracking to the message
+    let instruction = '';
+    if (currentAttempts < maxIterations) {
+      instruction = `\n\n[INSTRUCTION: The file you just modified has lint/compile errors. Review the diagnostics above and fix them. This is attempt ${currentAttempts}/${maxIterations}.]`;
+    } else if (currentAttempts === maxIterations) {
+      instruction = `\n\n[INSTRUCTION: The file still has lint/compile errors. This is your final attempt (${currentAttempts}/${maxIterations}). Review carefully and fix all issues.]`;
+    } else {
+      instruction = `\n\n[NOTE: Maximum fix attempts (${maxIterations}) reached for this file. Diagnostics are shown for your reference, but you should acknowledge and move forward unless the user requests further fixes.]`;
+    }
+
+    return newProblemsMessage + instruction;
+  } else {
+    // No diagnostics found - reset attempts counter
+    if (diagnosticAttemptsRef.current[filePath]) {
+      console.log(`[Diagnostics] No errors found for ${filePath} - resetting attempt counter`);
+      delete diagnosticAttemptsRef.current[filePath];
+    }
+    return '';
+  }
+}
+
+/**
+ * Extract diagnostics from tool results for multiple files (Roo Code approach)
+ * Diagnostics are already included in the tool results - no external fetch needed
+ */
+function getDiagnosticsFromToolResultsParallel(
+  executedTools: Array<{ toolName: string; result?: { success: boolean; data?: unknown }; state: ToolExecutionState }>,
+  diagnosticAttemptsRef: React.MutableRefObject<Record<string, number>>
+): string[] {
+  console.log(`[ToolExecution] Processing diagnostics for ${executedTools.length} files...`);
+
+  const results = executedTools.map(({ toolName, result }) => {
+    if (!result?.success || !('data' in result) || !result.data) {
+      return '';
+    }
+
+    const data = result.data as Record<string, unknown>;
+    const filePath = (data.path as string) || 'unknown';
+    const isModificationTool = checkIsFileModificationTool(toolName);
+
+    // Only file modification tools have diagnostics in the result
+    if (!isModificationTool) {
+      return '';
+    }
+
+    const newProblemsMessage = extractDiagnosticsFromResult(toolName, result);
     if (newProblemsMessage) {
       // Track attempts for file modification tools
       const currentAttempts = (diagnosticAttemptsRef.current[filePath] || 0) + 1;
@@ -66,118 +114,10 @@ async function fetchAndFormatDiagnostics(
       }
       return '';
     }
-  }
-
-  // For read_file with check_lints: external fetch
-  const toolParameters = completedState.parameters;
-  if (!shouldFetchDiagnostics(executedTool.toolName, toolParameters) || !absolutePath) {
-    return '';
-  }
-
-  // Update status to fetching_diagnostics
-  const fetchingState = { ...completedState, status: 'fetching_diagnostics' as const };
-  updateToolExecution(assistantMessageId, toolExecutionId, fetchingState);
-
-  console.log(`[ToolExecution] Fetching diagnostics for ${filePath}...`);
-
-  // Fetch diagnostics from backend
-  const diagnostics = await fetchDiagnostics(filePath, absolutePath);
-
-  // Update state with diagnostics
-  const finalState = { ...completedState, diagnostics };
-  updateToolExecution(assistantMessageId, toolExecutionId, finalState);
-
-  // Handle diagnostic results
-  if (diagnostics && diagnostics.length > 0) {
-    const maxIterations = 3;
-    return formatDiagnosticsForAI(diagnostics, filePath, false, 0, maxIterations);
-  }
-
-  return '';
-}
-
-/**
- * Fetch diagnostics for multiple files in parallel
- * For file modification tools (Roo Code approach): diagnostics come from tool result
- * For read_file with check_lints: external fetch is still needed
- */
-async function fetchAndFormatDiagnosticsParallel(
-  executedTools: Array<{ toolName: string; result?: { success: boolean; data?: unknown }; state: ToolExecutionState }>,
-  assistantMessageId: string,
-  updateToolExecution: (messageId: string, toolExecutionId: string, state: ToolExecutionState) => void,
-  diagnosticAttemptsRef: React.MutableRefObject<Record<string, number>>
-): Promise<string[]> {
-  console.log(`[ToolExecution] Processing diagnostics for ${executedTools.length} files...`);
-
-  const diagnosticsPromises = executedTools.map(async ({ toolName, result, state }) => {
-    if (!result?.success || !('data' in result) || !result.data) {
-      return '';
-    }
-
-    const data = result.data as Record<string, unknown>;
-    const filePath = (data.path as string) || 'unknown';
-    const absolutePath = data.absolutePath as string;
-    const isModificationTool = checkIsFileModificationTool(toolName);
-
-    // For file modification tools (Roo Code approach): diagnostics are in the result
-    if (isModificationTool) {
-      const newProblemsMessage = extractDiagnosticsFromResult(toolName, result);
-      if (newProblemsMessage) {
-        // Track attempts for file modification tools
-        const currentAttempts = (diagnosticAttemptsRef.current[filePath] || 0) + 1;
-        diagnosticAttemptsRef.current[filePath] = currentAttempts;
-        const maxIterations = 3;
-
-        // Add attempt tracking to the message
-        let instruction = '';
-        if (currentAttempts < maxIterations) {
-          instruction = `\n\n[INSTRUCTION: The file you just modified has lint/compile errors. Review the diagnostics above and fix them. This is attempt ${currentAttempts}/${maxIterations}.]`;
-        } else if (currentAttempts === maxIterations) {
-          instruction = `\n\n[INSTRUCTION: The file still has lint/compile errors. This is your final attempt (${currentAttempts}/${maxIterations}). Review carefully and fix all issues.]`;
-        } else {
-          instruction = `\n\n[NOTE: Maximum fix attempts (${maxIterations}) reached for this file. Diagnostics are shown for your reference, but you should acknowledge and move forward unless the user requests further fixes.]`;
-        }
-
-        return newProblemsMessage + instruction;
-      } else {
-        // No diagnostics found - reset attempts counter
-        if (diagnosticAttemptsRef.current[filePath]) {
-          console.log(`[Diagnostics] No errors found for ${filePath} - resetting attempt counter`);
-          delete diagnosticAttemptsRef.current[filePath];
-        }
-        return '';
-      }
-    }
-
-    // For read_file with check_lints: external fetch
-    const toolParameters = state.parameters;
-    if (!shouldFetchDiagnostics(toolName, toolParameters) || !absolutePath) {
-      return '';
-    }
-
-    // Update status to fetching_diagnostics
-    const fetchingState = { ...state, status: 'fetching_diagnostics' as const };
-    updateToolExecution(assistantMessageId, state.toolExecutionId, fetchingState);
-
-    // Fetch diagnostics from backend
-    const diagnostics = await fetchDiagnostics(filePath, absolutePath);
-
-    // Update state with diagnostics
-    const finalState = { ...state, diagnostics };
-    updateToolExecution(assistantMessageId, state.toolExecutionId, finalState);
-
-    // Handle diagnostic results
-    if (diagnostics && diagnostics.length > 0) {
-      const maxIterations = 3;
-      return formatDiagnosticsForAI(diagnostics, filePath, false, 0, maxIterations);
-    }
-
-    return '';
   });
 
-  const results = await Promise.all(diagnosticsPromises);
   console.log(`[ToolExecution] Completed diagnostics processing for ${executedTools.length} files`);
-  return results.filter(r => r.length > 0);
+  return results.filter((r): r is string => r.length > 0);
 }
 
 /**
@@ -403,11 +343,9 @@ export function useToolExecution({
             return { toolName: executedTool.toolName, result: executedTool.result, state: completedState };
           });
 
-          // Fetch diagnostics in parallel for all modified files
-          const diagnosticsTexts = await fetchAndFormatDiagnosticsParallel(
+          // Extract diagnostics from tool results (Roo Code approach - no external fetch needed)
+          const diagnosticsTexts = getDiagnosticsFromToolResultsParallel(
             completedStates,
-            assistantMessageId,
-            updateToolExecution,
             diagnosticAttemptsRef
           );
 
@@ -655,83 +593,10 @@ export function useToolExecution({
         // Format tool results for AI context
         const toolResultText = result.toolResults.join('\n\n');
 
-        // Fetch diagnostics after showing result
-        // Check if this is a multi-file read_file result
-        let diagnosticsText = '';
-        if (executedTool?.toolName === 'read_file' && executedTool.result?.success && executedTool.result.data) {
-          const resultData = executedTool.result.data as Record<string, unknown>;
-          if ('files' in resultData && Array.isArray(resultData.files) && resultData.files.length > 1) {
-            // Multi-file result - create separate tool execution states for each file
-            const files = resultData.files as Array<{ path: string; absolutePath?: string; content: string; startLine?: number; endLine?: number; totalLines?: number }>;
 
-            // Create tool execution entries for each file so they can show "Linting" status
-            files.forEach((file, fileIdx) => {
-              const fileToolExecutionId = `${toolExecutionId}-file-${fileIdx}`;
-              const fileState: ToolExecutionState = {
-                toolExecutionId: fileToolExecutionId,
-                toolName: 'read_file',
-                parameters: { path: file.path },
-                status: 'completed',
-                result: {
-                  success: true,
-                  data: file
-                },
-                startedAt: completedState.startedAt,
-                completedAt: completedState.completedAt,
-              };
-              updateToolExecution(assistantMessageId, fileToolExecutionId, fileState);
-            });
-
-            // Now fetch diagnostics for all files in parallel
-            const diagnosticsPromises = files.map(async (file, fileIdx) => {
-              const fileToolExecutionId = `${toolExecutionId}-file-${fileIdx}`;
-              const fileData = { path: file.path, absolutePath: file.absolutePath };
-              const fileState: ToolExecutionState = {
-                toolExecutionId: fileToolExecutionId,
-                toolName: 'read_file',
-                parameters: { path: file.path },
-                status: 'completed',
-                result: {
-                  success: true,
-                  data: file
-                },
-                startedAt: completedState.startedAt,
-                completedAt: completedState.completedAt,
-              };
-
-              return fetchAndFormatDiagnostics(
-                { toolName: 'read_file', result: { success: true, data: fileData } },
-                fileState,
-                assistantMessageId,
-                fileToolExecutionId,
-                updateToolExecution,
-                diagnosticAttemptsRef
-              );
-            });
-            const diagnosticsResults = await Promise.all(diagnosticsPromises);
-            diagnosticsText = diagnosticsResults.filter(d => d.length > 0).join('\n\n');
-          } else {
-            // Single file result - use normal diagnostics fetch
-            diagnosticsText = await fetchAndFormatDiagnostics(
-              executedTool,
-              completedState,
-              assistantMessageId,
-              toolExecutionId,
-              updateToolExecution,
-              diagnosticAttemptsRef
-            );
-          }
-        } else {
-          // Not read_file or other tool - use normal diagnostics fetch
-          diagnosticsText = await fetchAndFormatDiagnostics(
-            executedTool,
-            completedState,
-            assistantMessageId,
-            toolExecutionId,
-            updateToolExecution,
-            diagnosticAttemptsRef
-          );
-        }
+        // Extract diagnostics from tool result (Roo Code approach - no external fetch needed)
+        // Only file modification tools (write_to_file, apply_diff) include diagnostics
+        const diagnosticsText = getDiagnosticsFromToolResult(executedTool, diagnosticAttemptsRef);
 
         // Check if stopped during diagnostic fetching
         if (isStoppingRef.current) {

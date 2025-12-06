@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { getProviderDefaults, type Provider } from '../types/api-settings';
 import type { ApiSettings } from '../types/api-settings';
 
@@ -10,6 +10,12 @@ let requestIdCounter = 0;
 
 // Track if prefetch has been initiated
 let prefetchInitiated = false;
+
+const MODELS_REFRESH_EVENT = 'echodeModelsRefresh';
+
+export function requestModelsRefresh() {
+  window.dispatchEvent(new Event(MODELS_REFRESH_EVENT));
+}
 
 // Helper to generate cache key (used both inside and outside hook)
 function generateCacheKey(prov: Provider, url: string | undefined, key: string) {
@@ -137,6 +143,18 @@ export function useModelFetcher(
     const cacheKey = getCacheKey(provider, customBaseUrl, apiKey || 'no-key');
     modelCache.delete(cacheKey);
   }, [provider, customBaseUrl, apiKey, getCacheKey]);
+
+  useEffect(() => {
+    const handleGlobalRefresh = () => {
+      fetchModels(true);
+    };
+
+    window.addEventListener(MODELS_REFRESH_EVENT, handleGlobalRefresh);
+
+    return () => {
+      window.removeEventListener(MODELS_REFRESH_EVENT, handleGlobalRefresh);
+    };
+  }, [fetchModels]);
 
   return { models, loadingModels, fetchModels, refetchModels, clearCache };
 }

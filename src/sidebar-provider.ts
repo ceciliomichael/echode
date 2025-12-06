@@ -10,7 +10,7 @@ import { getMainWebviewHtml, getSettingsHtml, getMermaidPreviewHtml } from './ut
 import { getWorkspaceFiles, getAgentsConfig } from './utils/workspace-scanner';
 import { ChatHistoryService } from './services/chat-history-service';
 import { ToolHistoryService } from './services/tool-history-service';
-import { DiagnosticsService } from './services/diagnostics-service';
+
 import { AutocompleteService } from './autocomplete';
 import type { ToolExecutionState } from './types/tool-execution';
 
@@ -42,7 +42,7 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
     const workspacePath = this.getCurrentWorkspacePath();
     this._historyService = new ChatHistoryService(_context, workspacePath);
     this._toolHistoryService = new ToolHistoryService();
-    
+
     // Listen for workspace folder changes
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
       const newWorkspacePath = this.getCurrentWorkspacePath();
@@ -141,11 +141,11 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     const workspaceInfo = workspaceFolders && workspaceFolders.length > 0
       ? {
-          path: workspaceFolders[0].uri.fsPath,
-          name: workspaceFolders[0].name,
-          files: getWorkspaceFiles(workspaceFolders[0].uri.fsPath),
-          agentsConfig: getAgentsConfig(workspaceFolders[0].uri.fsPath)
-        }
+        path: workspaceFolders[0].uri.fsPath,
+        name: workspaceFolders[0].name,
+        files: getWorkspaceFiles(workspaceFolders[0].uri.fsPath),
+        agentsConfig: getAgentsConfig(workspaceFolders[0].uri.fsPath)
+      }
       : null;
 
     webviewView.webview.postMessage({
@@ -170,15 +170,15 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
       });
       return;
     }
-    
+
     // Skip if scan already in progress
     if (this._refactorScanInProgress) {
       return;
     }
     this._refactorScanInProgress = true;
-    
+
     const workspaceFolders = vscode.workspace.workspaceFolders;
-    
+
     if (!workspaceFolders || workspaceFolders.length === 0) {
       this._refactorScanInProgress = false;
       this._refactorScanComplete = true;
@@ -191,23 +191,23 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
 
     const workspacePath = workspaceFolders[0].uri.fsPath;
     const scriptPath = path.join(this._context.extensionPath, 'dist', 'scripts', 'scan-large-files.js');
-    
+
     console.log('[Echode] Spawning scan script:', scriptPath);
     const startTime = Date.now();
-    
+
     // Spawn external Node process
     const child = spawn('node', [scriptPath, workspacePath, '300'], {
       cwd: workspacePath,
       stdio: ['ignore', 'pipe', 'pipe']
     });
-    
+
     let stdout = '';
     let stderr = '';
-    
+
     child.stdout.on('data', (data) => {
       stdout += data.toString();
     });
-    
+
     child.stderr.on('data', (data) => {
       stderr += data.toString();
     });
@@ -232,19 +232,19 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
         largeFiles: []
       });
     }, 10000);
-    
+
     child.on('close', (code) => {
       const elapsed = Date.now() - startTime;
       console.log(`[Echode] Scan completed in ${elapsed}ms, exit code: ${code}`);
 
       // Scan finished before timeout - prevent timeout handler from firing
       clearTimeout(timeout);
-      
+
       this._refactorScanInProgress = false;
       this._refactorScanComplete = true;
-      
+
       let largeFiles: { path: string; lineCount: number }[] = [];
-      
+
       if (code === 0 && stdout) {
         try {
           largeFiles = JSON.parse(stdout);
@@ -255,10 +255,10 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
       } else if (stderr) {
         console.error('[Echode] Scan script error:', stderr);
       }
-      
+
       // Cache results for subsequent requests
       this._cachedLargeFiles = largeFiles;
-      
+
       webviewView.webview.postMessage({
         type: 'refactorScanResults',
         largeFiles
@@ -367,7 +367,7 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
     _token: vscode.CancellationToken
   ): void {
     this._view = webviewView;
-    
+
     // Update history service with current workspace when view is resolved
     const workspacePath = this.getCurrentWorkspacePath();
     this._historyService.updateWorkspace(workspacePath);
@@ -455,15 +455,13 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
             console.warn('[OpenFileInTab] Failed to open file:', data.absolutePath, error);
           }
           break;
-        case 'fetchDiagnostics':
-          await this.handleDiagnosticsFetch(data, webviewView);
-          break;
+
         case 'undoToolExecutions':
           const workspaceForToolUndo = vscode.workspace.workspaceFolders;
-          const undoWorkspacePath = workspaceForToolUndo && workspaceForToolUndo.length > 0 
-            ? workspaceForToolUndo[0].uri.fsPath 
+          const undoWorkspacePath = workspaceForToolUndo && workspaceForToolUndo.length > 0
+            ? workspaceForToolUndo[0].uri.fsPath
             : '';
-            
+
           try {
             const toolExecutions = new Map<string, ToolExecutionState>(data.toolExecutions);
             const result = await this._toolHistoryService.undoToolExecutions(
@@ -487,8 +485,8 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
           break;
         case 'redoToolExecutions':
           const workspaceForToolRedo = vscode.workspace.workspaceFolders;
-          const redoWorkspacePath = workspaceForToolRedo && workspaceForToolRedo.length > 0 
-            ? workspaceForToolRedo[0].uri.fsPath 
+          const redoWorkspacePath = workspaceForToolRedo && workspaceForToolRedo.length > 0
+            ? workspaceForToolRedo[0].uri.fsPath
             : '';
 
           try {
@@ -564,7 +562,7 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
 
     panel.iconPath = vscode.Uri.joinPath(this._extensionUri, 'icon.svg');
     panel.webview.html = getMermaidPreviewHtml(panel.webview, code);
-    
+
     // Handle messages from the preview panel
     panel.webview.onDidReceiveMessage(async (data) => {
       if (data.type === 'saveMermaidSvg') {
@@ -572,7 +570,7 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
           filters: { 'SVG Images': ['svg'] },
           defaultUri: vscode.Uri.file('diagram.svg')
         });
-        
+
         if (uri) {
           await vscode.workspace.fs.writeFile(uri, Buffer.from(data.svg));
           vscode.window.showInformationMessage('Diagram saved successfully!');
@@ -586,7 +584,7 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
         this._mermaidPanels.delete(id);
       }
       if (this._view) {
-        this._view.webview.postMessage({ 
+        this._view.webview.postMessage({
           type: 'mermaidPreviewClosed',
           id // Send back ID so specific block can handle it
         });
@@ -594,41 +592,5 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
     });
   }
 
-  /**
-   * Handle diagnostics fetch request from webview
-   */
-  private async handleDiagnosticsFetch(
-    data: { requestId: string; filePath: string; absolutePath: string },
-    webviewView: vscode.WebviewView
-  ): Promise<void> {
-    try {
-      const diagnosticsService = DiagnosticsService.getInstance();
-      const diagnostics: unknown[] = [];
-      
-      if (diagnosticsService.isEnabled()) {
-        try {
-          const captured = await diagnosticsService.captureDiagnosticsForFile(data.absolutePath, {
-            delay: diagnosticsService.getConfig('delay', 300),
-            timeout: diagnosticsService.getConfig('timeout', 2500),
-          });
-          diagnostics.push(...captured);
-        } catch (diagError) {
-          console.warn('[DiagnosticsFetch] Failed to capture diagnostics:', diagError);
-        }
-      }
 
-      webviewView.webview.postMessage({
-        type: 'diagnosticsFetched',
-        requestId: data.requestId,
-        diagnostics,
-      });
-    } catch (error) {
-      console.error('[DiagnosticsFetch] Error:', error);
-      webviewView.webview.postMessage({
-        type: 'diagnosticsFetched',
-        requestId: data.requestId,
-        diagnostics: [],
-      });
-    }
-  }
 }

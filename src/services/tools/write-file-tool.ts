@@ -212,15 +212,15 @@ export class WriteFileTool implements ITool {
       await vscode.workspace.fs.writeFile(uri, contentBytes);
       console.log('[WRITE_FILE] File written successfully');
 
-      // Open the file in editor to trigger language server analysis
+      // Open the file in a tab for visibility (without stealing focus)
       try {
         await vscode.window.showTextDocument(uri, {
           preview: false,
           preserveFocus: true,
         });
-        console.log('[WRITE_FILE] File opened in editor for diagnostics');
+        console.log('[WRITE_FILE] File opened in tab for diagnostics');
       } catch (openError) {
-        console.warn('[WRITE_FILE] Could not open file in editor:', openError);
+        console.warn('[WRITE_FILE] Could not open file in tab:', openError);
       }
 
       // Post-write verification: try reading back as text

@@ -110,6 +110,16 @@ export class ReadFileTool implements ITool {
       const lines = content.split(/\r?\n/);
       const totalLines = lines.length;
 
+      // Open the file in a tab for visibility (without stealing focus)
+      try {
+        await vscode.window.showTextDocument(uri, {
+          preview: false,
+          preserveFocus: true,
+        });
+      } catch {
+        // Ignore errors - file is already read successfully
+      }
+
       // Apply default 500-line limit when no range specified
       if (offset === undefined && limit === undefined) {
         const defaultStart = 0;
@@ -122,11 +132,11 @@ export class ReadFileTool implements ITool {
         const refactorReminder = getLargeFileReminder(totalLines, mode);
         const refactorNotice = refactorReminder
           ? {
-              type: 'large_file',
-              lineCount: totalLines,
-              mode,
-              message: refactorReminder,
-            }
+            type: 'large_file',
+            lineCount: totalLines,
+            mode,
+            message: refactorReminder,
+          }
           : undefined;
 
         return {
@@ -155,11 +165,11 @@ export class ReadFileTool implements ITool {
       const refactorReminder = getLargeFileReminder(totalLines, mode);
       const refactorNotice = refactorReminder
         ? {
-            type: 'large_file',
-            lineCount: totalLines,
-            mode,
-            message: refactorReminder,
-          }
+          type: 'large_file',
+          lineCount: totalLines,
+          mode,
+          message: refactorReminder,
+        }
         : undefined;
 
       return {

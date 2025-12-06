@@ -48,22 +48,6 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded }: ToolBlockCo
                     isAborted={isAborted} 
                   />
                 </div>
-              ) : !isAborted ? (
-                <div
-                  className="px-3 py-3"
-                  style={{
-                    backgroundColor: 'var(--vscode-editor-background)',
-                  }}
-                >
-                  <div
-                    className="text-xs italic animate-pulse"
-                    style={{ color: 'var(--vscode-descriptionForeground)' }}
-                  >
-                    {toolCall.toolName === 'write_to_file' && toolCall.parameters.path
-                      ? 'Preparing file diff...'
-                      : 'Executing tool...'}
-                  </div>
-                </div>
               ) : null}
             </>
           )}

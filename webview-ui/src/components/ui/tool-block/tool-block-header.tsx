@@ -10,6 +10,7 @@ interface ToolBlockHeaderProps {
   statusConfig: string | ReactNode;
   status: ToolStatus;
   isStreaming?: boolean;
+  hasResultContent: boolean;
 }
 
 export function ToolBlockHeader({
@@ -19,7 +20,14 @@ export function ToolBlockHeader({
   statusConfig,
   status,
   isStreaming,
+  hasResultContent,
 }: ToolBlockHeaderProps) {
+  const isDone = !isStreaming &&
+    status !== 'pending' &&
+    status !== 'executing' &&
+    status !== 'fetching_diagnostics';
+  const showChevron = isDone && hasResultContent;
+
   return (
     <button
       type="button"
@@ -31,15 +39,15 @@ export function ToolBlockHeader({
       }}
     >
       <div className="flex items-center gap-2 flex-1 min-w-0">
-        {/* Icon container - shows tool icon by default, chevron on hover */}
+        {/* Icon container - shows tool icon by default, chevron on hover when expandable */}
         <div className="relative w-4 h-4 flex-shrink-0">
-          {/* Tool Icon - visible by default, hidden on hover */}
+          {/* Tool Icon - visible by default, hidden on hover only when chevron is available */}
           <fileInfo.icon
-            className={`absolute inset-0 w-4 h-4 group-hover:opacity-0 transition-opacity ${fileInfo.isSpinning ? 'animate-spin' : ''}`}
+            className={`absolute inset-0 w-4 h-4 transition-opacity ${showChevron ? 'group-hover:opacity-0' : ''} ${fileInfo.isSpinning ? 'animate-spin' : ''}`}
             style={{ color: fileInfo.iconColor }}
           />
-          {/* Chevron - hidden by default, visible on hover */}
-          {isExpanded ? (
+          {/* Chevron - hidden by default, visible on hover only when tool is done and has content */}
+          {showChevron && (isExpanded ? (
             <ChevronDown
               className="absolute inset-0 w-4 h-4 opacity-0 group-hover:opacity-60 transition-opacity"
               style={{ color: 'var(--vscode-foreground)' }}
@@ -49,7 +57,7 @@ export function ToolBlockHeader({
               className="absolute inset-0 w-4 h-4 opacity-0 group-hover:opacity-60 transition-opacity"
               style={{ color: 'var(--vscode-foreground)' }}
             />
-          )}
+          ))}
         </div>
 
         {/* Filename / Tool Name */}

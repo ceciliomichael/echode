@@ -148,7 +148,7 @@ function DiagnosticsRendererComponent({ data }: { data: unknown }) {
     }
 
     return (
-      <div className="rounded-md overflow-hidden border border-[var(--vscode-input-border)] bg-[var(--vscode-editor-background)]">
+      <div className="rounded-xl overflow-hidden border border-[var(--vscode-input-border)] bg-[var(--vscode-editor-background)]">
         <div className="max-h-[400px] overflow-y-auto">
           {result.files.map((file, index) => (
             <DiagnosticFileItem

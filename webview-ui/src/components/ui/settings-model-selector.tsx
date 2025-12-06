@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import { Check, ChevronDown, Search, Cpu } from 'lucide-react';
+import { Check, ChevronDown, Search, Cpu, RotateCcw } from 'lucide-react';
 import type { ApiSettings, Provider } from '../../types/api-settings';
 import { storageService } from '../../utils/storage';
-import { useModelFetcher } from '../../hooks/use-model-fetcher';
+import { useModelFetcher, requestModelsRefresh } from '../../hooks/use-model-fetcher';
 
 const PROVIDER_OPTIONS: { value: Provider; label: string }[] = [
   { value: 'anthropic', label: 'Anthropic' },
@@ -153,25 +153,17 @@ export function SettingsModelSelector({
     loadingVscodeLm ||
     loadingQwenCode;
 
-  // Check if any models are already loaded from cache
-  const hasAnyModels =
-    anthropicModels.length > 0 ||
-    openaiModels.length > 0 ||
-    openaiCompatibleModels.length > 0 ||
-    megallmModels.length > 0 ||
-    vscodeLmModels.length > 0 ||
-    qwenCodeModels.length > 0;
-
-  // Only fetch when dropdown opens AND no models are cached yet
+  // Fetch for all providers when dropdown opens; useModelFetcher and its
+  // shared cache will avoid redundant network calls when data is fresh
   useEffect(() => {
-    if (!isOpen || hasAnyModels) return;
+    if (!isOpen) return;
     fetchAnthropic();
     fetchOpenai();
     fetchOpenaiCompatible();
     fetchMegallm();
     fetchVscodeLm();
     fetchQwenCode();
-  }, [isOpen, hasAnyModels, fetchAnthropic, fetchOpenai, fetchOpenaiCompatible, fetchMegallm, fetchVscodeLm, fetchQwenCode]);
+  }, [isOpen, fetchAnthropic, fetchOpenai, fetchOpenaiCompatible, fetchMegallm, fetchVscodeLm, fetchQwenCode]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -277,6 +269,19 @@ export function SettingsModelSelector({
                   }}
                   autoFocus
                 />
+                <button
+                  type="button"
+                  onClick={requestModelsRefresh}
+                  className="flex items-center justify-center rounded-lg border px-2 py-1 text-[11px] min-w-[32px] h-7"
+                  style={{
+                    backgroundColor: 'var(--vscode-input-background)',
+                    borderColor: 'var(--vscode-input-border)',
+                    color: 'var(--vscode-input-foreground)',
+                  }}
+                  title="Refresh models"
+                >
+                  <RotateCcw size={13} />
+                </button>
               </div>
             </div>
 
