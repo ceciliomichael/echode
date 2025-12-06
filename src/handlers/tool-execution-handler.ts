@@ -37,6 +37,7 @@ interface ToolExecutionMessage {
   requestId: string;
   toolName: string;
   parameters: Record<string, unknown>;
+  mode?: 'agent' | 'plan' | 'ask' | 'general';
 }
 
 interface ToolAbortMessage {
@@ -68,7 +69,7 @@ export async function handleToolExecution(
   data: ToolExecutionMessage | ToolAbortMessage,
   webviewView: vscode.WebviewView | vscode.WebviewPanel,
 ): Promise<void> {
-  
+
   // Handle abort request
   if (data.type === 'abortToolExecution') {
     const controller = activeToolExecutions.get(data.requestId);
@@ -80,7 +81,7 @@ export async function handleToolExecution(
     return;
   }
 
-  const { requestId, toolName, parameters } = data;
+  const { requestId, toolName, parameters, mode } = data;
 
   // Create abort controller for this execution
   const abortController = new AbortController();
@@ -112,8 +113,8 @@ export async function handleToolExecution(
       webviewView.webview.postMessage(progressMessage);
     };
 
-    // Execute tool with cancellation signal
-    const result = await tool.execute(parameters, onProgress, abortController.signal);
+    // Execute tool with cancellation signal and mode
+    const result = await tool.execute(parameters, onProgress, abortController.signal, mode);
 
     const response: ToolExecutionResponse = {
       type: 'toolExecutionResult',

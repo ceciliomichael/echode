@@ -1,7 +1,7 @@
 import { FilePenLine } from 'lucide-react';
 import type { ToolExecutionResult } from '../../types/tool';
 import { registerToolPlugin } from './tool-plugin';
-import { executeToolViaExtension } from '../tool-utils';
+import { executeToolViaExtension, type ChatMode } from '../tool-utils';
 
 /**
  * Apply Diff Tool
@@ -9,8 +9,11 @@ import { executeToolViaExtension } from '../tool-utils';
 async function executeApplyDiff(
     parameters: Record<string, unknown>,
     signal?: AbortSignal,
+    _onStatusChange?: unknown,
+    _onProgress?: unknown,
+    mode?: ChatMode,
 ): Promise<ToolExecutionResult> {
-    return executeToolViaExtension('apply_diff', parameters, signal);
+    return executeToolViaExtension('apply_diff', parameters, signal, undefined, mode);
 }
 
 // Register apply_diff tool

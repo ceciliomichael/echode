@@ -1,6 +1,7 @@
 import type { ToolCall, ToolExecutionResult, ParsedToolBlock } from '../types/tool';
 import { getToolHandler, type ToolStatusCallback, type ToolProgressCallback, isToolRegistered } from './tool-registry';
 import { extractFirstToolBlock } from './tool-parser';
+import type { ChatMode } from './tool-utils';
 
 export interface ToolCallExecutionResult {
   executedToolCalls: Array<{
@@ -17,17 +18,20 @@ export interface ToolExecutorOptions {
   enabledTools: string[];
   isStoppingRef: { current: boolean };
   abortControllerRef?: { current: AbortController | null };
+  mode?: ChatMode;
 }
 
 export class ToolExecutor {
   private enabledTools: string[];
   private isStoppingRef: { current: boolean };
   private abortControllerRef?: { current: AbortController | null };
+  private mode?: ChatMode;
 
   constructor(options: ToolExecutorOptions) {
     this.enabledTools = options.enabledTools;
     this.isStoppingRef = options.isStoppingRef;
     this.abortControllerRef = options.abortControllerRef;
+    this.mode = options.mode;
   }
 
   /**
@@ -73,12 +77,13 @@ export class ToolExecutor {
 
     // Use provided signal or fall back to the abort controller ref's signal
     const effectiveSignal = signal ?? this.getAbortSignal();
-    
+
     return await handler.execute(
       toolCall.parameters,
       effectiveSignal,
       onStatusChange,
       onProgress,
+      this.mode,
     );
   }
 

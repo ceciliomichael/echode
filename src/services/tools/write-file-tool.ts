@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import type { ITool, ToolExecutionResult } from './tool.interface';
+import type { ITool, ToolExecutionResult, ChatMode } from './tool.interface';
 import { unescapeHtmlEntities } from '../../utils/text-normalization';
 import { detectCodeOmission } from '../../utils/detect-code-omission';
 import { getWorkspaceRoot, resolveAbsolutePath, getCreatedDirectories } from './utils/workspace-utils';
@@ -56,7 +56,12 @@ export class WriteFileTool implements ITool {
     return { isBinary: false };
   }
 
-  async execute(parameters: Record<string, unknown>): Promise<ToolExecutionResult> {
+  async execute(
+    parameters: Record<string, unknown>,
+    _onProgress?: unknown,
+    _signal?: AbortSignal,
+    mode?: ChatMode
+  ): Promise<ToolExecutionResult> {
     const filePath = parameters.path as string;
     const lineCountParam = parameters.line_count as number | undefined;
     const rawContent = parameters.content;
@@ -154,7 +159,7 @@ export class WriteFileTool implements ITool {
 
       const absolutePath = resolveAbsolutePath(filePath, workspaceRoot);
       const uri = vscode.Uri.file(absolutePath);
-      
+
       // Check if file exists and capture old content
       let oldContent: string | null = null;
       let fileExisted = false;
@@ -187,10 +192,10 @@ export class WriteFileTool implements ITool {
 
       // Skip line_count validation - rely on diagnostics feedback instead
       console.log('[WRITE_FILE] Skipping line_count validation, diagnostics will catch errors');
-      
+
       // Track which directories will be created
       const createdDirectories = await getCreatedDirectories(filePath, workspaceRoot);
-      
+
       // Create parent directories if needed
       const dirPath = path.dirname(absolutePath);
       const dirUri = vscode.Uri.file(dirPath);
@@ -210,7 +215,7 @@ export class WriteFileTool implements ITool {
         const verifyContent = await vscode.workspace.fs.readFile(uri);
         const verifyString = Buffer.from(verifyContent).toString('utf8');
         const verifyCheck = this.detectBinaryContent(verifyString);
-        
+
         if (verifyCheck.isBinary) {
           console.log('[WRITE_FILE] WARNING: Written file looks binary on read-back:', verifyCheck.reason);
           // Could optionally revert here, but for now just warn
@@ -222,6 +227,15 @@ export class WriteFileTool implements ITool {
       }
 
       console.log('[WRITE_FILE] ==================== SUCCESS ====================');
+
+      // Calculate line count and add mode-specific reminder for large files
+      const lineCount = content.split(/\r?\n/).length;
+      let largeFileReminder: string | undefined;
+      if (lineCount > 300 && (mode === 'agent' || mode === 'general' || mode === undefined)) {
+        const action = fileExisted ? 'MODIFIED' : 'CREATED';
+        largeFileReminder = `[${action} LARGE FILE - ${lineCount} LINES] This file exceeds the 300-line threshold. Consider refactoring into smaller, focused modules to maintain code quality.`;
+      }
+
       return {
         success: true,
         data: {
@@ -231,6 +245,8 @@ export class WriteFileTool implements ITool {
           oldContent: oldContent,
           newContent: content,
           createdDirectories: fileExisted ? [] : createdDirectories,
+          lineCount,
+          largeFileReminder,
         },
       };
     } catch (error) {

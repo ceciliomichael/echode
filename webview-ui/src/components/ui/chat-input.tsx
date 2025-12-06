@@ -13,6 +13,7 @@ import type { ContextUsageResult } from '../../hooks/use-context-usage';
 import { useContextMenu } from '../../hooks/use-context-menu';
 import { useWorkspaceContext } from '../../hooks/use-workspace-context';
 import { clearMentionPaths, removeMention, getMentionPath, unescapeSpaces, registerMentionPath } from '../../utils/mention-utils';
+import { buildRefactorMessage } from '../../utils/message-builders';
 import type { TodoTask } from '../../types/todo';
 import type { ImageAttachment } from '../../types/chat';
 import type { ChatMode } from '../../types/chat-mode';
@@ -195,9 +196,8 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
     // Register mention path so the system knows the full path
     registerMentionPath(basename, filePath);
     
-    // Send message
-    const message = `Refactor @${basename} following code quality principles and best practices.`;
-    
+    // Build and send refactor message
+    const message = buildRefactorMessage(basename);
     onSendMessage(message, undefined, false);
     
     // Clear mentions after a short delay to ensure processing

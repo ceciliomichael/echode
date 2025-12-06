@@ -6,6 +6,7 @@
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { Tool, ToolExecutionResult, EchoSearchProgress } from '../types/tool';
+import type { ChatMode } from './tool-utils';
 import { getAllToolPlugins } from './tools/tool-plugin';
 // Import tools to trigger auto-registration
 import './tools/read-file-tool.tsx';
@@ -41,6 +42,7 @@ export interface ToolHandler {
     signal?: AbortSignal,
     onStatusChange?: ToolStatusCallback,
     onProgress?: ToolProgressCallback,
+    mode?: ChatMode,
   ): Promise<ToolExecutionResult>;
 }
 

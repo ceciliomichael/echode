@@ -1,8 +1,34 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import type { ITool, ToolExecutionResult } from './tool.interface';
+import type { ITool, ToolExecutionResult, ChatMode } from './tool.interface';
 import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
 import { addLineNumbers } from '../../utils/line-number-utils';
+
+/**
+ * Get mode-specific large file reminder
+ * - Agent/General: Actionable refactor suggestion since these modes can edit
+ * - Plan: Note to include refactoring in the implementation plan
+ * - Ask: No reminder (just answering questions)
+ */
+function getLargeFileReminder(totalLines: number, mode?: ChatMode): string | undefined {
+  if (totalLines <= 300) {
+    return undefined;
+  }
+
+  switch (mode) {
+    case 'ask':
+      // Ask mode: no reminder needed, just answering questions
+      return undefined;
+    case 'plan':
+      // Plan mode: include refactoring recommendation in the plan
+      return `[LARGE FILE - ${totalLines} LINES] This file exceeds the 300-line threshold. Your implementation plan SHOULD include a task to refactor this file into smaller, focused modules following single responsibility principle and logical grouping by feature/concern.`;
+    case 'agent':
+    case 'general':
+    default:
+      // Agent/General modes: can edit, so give actionable refactor advice
+      return `[LARGE FILE - ${totalLines} LINES] This file exceeds the 300-line threshold. Before making extensive changes, consider refactoring into smaller, focused modules. Split by logical boundaries (features, concerns, or responsibilities) to maintain code quality.`;
+  }
+}
 
 export class ReadFileTool implements ITool {
   name = 'read_file';
@@ -13,7 +39,12 @@ export class ReadFileTool implements ITool {
       .join('\n');
   }
 
-  async execute(parameters: Record<string, unknown>): Promise<ToolExecutionResult> {
+  async execute(
+    parameters: Record<string, unknown>,
+    _onProgress?: unknown,
+    _signal?: AbortSignal,
+    mode?: ChatMode
+  ): Promise<ToolExecutionResult> {
     const offset = parameters.offset as number | undefined;
     const limit = parameters.limit as number | undefined;
 
@@ -38,17 +69,18 @@ export class ReadFileTool implements ITool {
 
     // Single file - use direct return
     if (paths.length === 1) {
-      return this.readSingleFile(paths[0], offset, limit);
+      return this.readSingleFile(paths[0], offset, limit, mode);
     }
 
     // Multiple files - read in parallel
-    return this.readMultipleFiles(paths, offset, limit);
+    return this.readMultipleFiles(paths, offset, limit, mode);
   }
 
   private async readSingleFile(
     filePath: string,
     offset: number | undefined,
-    limit: number | undefined
+    limit: number | undefined,
+    mode?: ChatMode
   ): Promise<ToolExecutionResult> {
 
     try {
@@ -86,10 +118,8 @@ export class ReadFileTool implements ITool {
         const selectedLines = lines.slice(defaultStart, defaultEnd);
         const numberedContent = addLineNumbers(selectedLines.join('\n'), defaultStart + 1);
 
-        // Add refactor reminder for large files
-        const refactorReminder = totalLines > 300
-          ? `⚠️ **REFACTOR REQUIRED**: This file has ${totalLines} lines (exceeds 300-line threshold). Before continuing implementation, you MUST first refactor this file into smaller, focused modules. Large files violate clean code principles. Stop current work, split this file logically, then resume.`
-          : undefined;
+        // Add mode-specific reminder for large files
+        const refactorReminder = getLargeFileReminder(totalLines, mode);
 
         return {
           success: true,
@@ -112,10 +142,8 @@ export class ReadFileTool implements ITool {
       const selectedLines = lines.slice(start, end);
       const numberedContent = addLineNumbers(selectedLines.join('\n'), start + 1);
 
-      // Add refactor reminder for large files
-      const refactorReminder = totalLines > 300
-        ? `⚠️ **REFACTOR REQUIRED**: This file has ${totalLines} lines (exceeds 300-line threshold). Before continuing implementation, you MUST first refactor this file into smaller, focused modules. Large files violate clean code principles. Stop current work, split this file logically, then resume.`
-        : undefined;
+      // Add mode-specific reminder for large files
+      const refactorReminder = getLargeFileReminder(totalLines, mode);
 
       return {
         success: true,
@@ -140,12 +168,13 @@ export class ReadFileTool implements ITool {
   private async readMultipleFiles(
     filePaths: string[],
     offset: number | undefined,
-    limit: number | undefined
+    limit: number | undefined,
+    mode?: ChatMode
   ): Promise<ToolExecutionResult> {
     try {
       // Read all files in parallel
       const results = await Promise.all(
-        filePaths.map(filePath => this.readSingleFile(filePath, offset, limit))
+        filePaths.map(filePath => this.readSingleFile(filePath, offset, limit, mode))
       );
 
       // Check if any failed

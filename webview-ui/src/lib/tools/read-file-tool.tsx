@@ -1,7 +1,7 @@
 import { FileText } from 'lucide-react';
 import type { ToolExecutionResult } from '../../types/tool';
 import { registerToolPlugin } from './tool-plugin';
-import { executeToolViaExtension } from '../tool-utils';
+import { executeToolViaExtension, type ChatMode } from '../tool-utils';
 
 /**
  * Read File Tool
@@ -9,8 +9,11 @@ import { executeToolViaExtension } from '../tool-utils';
 async function executeReadFile(
   parameters: Record<string, unknown>,
   signal?: AbortSignal,
+  _onStatusChange?: unknown,
+  _onProgress?: unknown,
+  mode?: ChatMode,
 ): Promise<ToolExecutionResult> {
-  return executeToolViaExtension('read_file', parameters, signal);
+  return executeToolViaExtension('read_file', parameters, signal, undefined, mode);
 }
 
 // Register read_file tool

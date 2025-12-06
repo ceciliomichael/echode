@@ -6,6 +6,11 @@ import type { ToolExecutionResult, EchoSearchProgress } from '../types/tool';
 export type ToolProgressCallback = (progress: EchoSearchProgress) => void;
 
 /**
+ * Chat mode type for mode-specific tool behavior
+ */
+export type ChatMode = 'agent' | 'plan' | 'ask' | 'general';
+
+/**
  * Execute tool via VSCode extension backend
  */
 export async function executeToolViaExtension(
@@ -13,6 +18,7 @@ export async function executeToolViaExtension(
   parameters: Record<string, unknown>,
   signal?: AbortSignal,
   onProgress?: ToolProgressCallback,
+  mode?: ChatMode,
 ): Promise<ToolExecutionResult> {
   return new Promise((resolve, reject) => {
     if (!window.vscode) {
@@ -28,7 +34,7 @@ export async function executeToolViaExtension(
 
     const requestId = Math.random().toString(36).substring(7);
     let isCompleted = false;
-    
+
     const cleanup = () => {
       isCompleted = true;
       window.removeEventListener('message', handleResponse);
@@ -36,10 +42,10 @@ export async function executeToolViaExtension(
         signal.removeEventListener('abort', handleAbort);
       }
     };
-    
+
     const handleResponse = (event: MessageEvent) => {
       const message = event.data;
-      
+
       // Handle progress updates
       if (message.type === 'toolExecutionProgress' && message.requestId === requestId) {
         if (onProgress) {
@@ -47,7 +53,7 @@ export async function executeToolViaExtension(
         }
         return;
       }
-      
+
       // Handle final result
       if (message.type === 'toolExecutionResult' && message.requestId === requestId) {
         cleanup();
@@ -82,6 +88,8 @@ export async function executeToolViaExtension(
       requestId,
       toolName,
       parameters,
+      mode,
     });
   });
 }
+

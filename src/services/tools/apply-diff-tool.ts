@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { distance } from 'fastest-levenshtein';
-import { ITool, ToolExecutionResult } from './tool.interface';
+import { ITool, ToolExecutionResult, ChatMode } from './tool.interface';
 import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
 import { unescapeHtmlEntities } from '../../utils/text-normalization';
 
@@ -306,33 +306,35 @@ class MultiSearchReplaceDiffStrategy implements DiffStrategy {
 
             switch (state.current) {
                 case State.START:
-                    if (marker === SEP)
-                        {return likelyBadStructure
+                    if (marker === SEP) {
+                        return likelyBadStructure
                             ? reportInvalidDiffError(SEP, SEARCH)
-                            : reportMergeConflictError(SEP, SEARCH);}
-                    if (marker === REPLACE) {return reportInvalidDiffError(REPLACE, SEARCH);}
-                    if (marker.startsWith(REPLACE_PREFIX)) {return reportMergeConflictError(marker, SEARCH);}
-                    if (SEARCH_PATTERN.test(marker)) {state.current = State.AFTER_SEARCH;}
-                    else if (marker.startsWith(SEARCH_PREFIX)) {return reportMergeConflictError(marker, SEARCH);}
+                            : reportMergeConflictError(SEP, SEARCH);
+                    }
+                    if (marker === REPLACE) { return reportInvalidDiffError(REPLACE, SEARCH); }
+                    if (marker.startsWith(REPLACE_PREFIX)) { return reportMergeConflictError(marker, SEARCH); }
+                    if (SEARCH_PATTERN.test(marker)) { state.current = State.AFTER_SEARCH; }
+                    else if (marker.startsWith(SEARCH_PREFIX)) { return reportMergeConflictError(marker, SEARCH); }
                     break;
 
                 case State.AFTER_SEARCH:
-                    if (SEARCH_PATTERN.test(marker)) {return reportInvalidDiffError(SEARCH_PATTERN.source, SEP);}
-                    if (marker.startsWith(SEARCH_PREFIX)) {return reportMergeConflictError(marker, SEARCH);}
-                    if (marker === REPLACE) {return reportInvalidDiffError(REPLACE, SEP);}
-                    if (marker.startsWith(REPLACE_PREFIX)) {return reportMergeConflictError(marker, SEARCH);}
-                    if (marker === SEP) {state.current = State.AFTER_SEPARATOR;}
+                    if (SEARCH_PATTERN.test(marker)) { return reportInvalidDiffError(SEARCH_PATTERN.source, SEP); }
+                    if (marker.startsWith(SEARCH_PREFIX)) { return reportMergeConflictError(marker, SEARCH); }
+                    if (marker === REPLACE) { return reportInvalidDiffError(REPLACE, SEP); }
+                    if (marker.startsWith(REPLACE_PREFIX)) { return reportMergeConflictError(marker, SEARCH); }
+                    if (marker === SEP) { state.current = State.AFTER_SEPARATOR; }
                     break;
 
                 case State.AFTER_SEPARATOR:
-                    if (SEARCH_PATTERN.test(marker)) {return reportInvalidDiffError(SEARCH_PATTERN.source, REPLACE);}
-                    if (marker.startsWith(SEARCH_PREFIX)) {return reportMergeConflictError(marker, REPLACE);}
-                    if (marker === SEP)
-                        {return likelyBadStructure
+                    if (SEARCH_PATTERN.test(marker)) { return reportInvalidDiffError(SEARCH_PATTERN.source, REPLACE); }
+                    if (marker.startsWith(SEARCH_PREFIX)) { return reportMergeConflictError(marker, REPLACE); }
+                    if (marker === SEP) {
+                        return likelyBadStructure
                             ? reportInvalidDiffError(SEP, REPLACE)
-                            : reportMergeConflictError(SEP, REPLACE);}
-                    if (marker === REPLACE) {state.current = State.START;}
-                    else if (marker.startsWith(REPLACE_PREFIX)) {return reportMergeConflictError(marker, REPLACE);}
+                            : reportMergeConflictError(SEP, REPLACE);
+                    }
+                    if (marker === REPLACE) { state.current = State.START; }
+                    else if (marker.startsWith(REPLACE_PREFIX)) { return reportMergeConflictError(marker, REPLACE); }
                     break;
             }
         }
@@ -341,9 +343,8 @@ class MultiSearchReplaceDiffStrategy implements DiffStrategy {
             ? { success: true }
             : {
                 success: false,
-                error: `ERROR: Unexpected end of sequence: Expected '${
-                    state.current === State.AFTER_SEARCH ? "=======" : ">>>>>>> REPLACE"
-                }' was not found.`,
+                error: `ERROR: Unexpected end of sequence: Expected '${state.current === State.AFTER_SEARCH ? "=======" : ">>>>>>> REPLACE"
+                    }' was not found.`,
             };
     }
 
@@ -492,14 +493,14 @@ class MultiSearchReplaceDiffStrategy implements DiffStrategy {
                     const originalContentSection =
                         startLine !== undefined && endLine !== undefined
                             ? `\n\nOriginal Content:\n${addLineNumbers(
-                                    resultLines
-                                        .slice(
-                                            Math.max(0, startLine - 1 - this.bufferLines),
-                                            Math.min(resultLines.length, endLine + this.bufferLines),
-                                        )
-                                        .join("\n"),
-                                    Math.max(1, startLine - this.bufferLines),
-                                )}`
+                                resultLines
+                                    .slice(
+                                        Math.max(0, startLine - 1 - this.bufferLines),
+                                        Math.min(resultLines.length, endLine + this.bufferLines),
+                                    )
+                                    .join("\n"),
+                                Math.max(1, startLine - this.bufferLines),
+                            )}`
                             : `\n\nOriginal Content:\n${addLineNumbers(resultLines.join("\n"))}`;
 
                     const bestMatchSection = bestMatchContent
@@ -575,7 +576,12 @@ export class ApplyDiffTool implements ITool {
     private diffStrategy = new MultiSearchReplaceDiffStrategy();
     private applyDiffFailureCounts = new Map<string, number>();
 
-    async execute(parameters: Record<string, unknown>): Promise<ToolExecutionResult> {
+    async execute(
+        parameters: Record<string, unknown>,
+        _onProgress?: unknown,
+        _signal?: AbortSignal,
+        mode?: ChatMode
+    ): Promise<ToolExecutionResult> {
         const filePath = parameters.path as string;
         let diffContent = parameters.diff as string;
 
@@ -636,7 +642,7 @@ export class ApplyDiffTool implements ITool {
                 let formattedError = "";
                 if (diffResult.failParts && diffResult.failParts.length > 0) {
                     for (const failPart of diffResult.failParts) {
-                        if (failPart.success) {continue;}
+                        if (failPart.success) { continue; }
                         const errorDetails = failPart.details ? JSON.stringify(failPart.details, null, 2) : "";
                         formattedError = `<error_details>\n${failPart.error}${errorDetails ? `\n\nDetails:\n${errorDetails}` : ""}\n</error_details>`;
                     }
@@ -679,6 +685,13 @@ export class ApplyDiffTool implements ITool {
                 partFailHint = ` (some diff parts failed - use read_file to verify)`;
             }
 
+            // Calculate line count and add mode-specific reminder for large files
+            const lineCount = diffResult.content ? diffResult.content.split(/\r?\n/).length : 0;
+            let largeFileReminder: string | undefined;
+            if (lineCount > 300 && (mode === 'agent' || mode === 'general' || mode === undefined)) {
+                largeFileReminder = `[FILE NOW ${lineCount} LINES] This file exceeds the 300-line threshold after modification. Consider refactoring into smaller, focused modules to maintain code quality.`;
+            }
+
             return {
                 success: true,
                 data: {
@@ -688,6 +701,8 @@ export class ApplyDiffTool implements ITool {
                     absolutePath,
                     oldContent: originalContent,
                     newContent: diffResult.content,
+                    lineCount,
+                    largeFileReminder,
                 },
             };
 

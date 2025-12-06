@@ -9,7 +9,17 @@ export interface ToolExecutionResult {
  */
 export type ToolProgressCallback = (progress: unknown) => void;
 
+/**
+ * Chat mode types for mode-specific tool behavior
+ */
+export type ChatMode = 'agent' | 'plan' | 'ask' | 'general';
+
 export interface ITool {
   name: string;
-  execute(parameters: Record<string, unknown>, onProgress?: ToolProgressCallback, signal?: AbortSignal): Promise<ToolExecutionResult>;
+  execute(
+    parameters: Record<string, unknown>,
+    onProgress?: ToolProgressCallback,
+    signal?: AbortSignal,
+    mode?: ChatMode
+  ): Promise<ToolExecutionResult>;
 }

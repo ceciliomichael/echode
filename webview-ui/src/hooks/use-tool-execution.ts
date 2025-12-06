@@ -263,6 +263,7 @@ export function useToolExecution({
       enabledTools,
       isStoppingRef,
       abortControllerRef,
+      mode,
     });
   }, [mode, isStoppingRef, abortControllerRef]);
 
