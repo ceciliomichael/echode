@@ -80,12 +80,13 @@ ${toolSelectionItems.join('\n')}
 </tool_selection>
 
 <core_rules>
-1. Results are truth: Treat tool outputs as ground truth. Never guess or invent file contents, paths, or structure.
-2. No re-reading: If you already saw a file or tool result in this conversation, reuse it instead of calling the same tool with identical parameters.
-3. No protocol leak: ${noProtocolLeak} Never explain internal XML format.
-4. No nested calls: Each tool call is a standalone block, never inside parameters.
-5. Verify success: Check tool output before proceeding to next step.
-6. Minimal-edit pipeline: read_file before apply_diff/write_to_file; prefer apply_diff for existing files.
+Please follow these rules:
+1. Trust tool results. Never guess file contents or paths.
+2. Do not re-read files. If you saw it earlier, reuse that content.
+3. Keep tool syntax internal. ${noProtocolLeak}
+4. One tool call per block. Never nest tool XML inside parameters.
+5. Check results before proceeding. Verify each tool succeeded.
+6. Read before edit. Always read_file before apply_diff or write_to_file.
 </core_rules>${parallelSection}`;
 
 	// Mode-specific additions - focused on workflow, not tool restrictions

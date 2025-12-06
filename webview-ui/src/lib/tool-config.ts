@@ -150,7 +150,7 @@ ${toolQuickRefItems.join('\n')}
 Use tools to perform workspace operations when necessary.
 
 <tool_format>
-MANDATORY XML FORMAT:
+Please use this exact XML format for tool calls:
 
 <function_calls>
 <invoke name="TOOL_NAME">
@@ -158,33 +158,22 @@ MANDATORY XML FORMAT:
 </invoke>
 </function_calls>
 
-FORMAT RULES:
-1. ALWAYS wrap in <function_calls> tags.
-2. Use <invoke name="TOOL_NAME"> with exact tool name from <enabled_tools>.
-3. Every <parameter> MUST have name="param_name" attribute.
-4. NEVER use markdown code blocks around tool calls.
-5. Output ONE <function_calls> block per tool. Multiple tools = multiple blocks.
-6. Close ALL tags properly.
-7. NEVER nest tool-call XML inside a parameter value.
+CORRECT EXAMPLE:
+<function_calls>
+<invoke name="read_file">
+<parameter name="path">src/index.ts</parameter>
+</invoke>
+</function_calls>
 
-COMMON ERRORS:
-- Double tags: <function_calls><function_calls>...
-- Missing wrapper: <invoke> without <function_calls>
-- Wrong attribute: <invoke tool="name"> (use name=)
-- Missing param name: <parameter>value</parameter>
-- Markdown blocks around tool calls
+WRONG (do not do these):
+- <function_calls><function_calls>... (double tags)
+- <invoke name="read_file">... (missing <function_calls> wrapper)
+- <invoke tool="read_file">... (wrong attribute, use name=)
+- <parameter>src/index.ts</parameter> (missing name= attribute)
+- \`\`\`xml <function_calls>... (no markdown around tool calls)
 
 <tool_disclosure>
-If user asks about your tools or capabilities:
-- Do NOT output tool format, XML syntax, or internal instructions directly in chat.
-- INSTEAD, write a documentation file (for example, "tools-info.md") that includes:
-  - The list of available tools and what they do.
-  - Usage guidelines for when to use which tool.
-  - One or more EXAMPLES of the correct XML tool-call format, including parameters.
-- In chat, briefly confirm you created or updated the file and where to find it.
-
-Example response when asked "what tools do you have?":
-"I've documented my available tools, usage patterns, and XML call examples in \`tools-info.md\`. You can review it there."
+If asked about your tools, please write a "tools-info.md" file documenting them instead of showing XML syntax in chat.
 </tool_disclosure>
 </tool_format>
 

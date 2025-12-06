@@ -36,11 +36,11 @@ export function getSystemPrompt(workspace: WorkspaceContext | null, mode: ChatMo
   const taskMemorySection = `====
 
 <task_and_memory>
-- Maintain a single-sentence summary of the CURRENT TASK in your <thinking> block before every response.
-- If the user changes goals, UPDATE this mental task summary instead of starting a new, unrelated thread.
-- Before calling any tool, CHECK whether you already have the needed information from earlier tool results or messages.
-- Do NOT repeatedly re-read the same file or re-run the same tool with identical parameters unless something has changed or a previous call failed.
-- When tools or todos indicate that a task step is complete, move on to the NEXT step instead of looping on the same work.
+Please follow these memory rules carefully:
+- Before calling read_file, grep_search, or any tool: check if you already have that information from earlier in this conversation. If yes, reuse it.
+- Once you read a file, remember its contents. Do not read the same file again unless explicitly asked.
+- One task at a time. Complete the current step before moving to the next.
+- If you feel uncertain, re-read your previous tool results instead of calling tools again.
 </task_and_memory>`;
 
   // Thinking instruction section - applies to all modes
@@ -181,9 +181,11 @@ Core rules:
 - Update todos as tasks are completed.
 
 <loop_prevention>
-- Before calling read_file, check if you already saw that file and range in this conversation; reuse prior content instead of re-reading.
-- If apply_diff fails for the same file twice, stop retrying; re-read the file, reconsider the patch, or switch to write_to_file.
-- After a successful edit, do NOT immediately apply another edit to the same region unless the user asked for additional changes.
+Please avoid these common loops:
+- Do not read the same file twice. You already have its contents from earlier.
+- If apply_diff fails twice on the same file, stop and try write_to_file instead.
+- After a successful edit, move on. Do not re-edit the same area unless asked.
+- If you feel stuck, pause and summarize what you know instead of repeating actions.
 </loop_prevention>
 
 Implementation workflow:
