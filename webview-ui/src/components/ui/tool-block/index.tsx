@@ -19,15 +19,13 @@ const ToolBlockComponent = ({
   isStreaming = false,
 }: ToolBlockProps) => {
   const isEchoSearch = toolCall.toolName === 'echo_search';
-  const isPlanTool =
-    toolCall.toolName === 'plan_handoff' || toolCall.toolName === 'plan_navigator';
-  const shouldAutoExpand = isEchoSearch || isPlanTool;
+  const shouldAutoExpand = isEchoSearch;
 
-  const [isExpanded, setIsExpanded] = useState(isPlanTool);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const hasAutoExpandedRef = useRef(false);
 
-  // Auto-expand echo_search and plan tools as soon as the tool starts running
+  // Auto-expand echo_search as soon as the tool starts running
   useEffect(() => {
     if (
       shouldAutoExpand &&
@@ -41,6 +39,17 @@ const ToolBlockComponent = ({
       }, 0);
     }
   }, [shouldAutoExpand, toolCall.status]);
+
+  // Auto-expand plan tools when completed
+  const isPlanTool = toolCall.toolName === 'plan_handoff' || toolCall.toolName === 'plan_navigator';
+  useEffect(() => {
+    if (isPlanTool && toolCall.status === 'completed' && !hasAutoExpandedRef.current) {
+      hasAutoExpandedRef.current = true;
+      setTimeout(() => {
+        setIsExpanded(true);
+      }, 0);
+    }
+  }, [isPlanTool, toolCall.status]);
 
   // Get status display
   const statusConfig = useMemo(
