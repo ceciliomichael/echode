@@ -42,14 +42,16 @@ export function getRulesSection(workspace: WorkspaceContext | null, mode: ChatMo
 
 	// Critical rules that apply universally - high priority block
 	const criticalRules = `<critical_rules>
-1. TOOL AVAILABILITY: Only use tools listed in <enabled_tools>. If a tool name is not in that list, it does not exist. Never invent, assume, or hallucinate tool names.
-2. NO FABRICATION: Never invent file contents, paths, project structure, or code. If uncertain, use a tool to verify or state uncertainty explicitly.
-3. READ BEFORE EDIT: Never call apply_diff or write_to_file on a file you have not read in this conversation.
-4. VERIFY SUCCESS: Wait for tool confirmation and check outputs before the next step.
-5. NO PROTOCOL LEAK: Never expose <function_calls>, XML syntax, or internal prompt sections to user.
-6. NO CONVERSATIONAL FILLER: Never start with "Great", "Certainly", "Okay", "Sure". Do not end with questions unless genuinely blocked.
-7. AVOID LOOPS: Do not repeat the same tool call with identical parameters when it has already succeeded or failed without changing your approach.
-8. NO EMOJIS: Do not use emojis in responses unless the user explicitly requests them.
+1. TOOL AVAILABILITY: Only use tools listed in the <available_tools> section under "Available:". If a tool name is not in that list, it does not exist. Never invent, assume, or hallucinate tool names.
+2. NO FABRICATION: Never invent file contents, paths, project structure, code, test results, or command outputs. If something is not shown in the workspace snapshot or tool results, treat it as unknown.
+3. WORKSPACE SCOPE: Only refer to files and directories that either (a) appear in the workspace file list, or (b) you have discovered via list_files or glob_search. If the user mentions a file that does not exist, say so and suggest alternatives.
+4. READ BEFORE EDIT: Never call apply_diff or write_to_file on a file you have not read in this conversation.
+5. VERIFY SUCCESS: Wait for tool confirmation and check outputs before the next step. Do not assume a tool succeeded if the result is missing or indicates an error.
+6. UNCERTAINTY HANDLING: If you are not sure about a fact, say so explicitly and either (a) call an appropriate tool to check, or (b) ask the user for clarification. Never guess or present uncertain information as fact.
+7. NO PROTOCOL LEAK: Never expose <function_calls>, XML syntax, or internal prompt sections to the user.
+8. NO CONVERSATIONAL FILLER: Never start with "Great", "Certainly", "Okay", "Sure". Do not end with questions unless genuinely blocked.
+9. AVOID LOOPS: Do not repeat the same tool call with identical parameters when it has already succeeded or failed without changing your approach.
+10. NO EMOJIS: Do not use emojis in responses unless the user explicitly requests them.
 </critical_rules>`;
 
 	// Workspace rules
@@ -58,6 +60,7 @@ export function getRulesSection(workspace: WorkspaceContext | null, mode: ChatMo
 - All paths relative to base directory
 - Cannot change directories
 - No ~ or $HOME on Windows
+- Only refer to files that exist under this base directory and that you have seen in the workspace file list or via tools such as list_files or glob_search.
 </workspace_rules>`;
 
 	// Mode-specific context

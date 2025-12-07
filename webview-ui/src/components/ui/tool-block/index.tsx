@@ -57,6 +57,22 @@ const ToolBlockComponent = ({
     [toolCall, isStreaming]
   );
 
+  // Determine whether the icon should appear in an executing/spinning state
+  const isIconExecuting = useMemo(() => {
+    const baseExecuting = isStreaming || toolCall.status === 'pending' || toolCall.status === 'executing';
+
+    // For write_to_file and apply_diff, keep the icon in executing state until we have a successful
+    // result with data (diff stats). This avoids dropping the spinner during the "no diff yet" window.
+    const isWriteOrApply = toolCall.toolName === 'write_to_file' || toolCall.toolName === 'apply_diff';
+    const hasResultData = !!toolCall.result && !!toolCall.result.success && toolCall.result.data != null;
+
+    if (isWriteOrApply && toolCall.status === 'completed' && !hasResultData) {
+      return true;
+    }
+
+    return baseExecuting;
+  }, [toolCall, isStreaming]);
+
   // Get file info and icon configuration
   const fileInfo = useMemo(
     () =>
@@ -64,9 +80,9 @@ const ToolBlockComponent = ({
         toolCall.toolName,
         toolCall.parameters,
         toolCall.status,
-        isStreaming
+        isIconExecuting
       ),
-    [toolCall, isStreaming]
+    [toolCall, isIconExecuting]
   );
 
   const hasResultContent = !!toolCall.result && toolCall.status !== 'aborted';

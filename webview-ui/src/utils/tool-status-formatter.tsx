@@ -3,6 +3,25 @@ import { getToolMetadata } from '../lib/tool-registry';
 import type { ToolCall } from '../types/tool';
 import { calculateDiffStats } from './diff-calculator';
 
+function renderWaveLabel(text: string): ReactNode {
+  return (
+    <span
+      className="text-sm"
+      style={{
+        background:
+          'linear-gradient(90deg, var(--vscode-descriptionForeground) 0%, var(--vscode-descriptionForeground) 40%, var(--vscode-foreground) 50%, var(--vscode-descriptionForeground) 60%, var(--vscode-descriptionForeground) 100%)',
+        backgroundSize: '300% 100%',
+        WebkitBackgroundClip: 'text',
+        backgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+        animation: 'wave-shine 2s linear infinite',
+      }}
+    >
+      {text}
+    </span>
+  );
+}
+
 /**
  * Get status display for a tool based on its current state
  */
@@ -46,22 +65,7 @@ export function getToolStatusDisplay(
       executingText = 'Echoing';
     }
 
-    return (
-      <span
-        className="text-sm"
-        style={{
-          background:
-            'linear-gradient(90deg, var(--vscode-descriptionForeground) 0%, var(--vscode-descriptionForeground) 40%, var(--vscode-foreground) 50%, var(--vscode-descriptionForeground) 60%, var(--vscode-descriptionForeground) 100%)',
-          backgroundSize: '300% 100%',
-          WebkitBackgroundClip: 'text',
-          backgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          animation: 'wave-shine 2s linear infinite',
-        }}
-      >
-        {executingText}
-      </span>
-    );
+    return renderWaveLabel(executingText);
   }
 
   // Show loading dots while fetching diagnostics
@@ -124,8 +128,8 @@ export function getToolStatusDisplay(
         );
       }
     }
-    // Fallback for edit tools without result yet
-    return 'Edit';
+    // Fallback when there is no diff data yet: keep animated "Writing" wave
+    return renderWaveLabel('Writing');
   }
 
   // apply_diff: show diff stats with color
@@ -158,8 +162,8 @@ export function getToolStatusDisplay(
         );
       }
     }
-    // Fallback for apply_diff without result yet
-    return 'Applied';
+    // Fallback when there is no diff data yet: keep animated "Editing" wave
+    return renderWaveLabel('Editing');
   }
 
   // todo_write, todo_read: show todo count

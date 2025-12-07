@@ -228,11 +228,15 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
     [oldContent, newContent, isStreaming, startLineNumber, contextLines],
   );
 
+  // If there are no old line numbers at all, this is effectively a "new file" diff.
+  // In that case, we render a single new-side column even in diff mode.
+  const hasOldSide = !viewOnly && diffLines.some((line) => line.type !== 'collapsed' && line.oldLineNumber !== undefined);
+
   return (
     <div className="w-full rounded-xl overflow-hidden border border-[var(--vscode-input-border)]">
       {/* Diff Header */}
       <div
-        className="flex items-center justify-between px-3 py-1.5 text-xs font-medium border-b"
+        className="flex items-center justify-between px-3 py-2 text-xs font-medium border-b"
         style={{
           backgroundColor: 'var(--vscode-editor-background)',
           borderColor: 'var(--vscode-input-border)',
@@ -256,7 +260,7 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
         <div
           className="flex-shrink-0 select-none overflow-hidden"
           style={{
-            minWidth: viewOnly ? '40px' : '80px',
+            minWidth: viewOnly || !hasOldSide ? '40px' : '80px',
             backgroundColor: 'var(--vscode-editor-background)',
             maxHeight: '400px',
           }}
@@ -275,26 +279,20 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
                     color: 'var(--vscode-editorLineNumber-foreground)',
                   }}
                 >
-                  {!viewOnly ? (
-                    <>
-                      {line.type === 'removed' ? (
-                        <span className="inline-block w-6">-</span>
-                      ) : line.oldLineNumber !== undefined ? (
-                        <span className="inline-block w-6">{line.oldLineNumber}</span>
-                      ) : (
-                        <span className="inline-block w-6"> </span>
-                      )}
-                      <span className="mx-1">|</span>
-                      {line.type === 'added' ? (
-                        <span className="inline-block w-6">+</span>
-                      ) : line.newLineNumber !== undefined ? (
-                        <span className="inline-block w-6">{line.newLineNumber}</span>
-                      ) : (
-                        <span className="inline-block w-6"> </span>
-                      )}
-                    </>
-                  ) : (
+                  {viewOnly || !hasOldSide ? (
+                    // Single-column view: used for read-only view and "new file" diffs
                     <span className="inline-block w-6">{line.newLineNumber}</span>
+                  ) : (
+                    // Two-column diff view: old | new
+                    <>
+                      <span className="inline-block w-6">
+                        {line.oldLineNumber !== undefined ? line.oldLineNumber : ''}
+                      </span>
+                      <span className="mx-1">|</span>
+                      <span className="inline-block w-6">
+                        {line.newLineNumber !== undefined ? line.newLineNumber : ''}
+                      </span>
+                    </>
                   )}
                 </div>
               );

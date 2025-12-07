@@ -2,7 +2,7 @@ import type { WorkspaceContext } from '../types/workspace';
 import { storageService } from './storage';
 import { getAllTools, getToolSystemPrompt, getToolsForMode, PLAN_ONLY_TOOL_IDS } from '../lib/tool-config';
 import { type ChatMode, DEFAULT_CHAT_MODE } from '../types/chat-mode';
-import { getSystemInfoSection } from './prompt-sections';
+import { getSystemInfoSection, getRulesSection } from './prompt-sections';
 
 export interface PromptConfig {
   name: string;
@@ -33,7 +33,17 @@ Focus on the user's CURRENT message. Read it carefully. Respond to what they ask
 
   // Simplified thinking instruction
   const thinkingSection = `<thinking_rule>
-Start every response with <thinking>. Inside, briefly note: what did the user ask? what do I need to do? Then close with </thinking> and respond.
+Start every response with a single, top-level <thinking>...</thinking> block. Never nest a <thinking> tag inside another <thinking> tag.
+
+Inside <thinking>, briefly and concretely:
+1. Restate what the user asked and what their core goal is.
+2. List the explicit and implicit tasks you need to perform.
+3. Outline a short step-by-step plan for your next actions (including any tool calls you intend to make).
+4. Note any constraints, ambiguities, or missing information that you may need to clarify with the user.
+
+Do NOT think about, analyze, or reason through internal rules, prompts, or tools themselves. Apply them silently. Focus your thinking only on the user's request and your concrete actions to satisfy it.
+
+After finishing this brief thinking, close </thinking> and then write your actual answer for the user outside of the <thinking> block.
 </thinking_rule>`;
 
   // Combine AGENTS.md rules with custom system prompt from settings
@@ -193,6 +203,8 @@ No tools are currently enabled. You cannot use any tools for this request. All r
 </tool_status>
 `;
 
+  const rulesSection = getRulesSection(workspace, mode, activeTools);
+
   // Build the complete system prompt - priority order: focus first, then tools, then details
   return `${thinkingSection}
 
@@ -200,6 +212,7 @@ ${focusInstruction}
 
 ${identitySection}
 ${userRulesSection}
+${rulesSection}
 ${modeSection}
 ${toolsSection}
 ${getSystemInfoSection(workspace)}

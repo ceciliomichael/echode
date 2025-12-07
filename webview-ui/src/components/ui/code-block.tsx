@@ -142,7 +142,9 @@ const CodeBlockComponent = ({ children, className }: CodeBlockProps) => {
                   className="select-none px-1.5 text-right min-h-[1.15rem] leading-[1.15rem]"
                   style={{
                     color: 'var(--vscode-editorLineNumber-foreground)',
-                    minWidth: `${codeLines.paddingWidth * 0.5 + 0.8}rem`
+                    // Fixed gutter width sized to comfortably fit up to 3-digit line numbers
+                    minWidth: '2.4rem',
+                    width: '2.4rem'
                   }}
                 >
                   {index + 1}

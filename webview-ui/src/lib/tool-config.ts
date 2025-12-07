@@ -93,9 +93,14 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
     .join('\n');
 
   return `<tools>
+<tool_format>
 Format: <function_calls><invoke name="TOOL"><parameter name="param">value</parameter></invoke></function_calls>
+</tool_format>
 
+<available_tools>
+Only use tools listed below. If a tool name is not listed here, it does not exist and MUST NOT be called.
 Available: ${toolIdsList}
+</available_tools>
 
 ${toolDescriptions}
 </tools>`;
