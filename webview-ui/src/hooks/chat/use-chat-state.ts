@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { Message } from '../../types/chat';
-import { storageService } from '../../utils/storage';
 
 /**
  * Hook for managing core chat state (messages, streaming, compression)
@@ -53,12 +52,6 @@ export function useChatState() {
     compressedMessagesRef.current = compressedMessages;
     compressedContextTokensRef.current = compressedContextTokens;
   }, [compressedMessages, compressedContextTokens]);
-
-  // Clear any stale session ID from storage on mount
-  // This prevents new messages from overwriting previous sessions after reload
-  useEffect(() => {
-    storageService.clearCurrentSessionId();
-  }, []);
 
   // Helper functions to modify refs (React Compiler compatible)
   const clearCompression = useCallback(() => {

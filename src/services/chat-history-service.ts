@@ -195,9 +195,36 @@ export class ChatHistoryService {
 
   async getSession(sessionId: string): Promise<ChatSession | null> {
     try {
-      return this.readSessionFile(sessionId);
+      const session = this.readSessionFile(sessionId);
+      if (session?.workspaceId && session.workspaceId !== this.workspaceId) {
+        return null;
+      }
+      return session;
     } catch (error) {
       console.error('[ChatHistory] Failed to get session:', error);
+      return null;
+    }
+  }
+
+  async getLatestSession(): Promise<ChatSession | null> {
+    try {
+      const index = this.readIndex();
+      const latest = index
+        .filter(entry => entry.workspaceId === this.workspaceId)
+        .sort((a, b) => b.timestamp - a.timestamp)[0];
+
+      if (!latest) {
+        return null;
+      }
+
+      const session = this.readSessionFile(latest.id);
+      if (session?.workspaceId && session.workspaceId !== this.workspaceId) {
+        return null;
+      }
+
+      return session;
+    } catch (error) {
+      console.error('[ChatHistory] Failed to get latest session:', error);
       return null;
     }
   }

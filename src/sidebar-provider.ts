@@ -434,7 +434,11 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
           break;
         case 'getSession':
           const session = await this._historyService.getSession(data.sessionId);
-          webviewView.webview.postMessage({ type: 'sessionLoaded', session });
+          webviewView.webview.postMessage({ type: 'sessionLoaded', session, request: 'session', sessionId: data.sessionId });
+          break;
+        case 'getLatestSession':
+          const latestSession = await this._historyService.getLatestSession();
+          webviewView.webview.postMessage({ type: 'sessionLoaded', session: latestSession, request: 'latest' });
           break;
         case 'getAllSessions':
           const sessions = await this._historyService.getAllSessions();

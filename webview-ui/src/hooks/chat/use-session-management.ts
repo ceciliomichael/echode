@@ -96,8 +96,24 @@ export function useSessionManagement({
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
 
-      if (message.type === 'sessionLoaded' && message.session) {
-        const session = message.session as ChatSession;
+      if (message.type === 'sessionLoaded') {
+        const session = message.session as ChatSession | null;
+
+        if (!session) {
+          currentSessionIdRef.current = null;
+          setCurrentSessionId(null);
+          storageService.clearCurrentSessionId();
+          setMessages([]);
+          setEditingMessageId(null);
+          setRevertPreviewMessageId(null);
+          setCompressedMessages(null);
+          setCompressedContextTokens(null);
+          setCompressionAnchorId(null);
+          compressedMessagesRef.current = null;
+          compressedContextTokensRef.current = null;
+          return;
+        }
+
         currentSessionIdRef.current = session.id;
         setCurrentSessionId(session.id);
         storageService.setCurrentSessionId(session.id);

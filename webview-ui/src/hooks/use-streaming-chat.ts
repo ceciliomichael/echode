@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { ChatMode } from '../types/chat-mode';
 import type { DocumentAttachment } from '../utils/document-utils';
 import { useToolExecution } from './use-tool-execution';
@@ -40,6 +40,15 @@ export function useStreamingChat(
     setCompressedContextTokens: state.setCompressedContextTokens,
     setCompressionAnchorId: state.setCompressionAnchorId,
   });
+
+  // Auto-load last session on mount using stored session ID only
+  useEffect(() => {
+    const storedSessionId = storageService.getCurrentSessionId();
+
+    if (storedSessionId) {
+      loadSession(storedSessionId);
+    }
+  }, [loadSession]);
 
   // Message update actions
   const {
