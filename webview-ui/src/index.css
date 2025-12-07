@@ -27,7 +27,9 @@
 }
 
 .streaming-text-container [data-streamed] {
-  animation: streamFadeIn 300ms ease-out forwards;
+  animation: streamFadeIn var(--streaming-duration, 320ms) ease-out forwards;
+  animation-delay: var(--streaming-delay, 0ms);
+  will-change: opacity, transform;
 }
 
 @layer base {

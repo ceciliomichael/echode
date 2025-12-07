@@ -3,7 +3,7 @@ import { LoadingDots } from './loading-dots';
 import { ThinkBlock } from './think-block';
 import { ToolBlock } from './tool-block';
 import { MermaidBlock } from './mermaid-block';
-import { StableMarkdown } from './stable-markdown';
+import { StreamingText } from './streaming-text';
 import { tokenizeContent } from '../../utils/content-tokenizer';
 import type { ToolCall, ToolExecutionState } from '../../types/tool';
 
@@ -232,7 +232,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
             );
           }
           
-          // Text content - use memoized markdown renderer
+          // Text content with animated streaming markdown
           if (token.type === 'text') {
             // visibleTokens already filtered out empty text, but double check just in case
             if (!token.content.trim()) return null;
@@ -240,13 +240,16 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
             // Reduce spacing when text follows a think block for tighter visual flow
             const textMarginTop = prevToken?.type === 'think' ? '0.1rem' : marginTop;
             
+            const sanitizedContent = sanitizeAssistantText(token.content);
+
             return (
               <div
                 key={`text-${messageId}-${token.index}`}
                 style={{ marginTop: textMarginTop, paddingLeft: '1.25rem', paddingRight: '1.25rem', maxWidth: contentMaxWidth }}
               >
-                <StableMarkdown 
-                  content={sanitizeAssistantText(token.content)} 
+                <StreamingText 
+                  content={sanitizedContent}
+                  isStreaming={isStreaming}
                 />
               </div>
             );

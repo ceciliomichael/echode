@@ -16,8 +16,14 @@ function StreamingTextComponent({ content, isStreaming }: StreamingTextProps) {
   const animationFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!isStreaming || !containerRef.current) {
+    const container = containerRef.current;
+    if (!isStreaming || !container) {
       prevContentLengthRef.current = content.length;
+      return;
+    }
+
+    // Skip work if length has not changed (prevents re-applying on noop renders)
+    if (content.length === prevContentLengthRef.current) {
       return;
     }
 
@@ -26,17 +32,17 @@ function StreamingTextComponent({ content, isStreaming }: StreamingTextProps) {
       const container = containerRef.current;
       if (!container) return;
 
-      // Get all descendant elements that might contain new text
-      const elements = container.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, span, strong, em, code, td, th, blockquote');
-      
-      elements.forEach((el) => {
-        const htmlEl = el as HTMLElement;
-        // Only apply to elements without the fade class already
-        if (!htmlEl.dataset.streamed) {
-          htmlEl.style.opacity = '0';
-          htmlEl.style.animation = 'streamFadeIn 300ms ease-out forwards';
-          htmlEl.dataset.streamed = 'true';
-        }
+      const fadeTargetsSelector =
+        'p, li, h1, h2, h3, h4, h5, h6, span, strong, em, pre, code, td, th, blockquote';
+      const newElements = Array.from(container.querySelectorAll<HTMLElement>(fadeTargetsSelector)).filter(
+        element => !element.dataset.streamed
+      );
+
+      newElements.forEach((element, index) => {
+        const delayMs = Math.min(index * 28, 320);
+        element.style.setProperty('--streaming-delay', `${delayMs}ms`);
+        element.style.opacity = '0';
+        element.dataset.streamed = 'true';
       });
 
       prevContentLengthRef.current = content.length;
@@ -59,12 +65,11 @@ function StreamingTextComponent({ content, isStreaming }: StreamingTextProps) {
   useEffect(() => {
     if (!isStreaming && containerRef.current) {
       // Remove all streaming markers and ensure full opacity
-      const elements = containerRef.current.querySelectorAll('[data-streamed]');
-      elements.forEach((el) => {
-        const htmlEl = el as HTMLElement;
-        htmlEl.style.opacity = '1';
-        htmlEl.style.animation = '';
-        delete htmlEl.dataset.streamed;
+      const elements = containerRef.current.querySelectorAll<HTMLElement>('[data-streamed]');
+      elements.forEach((element) => {
+        element.style.opacity = '1';
+        element.style.removeProperty('--streaming-delay');
+        delete element.dataset.streamed;
       });
       prevContentLengthRef.current = 0;
     }
