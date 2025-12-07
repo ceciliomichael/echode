@@ -82,6 +82,7 @@ export function useStreamingChat(
     isExecutingToolRef: state.isExecutingToolRef,
     sendingMessageRef: state.sendingMessageRef,
     abortControllerRef: state.abortControllerRef,
+    toolAbortControllerRef: state.toolAbortControllerRef,
     hasStreamedContentRef: state.hasStreamedContentRef,
     executeToolAndContinue,
     updateToolExecution,

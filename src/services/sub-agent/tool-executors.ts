@@ -155,6 +155,13 @@ export class ReadFileSnippetExecutor implements ToolExecutorStrategy {
     _discoveredFiles: Map<string, DiscoveredFileInfo>
   ): Promise<string> {
     stats.readFileCalls++;
+    const rawPath = (params.path || '').trim();
+
+    // Guard against obviously invalid paths like numeric-only values (e.g. "1").
+    // This prevents the sub-agent from wasting an iteration on nonsense paths.
+    if (!rawPath || /^[0-9]+$/.test(rawPath)) {
+      return 'Error: Invalid file path for read_file_snippet. Use a concrete relative file path like "src/file.ts", never just "1".';
+    }
 
     const startLine = parseInt(params.startLine || '1', 10);
     const endLine = parseInt(params.endLine || '50', 10);
@@ -164,7 +171,7 @@ export class ReadFileSnippetExecutor implements ToolExecutorStrategy {
     const lineCount = limitedEnd - startLine + 1;
 
     const result = await this.tool.execute({
-      path: params.path,
+      path: rawPath,
       offset: startLine,
       limit: lineCount,
     });

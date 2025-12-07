@@ -426,6 +426,9 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
         case 'executeTool':
           await handleToolExecution(data, webviewView);
           break;
+        case 'abortToolExecution':
+          await handleToolExecution(data, webviewView);
+          break;
         case 'saveSession':
           await this._historyService.saveSession(data.session);
           break;

@@ -67,6 +67,7 @@ export async function executeToolViaExtension(
 
     const handleAbort = () => {
       if (isCompleted) return; // Already completed, ignore abort
+      console.log(`[ToolUtils] Abort signal received for ${toolName} (requestId: ${requestId})`);
       cleanup();
       // Send abort message to extension backend
       window.vscode.postMessage({
@@ -78,7 +79,10 @@ export async function executeToolViaExtension(
     };
 
     if (signal) {
+      console.log(`[ToolUtils] Registering abort listener for ${toolName} (requestId: ${requestId}), signal.aborted: ${signal.aborted}`);
       signal.addEventListener('abort', handleAbort, { once: true });
+    } else {
+      console.warn(`[ToolUtils] No abort signal provided for ${toolName} - tool cannot be aborted!`);
     }
 
     window.addEventListener('message', handleResponse);

@@ -43,7 +43,8 @@ Locate files by name pattern.
 
 ### read_file_snippet
 Read specific lines after locating a file.
-- path: Relative file path
+- path: Relative file path to an actual file that you have already seen in previous tool results (from glob_search, grep_search, list_dir, or earlier read_file_snippet calls). Never invent or guess file paths.
+- Never use numeric-only or placeholder paths like "1" or "123". If you do not have a concrete file path from previous results, run glob_search, grep_search, or list_dir first to discover real files.
 - startLine, endLine: Line range (max 100 lines)
 
 ### list_dir
@@ -85,6 +86,7 @@ Turn 4: Read representative examples
 1. Only claim that files, functions, classes, or modules exist if you have seen them directly in tool results from glob_search, grep_search, list_dir, or read_file_snippet.
 2. If a search returns no results, say that explicitly and adjust your next search instead of assuming the code exists in a different location.
 3. Do not describe or summarize code that you have not actually seen. If you are unsure, treat it as a hypothesis and run another search instead of stating it as fact.
+5. For read_file_snippet specifically, only use file paths that appear exactly in previous tool outputs. Never use numeric-only values, placeholders, or paths that have not been returned by a tool.
 4. If the user mentions a path or symbol that you cannot find via tools, state that you could not locate it in the workspace and suggest related locations to investigate.
 
 ## Output Format

@@ -46,7 +46,7 @@ export function EchoSearchProgressIndicator({ progress, isAborted = false }: Ech
     <div className="rounded-xl overflow-hidden border border-[var(--vscode-input-border)] bg-[var(--vscode-editor-background)]">
       {/* Header with splash text and iteration counter */}
       <div
-        className="px-3 py-1.5 border-b border-[var(--vscode-input-border)] flex items-center justify-between text-xs"
+        className={`px-3 py-2 flex items-center justify-between text-xs ${progress.tools.length > 0 ? 'border-b border-[var(--vscode-input-border)]' : ''}`}
       >
         <style>
           {`

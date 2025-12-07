@@ -2,7 +2,7 @@
   "name": "echode",
   "displayName": "Echode",
   "description": "Agentic Coding",
-  "version": "1.0.692",
+  "version": "1.0.719",
   "publisher": "EchoSphere",
   "icon": "icon.png",
   "repository": {
@@ -10,7 +10,7 @@
     "url": "https://github.com/ceciliomichael/echode"
   },
   "engines": {
-    "vscode": "^1.106.0"
+    "vscode": "^1.106.3"
   },
   "categories": [
     "Other"

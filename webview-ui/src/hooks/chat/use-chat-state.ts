@@ -29,6 +29,8 @@ export function useChatState() {
   // Refs for synchronous access - start with null to prevent overwriting previous sessions
   const currentSessionIdRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  // Dedicated abort controller for tools - only aborted on user stop, NOT on stream stop for tool detection
+  const toolAbortControllerRef = useRef<AbortController>(new AbortController());
   const sendingMessageRef = useRef(false);
   const isStreamingRef = useRef(false);
   const isStoppingRef = useRef(false);
@@ -85,15 +87,23 @@ export function useChatState() {
   }, []);
 
   const abortAndReset = useCallback(() => {
+    console.log('[ChatState] abortAndReset called - aborting stream and tools');
     // Set stopping flag FIRST - this will be checked by async tool execution
     // Do NOT reset isStoppingRef here - let tool execution code reset it after handling
     isStoppingRef.current = true;
     
     // Abort any pending HTTP request
     if (abortControllerRef.current) {
+      console.log('[ChatState] Aborting stream controller');
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
+    
+    // Abort any running tools (especially sub-agents like echo_search)
+    // Then create a fresh controller for future tool executions
+    console.log('[ChatState] Aborting tool controller');
+    toolAbortControllerRef.current.abort();
+    toolAbortControllerRef.current = new AbortController();
     
     // Reset all streaming/execution states
     isStreamingRef.current = false;
@@ -138,6 +148,7 @@ export function useChatState() {
     // Refs
     currentSessionIdRef,
     abortControllerRef,
+    toolAbortControllerRef,
     sendingMessageRef,
     isStreamingRef,
     isStoppingRef,

@@ -58,7 +58,17 @@ function parseProgressMessage(message: string, currentProgress: EchoSearchProgre
   // Parse "  → tool_name(params)" - capture full tool call with params
   const toolMatch = message.match(/→ (.+)$/);
   if (toolMatch) {
-    progress.tools = [...progress.tools, toolMatch[1].trim()];
+    const rawCall = toolMatch[1].trim();
+
+    // Filter out obviously invalid calls like read_file_snippet(1) where the
+    // "path" is just a numeric id instead of a real file path. These come
+    // from occasional LLM hallucinations and are not helpful to surface in
+    // the progress UI.
+    const invalidReadFileSnippet = /^read_file_snippet\((\d+)\)$/.test(rawCall);
+    if (!invalidReadFileSnippet) {
+      progress.tools = [...progress.tools, rawCall];
+    }
+
     // toolsIteration already set when "Executing" was parsed
     return progress;
   }

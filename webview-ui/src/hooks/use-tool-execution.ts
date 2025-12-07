@@ -258,6 +258,13 @@ export function useToolExecution({
     ) => {
       if (!toolExecutorRef.current) { return; }
 
+      // Check if user stopped before starting continuation
+      if (isStoppingRef.current) {
+        console.log('[ToolExecution] User stopped, aborting executeToolAndContinue');
+        setIsExecutingTool(false);
+        return;
+      }
+
       // If no userAttachments provided, try to find from the latest user message in history
       // This ensures images are preserved across tool execution continuations
       const effectiveUserAttachments = userAttachments ?? (() => {
@@ -323,7 +330,8 @@ export function useToolExecution({
             continuationHistory,
             newAbortController.signal
           )) {
-            if (newAbortController.signal.aborted) {
+            if (newAbortController.signal.aborted || isStoppingRef.current) {
+              console.log('[ToolExecution] Continuation stream aborted');
               break;
             }
 
@@ -655,7 +663,8 @@ export function useToolExecution({
           toolExecutorRef.current,
           toolBlock,
           isStoppingRef,
-          toolBlock.toolName === 'echo_search' ? onProgress : undefined
+          toolBlock.toolName === 'echo_search' ? onProgress : undefined,
+          toolAbortController.signal
         );
 
         if (result.wasStopped) {
@@ -754,7 +763,7 @@ export function useToolExecution({
         let retryCount = 0;
         let streamSuccess = false;
 
-        while (!streamSuccess) {
+        while (!streamSuccess && !isStoppingRef.current) {
           try {
             const newAbortController = new AbortController();
             abortControllerRef.current = newAbortController;
@@ -775,7 +784,7 @@ export function useToolExecution({
               if (chunkCount <= 3) {
                 console.log(`[ToolExecution] Continuation chunk #${chunkCount}:`, chunk.substring(0, 50));
               }
-              if (newAbortController.signal.aborted) {
+              if (newAbortController.signal.aborted || isStoppingRef.current) {
                 console.log('[ToolExecution] Continuation stream aborted');
                 streamSuccess = true; // User aborted, don't retry
                 break;

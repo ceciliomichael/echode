@@ -109,7 +109,8 @@ export class SearchOrchestrator {
 
       if (!response) {
         this.onProgress?.(`Error: No response from LLM`);
-        break;
+        // Skip this turn but keep trying remaining iterations instead of stopping completely
+        continue;
       }
 
       // Parse and execute tool calls

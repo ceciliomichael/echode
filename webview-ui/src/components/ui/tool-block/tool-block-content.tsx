@@ -15,10 +15,9 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded }: ToolBlockCo
   const isAborted = toolCall.status === 'aborted';
   
   // Check if we have streamed content to preserve
-  // For echo_search, always preserve on abort (even without progress)
   const hasStreamedContent = 
     (toolCall.toolName === 'write_to_file' && toolCall.parameters.content) ||
-    (toolCall.toolName === 'echo_search' && (toolCall.progress || isAborted));
+    (toolCall.toolName === 'echo_search');
 
   return (
     <div
@@ -41,7 +40,7 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded }: ToolBlockCo
                     viewOnly={true}
                   />
                 </div>
-              ) : toolCall.toolName === 'echo_search' && (toolCall.progress || isAborted) ? (
+              ) : toolCall.toolName === 'echo_search' ? (
                 <div className="px-3 py-3">
                   <EchoSearchProgressIndicator 
                     progress={toolCall.progress || { iteration: 0, toolsIteration: 0, maxIterations: 4, phase: 'starting', tools: [], message: '' }} 

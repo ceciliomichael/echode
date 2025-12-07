@@ -2,7 +2,7 @@ import type { StreamingLoopContext } from './types';
 import type { ToolExecutionState } from '../../types/tool';
 import { chatApi } from '../../services/chat-api';
 import { hasCompleteToolBlock, trimToFirstCompleteToolBlock, extractCompleteInvokeBlocksIncremental } from '../../lib/tool-parser';
-import { createToolExecutionState, updateToolExecutionStatus, generateToolExecutionId } from '../../lib/tool-execution-tracker';
+import { createToolExecutionState, updateToolExecutionStatus, updateToolExecutionProgress, generateToolExecutionId } from '../../lib/tool-execution-tracker';
 import { isRetryableError } from './helpers';
 
 /**
@@ -25,6 +25,7 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
     attachments,
     assistantMessageId,
     mode,
+    isStoppingRef,
     abortControllerRef,
     hasStreamedContentRef,
     setMessages,
@@ -53,7 +54,7 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
   let retryCount = 0;
   let streamSuccess = false;
 
-  while (!streamSuccess) {
+  while (!streamSuccess && !isStoppingRef.current) {
     try {
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
@@ -77,6 +78,12 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
       for await (const chunk of chatApi.streamChat(finalChatHistory, abortController.signal, mode)) {
         chunkCount++;
         console.log(`[STREAMING] Chunk #${chunkCount}:`, chunk);
+
+        if (isStoppingRef.current) {
+          console.log('[STREAMING] Stopping flag set, breaking stream');
+          streamSuccess = true;
+          break;
+        }
 
         if (abortController.signal.aborted) {
           console.log('[STREAMING] Aborted signal received, breaking stream');
@@ -127,10 +134,18 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
             const executionState = createToolExecutionState(execId, block.toolName, block.parameters);
             updateToolExecution(assistantMessageId, execId, executionState);
 
+            // Create progress callback for echo_search
+            const onProgress = block.toolName === 'echo_search' 
+              ? (progress: import('../../types/tool').EchoSearchProgress) => {
+                  const updatedState = updateToolExecutionProgress(executionState, progress);
+                  updateToolExecution(assistantMessageId, execId, updatedState);
+                }
+              : undefined;
+
             // Start execution in background (don't await)
             const toolPromise = (async () => {
               try {
-                const result = await toolExecutor.executeToolBlock(block);
+                const result = await toolExecutor.executeToolBlock(block, onProgress);
 
                 // Update UI with completed status
                 if (result.executedToolCalls.length > 0) {
@@ -183,8 +198,28 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
           console.log(`[STREAMING] Waiting for ${runningToolPromises.length} tool executions to complete...`);
           const toolResults = await Promise.all(runningToolPromises);
 
+          // Check if user stopped during tool execution
+          if (isStoppingRef.current) {
+            console.log('[STREAMING] User stopped during tool execution, not continuing AI');
+            return { success: false, assistantContent, handledByToolExecution: true };
+          }
+
           // Sort results by index and collect
           toolResults.sort((a, b) => a.index - b.index);
+
+          // If any planning tools ran (plan_navigator / plan_handoff) in Plan mode,
+          // stop here and wait for user interaction instead of auto-continuing.
+          const hasPlanningTool = toolResults.some(r =>
+            r.toolName === 'plan_navigator' || r.toolName === 'plan_handoff'
+          );
+
+          if (hasPlanningTool && mode === 'plan') {
+            console.log('[STREAMING] Planning tool executed during incremental stream - waiting for user interaction');
+            // Clear executing state since we are pausing for user input
+            setIsExecutingTool(false);
+            return { success: true, assistantContent, handledByToolExecution: true };
+          }
+
           const bufferedResults = toolResults.map(r => r.result);
 
           console.log(`[STREAMING] All ${bufferedResults.length} tools completed, passing results to AI`);
@@ -223,6 +258,12 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
       // POST-STREAM SAFETY CHECK: detect tool blocks that may have completed
       // in the final chunks but were not detected during streaming
       if (hasCompleteToolBlock(assistantContent)) {
+        // Check if user stopped before executing tools
+        if (isStoppingRef.current) {
+          console.log('[STREAMING] User stopped, skipping post-stream tool execution');
+          return { success: false, assistantContent, handledByToolExecution: false };
+        }
+
         console.log('[STREAMING] ✓ Post-stream tool block detected - executing');
 
         const trimmedContent = trimToFirstCompleteToolBlock(assistantContent);
@@ -251,8 +292,8 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
       const errorMessage = streamError instanceof Error ? streamError.message : 'Unknown error';
 
       // Check if user manually aborted
-      if (abortControllerRef.current?.signal.aborted) {
-        console.log('[STREAMING] User aborted, stopping retries');
+      if (abortControllerRef.current?.signal.aborted || isStoppingRef.current) {
+        console.log('[STREAMING] User aborted or stopping flag set, stopping retries');
         streamSuccess = true; // Don't retry on user abort
       } else if (isRetryableError(errorMessage)) {
         retryCount++;

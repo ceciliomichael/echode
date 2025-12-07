@@ -72,11 +72,14 @@ export async function handleToolExecution(
 
   // Handle abort request
   if (data.type === 'abortToolExecution') {
+    console.log(`[ToolHandler] Received abort request for ${data.requestId}, active executions: ${Array.from(activeToolExecutions.keys()).join(', ')}`);
     const controller = activeToolExecutions.get(data.requestId);
     if (controller) {
       console.log(`[ToolHandler] Aborting tool execution ${data.requestId}`);
       controller.abort();
       activeToolExecutions.delete(data.requestId);
+    } else {
+      console.log(`[ToolHandler] No active execution found for ${data.requestId}`);
     }
     return;
   }

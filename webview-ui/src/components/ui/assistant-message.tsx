@@ -359,11 +359,18 @@ export const AssistantMessage = memo(AssistantMessageComponent, (prev, next) => 
     (prev.toolExecutions?.size === next.toolExecutions?.size &&
      Array.from(prev.toolExecutions?.entries() || []).every(([key, value]) => {
        const nextValue = next.toolExecutions?.get(key);
+       // Compare tools array by content, not just length
+       const prevTools = value.progress?.tools || [];
+       const nextTools = nextValue?.progress?.tools || [];
+       const toolsEqual = prevTools.length === nextTools.length && 
+         prevTools.every((tool, i) => tool === nextTools[i]);
+       
        return nextValue?.status === value.status && 
               nextValue?.result === value.result &&
               nextValue?.progress?.iteration === value.progress?.iteration &&
               nextValue?.progress?.phase === value.progress?.phase &&
-              (nextValue?.progress?.tools?.length || 0) === (value.progress?.tools?.length || 0);
+              nextValue?.progress?.toolsIteration === value.progress?.toolsIteration &&
+              toolsEqual;
      }));
   
   return prev.content === next.content && 

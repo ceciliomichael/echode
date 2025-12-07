@@ -40,6 +40,15 @@ const ToolBlockComponent = ({
     }
   }, [shouldAutoExpand, toolCall.status]);
 
+  // Auto-collapse echo_search when completed or aborted
+  useEffect(() => {
+    if (isEchoSearch && (toolCall.status === 'completed' || toolCall.status === 'aborted')) {
+      setTimeout(() => {
+        setIsExpanded(false);
+      }, 0);
+    }
+  }, [isEchoSearch, toolCall.status]);
+
   // Auto-expand plan tools when completed
   const isPlanTool = toolCall.toolName === 'plan_handoff' || toolCall.toolName === 'plan_navigator';
   useEffect(() => {
@@ -85,7 +94,11 @@ const ToolBlockComponent = ({
     [toolCall, isIconExecuting]
   );
 
-  const hasResultContent = !!toolCall.result && toolCall.status !== 'aborted';
+  // For echo_search, show content indicator when executing/aborted (progress view)
+  // For other tools, show when there's a result and not aborted
+  const hasResultContent = toolCall.toolName === 'echo_search' 
+    ? (toolCall.status === 'executing' || toolCall.status === 'pending' || toolCall.status === 'aborted' || !!toolCall.result)
+    : (!!toolCall.result && toolCall.status !== 'aborted');
 
   return (
     <div
@@ -122,16 +135,24 @@ const ToolBlockComponent = ({
 };
 
 export const ToolBlock = memo(ToolBlockComponent, (prevProps, nextProps) => {
+  // Compare tools arrays by content, not just length
+  const prevTools = prevProps.toolCall.progress?.tools || [];
+  const nextTools = nextProps.toolCall.progress?.tools || [];
+  const toolsEqual = prevTools.length === nextTools.length && 
+    prevTools.every((tool, i) => tool === nextTools[i]);
+
   return (
     prevProps.toolCall.status === nextProps.toolCall.status &&
     prevProps.toolCall.toolName === nextProps.toolCall.toolName &&
     prevProps.isConnectedTop === nextProps.isConnectedTop &&
     prevProps.isConnectedBottom === nextProps.isConnectedBottom &&
+    prevProps.isStreaming === nextProps.isStreaming &&
     JSON.stringify(prevProps.toolCall.parameters) ===
       JSON.stringify(nextProps.toolCall.parameters) &&
     JSON.stringify(prevProps.toolCall.result) === JSON.stringify(nextProps.toolCall.result) &&
     prevProps.toolCall.progress?.iteration === nextProps.toolCall.progress?.iteration &&
     prevProps.toolCall.progress?.phase === nextProps.toolCall.progress?.phase &&
-    prevProps.toolCall.progress?.tools?.length === nextProps.toolCall.progress?.tools?.length
+    prevProps.toolCall.progress?.toolsIteration === nextProps.toolCall.progress?.toolsIteration &&
+    toolsEqual
   );
 });

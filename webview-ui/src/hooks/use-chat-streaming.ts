@@ -35,6 +35,7 @@ export function useChatStreaming({
   isExecutingToolRef,
   sendingMessageRef,
   abortControllerRef,
+  toolAbortControllerRef,
   hasStreamedContentRef,
   executeToolAndContinue,
   updateToolExecution,
@@ -49,17 +50,14 @@ export function useChatStreaming({
   const getToolExecutor = () => {
     if (!toolExecutorRef.current) {
       const enabledTools = getToolsForMode(mode, false).map(t => t.id);
-      // IMPORTANT: Do NOT share the streaming abort controller with tools here.
-      // If we used abortControllerRef, aborting the chat stream when </function_calls>
-      // arrives would also abort in-flight tool executions, causing "Tool execution aborted"
-      // errors even though the VS Code backend finishes the writes successfully.
-      //
-      // For incremental execution we want tools to keep running independently of the
-      // stream abort that happens when the tool block completes, so we omit
-      // abortControllerRef and let tools run to completion.
+      // Use toolAbortControllerRef (NOT abortControllerRef) for tool abort.
+      // toolAbortControllerRef is only aborted when user clicks Stop, NOT when
+      // stream is aborted for tool detection. This allows tools to complete
+      // normally during incremental execution while still supporting user abort.
       toolExecutorRef.current = new ToolExecutor({
         enabledTools,
         isStoppingRef,
+        abortControllerRef: toolAbortControllerRef,
         mode,
       });
     }
@@ -200,6 +198,7 @@ export function useChatStreaming({
         attachments,
         assistantMessageId,
         mode,
+        isStoppingRef,
         abortControllerRef,
         hasStreamedContentRef,
         setMessages,

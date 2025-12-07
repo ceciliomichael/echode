@@ -38,7 +38,11 @@ export class ToolExecutor {
    * Get the current abort signal from the abort controller ref
    */
   private getAbortSignal(): AbortSignal | undefined {
-    return this.abortControllerRef?.current?.signal;
+    const signal = this.abortControllerRef?.current?.signal;
+    if (!signal) {
+      console.warn('[ToolExecutor] No abort signal available - abortControllerRef:', !!this.abortControllerRef, 'current:', !!this.abortControllerRef?.current);
+    }
+    return signal;
   }
 
   /**
@@ -212,8 +216,9 @@ export class ToolExecutor {
    */
   async executeToolBlock(
     toolBlock: ParsedToolBlock,
+    onProgress?: ToolProgressCallback,
   ): Promise<ToolCallExecutionResult> {
-    return this.executeToolBlocksInParallel([toolBlock]);
+    return this.executeToolBlocksInParallel([toolBlock], onProgress);
   }
 
   /**
@@ -222,6 +227,7 @@ export class ToolExecutor {
    */
   async executeToolBlocksInParallel(
     toolBlocks: ParsedToolBlock[],
+    onProgress?: ToolProgressCallback,
   ): Promise<ToolCallExecutionResult> {
     if (!this.enabledTools.length || toolBlocks.length === 0) {
       return { executedToolCalls: [], toolResults: [], wasStopped: false };
@@ -250,11 +256,16 @@ export class ToolExecutor {
           };
         }
 
-        const result = await this.execute({
-          toolName: block.toolName,
-          parameters: block.parameters,
-          status: 'executing',
-        });
+        const result = await this.execute(
+          {
+            toolName: block.toolName,
+            parameters: block.parameters,
+            status: 'executing',
+          },
+          undefined, // signal
+          undefined, // onStatusChange
+          block.toolName === 'echo_search' ? onProgress : undefined,
+        );
 
         // Check if stopped during execution
         if (this.isStoppingRef.current) {

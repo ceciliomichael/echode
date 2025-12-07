@@ -4,15 +4,26 @@ import { getFileIconConfig } from '../../../utils/file-icon-mapper';
 /**
  * Parse tool call string to extract tool name and parameter
  * e.g., "grep_search(authentication)" -> { tool: 'grep_search', param: 'authentication' }
+ * e.g., "read_file_snippet(src/app/page.tsx)" -> { tool: 'read_file_snippet', param: 'src/app/page.tsx' }
  */
 export function parseToolCall(toolCall: string): { tool: string; param: string } {
-  // Match tool_name(param) - param can be empty or have content
-  const match = toolCall.match(/^(\w+)\((.*)\)$/);
+  // Clean up the input - remove leading/trailing whitespace and any arrow prefix
+  const cleaned = toolCall.replace(/^[→\s]+/, '').trim();
+  
+  // Match tool_name(param) - param can be empty or have content including special chars
+  const match = cleaned.match(/^(\w+)\((.+)\)$/);
   if (match) {
     const param = match[2].trim();
     return { tool: match[1], param };
   }
-  return { tool: toolCall, param: '' };
+  
+  // Try matching without requiring content in parentheses
+  const emptyMatch = cleaned.match(/^(\w+)\(\)$/);
+  if (emptyMatch) {
+    return { tool: emptyMatch[1], param: '' };
+  }
+  
+  return { tool: cleaned, param: '' };
 }
 
 /**

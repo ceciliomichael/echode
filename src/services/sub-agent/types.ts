@@ -22,6 +22,7 @@ export interface SubAgentApiSettings {
   openaiCompatibleCustomUrl?: string;
   megallmApiKey?: string;
   megallmCustomUrl?: string;
+  qwenCodeOauthPath?: string;
 }
 
 /**

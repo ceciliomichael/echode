@@ -21,6 +21,7 @@ export interface ChatStreamingProps {
   isExecutingToolRef: React.MutableRefObject<boolean>;
   sendingMessageRef: React.MutableRefObject<boolean>;
   abortControllerRef: React.MutableRefObject<AbortController | null>;
+  toolAbortControllerRef: React.MutableRefObject<AbortController>;
   hasStreamedContentRef: React.MutableRefObject<boolean>;
   executeToolAndContinue: (
     assistantContent: string,
@@ -106,6 +107,7 @@ export interface StreamingLoopContext {
   attachments: ImageAttachment[] | undefined;
   assistantMessageId: string;
   mode: ChatMode;
+  isStoppingRef: React.MutableRefObject<boolean>;
   abortControllerRef: React.MutableRefObject<AbortController | null>;
   hasStreamedContentRef: React.MutableRefObject<boolean>;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;

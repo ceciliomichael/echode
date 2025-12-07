@@ -3,6 +3,7 @@ import { Check, ChevronDown, Search, Cpu, RefreshCcw } from 'lucide-react';
 import type { ApiSettings, Provider } from '../../types/api-settings';
 import { storageService } from '../../utils/storage';
 import { useModelFetcher, requestModelsRefresh } from '../../hooks/use-model-fetcher';
+import { buildFilteredModelResults } from '../../utils/model-search';
 
 const PROVIDER_OPTIONS: { value: Provider; label: string }[] = [
   { value: 'anthropic', label: 'Anthropic' },
@@ -184,22 +185,9 @@ export function SettingsModelSelector({
 
   const searchValue = search.trim().toLowerCase();
   const hasSearch = searchValue.length > 0;
-  const searchWords = searchValue.split(/\s+/).filter(Boolean);
 
   const filteredResults = hasSearch
-    ? PROVIDER_OPTIONS.flatMap((providerOption) => {
-        const providerModels = modelsByProvider[providerOption.value] || [];
-        return providerModels
-          .filter((model) => {
-            const modelLower = model.toLowerCase();
-            return searchWords.every((word) => modelLower.includes(word));
-          })
-          .map((model) => ({
-            provider: providerOption.value,
-            providerLabel: providerOption.label,
-            model,
-          }));
-      })
+    ? buildFilteredModelResults(searchValue, PROVIDER_OPTIONS, modelsByProvider)
     : [];
 
   return (

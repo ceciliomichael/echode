@@ -24,7 +24,8 @@ export async function executeToolWithStopCheck(
   toolExecutor: ToolExecutor,
   toolBlock: ParsedToolBlock,
   isStoppingRef: React.MutableRefObject<boolean>,
-  onProgress?: ToolProgressCallback
+  onProgress?: ToolProgressCallback,
+  signal?: AbortSignal
 ): Promise<ToolExecutionResult> {
   try {
     const toolResult = await toolExecutor.execute(
@@ -33,7 +34,7 @@ export async function executeToolWithStopCheck(
         parameters: toolBlock.parameters,
         status: 'executing',
       },
-      undefined, // signal
+      signal, // Pass abort signal for cancellation
       undefined, // onStatusChange
       onProgress // progress callback for echo_search
     );

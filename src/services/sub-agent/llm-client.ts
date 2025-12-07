@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
+import { QwenCredentialManager } from '../llm/qwen/credential-manager';
 import { ConversationMessage, SubAgentApiSettings, IndexingSettings, ProgressCallback } from './types';
 
 const DEFAULT_REQUEST_TIMEOUT = 10000; // 10 seconds
@@ -47,6 +48,11 @@ export class LLMClient {
             ? (this.apiSettings.megallmCustomUrl || defaultMegallmUrl)
             : this.apiSettings.openaiCompatibleCustomUrl;
           return await this.callOpenAI(conversation, model, systemPrompt, apiKey, baseUrl, signal);
+        }
+        case 'qwen-code': {
+          const credentials = await QwenCredentialManager.loadCredentials(this.apiSettings.qwenCodeOauthPath);
+          const baseUrl = QwenCredentialManager.getBaseUrl(credentials);
+          return await this.callOpenAI(conversation, model, systemPrompt, credentials.access_token, baseUrl, signal);
         }
         default:
           this.onProgress?.(`Provider ${provider} not supported for sub-agent`);
