@@ -254,6 +254,7 @@ export function useToolExecution({
       userContent: string,
       toolIndex = 0,
       userAttachments?: ImageAttachment[],
+      bufferedToolResults?: string[], // Pre-computed results from incremental execution
     ) => {
       if (!toolExecutorRef.current) { return; }
 
@@ -267,6 +268,99 @@ export function useToolExecution({
       try {
         console.log(`[ToolExecution] executeToolAndContinue called with toolIndex=${toolIndex}`);
         console.log(`[ToolExecution] assistantContent length: ${assistantContent.length}`);
+        
+        // If we have buffered results from incremental execution, skip to continuation
+        if (bufferedToolResults && bufferedToolResults.length > 0) {
+          console.log(`[ToolExecution] Using ${bufferedToolResults.length} buffered tool results from incremental execution`);
+          
+          const toolResultText = bufferedToolResults.join('\n\n');
+          const diagnosticsText = ''; // Diagnostics already handled during incremental execution
+          
+          // Build continuation history for chat
+          const latestWorkspace = (window.workspaceContext || workspace)!;
+          const contextMessages = await buildCompressedContextIfNeeded(
+            latestWorkspace,
+            messagesRef.current,
+            toolResultText,
+            diagnosticsText,
+            mode,
+          );
+
+          const continuationHistory = buildContinuationHistory(
+            latestWorkspace,
+            contextMessages,
+            userContent,
+            assistantContent,
+            toolResultText,
+            diagnosticsText,
+            currentTodos,
+            mode,
+            effectiveUserAttachments
+          );
+
+          // Continue streaming with buffered results
+          setIsExecutingTool(false);
+          
+          let continuationContent = assistantContent;
+          let pendingUpdate = false;
+
+          const updateUI = () => {
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantMessageId
+                  ? { ...msg, content: continuationContent }
+                  : msg
+              )
+            );
+            pendingUpdate = false;
+          };
+
+          // Start continuation stream
+          const newAbortController = new AbortController();
+          abortControllerRef.current = newAbortController;
+
+          for await (const chunk of chatApi.streamChat(
+            continuationHistory,
+            newAbortController.signal
+          )) {
+            if (newAbortController.signal.aborted) {
+              break;
+            }
+
+            continuationContent += chunk;
+
+            // Check for another tool block in the new content only
+            const newContent = continuationContent.slice(assistantContent.length);
+            if (hasCompleteToolBlock(newContent)) {
+              const trimmedContinuation = assistantContent + trimToFirstCompleteToolBlock(newContent);
+              continuationContent = trimmedContinuation;
+              updateUI();
+
+              // Abort and execute next tool
+              newAbortController.abort();
+              setIsExecutingTool(true);
+              await executeToolAndContinue(
+                continuationContent,
+                assistantMessageId,
+                continuationHistory,
+                messagesToSend,
+                userContent,
+                toolIndex + bufferedToolResults.length,
+                effectiveUserAttachments
+              );
+              return;
+            }
+
+            if (!pendingUpdate) {
+              pendingUpdate = true;
+              requestAnimationFrame(updateUI);
+            }
+          }
+
+          // Final update
+          updateUI();
+          return;
+        }
         
         // Keep executing tool state active
         setIsExecutingTool(true);

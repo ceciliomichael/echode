@@ -7,7 +7,10 @@ import { useWorkspaceContext } from './use-workspace-context';
 import type { Message, ImageAttachment } from '../types/chat';
 import type { ChatMessage } from '../types/chat-api';
 import type { ChatMode } from '../types/chat-mode';
-import { hasCompleteToolBlock, trimToFirstCompleteToolBlock } from '../lib/tool-parser';
+import { hasCompleteToolBlock, trimToFirstCompleteToolBlock, extractCompleteInvokeBlocksIncremental } from '../lib/tool-parser';
+import { ToolExecutor } from '../lib/tool-executor';
+import { getToolsForMode } from '../lib/tool-config';
+import { createToolExecutionState, updateToolExecutionStatus, generateToolExecutionId } from '../lib/tool-execution-tracker';
 import { removeThinkBlocks } from '../utils/think-block-parser';
 import { buildChatMessage, getCurrentModel, isVisionCapableModel } from '../utils/vision-utils';
 import { isToolAvailableInMode } from '../utils/tool-history-filter';
@@ -68,8 +71,11 @@ interface ChatStreamingProps {
     messagesToSend: Message[],
     userContent: string,
     toolIndex?: number,
-    userAttachments?: ImageAttachment[]
+    userAttachments?: ImageAttachment[],
+    bufferedToolResults?: string[]
   ) => Promise<void>;
+  updateToolExecution: (messageId: string, toolExecutionId: string, state: import('../types/tool').ToolExecutionState) => void;
+  isStoppingRef: React.MutableRefObject<boolean>;
   saveSession: (overrideMessages?: Message[]) => void;
   mode: ChatMode;
 }
@@ -91,10 +97,34 @@ export function useChatStreaming({
   abortControllerRef,
   hasStreamedContentRef,
   executeToolAndContinue,
+  updateToolExecution,
+  isStoppingRef,
   saveSession,
   mode,
 }: ChatStreamingProps) {
   const workspace = useWorkspaceContext();
+  
+  // Create tool executor for incremental execution
+  const toolExecutorRef = { current: null as ToolExecutor | null };
+  const getToolExecutor = () => {
+    if (!toolExecutorRef.current) {
+      const enabledTools = getToolsForMode(mode, false).map(t => t.id);
+      // IMPORTANT: Do NOT share the streaming abort controller with tools here.
+      // If we used abortControllerRef, aborting the chat stream when </function_calls>
+      // arrives would also abort in-flight tool executions, causing "Tool execution aborted"
+      // errors even though the VS Code backend finishes the writes successfully.
+      //
+      // For incremental execution we want tools to keep running independently of the
+      // stream abort that happens when the tool block completes, so we omit
+      // abortControllerRef and let tools run to completion.
+      toolExecutorRef.current = new ToolExecutor({
+        enabledTools,
+        isStoppingRef,
+        mode,
+      });
+    }
+    return toolExecutorRef.current;
+  };
 
   const sendMessage = useCallback(async (content: string, attachments?: ImageAttachment[], overrideMessages?: Message[], isHidden: boolean = false, forceEchoSearch: boolean = false) => {
     // Prevent starting new stream if already streaming
@@ -555,6 +585,11 @@ export function useChatStreaming({
           console.log('[STREAMING] Starting stream...');
           let chunkCount = 0;
           
+          // Incremental tool execution state
+          const scheduledToolIndices = new Set<number>();
+          const runningToolPromises: Promise<{ toolName: string; result: string; index: number }>[] = [];
+          const toolExecutor = getToolExecutor();
+          
           for await (const chunk of chatApi.streamChat(finalChatHistory, abortController.signal, mode)) {
             chunkCount++;
             console.log(`[STREAMING] Chunk #${chunkCount}:`, chunk);
@@ -571,47 +606,100 @@ export function useChatStreaming({
             }
             console.log(`[STREAMING] Accumulated content length: ${assistantContent.length} chars`);
             
-            // Check for complete tool block
-            if (hasCompleteToolBlock(assistantContent)) {
-              console.log('[STREAMING] ✓ Complete tool block detected!');
-              console.log('[STREAMING] Content before trim:', assistantContent.substring(0, 200) + '...');
+            // Check for complete invoke blocks (incremental execution)
+            const { blocks, hasFunctionCallsClose } = extractCompleteInvokeBlocksIncremental(assistantContent);
+            
+            // Schedule execution for any new complete invoke blocks
+            for (let i = 0; i < blocks.length; i++) {
+              if (!scheduledToolIndices.has(i)) {
+                scheduledToolIndices.add(i);
+                const block = blocks[i];
+                const toolIndex = i;
+                
+                console.log(`[STREAMING] Scheduling incremental execution for tool #${toolIndex}: ${block.toolName}`);
+                
+                // Show tool as executing in UI
+                setIsExecutingTool(true);
+                const execId = generateToolExecutionId(assistantMessageId, toolIndex);
+                const executionState = createToolExecutionState(execId, block.toolName, block.parameters);
+                updateToolExecution(assistantMessageId, execId, executionState);
+                
+                // Start execution in background (don't await)
+                const toolPromise = (async () => {
+                  try {
+                    const result = await toolExecutor.executeToolBlock(block);
+                    
+                    // Update UI with completed status
+                    if (result.executedToolCalls.length > 0) {
+                      const executedTool = result.executedToolCalls[0];
+                      const completedState = updateToolExecutionStatus(
+                        executionState,
+                        executedTool.status,
+                        executedTool.result
+                      );
+                      updateToolExecution(assistantMessageId, execId, completedState);
+                    }
+                    
+                    return {
+                      toolName: block.toolName,
+                      result: result.toolResults[0] || '',
+                      index: toolIndex,
+                    };
+                  } catch (err) {
+                    const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+                    const errorState = updateToolExecutionStatus(executionState, 'error', {
+                      success: false,
+                      error: errorMsg,
+                    });
+                    updateToolExecution(assistantMessageId, execId, errorState);
+                    return {
+                      toolName: block.toolName,
+                      result: `[${block.toolName} ERROR] ${errorMsg}`,
+                      index: toolIndex,
+                    };
+                  }
+                })();
+                
+                runningToolPromises.push(toolPromise);
+              }
+            }
+            
+            // Check if function_calls is now closed
+            if (hasFunctionCallsClose && blocks.length > 0) {
+              console.log('[STREAMING] ✓ function_calls closed with tools executed incrementally!');
               
-              // Trim content to only include up to the end of the FIRST complete tool block
-              // This ensures we execute tools strictly one-by-one and don't include partial content
+              // Trim content to the complete function_calls block
               const trimmedContent = trimToFirstCompleteToolBlock(assistantContent);
               assistantContent = trimmedContent;
+              updateUI();
               
-              console.log('[STREAMING] Content after trim:', assistantContent.substring(0, 200) + '...');
-              console.log('[STREAMING] Trimmed content length:', assistantContent.length);
-              
-              // Update UI with trimmed content before interrupting
-              if (pendingUpdate) {
-                updateUI();
-              } else {
-                updateUI();
-              }
-              
-              console.log('[STREAMING] Aborting stream to execute tool...');
-              // Abort stream to execute tool
+              // Abort stream
               abortController.abort();
               
-              // Set executing tool state to show loading
-              setIsExecutingTool(true);
+              // Wait for all running tool executions to complete
+              console.log(`[STREAMING] Waiting for ${runningToolPromises.length} tool executions to complete...`);
+              const toolResults = await Promise.all(runningToolPromises);
               
-              // Execute tool and continue
-              console.log('[STREAMING] Starting tool execution...');
+              // Sort results by index and collect
+              toolResults.sort((a, b) => a.index - b.index);
+              const bufferedResults = toolResults.map(r => r.result);
+              
+              console.log(`[STREAMING] All ${bufferedResults.length} tools completed, passing results to AI`);
+              
+              // Pass buffered results to executeToolAndContinue
               await executeToolAndContinue(
                 assistantContent,
                 assistantMessageId,
                 finalChatHistory,
                 messagesToSend,
                 content,
-                0, // toolIndex
-                attachments // pass image attachments to preserve in history
+                0,
+                attachments,
+                bufferedResults // Pass pre-computed results
               );
               
               console.log('[STREAMING] Tool execution completed, exiting stream');
-              return; // Exit early, tool execution will handle continuation
+              return;
             }
             
             // Batch updates: only update UI every 16ms (60fps) for smooth performance
@@ -738,7 +826,8 @@ export function useChatStreaming({
       // Save session after stream completion
       saveSession();
     }
-  }, [messages, workspace, executeToolAndContinue, setMessages, setIsStreaming, setIsExecutingTool, setIsCompressing, setCompressedContextTokens, setCompressedMessages, setCompressionAnchorId, compressedMessagesRef, compressedContextTokensRef, isStreamingRef, isExecutingToolRef, sendingMessageRef, abortControllerRef, hasStreamedContentRef, saveSession, mode]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, workspace, executeToolAndContinue, setMessages, setIsStreaming, setIsExecutingTool, setIsCompressing, setCompressedContextTokens, setCompressedMessages, setCompressionAnchorId, compressedMessagesRef, compressedContextTokensRef, isStreamingRef, isExecutingToolRef, sendingMessageRef, abortControllerRef, hasStreamedContentRef, saveSession, mode, updateToolExecution]);
 
   return { sendMessage };
 }

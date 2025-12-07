@@ -84,6 +84,8 @@ export function useStreamingChat(
     abortControllerRef: state.abortControllerRef,
     hasStreamedContentRef: state.hasStreamedContentRef,
     executeToolAndContinue,
+    updateToolExecution,
+    isStoppingRef: state.isStoppingRef,
     saveSession: saveCurrentSession,
     mode,
   });

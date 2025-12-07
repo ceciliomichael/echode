@@ -207,6 +207,16 @@ export class ToolExecutor {
   }
 
   /**
+   * Execute a single tool block
+   * Used for incremental tool execution during streaming
+   */
+  async executeToolBlock(
+    toolBlock: ParsedToolBlock,
+  ): Promise<ToolCallExecutionResult> {
+    return this.executeToolBlocksInParallel([toolBlock]);
+  }
+
+  /**
    * Execute multiple tool blocks in parallel
    * Used for parallelizable tools like read_file
    */
