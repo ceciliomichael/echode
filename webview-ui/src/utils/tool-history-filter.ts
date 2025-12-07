@@ -14,6 +14,9 @@ const GENERAL_MODE_TOOLS = new Set<string>(GENERAL_MODE_TOOL_IDS);
  * Check if a tool is available in the given mode
  */
 export function isToolAvailableInMode(toolName: string, mode: ChatMode): boolean {
+  if (mode === 'chat') {
+    return false; // Chat mode has no tools
+  }
   if (mode === 'agent') {
     return true; // Agent mode has access to all tools
   }
@@ -31,13 +34,18 @@ export function isToolAvailableInMode(toolName: string, mode: ChatMode): boolean
  * Used to inform AI about unavailable history
  */
 export function getFilteredToolsForMode(mode: ChatMode): string[] {
-  if (mode === 'agent') {return [];}
-  
+  if (mode === 'agent') { return []; }
+
+  if (mode === 'chat') {
+    // Chat mode has no tools - all tools are filtered
+    return ['read_file', 'write_to_file', 'apply_diff', 'list_files', 'delete_file', 'grep_search', 'glob_search', 'echo_search', 'todo_write', 'todo_read', 'plan_navigator', 'plan_handoff', 'get_diagnostics'];
+  }
+
   if (mode === 'general') {
     // General mode has file ops but no search tools
     return ['grep_search', 'glob_search', 'echo_search', 'todo_write', 'todo_read', 'plan_navigator', 'plan_handoff', 'get_diagnostics'];
   }
-  
+
   // Return list of agent-only tools that might appear in history (for plan/ask modes)
   return ['write_to_file', 'apply_diff', 'delete_file'];
 }

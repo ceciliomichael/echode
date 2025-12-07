@@ -94,11 +94,14 @@ const ToolBlockComponent = ({
     [toolCall, isIconExecuting]
   );
 
-  // For echo_search, show content indicator when executing/aborted (progress view)
-  // For other tools, show when there's a result and not aborted
   const hasResultContent = toolCall.toolName === 'echo_search' 
     ? (toolCall.status === 'executing' || toolCall.status === 'pending' || toolCall.status === 'aborted' || !!toolCall.result)
     : (!!toolCall.result && toolCall.status !== 'aborted');
+  const hasStreamingContent =
+    toolCall.toolName === 'echo_search' ||
+    (toolCall.toolName === 'write_to_file' && !!toolCall.parameters.content);
+
+  const canToggle = hasResultContent || hasStreamingContent;
 
   return (
     <div
@@ -123,6 +126,7 @@ const ToolBlockComponent = ({
         status={toolCall.status}
         isStreaming={isStreaming}
         hasResultContent={hasResultContent}
+        canToggle={canToggle}
       />
       
       <ToolBlockContent

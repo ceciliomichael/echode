@@ -116,7 +116,7 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
   }
 
   return (
-    <div className="flex w-full px-2" data-message-id={messageId}>
+    <div className="flex w-full" data-message-id={messageId}>
       <div
         ref={containerRef}
         onClick={handleMessageClick}

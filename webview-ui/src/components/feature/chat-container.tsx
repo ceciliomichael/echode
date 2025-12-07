@@ -23,6 +23,9 @@ export function ChatContainer() {
   const { mode, handleModeChange } = useChatMode();
   const { provider, model, setActiveProviderAndModel } = useChatModel();
 
+  const contentWidthClass = 'w-full max-w-3xl';
+  const horizontalPaddingClass = 'px-4 sm:px-5 lg:px-6';
+
   const { 
     messages, 
     isStreaming, 
@@ -159,20 +162,20 @@ export function ChatContainer() {
         />
       )}
 
-      <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--vscode-sideBar-background)' }}>
+    <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--vscode-sideBar-background)' }}>
         <div 
           ref={scrollContainerRef}
           onScroll={handleScroll}
           data-chat-scroll-container="true"
           data-chat-message-list-boundary="true"
-          className={`flex-1 py-2 px-1 ${editingMessageId ? 'overflow-y-hidden' : 'overflow-y-auto'}`}
+        className={`flex-1 py-3 sm:py-4 lg:py-6 ${horizontalPaddingClass} ${editingMessageId ? 'overflow-y-hidden' : 'overflow-y-auto'}`}
         >
           {visibleMessages.length === 0 ? (
-            <div className="max-w-[700px] mx-auto w-full h-full">
+          <div className={`${contentWidthClass} mx-auto h-full`}>
               <ChatEmptyState />
             </div>
           ) : (
-            <div className="max-w-[700px] mx-auto w-full">
+          <div className={`${contentWidthClass} mx-auto`}>
               <div className="space-y-3">
               {visibleMessages.map((message, index) => {
                 const isLastAssistantMessage = index === visibleMessages.length - 1 && message.role === 'assistant';
@@ -204,24 +207,26 @@ export function ChatContainer() {
           )}
         </div>
 
-        <div className="max-w-[700px] mx-auto w-full px-1">
-          <ChatInput 
-            key={abortedUserInput || (abortedAttachments ? `attachments-${abortedAttachments.length}` : 'default')}
-            onSendMessage={handleSendMessage} 
-            isStreaming={isStreaming}
-            isExecutingTool={isExecutingTool}
-            isCompressing={isCompressing}
-            onStop={abortStream}
-            todos={tasks}
-            mode={mode}
-            onModeChange={handleModeChange}
-            provider={provider}
-            model={model}
-            onModelChange={setActiveProviderAndModel}
-            contextUsage={contextUsage}
-            restoredInput={abortedUserInput ?? undefined}
-            restoredAttachments={abortedAttachments ?? undefined}
-          />
+        <div className={`${horizontalPaddingClass}`}>
+          <div className={`${contentWidthClass} mx-auto`}>
+            <ChatInput 
+              key={abortedUserInput || (abortedAttachments ? `attachments-${abortedAttachments.length}` : 'default')}
+              onSendMessage={handleSendMessage} 
+              isStreaming={isStreaming}
+              isExecutingTool={isExecutingTool}
+              isCompressing={isCompressing}
+              onStop={abortStream}
+              todos={tasks}
+              mode={mode}
+              onModeChange={handleModeChange}
+              provider={provider}
+              model={model}
+              onModelChange={setActiveProviderAndModel}
+              contextUsage={contextUsage}
+              restoredInput={abortedUserInput ?? undefined}
+              restoredAttachments={abortedAttachments ?? undefined}
+            />
+          </div>
         </div>
       </div>
 

@@ -1,22 +1,14 @@
 import type { ChatMode } from '../../types/chat-mode';
 import type { Tool } from '../../types/tool';
 
-// Read-only tools safe for parallel execution
-const READ_ONLY_TOOLS = new Set([
-	'read_file',
-	'list_files',
-	'grep_search',
-	'glob_search',
-	'echo_search',
-	'todo_read',
-]);
-
-// Mutating tools that must run sequentially
-const MUTATING_TOOLS = new Set([
-	'write_to_file',
-	'apply_diff',
-	'delete_file',
+// Tools that must run serially (non-parallelizable)
+// Planning/todo helpers and destructive operations are always executed one at a time.
+const SERIAL_ONLY_TOOLS = new Set<string>([
 	'todo_write',
+	'todo_read',
+	'plan_navigator',
+	'plan_handoff',
+	'delete_file',
 	'execute_command',
 ]);
 
@@ -44,29 +36,31 @@ export function getToolUseGuidelinesSection(mode: ChatMode, enabledTools: Tool[]
 		? 'Never write tool-call syntax into workspace files.'
 		: 'Never expose tool-call syntax in outputs.';
 
-	// Determine which read-only and mutating tools are enabled
-	const enabledReadOnly = enabledTools.filter(t => READ_ONLY_TOOLS.has(t.id)).map(t => t.id);
-	const enabledMutating = enabledTools.filter(t => MUTATING_TOOLS.has(t.id)).map(t => t.id);
+	// Determine which tools are serial-only vs parallelizable for guidance
+	const enabledSerialOnly = enabledTools.filter(t => SERIAL_ONLY_TOOLS.has(t.id)).map(t => t.id);
+	const enabledParallelizable = enabledTools
+		.filter(t => !SERIAL_ONLY_TOOLS.has(t.id))
+		.map(t => t.id);
 
 	// Build parallelization section only if relevant tools exist
 	let parallelSection = '';
-	if (enabledReadOnly.length > 0) {
+	if (enabledParallelizable.length > 0) {
 		parallelSection = `
 
 <parallel_tool_calls>
 WHEN TO PARALLELIZE:
-- You MAY batch multiple independent tool calls in one response when ALL are read-only.
-- Read-only tools: ${enabledReadOnly.join(', ')}
-- Good for: gathering context from multiple files/searches simultaneously.
+- You MAY batch multiple independent tool calls in one response when ALL of them are parallelizable (non-planning, non-todo, non-destructive).
+- Parallelizable tools: ${enabledParallelizable.join(', ')}
+- Good for: gathering context from multiple files/searches or applying edits to multiple files efficiently.
 
 WHEN NOT TO PARALLELIZE:
-- NEVER parallelize mutating tools${enabledMutating.length > 0 ? ` (${enabledMutating.join(', ')})` : ''}.
+- NEVER parallelize serial-only tools${enabledSerialOnly.length > 0 ? ` (${enabledSerialOnly.join(', ')})` : ''}.
 - NEVER parallelize when one call depends on another's result.
 - NEVER parallelize when debugging a failing tool; run one at a time.
 
 HOW TO PARALLELIZE:
-- Output multiple <function_calls> blocks in sequence (one per tool).
-- The system executes read-only calls in parallel automatically.
+- Use a single <function_calls> block containing multiple <invoke> tags, one per tool call.
+- The system may execute parallelizable tools from that block in parallel automatically.
 - Wait for all results before deciding next action.
 </parallel_tool_calls>`;
 	}
@@ -84,7 +78,7 @@ Please follow these rules:
 1. Trust tool results. Never guess file contents or paths.
 2. Do not re-read files. If you saw it earlier, reuse that content.
 3. Keep tool syntax internal. ${noProtocolLeak}
-4. One tool call per block. Never nest tool XML inside parameters.
+4. One tool call per <invoke> tag. You MAY include multiple <invoke> tags inside a single <function_calls> block when parallelizing, but never nest tool XML inside <parameter> values.
 5. Check results before proceeding. Verify each tool succeeded.
 6. Read before edit. Always read_file before apply_diff or write_to_file.
 </core_rules>${parallelSection}`;

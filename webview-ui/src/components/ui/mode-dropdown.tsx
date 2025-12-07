@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { BookOpen, Check, Code, Hammer, MessageCircle } from 'lucide-react';
+import { BookOpen, Check, Code, Hammer, HelpCircle, MessageCircle } from 'lucide-react';
 import { useHoverEffect, hoverPresets } from '../../hooks/use-hover-effect';
 import type { ChatMode } from '../../types/chat-mode';
 import { CHAT_MODE_OPTIONS } from '../../types/chat-mode';
 
 const MODE_ICONS: Record<ChatMode, typeof Code> = {
   agent: Code,
-  ask: MessageCircle,
+  ask: HelpCircle,
   plan: Hammer,
   general: BookOpen,
+  chat: MessageCircle,
 };
 
 interface ModeDropdownProps {
@@ -69,7 +70,7 @@ export function ModeDropdown({ mode, onModeChange, disabled = false, direction =
         disabled={disabled}
         className="flex items-center gap-1.5 px-2 py-1 text-xs rounded-md border transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
         style={{
-          color: mode === 'agent' ? '#22c55e' : mode === 'ask' ? '#3b82f6' : mode === 'plan' ? '#f97316' : '#a855f7',
+          color: mode === 'agent' ? '#22c55e' : mode === 'ask' ? '#3b82f6' : mode === 'plan' ? '#f97316' : mode === 'chat' ? '#ec4899' : '#a855f7',
           backgroundColor: 'transparent',
           borderColor: mode === 'agent'
             ? 'rgba(34, 197, 94, 0.3)'
@@ -77,7 +78,9 @@ export function ModeDropdown({ mode, onModeChange, disabled = false, direction =
               ? 'rgba(59, 130, 246, 0.3)'
               : mode === 'plan'
                 ? 'rgba(249, 115, 22, 0.3)'
-                : 'rgba(168, 85, 247, 0.3)',
+                : mode === 'chat'
+                  ? 'rgba(236, 72, 153, 0.3)'
+                  : 'rgba(168, 85, 247, 0.3)',
         }}
         title={currentOption?.description}
         onMouseEnter={(e) => !disabled && handleMouseEnter(e, hoverPresets.button.enter)}
@@ -103,7 +106,7 @@ export function ModeDropdown({ mode, onModeChange, disabled = false, direction =
             {CHAT_MODE_OPTIONS.map((option) => {
               const Icon = MODE_ICONS[option.value];
               const isSelected = option.value === mode;
-              
+
               return (
                 <button
                   key={option.value}
@@ -124,7 +127,7 @@ export function ModeDropdown({ mode, onModeChange, disabled = false, direction =
                 >
                   {/* Icon */}
                   <Icon className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                  
+
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-xs leading-tight">{option.label}</div>
@@ -132,7 +135,7 @@ export function ModeDropdown({ mode, onModeChange, disabled = false, direction =
                       {option.description}
                     </div>
                   </div>
-                  
+
                   {/* Checkmark for selected */}
                   {isSelected && (
                     <Check className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />

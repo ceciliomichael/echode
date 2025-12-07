@@ -1,15 +1,36 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import type { ITool, ToolExecutionResult } from './tool.interface';
+import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
 
 export class GetDiagnosticsTool implements ITool {
   name = 'get_diagnostics';
 
   async execute(parameters: Record<string, unknown>): Promise<ToolExecutionResult> {
     try {
-      const includeWarnings = parameters.include_warnings !== false;
+      const rawPath = typeof parameters.path === 'string' && parameters.path.trim().length > 0
+        ? parameters.path.trim()
+        : undefined;
       const filePattern = typeof parameters.file_pattern === 'string' && parameters.file_pattern.trim().length > 0
         ? parameters.file_pattern.trim()
         : undefined;
+
+      let targetPath: string | undefined;
+      let isDirectoryTarget = false;
+
+      if (rawPath) {
+        const workspaceRoot = getWorkspaceRoot();
+        if (!workspaceRoot) {
+          return {
+            success: false,
+            error: 'No workspace folder open',
+          };
+        }
+
+        const resolved = resolveAbsolutePath(rawPath, workspaceRoot);
+        targetPath = resolved;
+        isDirectoryTarget = this.isDirectoryTarget(resolved);
+      }
 
       const allDiagnostics = vscode.languages.getDiagnostics();
 
@@ -30,23 +51,32 @@ export class GetDiagnosticsTool implements ITool {
 
         const filePath = uri.fsPath;
 
-        if (filePattern && !filePath.includes(filePattern)) {
+        if (targetPath) {
+          const normalizedFilePath = path.normalize(filePath);
+          const normalizedTarget = path.normalize(targetPath);
+
+          if (isDirectoryTarget) {
+            if (
+              normalizedFilePath !== normalizedTarget &&
+              !normalizedFilePath.startsWith(normalizedTarget + path.sep)
+            ) {
+              continue;
+            }
+          } else {
+            if (normalizedFilePath !== normalizedTarget) {
+              continue;
+            }
+          }
+        } else if (filePattern && !filePath.includes(filePattern)) {
           continue;
         }
 
-        const filtered = diagnostics.filter((d) => {
-          if (d.severity === vscode.DiagnosticSeverity.Error) {
-            return true;
-          }
-          if (!includeWarnings) {
-            return false;
-          }
-          return (
-            d.severity === vscode.DiagnosticSeverity.Warning ||
-            d.severity === vscode.DiagnosticSeverity.Information ||
-            d.severity === vscode.DiagnosticSeverity.Hint
-          );
-        });
+        const filtered = diagnostics.filter((d) =>
+          d.severity === vscode.DiagnosticSeverity.Error ||
+          d.severity === vscode.DiagnosticSeverity.Warning ||
+          d.severity === vscode.DiagnosticSeverity.Information ||
+          d.severity === vscode.DiagnosticSeverity.Hint,
+        );
 
         if (filtered.length === 0) {continue;}
 
@@ -96,5 +126,11 @@ export class GetDiagnosticsTool implements ITool {
       default:
         return 'Information';
     }
+  }
+
+  private isDirectoryTarget(resolvedPath: string): boolean {
+    // Heuristic: if the path has a file extension, treat it as a file; otherwise as a directory.
+    const ext = path.extname(resolvedPath);
+    return ext.length === 0;
   }
 }

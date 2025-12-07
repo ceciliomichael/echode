@@ -225,14 +225,14 @@ export const storageService = {
     if (!firstUserMessage) {
       return 'New Chat';
     }
-    
+
     const content = stripAttachedFileBlocks(firstUserMessage.content).trim();
     const maxLength = 50;
-    
+
     if (content.length <= maxLength) {
       return content;
     }
-    
+
     return content.substring(0, maxLength).trim() + '...';
   },
 
@@ -241,23 +241,23 @@ export const storageService = {
     if (!firstUserMessage) {
       return '';
     }
-    
+
     const content = stripAttachedFileBlocks(firstUserMessage.content).trim();
     const maxLength = 100;
-    
+
     if (content.length <= maxLength) {
       return content;
     }
-    
+
     return content.substring(0, maxLength).trim() + '...';
   },
 
-  getChatMode(): 'agent' | 'plan' | 'ask' | 'general' {
+  getChatMode(): 'agent' | 'plan' | 'ask' | 'general' | 'chat' {
     const settings = this.getSettings();
     return settings.chatMode || DEFAULT_CHAT_MODE;
   },
 
-  setChatMode(mode: 'agent' | 'plan' | 'ask' | 'general'): void {
+  setChatMode(mode: 'agent' | 'plan' | 'ask' | 'general' | 'chat'): void {
     const settings = this.getSettings();
     settings.chatMode = mode;
     this.saveSettings(settings);

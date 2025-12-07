@@ -8,7 +8,7 @@ export type ToolProgressCallback = (progress: EchoSearchProgress) => void;
 /**
  * Chat mode type for mode-specific tool behavior
  */
-export type ChatMode = 'agent' | 'plan' | 'ask' | 'general';
+export type ChatMode = 'agent' | 'plan' | 'ask' | 'general' | 'chat';
 
 /**
  * Execute tool via VSCode extension backend

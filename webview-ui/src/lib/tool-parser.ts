@@ -263,21 +263,19 @@ export function extractFirstToolBlock(content: string): ParsedToolBlock | null {
 
 /**
  * Check if a tool is parallelizable.
- * Includes read-only tools and file modification tools (write_to_file, apply_diff).
- * Only delete_file and other destructive tools must run sequentially.
+ * By default, tools are treated as parallelizable unless explicitly marked as serial-only.
+ * Serial-only tools include planning/todo helpers and destructive operations.
  */
 export function isParallelizableTool(toolName: string): boolean {
-  const parallelizableTools = [
-    'read_file',
-    'list_files',
-    'grep_search',
-    'glob_search',
-    'echo_search',
+  const serialOnlyTools = new Set<string>([
+    'todo_write',
     'todo_read',
-    'write_to_file',
-    'apply_diff',
-  ];
-  return parallelizableTools.includes(toolName);
+    'plan_navigator',
+    'plan_handoff',
+    'delete_file',
+    'execute_command',
+  ]);
+  return !serialOnlyTools.has(toolName);
 }
 
 /**

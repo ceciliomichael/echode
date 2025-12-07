@@ -16,7 +16,7 @@ import type { ContextUsageResult } from '../../hooks/use-context-usage';
 
 import { useContextMenu } from '../../hooks/use-context-menu';
 import { useWorkspaceContext } from '../../hooks/use-workspace-context';
-import { clearMentionPaths, removeMention, getMentionPath, unescapeSpaces, registerMentionPath } from '../../utils/mention-utils';
+import { clearMentionPaths, removeMention, getMentionPath, unescapeSpaces, registerMentionPath, parseMentions } from '../../utils/mention-utils';
 
 import { buildRefactorMessage } from '../../utils/message-builders';
 import type { TodoTask } from '../../types/todo';
@@ -50,6 +50,7 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
   const showStopButton = isStreaming || isExecutingTool;
 
   const [input, setInput] = useState(restoredInput ?? '');
+
   const [cursorPos, setCursorPos] = useState(0);
   const [attachments, setAttachments] = useState<DocumentAttachment[]>(restoredAttachments ?? []);
   const [imageAttachments, setImageAttachments] = useState<ImageAttachment[]>([]);
@@ -81,6 +82,20 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
     workspaceFiles,
     enabled: !disabled && !isStreaming,
   });
+
+  // When we restore aborted input (after a revert/abort), rebuild mention
+  // path mappings so that existing @mentions are recognized again.
+  useEffect(() => {
+    if (!restoredInput || !restoredInput.trim() || workspaceFiles.length === 0) {
+      return;
+    }
+
+    const mentionPaths = parseMentions(restoredInput, workspaceFiles);
+    for (const fullPath of mentionPaths) {
+      const basename = fullPath.split(/[/\\]/).pop() || fullPath;
+      registerMentionPath(basename, fullPath);
+    }
+  }, [restoredInput, workspaceFiles]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -312,7 +327,7 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
 
   return (
     <div
-      className="px-3 relative"
+      className="relative w-full"
       data-edit-outside-ignore="true"
       style={{
         paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))",

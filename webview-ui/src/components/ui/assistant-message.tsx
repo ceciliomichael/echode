@@ -46,6 +46,9 @@ function sanitizeAssistantText(content: string): string {
 }
 
 function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming = false, isCompressing = false, toolExecutions }: AssistantMessageProps) {
+  // Allow text/think to span wider while staying slightly inset
+  const contentMaxWidth = 'min(110ch, 100%)';
+
   // Tokenize content into stable segments
   const tokens = useMemo(() => tokenizeContent(content, messageId), [content, messageId]);
 
@@ -127,7 +130,10 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
           
           if (token.type === 'think') {
             return (
-              <div key={`think-${messageId}-${token.index}`} style={{ marginTop, paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
+              <div
+                key={`think-${messageId}-${token.index}`}
+                style={{ marginTop, paddingLeft: '1.25rem', paddingRight: '1.25rem', maxWidth: contentMaxWidth }}
+              >
                 <ThinkBlock
                   content={token.content}
                   messageId={`${messageId}-${token.index}`}
@@ -183,7 +189,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                       const fileIsConnectedBottom = !isLastFile || isConnectedBottom;
                       
                       return (
-                        <div key={`tool-${messageId}-${token.index}-file-${fileIdx}`} style={{ marginTop: fileMarginTop, paddingLeft: '0.5rem', paddingRight: '0.5rem' }}>
+                        <div key={`tool-${messageId}-${token.index}-file-${fileIdx}`} style={{ marginTop: fileMarginTop }}>
                           <ToolBlock 
                             toolCall={fileToolCall}
                             isConnectedTop={fileIsConnectedTop}
@@ -215,7 +221,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
             };
             
             return (
-              <div key={`tool-${messageId}-${token.index}`} style={{ marginTop: toolMarginTop, paddingLeft: '0.5rem', paddingRight: '0.5rem' }}>
+              <div key={`tool-${messageId}-${token.index}`} style={{ marginTop: toolMarginTop }}>
                 <ToolBlock 
                   toolCall={toolCall}
                   isConnectedTop={isConnectedTop}
@@ -235,7 +241,10 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
             const textMarginTop = prevToken?.type === 'think' ? '0.1rem' : marginTop;
             
             return (
-              <div key={`text-${messageId}-${token.index}`} style={{ marginTop: textMarginTop, paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
+              <div
+                key={`text-${messageId}-${token.index}`}
+                style={{ marginTop: textMarginTop, paddingLeft: '1.25rem', paddingRight: '1.25rem', maxWidth: contentMaxWidth }}
+              >
                 <StableMarkdown 
                   content={sanitizeAssistantText(token.content)} 
                 />
@@ -274,6 +283,15 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
               if (!token.isClosed) return true;
               return false;
             });
+
+            // If any tool executions are still active (pending/executing), we're still in the tool phase
+            // and should not yet show the bottom loading dots, even if one parallel tool has finished.
+            const hasActiveToolExecutions = Array.from(toolExecutions?.values() || []).some(state =>
+              state.status === 'pending' || state.status === 'executing' || state.status === 'fetching_diagnostics'
+            );
+            if (hasActiveToolExecutions) {
+              return null;
+            }
             
             // If there are visible tokens, check the last one
             if (visibleTokens.length > 0) {

@@ -179,29 +179,34 @@ registerToolPlugin({
     name: 'Get Diagnostics',
     description: 'Collect current linter/compiler diagnostics from the workspace',
     aiDescription: `## get_diagnostics
-Description: Collect all available diagnostics (lint/compile errors and warnings) from the workspace as reported by the language servers.
+Description: Collect all available diagnostics (lint/compile errors and warnings, plus information and hints) from the workspace as reported by the language servers.
 
 Primary purpose:
 - Use this tool near the END of an implementation flow to verify that your edits did not introduce new errors.
 - If diagnostics are returned, you should usually perform another round of fixes (e.g., with write_to_file or apply_diff) before declaring the task complete.
 
 Parameters:
-- include_warnings: (optional, default: true) If false, only errors are returned. If true or omitted, errors + warnings + information/hints are returned.
-- file_pattern: (optional) Plain string used to filter files by path substring (e.g., "src/" or ".ts"). When omitted, diagnostics for all files are returned.
+- path: (optional) Target within the workspace. Can be either a specific file path (e.g., "src/app.ts") or a directory path (e.g., "src"). When provided, diagnostics are limited to that file or to files under that directory.
+- file_pattern: (optional) Plain string used to filter files by path substring (e.g., "src/" or ".ts"). Only used when path is not provided. When omitted, diagnostics for all files are returned.
 
 Recommended usage patterns:
-1. Final workspace check before completion:
+1. Final workspace check before completion (entire workspace):
 <function_calls>
 <invoke name="get_diagnostics">
-<parameter name="include_warnings">true</parameter>
 </invoke>
 </function_calls>
 
-2. Focus diagnostics on a specific area:
+2. Focus diagnostics on a specific directory:
 <function_calls>
 <invoke name="get_diagnostics">
-<parameter name="file_pattern">src/</parameter>
-<parameter name="include_warnings">true</parameter>
+<parameter name="path">src</parameter>
+</invoke>
+</function_calls>
+
+3. Focus diagnostics on a specific file:
+<function_calls>
+<invoke name="get_diagnostics">
+<parameter name="path">src/app.ts</parameter>
 </invoke>
 </function_calls>
 
@@ -209,9 +214,9 @@ Handling results:
 - If totalDiagnostics is 0: You can safely report that no diagnostics were found.
 - If diagnostics exist: summarize them for the user and consider applying fixes before finishing.`,
     icon: AlertTriangle,
-    usage: 'Collect linter/compiler diagnostics for the current workspace',
+    usage: 'Collect linter/compiler diagnostics for the current workspace, a directory, or a specific file',
     formatExample:
-      '<function_calls>\n<invoke name="get_diagnostics">\n<parameter name="include_warnings">true</parameter>\n</invoke>\n</function_calls>',
+      '<function_calls>\n<invoke name="get_diagnostics">\n<parameter name="path">src</parameter>\n</invoke>\n</function_calls>',
   },
   handler: {
     execute: executeGetDiagnostics,

@@ -85,7 +85,7 @@ export interface ApiSettings {
   streamingTimeout: number;
   systemPrompt?: string;
   enabledTools?: Tool[];
-  chatMode?: 'agent' | 'plan' | 'ask' | 'general';
+  chatMode?: 'agent' | 'plan' | 'ask' | 'general' | 'chat';
   indexingSettings?: IndexingSettings;
   autocompleteSettings?: AutocompleteSettings;
   contextSettings?: ContextSettings;

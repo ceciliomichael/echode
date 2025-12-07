@@ -47,12 +47,16 @@ export function MessageBubble({ message, onEdit, onUpdate, isEditing, onEditStar
   }
 
   return (
-    <AssistantMessage 
-      content={message.content} 
-      messageId={message.id}
-      isStreaming={isStreaming}
-      isCompressing={isCompressing}
-      toolExecutions={message.toolExecutions}
-    />
+    <div className="flex w-full">
+      <div className="w-full">
+        <AssistantMessage 
+          content={message.content} 
+          messageId={message.id}
+          isStreaming={isStreaming}
+          isCompressing={isCompressing}
+          toolExecutions={message.toolExecutions}
+        />
+      </div>
+    </div>
   );
 }

@@ -11,6 +11,7 @@ interface ToolBlockHeaderProps {
   status: ToolStatus;
   isStreaming?: boolean;
   hasResultContent: boolean;
+  canToggle: boolean;
 }
 
 export function ToolBlockHeader({
@@ -21,6 +22,7 @@ export function ToolBlockHeader({
   status,
   isStreaming,
   hasResultContent,
+  canToggle,
 }: ToolBlockHeaderProps) {
   const isDone = !isStreaming &&
     status !== 'pending' &&
@@ -31,8 +33,11 @@ export function ToolBlockHeader({
   return (
     <button
       type="button"
-      onClick={onToggle}
-      className="group w-full flex items-center justify-between px-3 py-2 transition-opacity hover:opacity-90 select-none"
+      onClick={canToggle ? onToggle : undefined}
+      disabled={!canToggle}
+      className={`group w-full flex items-center justify-between px-3 py-2 transition-opacity select-none ${
+        canToggle ? 'hover:opacity-90' : 'opacity-70 cursor-default'
+      }`}
       style={{
         backgroundColor: 'var(--vscode-editor-background)',
         outline: 'none',

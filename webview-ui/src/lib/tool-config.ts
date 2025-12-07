@@ -72,6 +72,11 @@ export function getToolsForMode(mode: ChatMode, defaultEnabled = true): Tool[] {
     );
   }
 
+  if (mode === 'chat') {
+    // Chat mode: no tools at all - pure conversation
+    return [];
+  }
+
   // Agent mode: include all tools except plan-only helpers
   return allTools.filter(tool => !PLAN_ONLY_TOOL_IDS.has(tool.id));
 }

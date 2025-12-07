@@ -31,7 +31,6 @@ Parameters:
 - path: (required) File path with extension (e.g., src/app.ts)
 - offset: (optional) Start line number (1-based, default: 1)
 - limit: (optional) Number of lines to read (default: 500)
-- check_lints: (optional) If true, fetch and return lint/compile diagnostics for the file. Defaults to false.
 
 Examples:
 
