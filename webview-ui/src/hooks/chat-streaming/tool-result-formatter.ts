@@ -1,0 +1,70 @@
+import type { ToolExecutionState } from '../../types/tool';
+import type { ChatMode } from '../../types/chat-mode';
+import { isToolAvailableInMode } from '../../utils/tool-history-filter';
+import { truncateContent, MAX_FILE_CONTENT_CHARS } from './helpers';
+
+/**
+ * Format tool execution results for inclusion in chat history
+ * Returns formatted tool results string array and list of skipped tools
+ */
+export function formatToolExecutionResults(
+  toolExecutions: Map<string, ToolExecutionState>,
+  mode: ChatMode
+): { toolResults: string[]; skippedTools: string[] } {
+  const toolResults: string[] = [];
+  const skippedTools: string[] = [];
+
+  toolExecutions.forEach((execution) => {
+    // Skip tools not available in current mode to prevent AI confusion
+    if (!isToolAvailableInMode(execution.toolName, mode)) {
+      skippedTools.push(execution.toolName);
+      return;
+    }
+    if (execution.status === 'completed' && execution.result) {
+      if (execution.result.success) {
+        // Format result based on tool type
+        const data = execution.result.data as Record<string, unknown>;
+        let formattedResult = '';
+
+        if (execution.toolName === 'read_file') {
+          // For read_file, handle both single and multiple files
+          if ('files' in data && Array.isArray(data.files)) {
+            // Multiple files case
+            const files = data.files as Array<{ path: string; content: string }>;
+            formattedResult = files
+              .map(f => `File: ${f.path}\n${truncateContent(f.content, MAX_FILE_CONTENT_CHARS)}`)
+              .join('\n\n---\n\n');
+          } else if ('content' in data && 'path' in data) {
+            // Single file case
+            formattedResult = `File: ${data.path as string}\n${truncateContent(String(data.content), MAX_FILE_CONTENT_CHARS)}`;
+          } else {
+            formattedResult = JSON.stringify(data);
+          }
+        } else if (execution.toolName === 'grep_search') {
+          // For grep, show matches concisely
+          formattedResult = `Query: ${data.query as string}\nFound ${data.totalMatches as number} matches in ${data.filesWithMatches as number} files`;
+          if (data.results && Array.isArray(data.results) && data.results.length > 0) {
+            formattedResult += '\n' + data.results.slice(0, 5).map((r: Record<string, unknown>) =>
+              `${r.file as string}: ${(r.matches as unknown[]).length} matches`
+            ).join('\n');
+          }
+        } else if (execution.toolName === 'list_files') {
+          // For list_files, show directory contents
+          const directories = data.directories as Array<{ name: string }> | undefined;
+          const files = data.files as Array<{ name: string }> | undefined;
+          formattedResult = `Directory: ${data.path as string}\nDirectories: ${directories?.map(d => d.name).join(', ') || 'none'}\nFiles: ${files?.map(f => f.name).join(', ') || 'none'}`;
+        } else {
+          // For other tools, stringify the data
+          formattedResult = JSON.stringify(data);
+        }
+
+        toolResults.push(`[${execution.toolName}]\n${formattedResult}`);
+      } else {
+        // Tool error
+        toolResults.push(`[${execution.toolName} ERROR]\n${execution.result.error}`);
+      }
+    }
+  });
+
+  return { toolResults, skippedTools };
+}
