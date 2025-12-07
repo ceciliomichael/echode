@@ -87,10 +87,10 @@ export function useChatScroll(
 
     if (currentMessageCount > 0) {
       requestAnimationFrame(() => {
-        const nearBottom = isNearBottom();
-
-        // Only follow when auto-scroll is enabled and user is near bottom
-        if (isAutoScrollEnabledRef.current && (hasNewMessage || isStreamingUpdate || nearBottom)) {
+        // When auto-scroll is enabled, always pin to the bottom on new messages
+        // and while streaming content (including loading dots), regardless of
+        // the current scroll position.
+        if (isAutoScrollEnabledRef.current && (hasNewMessage || isStreamingUpdate)) {
           scrollToBottom({ behavior: hasNewMessage || !isStreamingUpdate ? 'smooth' : 'auto' });
         }
       });
@@ -98,7 +98,7 @@ export function useChatScroll(
 
     lastMessageCountRef.current = currentMessageCount;
     lastMessageKeyRef.current = lastMessageKey;
-  }, [messageCount, lastMessageKey, isStreaming, isExecutingTool, isNearBottom, scrollToBottom]);
+  }, [messageCount, lastMessageKey, isStreaming, isExecutingTool, scrollToBottom]);
 
   return {
     scrollContainerRef,
