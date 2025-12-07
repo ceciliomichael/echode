@@ -287,9 +287,15 @@ function isInsideInvokeParameterValue(content: string, position: number): boolea
  * Extract ALL invoke blocks from content using balanced tag matching
  * Returns array of all invoke blocks found
  * IMPORTANT: Only extracts TOP-LEVEL invoke blocks, skipping nested invokes inside parameter values
+ *
+ * Each block is annotated with isClosed, which is true only when a matching </invoke>
+ * has been found for that specific block. This is critical for streaming: in a
+ * multi-invoke function_calls block, earlier invokes may be closed while the last
+ * one is still streaming, and we must not mark that last invoke as closed until
+ * its own </invoke> arrives.
  */
-function extractAllInvokeBlocks(content: string): Array<{ toolName: string; innerContent: string; fullMatch: string }> {
-  const blocks: Array<{ toolName: string; innerContent: string; fullMatch: string }> = [];
+function extractAllInvokeBlocks(content: string): Array<{ toolName: string; innerContent: string; fullMatch: string; isClosed: boolean }> {
+  const blocks: Array<{ toolName: string; innerContent: string; fullMatch: string; isClosed: boolean }> = [];
   const invokeOpenRegex = /<invoke\s+name=["']([^"']+)["']>/g;
   const closeTag = '</invoke>';
 
@@ -307,16 +313,24 @@ function extractAllInvokeBlocks(content: string): Array<{ toolName: string; inne
     const closePos = findMatchingInvokeClosingTagRespectingParams(content, openTagEnd);
 
     if (closePos !== -1) {
+      // Complete invoke block
       const innerContent = content.slice(openTagEnd, closePos);
       const fullMatch = content.slice(match.index, closePos + closeTag.length);
-      blocks.push({ toolName, innerContent, fullMatch });
+      blocks.push({ toolName, innerContent, fullMatch, isClosed: true });
       
       // CRITICAL: Skip past this entire invoke block to avoid finding nested invokes
       // inside parameter values (e.g., tool syntax inside write_to_file content)
       invokeOpenRegex.lastIndex = closePos + closeTag.length;
     } else {
-      // No closing tag - partial content for streaming (only for last block)
-      blocks.push({ toolName, innerContent: content.slice(openTagEnd), fullMatch: content.slice(match.index) });
+      // No closing tag for THIS invoke - partial content for streaming.
+      // We still return a block so the UI can show a pending/streaming tool,
+      // but mark it as not closed so status stays in "pending" while content streams.
+      blocks.push({
+        toolName,
+        innerContent: content.slice(openTagEnd),
+        fullMatch: content.slice(match.index),
+        isClosed: false,
+      });
       break; // Stop at first incomplete block
     }
   }
@@ -540,7 +554,7 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
           if (invokeBlocks.length > 0) {
             // Create a token for each invoke block
             for (const invokeBlock of invokeBlocks) {
-              const { toolName, innerContent: invokeContent, fullMatch } = invokeBlock;
+              const { toolName, innerContent: invokeContent, fullMatch, isClosed } = invokeBlock;
               const parameters = parseXMLParameters(invokeContent);
 
               // Allow all tool names - validation happens at execution time
@@ -553,7 +567,7 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
                   parameters,
                   rawContent: `<function_calls>${fullMatch}</function_calls>`, // Wrap individual invoke in function_calls for consistency
                   index: tokenIndex++,
-                  isClosed: true,
+                  isClosed,
                   toolExecutionId: execId
                 });
               }
@@ -597,13 +611,9 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
           
           if (invokeBlocks.length > 0) {
             // Create tokens for all invoke blocks found
-            for (let i = 0; i < invokeBlocks.length; i++) {
-              const invokeBlock = invokeBlocks[i];
-              const { toolName, innerContent: invokeContent, fullMatch } = invokeBlock;
+            for (const invokeBlock of invokeBlocks) {
+              const { toolName, innerContent: invokeContent, fullMatch, isClosed } = invokeBlock;
               const parameters = parseXMLParameters(invokeContent);
-              const isLastBlock = i === invokeBlocks.length - 1;
-              // Last block might be incomplete (no closing </invoke> yet)
-              const isClosed = !isLastBlock || innerContent.includes('</invoke>');
 
               if (toolName && typeof toolName === 'string') {
                 tokens.push({

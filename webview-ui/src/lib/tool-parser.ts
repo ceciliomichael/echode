@@ -5,6 +5,8 @@ import {
   parseXMLParameters,
   preprocessContent,
   findMatchingClosingTag,
+  findMatchingInvokeClosingTag,
+  isInsideInvokeParameterValue,
 } from './parser';
 
 // Legacy regex pattern kept for parseToolBlock backward compatibility
@@ -279,18 +281,31 @@ export function isParallelizableTool(toolName: string): boolean {
 }
 
 /**
+ * Represents a pending (partial) invoke block where <invoke> opened but </invoke> hasn't arrived
+ */
+export interface PendingInvokeBlock {
+  toolName: string;
+  parameters: Record<string, unknown>;
+}
+
+/**
  * Extract complete invoke blocks from content that may have an incomplete function_calls block.
  * This is used for incremental tool execution - we can start executing tools as soon as
  * their </invoke> closes, even before </function_calls> is received.
  * 
- * Returns: { blocks: ParsedToolBlock[], hasFunctionCallsClose: boolean }
+ * Also returns pending invoke blocks (where <invoke> opened but </invoke> hasn't arrived yet)
+ * so the UI can show them as "pending" with streaming content.
+ * 
+ * Returns: { blocks: ParsedToolBlock[], pendingBlocks: PendingInvokeBlock[], hasFunctionCallsClose: boolean }
  */
 export function extractCompleteInvokeBlocksIncremental(content: string): {
   blocks: ParsedToolBlock[];
+  pendingBlocks: PendingInvokeBlock[];
   hasFunctionCallsClose: boolean;
 } {
   const preprocessed = preprocessContent(content);
   const blocks: ParsedToolBlock[] = [];
+  const pendingBlocks: PendingInvokeBlock[] = [];
   
   // Check if we have a function_calls opening
   const openTag = '<function_calls>';
@@ -307,7 +322,7 @@ export function extractCompleteInvokeBlocksIncremental(content: string): {
   
   const openPos = preprocessed.indexOf(openTag, searchStart);
   if (openPos === -1) {
-    return { blocks: [], hasFunctionCallsClose: false };
+    return { blocks: [], pendingBlocks: [], hasFunctionCallsClose: false };
   }
   
   const openTagEnd = openPos + openTag.length;
@@ -333,7 +348,48 @@ export function extractCompleteInvokeBlocksIncremental(content: string): {
     }
   }
   
-  return { blocks, hasFunctionCallsClose };
+  // Find pending (partial) invoke blocks - where <invoke> opened but </invoke> hasn't arrived
+  // Search for invoke opening tags that don't have a matching close
+  const invokeOpenRegex = /<invoke\s+name=["']([^"']+)["']>/g;
+  let match: RegExpExecArray | null;
+  let lastCompleteInvokeEnd = 0;
+  
+  // Find where the last complete invoke ends
+  if (invokeBlocks.length > 0) {
+    const lastBlock = invokeBlocks[invokeBlocks.length - 1];
+    const lastBlockPos = innerContent.lastIndexOf(lastBlock.fullMatch);
+    if (lastBlockPos !== -1) {
+      lastCompleteInvokeEnd = lastBlockPos + lastBlock.fullMatch.length;
+    }
+  }
+  
+  // Search for invoke openings after the last complete block
+  invokeOpenRegex.lastIndex = lastCompleteInvokeEnd;
+  while ((match = invokeOpenRegex.exec(innerContent)) !== null) {
+    // Skip if inside parameter value
+    if (isInsideInvokeParameterValue(innerContent, match.index)) {
+      continue;
+    }
+    
+    const toolName = match[1];
+    const openTagEndPos = match.index + match[0].length;
+    
+    // Check if this invoke has a closing tag
+    const invokeClosePos = findMatchingInvokeClosingTag(innerContent, openTagEndPos);
+    
+    if (invokeClosePos === -1) {
+      // This is a pending invoke - no closing tag yet
+      const partialContent = innerContent.slice(openTagEndPos);
+      const parameters = parseXMLParameters(partialContent);
+      
+      pendingBlocks.push({
+        toolName,
+        parameters,
+      });
+    }
+  }
+  
+  return { blocks, pendingBlocks, hasFunctionCallsClose };
 }
 
 /**

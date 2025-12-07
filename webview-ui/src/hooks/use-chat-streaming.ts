@@ -7,6 +7,7 @@ import { useWorkspaceContext } from './use-workspace-context';
 import type { Message, ImageAttachment } from '../types/chat';
 import type { ChatMessage } from '../types/chat-api';
 import type { ChatMode } from '../types/chat-mode';
+import type { ToolExecutionState } from '../types/tool';
 import { hasCompleteToolBlock, trimToFirstCompleteToolBlock, extractCompleteInvokeBlocksIncremental } from '../lib/tool-parser';
 import { ToolExecutor } from '../lib/tool-executor';
 import { getToolsForMode } from '../lib/tool-config';
@@ -606,8 +607,27 @@ export function useChatStreaming({
             }
             console.log(`[STREAMING] Accumulated content length: ${assistantContent.length} chars`);
             
-            // Check for complete invoke blocks (incremental execution)
-            const { blocks, hasFunctionCallsClose } = extractCompleteInvokeBlocksIncremental(assistantContent);
+            // Check for complete and pending invoke blocks (incremental execution)
+            const { blocks, pendingBlocks, hasFunctionCallsClose } = extractCompleteInvokeBlocksIncremental(assistantContent);
+            
+            // Update pending execution states for invoke blocks that have opened but not closed yet
+            // This allows the UI to show them as "pending" with streaming content
+            // We update on EVERY chunk so the parameters (content) are refreshed as they stream in
+            for (let i = 0; i < pendingBlocks.length; i++) {
+              const pendingIndex = blocks.length + i; // Pending blocks come after complete blocks
+              const pending = pendingBlocks[i];
+              const execId = generateToolExecutionId(assistantMessageId, pendingIndex);
+              
+              // Create/update pending state (status: 'pending') so UI shows streaming content
+              const pendingState: ToolExecutionState = {
+                toolExecutionId: execId,
+                toolName: pending.toolName,
+                parameters: pending.parameters, // Updated parameters with latest streamed content
+                status: 'pending',
+                startedAt: Date.now(),
+              };
+              updateToolExecution(assistantMessageId, execId, pendingState);
+            }
             
             // Schedule execution for any new complete invoke blocks
             for (let i = 0; i < blocks.length; i++) {
