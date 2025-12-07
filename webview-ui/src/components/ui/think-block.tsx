@@ -22,7 +22,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { memo, useEffect, useRef, useState } from 'react';
 import { getThinkBlockDuration, setThinkBlockDuration } from '../../utils/think-block-storage';
 import { formatDuration } from '../../utils/format-duration';
-import { StableMarkdown } from './stable-markdown';
+import { StreamingText } from './streaming-text';
 
 // ============================================================================
 // Types
@@ -40,7 +40,7 @@ interface ThinkBlockProps {
 // ============================================================================
 
 const ThinkContent = memo(
-  ({ content }: { content: string }) => {
+  ({ content, isStreaming }: { content: string; isStreaming: boolean }) => {
     return (
       <div 
         className="text-sm m-0"
@@ -50,11 +50,11 @@ const ThinkContent = memo(
           fontFamily: 'var(--vscode-font-family)'
         }}
       >
-        <StableMarkdown content={content.trim()} />
+        <StreamingText content={content.trim()} isStreaming={isStreaming} />
       </div>
     );
   },
-  (prev, next) => prev.content === next.content
+  (prev, next) => prev.content === next.content && prev.isStreaming === next.isStreaming
 );
 
 // ============================================================================
@@ -217,7 +217,7 @@ const ThinkBlockComponent = ({
             : 'max-h-0 opacity-0 mt-0'
         }`}
       >
-        <ThinkContent content={content} />
+        <ThinkContent content={content} isStreaming={isStreaming} />
       </div>
     </div>
   );

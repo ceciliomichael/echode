@@ -10,6 +10,7 @@ interface ChatScrollState {
 
 export function useChatScroll(
   messageCount: number,
+  lastMessageKey: string,
   isStreaming: boolean,
   isExecutingTool: boolean
 ): ChatScrollState {
@@ -18,11 +19,8 @@ export function useChatScroll(
   const lastMessageCountRef = useRef(0);
   const lastScrollTopRef = useRef(0);
   const isAutoScrollEnabledRef = useRef(isAutoScrollEnabled);
-
-  // Keep ref in sync with state
-  useEffect(() => {
-    isAutoScrollEnabledRef.current = isAutoScrollEnabled;
-  }, [isAutoScrollEnabled]);
+  const lastMessageKeyRef = useRef(lastMessageKey);
+  const bottomThresholdPx = 64;
 
   const scrollToBottom = useCallback((options?: { behavior?: 'auto' | 'smooth' }) => {
     if (scrollContainerRef.current) {
@@ -33,11 +31,23 @@ export function useChatScroll(
     }
   }, []);
 
+  // Keep ref in sync with state
+  useEffect(() => {
+    isAutoScrollEnabledRef.current = isAutoScrollEnabled;
+  }, [isAutoScrollEnabled]);
+
+  // Ensure we start pinned to bottom on mount when enabled
+  useEffect(() => {
+    if (isAutoScrollEnabledRef.current) {
+      requestAnimationFrame(() => scrollToBottom({ behavior: 'auto' }));
+    }
+  }, [scrollToBottom]);
+
   const isNearBottom = useCallback(() => {
     if (!scrollContainerRef.current) return false;
     const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
     const distanceToBottom = scrollHeight - scrollTop - clientHeight;
-    return distanceToBottom < 40;
+    return distanceToBottom <= bottomThresholdPx;
   }, []);
 
   const handleScroll = useCallback(() => {
@@ -47,41 +57,48 @@ export function useChatScroll(
     const { scrollTop } = container;
     const previousScrollTop = lastScrollTopRef.current;
     const isScrollingUp = scrollTop < previousScrollTop;
+    const nearBottom = isNearBottom();
 
     lastScrollTopRef.current = scrollTop;
 
     if (isScrollingUp) {
-      if (isAutoScrollEnabled) {
+      if (isAutoScrollEnabledRef.current) {
         setIsAutoScrollEnabled(false);
       }
       return;
     }
 
-    if (isNearBottom()) {
-      if (!isAutoScrollEnabled) {
-        setIsAutoScrollEnabled(true);
-      }
+    if (!nearBottom) {
+      return;
     }
-  }, [isAutoScrollEnabled, isNearBottom]);
 
-  // Auto-scroll when messages change
+    if (!isAutoScrollEnabledRef.current) {
+      setIsAutoScrollEnabled(true);
+    }
+  }, [isNearBottom]);
+
+  // Auto-scroll when messages or streamed content change
   useEffect(() => {
     const currentMessageCount = messageCount;
     const previousMessageCount = lastMessageCountRef.current;
     const hasNewMessage = currentMessageCount > previousMessageCount;
-    const isStreamingUpdate =
-      currentMessageCount === previousMessageCount && (isStreaming || isExecutingTool);
+    const hasNewContent = lastMessageKey !== lastMessageKeyRef.current;
+    const isStreamingUpdate = hasNewContent && (isStreaming || isExecutingTool);
 
     if (currentMessageCount > 0) {
       requestAnimationFrame(() => {
-        if (!isAutoScrollEnabledRef.current) return;
-        if (!isNearBottom()) return;
-        scrollToBottom({ behavior: hasNewMessage || !isStreamingUpdate ? 'smooth' : 'auto' });
+        const nearBottom = isNearBottom();
+
+        // Only follow when auto-scroll is enabled and user is near bottom
+        if (isAutoScrollEnabledRef.current && (hasNewMessage || isStreamingUpdate || nearBottom)) {
+          scrollToBottom({ behavior: hasNewMessage || !isStreamingUpdate ? 'smooth' : 'auto' });
+        }
       });
     }
 
     lastMessageCountRef.current = currentMessageCount;
-  }, [messageCount, isStreaming, isExecutingTool, isNearBottom, scrollToBottom]);
+    lastMessageKeyRef.current = lastMessageKey;
+  }, [messageCount, lastMessageKey, isStreaming, isExecutingTool, isNearBottom, scrollToBottom]);
 
   return {
     scrollContainerRef,

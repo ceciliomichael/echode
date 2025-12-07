@@ -48,6 +48,7 @@ export function ChatContainer() {
     saveCurrentSession,
     abortedUserInput,
     abortedAttachments,
+    abortedImageAttachments,
     compressedContextTokens,
   } = useStreamingChat(tasks, mode);
 
@@ -63,13 +64,15 @@ export function ChatContainer() {
   });
 
   const visibleMessages = messages.filter(msg => !msg.hidden);
+  const lastVisibleMessage = visibleMessages[visibleMessages.length - 1];
+  const lastMessageKey = lastVisibleMessage ? `${lastVisibleMessage.id}:${lastVisibleMessage.content.length}` : '';
 
   const {
     scrollContainerRef,
     handleScroll,
     scrollToBottom,
     setIsAutoScrollEnabled,
-  } = useChatScroll(visibleMessages.length, isStreaming, isExecutingTool || isCompressing);
+  } = useChatScroll(visibleMessages.length, lastMessageKey, isStreaming, isExecutingTool || isCompressing);
 
   const handleSendMessage = useCallback(async (
     content: string, 
@@ -77,20 +80,22 @@ export function ChatContainer() {
     forceEchoSearch: boolean = false
   ) => {
     supersedePlanningTools();
-    // Attachments are now embedded in content as <attached_file> blocks
-    await sendMessage(content, attachments, undefined, false, forceEchoSearch);
+    // Enable auto-scroll when user sends a message
     setIsAutoScrollEnabled(true);
-    requestAnimationFrame(() => {
-      setTimeout(() => scrollToBottom({ behavior: 'smooth' }), 50);
-    });
+    // Attachments are now embedded in content as <attached_file> blocks
+    sendMessage(content, attachments, undefined, false, forceEchoSearch);
+    // Scroll after a brief delay to ensure assistant placeholder (loading dots) is rendered
+    setTimeout(() => {
+      scrollToBottom({ behavior: 'smooth' });
+    }, 100);
   }, [sendMessage, supersedePlanningTools, setIsAutoScrollEnabled, scrollToBottom]);
 
   const handleSendHiddenMessage = useCallback(async (content: string) => {
-    await sendMessage(content, undefined, undefined, true, false);
     setIsAutoScrollEnabled(true);
-    requestAnimationFrame(() => {
-      setTimeout(() => scrollToBottom({ behavior: 'smooth' }), 50);
-    });
+    sendMessage(content, undefined, undefined, true, false);
+    setTimeout(() => {
+      scrollToBottom({ behavior: 'smooth' });
+    }, 100);
   }, [sendMessage, setIsAutoScrollEnabled, scrollToBottom]);
 
   const onNewChat = useCallback(() => {
@@ -210,7 +215,12 @@ export function ChatContainer() {
         <div className={`${horizontalPaddingClass}`}>
           <div className={`${contentWidthClass} mx-auto`}>
             <ChatInput 
-              key={abortedUserInput || (abortedAttachments ? `attachments-${abortedAttachments.length}` : 'default')}
+              key={
+                abortedUserInput ||
+                (abortedAttachments ? `attachments-${abortedAttachments.length}` : '') ||
+                (abortedImageAttachments ? `images-${abortedImageAttachments.length}` : '') ||
+                'default'
+              }
               onSendMessage={handleSendMessage} 
               isStreaming={isStreaming}
               isExecutingTool={isExecutingTool}
@@ -225,6 +235,7 @@ export function ChatContainer() {
               contextUsage={contextUsage}
               restoredInput={abortedUserInput ?? undefined}
               restoredAttachments={abortedAttachments ?? undefined}
+              restoredImageAttachments={abortedImageAttachments ?? undefined}
             />
           </div>
         </div>

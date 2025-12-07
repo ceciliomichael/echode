@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ChatMode } from '../types/chat-mode';
 import type { DocumentAttachment } from '../utils/document-utils';
+import type { ImageAttachment } from '../types/chat';
+import { extractTextAndAttachmentsFromContent } from '../utils/document-utils';
 import { useToolExecution } from './use-tool-execution';
 import { useChatStreaming } from './use-chat-streaming';
 import { storageService } from '../utils/storage';
@@ -20,6 +22,7 @@ export function useStreamingChat(
 
   const [abortedUserInput, setAbortedUserInput] = useState<string | null>(null);
   const [abortedAttachments, setAbortedAttachments] = useState<DocumentAttachment[] | null>(null);
+  const [abortedImageAttachments, setAbortedImageAttachments] = useState<ImageAttachment[] | null>(null);
 
   // Session management (save, load, ensure ID)
   const {
@@ -137,6 +140,7 @@ export function useStreamingChat(
     state.setRevertPreviewMessageId(null);
     setAbortedUserInput(null);
     setAbortedAttachments(null);
+    setAbortedImageAttachments(null);
   }, [state]);
 
   // Abort stream and tool execution
@@ -144,16 +148,21 @@ export function useStreamingChat(
     // Use refs for synchronous checks - React state may not have updated yet when user clicks Stop fast
     const isActive = state.isStreamingRef.current || state.isExecutingToolRef.current || state.isCompressing;
     if (isActive && !state.hasStreamedContentRef.current) {
-      const currentMessages = state.messagesRef.current;
+      // Prefer the most up-to-date message source in case the ref hasn't synced yet
+      const currentMessages =
+        state.messagesRef.current.length >= state.messages.length
+          ? state.messagesRef.current
+          : state.messages;
       if (currentMessages.length >= 2) {
         const last = currentMessages[currentMessages.length - 1];
         const prev = currentMessages[currentMessages.length - 2];
 
         if (last.role === 'assistant' && prev.role === 'user' && !prev.hidden) {
-          setAbortedUserInput(prev.content);
-          // Document attachments are embedded in message content as <attached_file> blocks
-          // so we don't need to restore them separately
-          setAbortedAttachments(null);
+          const { text, attachments } = extractTextAndAttachmentsFromContent(prev.content);
+
+          setAbortedUserInput(text);
+          setAbortedAttachments(attachments.length > 0 ? attachments : null);
+          setAbortedImageAttachments(prev.attachments && prev.attachments.length > 0 ? prev.attachments : null);
           const updatedMessages = currentMessages.slice(0, currentMessages.length - 2);
           state.setMessages(updatedMessages);
           saveCurrentSession(updatedMessages);
@@ -178,6 +187,7 @@ export function useStreamingChat(
     currentSessionId: state.currentSessionId,
     abortedUserInput,
     abortedAttachments,
+    abortedImageAttachments,
     sendMessage,
     editMessage,
     updateMessage,

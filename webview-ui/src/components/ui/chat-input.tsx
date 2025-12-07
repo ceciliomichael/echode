@@ -43,9 +43,10 @@ interface ChatInputProps {
   contextUsage?: ContextUsageResult;
   restoredInput?: string | null;
   restoredAttachments?: DocumentAttachment[] | null;
+  restoredImageAttachments?: ImageAttachment[] | null;
 }
 
-export function ChatInput({ onSendMessage, disabled = false, isStreaming = false, isExecutingTool = false, isCompressing = false, onStop, todos = [], mode, onModeChange, provider, model, onModelChange, contextUsage, restoredInput, restoredAttachments }: ChatInputProps) {
+export function ChatInput({ onSendMessage, disabled = false, isStreaming = false, isExecutingTool = false, isCompressing = false, onStop, todos = [], mode, onModeChange, provider, model, onModelChange, contextUsage, restoredInput, restoredAttachments, restoredImageAttachments }: ChatInputProps) {
   // Show stop button when streaming OR executing a tool (like echo_search)
   const showStopButton = isStreaming || isExecutingTool;
 
@@ -53,7 +54,7 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
 
   const [cursorPos, setCursorPos] = useState(0);
   const [attachments, setAttachments] = useState<DocumentAttachment[]>(restoredAttachments ?? []);
-  const [imageAttachments, setImageAttachments] = useState<ImageAttachment[]>([]);
+  const [imageAttachments, setImageAttachments] = useState<ImageAttachment[]>(restoredImageAttachments ?? []);
 
   const [scrollTop, setScrollTop] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
