@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import type { ImageAttachment } from '../../types/chat';
 import { MessageBubble } from '../ui/message-bubble';
 import { ChatInput } from '../ui/chat-input';
 import { ChatEmptyState } from '../ui/chat-empty-state';
@@ -16,7 +17,6 @@ import { useContextUsage } from '../../hooks/use-context-usage';
 import { useWorkspaceContext } from '../../hooks/use-workspace-context';
 import { getSystemPrompt } from '../../utils/prompts';
 import { storageService } from '../../utils/storage';
-import type { ImageAttachment } from '../../types/chat';
 
 export function ChatContainer() {
   const { tasks, updateTodos, clearTodos } = useTodo();
@@ -74,6 +74,7 @@ export function ChatContainer() {
     forceEchoSearch: boolean = false
   ) => {
     supersedePlanningTools();
+    // Attachments are now embedded in content as <attached_file> blocks
     await sendMessage(content, attachments, undefined, false, forceEchoSearch);
     setIsAutoScrollEnabled(true);
     requestAnimationFrame(() => {
@@ -135,8 +136,9 @@ export function ChatContainer() {
     await handleRevertPreview(messageId);
   };
 
-  const handleEdit = async (messageId: string, newContent: string, attachments?: ImageAttachment[], forceEchoSearch?: boolean) => {
-    await editMessage(messageId, newContent, attachments, forceEchoSearch);
+  const handleEdit = async (messageId: string, newContent: string, _attachments?: undefined, forceEchoSearch?: boolean) => {
+    // Attachments are now embedded in content as <attached_file> blocks
+    await editMessage(messageId, newContent, undefined, forceEchoSearch);
   };
 
   const handleUpdate = (messageId: string, newContent: string) => {

@@ -1,7 +1,10 @@
-import { useState, useRef, useEffect, type KeyboardEvent, type FormEvent, type ChangeEvent } from 'react';
+import { useState, useRef, useEffect, type KeyboardEvent, type FormEvent, type ChangeEvent, type ClipboardEvent } from 'react';
 import { ArrowUp, Paperclip, Square } from 'lucide-react';
+
 import { TodoBlock } from './todo-block';
 import { AttachmentPreview } from './attachment-preview';
+import { ImageAttachmentPreview } from './image-attachment-preview';
+
 import { ModeDropdown } from './mode-dropdown';
 import { ChatModelSelector } from './chat-model-selector';
 import { ContextMenu } from './context-menu';
@@ -10,18 +13,22 @@ import { ContextIndicator } from './context-indicator';
 import { RefactorIndicator } from './refactor-indicator';
 import { useRefactorScan } from '../../hooks/use-refactor-scan';
 import type { ContextUsageResult } from '../../hooks/use-context-usage';
+
 import { useContextMenu } from '../../hooks/use-context-menu';
 import { useWorkspaceContext } from '../../hooks/use-workspace-context';
 import { clearMentionPaths, removeMention, getMentionPath, unescapeSpaces, registerMentionPath } from '../../utils/mention-utils';
+
 import { buildRefactorMessage } from '../../utils/message-builders';
 import type { TodoTask } from '../../types/todo';
-import type { ImageAttachment } from '../../types/chat';
 import type { ChatMode } from '../../types/chat-mode';
-import { processImageFiles } from '../../utils/image-utils';
+import { processDocumentFiles, buildAllAttachedFileBlocks, validateDocumentFile, fileToDocumentAttachment, type DocumentAttachment } from '../../utils/document-utils';
+import { validateImageFile, fileToImageAttachment } from '../../utils/image-utils';
+import type { ImageAttachment } from '../../types/chat';
 import type { Provider } from '../../types/api-settings';
 
 interface ChatInputProps {
   onSendMessage: (message: string, attachments?: ImageAttachment[], forceEchoSearch?: boolean) => void;
+
   disabled?: boolean;
   isStreaming?: boolean;
   isExecutingTool?: boolean;
@@ -35,7 +42,7 @@ interface ChatInputProps {
   onModelChange: (provider: Provider, model: string) => void;
   contextUsage?: ContextUsageResult;
   restoredInput?: string | null;
-  restoredAttachments?: ImageAttachment[] | null;
+  restoredAttachments?: DocumentAttachment[] | null;
 }
 
 export function ChatInput({ onSendMessage, disabled = false, isStreaming = false, isExecutingTool = false, isCompressing = false, onStop, todos = [], mode, onModeChange, provider, model, onModelChange, contextUsage, restoredInput, restoredAttachments }: ChatInputProps) {
@@ -44,7 +51,8 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
 
   const [input, setInput] = useState(restoredInput ?? '');
   const [cursorPos, setCursorPos] = useState(0);
-  const [attachments, setAttachments] = useState<ImageAttachment[]>(restoredAttachments ?? []);
+  const [attachments, setAttachments] = useState<DocumentAttachment[]>(restoredAttachments ?? []);
+  const [imageAttachments, setImageAttachments] = useState<ImageAttachment[]>([]);
 
   const [scrollTop, setScrollTop] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -89,14 +97,19 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
     const content = input;
     // Only use trim() to check for non-empty content, but send the original text
     if (content.trim() && !disabled) {
+      // Build <attached_file> blocks and append to message content
+      const attachmentBlocks = buildAllAttachedFileBlocks(attachments);
+      const contentWithAttachments = content + attachmentBlocks;
+      
       onSendMessage(
-        content,
-        attachments.length > 0 ? attachments : undefined,
+        contentWithAttachments,
+        imageAttachments,
         forceEchoSearch
       );
       
       setInput('');
       setAttachments([]);
+      setImageAttachments([]);
       clearMentionPaths(); // Clear mention path mappings after sending
     }
   };
@@ -169,13 +182,13 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const remainingSlots = 3 - attachments.length;
+    const remainingSlots = 3 - (attachments.length + imageAttachments.length);
     if (remainingSlots <= 0) return;
 
-    const { attachments: newAttachments, errors } = await processImageFiles(files, remainingSlots);
+    const { attachments: newAttachments, errors } = await processDocumentFiles(files, remainingSlots);
     
     if (errors.length > 0) {
-      console.error('Image processing errors:', errors);
+      console.error('Document processing errors:', errors);
     }
 
     if (newAttachments.length > 0) {
@@ -190,6 +203,94 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
 
   const handleRemoveAttachment = (index: number) => {
     setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleRemoveImageAttachment = (index: number) => {
+    setImageAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handlePaste = async (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    if (disabled || isStreaming) {
+      return;
+    }
+
+    const clipboard = e.clipboardData;
+    if (!clipboard) {
+      return;
+    }
+
+    const files = clipboard.files;
+    if (!files || files.length === 0) {
+      return;
+    }
+
+    const currentTotal = attachments.length + imageAttachments.length;
+    const maxTotal = 3;
+
+    if (currentTotal >= maxTotal) {
+      return;
+    }
+
+    const remainingSlots = maxTotal - currentTotal;
+    const filesArray = Array.from(files);
+
+    const docFiles: File[] = [];
+    const imgFiles: File[] = [];
+
+    for (const file of filesArray) {
+      if (validateDocumentFile(file).valid) {
+        docFiles.push(file);
+      } else if (validateImageFile(file).valid) {
+        imgFiles.push(file);
+      }
+    }
+
+    if (docFiles.length === 0 && imgFiles.length === 0) {
+      return;
+    }
+
+    const limitedDocFiles = docFiles.slice(0, remainingSlots);
+    const remainingAfterDocs = remainingSlots - limitedDocFiles.length;
+    const limitedImgFiles = remainingAfterDocs > 0 ? imgFiles.slice(0, remainingAfterDocs) : [];
+
+    const newDocAttachments: DocumentAttachment[] = [];
+    const newImageAttachments: ImageAttachment[] = [];
+
+    for (const file of limitedDocFiles) {
+      const validation = validateDocumentFile(file);
+      if (!validation.valid) {
+        console.error('Document processing error for pasted file:', `${file.name}: ${validation.error}`);
+        continue;
+      }
+      try {
+        const attachment = await fileToDocumentAttachment(file);
+        newDocAttachments.push(attachment);
+      } catch {
+        console.error('Document processing error for pasted file:', `${file.name}: Failed to read file`);
+      }
+    }
+
+    for (const file of limitedImgFiles) {
+      const validation = validateImageFile(file);
+      if (!validation.valid) {
+        console.error('Image processing error for pasted file:', `${file.name}: ${validation.error}`);
+        continue;
+      }
+      try {
+        const attachment = await fileToImageAttachment(file);
+        newImageAttachments.push(attachment);
+      } catch {
+        console.error('Image processing error for pasted file:', `${file.name}: Failed to process`);
+      }
+    }
+
+    if (newDocAttachments.length > 0) {
+      setAttachments(prev => [...prev, ...newDocAttachments]);
+    }
+
+    if (newImageAttachments.length > 0) {
+      setImageAttachments(prev => [...prev, ...newImageAttachments]);
+    }
   };
 
   const handleRefactorRequest = (filePath: string) => {
@@ -238,15 +339,15 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+            accept=".sh,.bash,.zsh,.txt,.md,.markdown,.ts,.tsx,.js,.jsx,.mjs,.cjs,.json,.jsonc,.py,.pyw,.java,.kt,.kts,.cs,.fs,.go,.rs,.cpp,.c,.cc,.cxx,.h,.hpp,.hxx,.rb,.php,.swift,.yaml,.yml,.toml,.ini,.cfg,.conf,.xml,.html,.htm,.css,.scss,.sass,.less,.sql,.r,.lua,.pl,.pm,.env,.gitignore,.dockerignore,.dockerfile,.makefile,.cmake,.gradle,.properties,.log,.csv,text/*,application/json"
             multiple
             onChange={handleFileChange}
             className="hidden"
-            aria-label="Upload images"
+            aria-label="Upload documents"
           />
           <div className="w-full px-1.5 pt-1.5">
             <div className="flex flex-wrap items-center gap-1 min-h-[28px]">
-              {attachments.length === 0 ? (
+              {attachments.length === 0 && imageAttachments.length === 0 ? (
                 <button
                   type="button"
                   onClick={handleAttachmentClick}
@@ -279,7 +380,12 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
                     onRemove={handleRemoveAttachment}
                     disabled={disabled}
                   />
-                  {attachments.length < 3 && (
+                  <ImageAttachmentPreview
+                    attachments={imageAttachments}
+                    onRemove={handleRemoveImageAttachment}
+                    disabled={disabled}
+                  />
+                  {attachments.length + imageAttachments.length < 3 && (
                     <button
                       type="button"
                       onClick={handleAttachmentClick}
@@ -330,6 +436,7 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
               value={input}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
               onSelect={handleSelect}
               onClick={handleSelect}
               onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
@@ -350,10 +457,10 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
               <button
                 type="button"
                 onClick={handleAttachmentClick}
-                disabled={disabled || isStreaming || attachments.length >= 3}
+                disabled={disabled || isStreaming || attachments.length + imageAttachments.length >= 3}
                 className="transition-opacity hover:opacity-70 p-1 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ color: 'var(--vscode-foreground)' }}
-                title={attachments.length >= 3 ? 'Maximum 3 attachments' : 'Attach images'}
+                title={attachments.length + imageAttachments.length >= 3 ? 'Maximum 3 attachments' : 'Attach documents'}
               >
                 <Paperclip className="w-3.5 h-3.5" />
               </button>

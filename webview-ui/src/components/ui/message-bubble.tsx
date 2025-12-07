@@ -1,4 +1,4 @@
-import type { Message, ImageAttachment } from '../../types/chat';
+import type { Message } from '../../types/chat';
 import type { ChatMode } from '../../types/chat-mode';
 import type { Provider } from '../../types/api-settings';
 import type { ContextUsageResult } from '../../hooks/use-context-usage';
@@ -8,7 +8,7 @@ import { AssistantMessage } from './assistant-message';
 
 interface MessageBubbleProps {
   message: Message;
-  onEdit?: (messageId: string, newContent: string, attachments?: ImageAttachment[], forceEchoSearch?: boolean) => void;
+  onEdit?: (messageId: string, newContent: string, attachments?: undefined, forceEchoSearch?: boolean) => void;
   onUpdate?: (messageId: string, newContent: string) => void;
   isEditing?: boolean;
   onEditStart?: (messageId: string) => void;
@@ -36,7 +36,6 @@ export function MessageBubble({ message, onEdit, onUpdate, isEditing, onEditStar
         onEditStart={onEditStart || (() => {})}
         onEditCancel={onEditCancel || (() => {})}
         onRevert={onRevert}
-        attachments={message.attachments}
         mode={mode}
         onModeChange={onModeChange}
         provider={provider}

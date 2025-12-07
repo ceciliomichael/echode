@@ -3,6 +3,7 @@ import { DEFAULT_API_SETTINGS } from '../types/api-settings';
 import { DEFAULT_CHAT_MODE } from '../types/chat-mode';
 import type { ChatSession } from '../types/chat-session';
 import type { Message } from '../types/chat';
+import { stripAttachedFileBlocks } from './document-utils';
 
 const CURRENT_SESSION_KEY = 'echode_current_session_id';
 
@@ -225,7 +226,7 @@ export const storageService = {
       return 'New Chat';
     }
     
-    const content = firstUserMessage.content.trim();
+    const content = stripAttachedFileBlocks(firstUserMessage.content).trim();
     const maxLength = 50;
     
     if (content.length <= maxLength) {
@@ -241,7 +242,7 @@ export const storageService = {
       return '';
     }
     
-    const content = firstUserMessage.content.trim();
+    const content = stripAttachedFileBlocks(firstUserMessage.content).trim();
     const maxLength = 100;
     
     if (content.length <= maxLength) {

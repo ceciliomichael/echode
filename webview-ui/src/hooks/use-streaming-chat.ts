@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import type { ChatMode } from '../types/chat-mode';
-import type { ImageAttachment } from '../types/chat';
+import type { DocumentAttachment } from '../utils/document-utils';
 import { useToolExecution } from './use-tool-execution';
 import { useChatStreaming } from './use-chat-streaming';
 import { storageService } from '../utils/storage';
@@ -19,7 +19,7 @@ export function useStreamingChat(
   const state = useChatState();
 
   const [abortedUserInput, setAbortedUserInput] = useState<string | null>(null);
-  const [abortedAttachments, setAbortedAttachments] = useState<ImageAttachment[] | null>(null);
+  const [abortedAttachments, setAbortedAttachments] = useState<DocumentAttachment[] | null>(null);
 
   // Session management (save, load, ensure ID)
   const {
@@ -141,7 +141,9 @@ export function useStreamingChat(
 
         if (last.role === 'assistant' && prev.role === 'user' && !prev.hidden) {
           setAbortedUserInput(prev.content);
-          setAbortedAttachments(prev.attachments ?? null);
+          // Document attachments are embedded in message content as <attached_file> blocks
+          // so we don't need to restore them separately
+          setAbortedAttachments(null);
           const updatedMessages = currentMessages.slice(0, currentMessages.length - 2);
           state.setMessages(updatedMessages);
           saveCurrentSession(updatedMessages);

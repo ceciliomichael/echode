@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, type KeyboardEvent, type FormEvent, type ChangeEvent } from 'react';
+import { useState, useRef, useEffect, useMemo, type KeyboardEvent, type FormEvent, type ChangeEvent, type ClipboardEvent } from 'react';
 import { ArrowUp, Paperclip } from 'lucide-react';
 import { AttachmentPreview } from './attachment-preview';
 import { ModeDropdown } from './mode-dropdown';
@@ -10,20 +10,19 @@ import { ContextIndicator } from './context-indicator';
 import { useContextMenu } from '../../hooks/use-context-menu';
 import { useDropdownDirection } from '../../hooks/use-dropdown-direction';
 import { useWorkspaceContext } from '../../hooks/use-workspace-context';
-import type { ImageAttachment } from '../../types/chat';
 import type { ChatMode } from '../../types/chat-mode';
 import type { ContextUsageResult } from '../../hooks/use-context-usage';
 
-import { processImageFiles } from '../../utils/image-utils';
+import { processDocumentFiles, buildAllAttachedFileBlocks, extractTextAndAttachmentsFromContent, validateDocumentFile, fileToDocumentAttachment, type DocumentAttachment } from '../../utils/document-utils';
 import { removeMention, getMentionPath, unescapeSpaces, registerMentionPath, parseMentionFilenames } from '../../utils/mention-utils';
 import type { Provider } from '../../types/api-settings';
 
 interface MessageEditFormProps {
   initialContent: string;
-  onSubmit: (content: string, attachments?: ImageAttachment[], forceEchoSearch?: boolean) => void;
+  onSubmit: (content: string, attachments?: undefined, forceEchoSearch?: boolean) => void;
   onCancel: () => void;
   onSave?: (content: string) => void;
-  attachments?: ImageAttachment[];
+  attachments?: DocumentAttachment[];
   mode?: ChatMode;
   onModeChange?: (mode: ChatMode) => void;
   provider: Provider;
@@ -34,9 +33,11 @@ interface MessageEditFormProps {
 
 export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, attachments, mode, onModeChange, provider, model, onModelChange, contextUsage }: MessageEditFormProps) {
 
-  const [editContent, setEditContent] = useState(initialContent);
-  const [cursorPos, setCursorPos] = useState(initialContent.length);
-  const [editAttachments, setEditAttachments] = useState<ImageAttachment[]>(attachments || []);
+  const parsed = extractTextAndAttachmentsFromContent(initialContent);
+
+  const [editContent, setEditContent] = useState(parsed.text);
+  const [cursorPos, setCursorPos] = useState(parsed.text.length);
+  const [editAttachments, setEditAttachments] = useState<DocumentAttachment[]>(attachments || parsed.attachments);
   const [scrollTop, setScrollTop] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -50,7 +51,7 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
   // Register mentions from initial content so they get highlighted
   // We use useMemo to ensure this runs synchronously during render
   useMemo(() => {
-    const mentions = parseMentionFilenames(initialContent);
+    const mentions = parseMentionFilenames(parsed.text);
     for (const mention of mentions) {
       // Try to find the full path in workspace files
       const matchingFile = workspaceFiles.find(f => {
@@ -60,7 +61,7 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
       // Register with the matched path or just the mention itself
       registerMentionPath(mention, matchingFile || mention);
     }
-  }, [initialContent, workspaceFiles]);
+  }, [parsed.text, workspaceFiles]);
 
   // Context menu hook for @ mentions
   const handleInputChange = (newValue: string, newCursorPos?: number) => {
@@ -128,8 +129,10 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
   const handleSubmit = (e: FormEvent, forceEchoSearch: boolean = false) => {
     e.preventDefault();
     if (editContent.trim()) {
-      const newContent = editContent.trim();
-      onSubmit(newContent, editAttachments.length > 0 ? editAttachments : undefined, forceEchoSearch);
+      // Build <attached_file> blocks and append to message content
+      const attachmentBlocks = buildAllAttachedFileBlocks(editAttachments);
+      const newContent = editContent.trim() + attachmentBlocks;
+      onSubmit(newContent, undefined, forceEchoSearch);
       if (onSave) {
         onSave(newContent);
       }
@@ -210,10 +213,10 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
     const remainingSlots = 3 - editAttachments.length;
     if (remainingSlots <= 0) return;
 
-    const { attachments: newAttachments, errors } = await processImageFiles(files, remainingSlots);
+    const { attachments: newAttachments, errors } = await processDocumentFiles(files, remainingSlots);
     
     if (errors.length > 0) {
-      console.error('Image processing errors:', errors);
+      console.error('Document processing errors:', errors);
     }
 
     if (newAttachments.length > 0) {
@@ -227,6 +230,44 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
 
   const handleRemoveAttachment = (index: number) => {
     setEditAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handlePaste = async (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    const clipboard = e.clipboardData;
+    if (!clipboard) {
+      return;
+    }
+
+    const files = clipboard.files;
+    if (!files || files.length === 0) {
+      return;
+    }
+
+    const remainingSlots = 3 - editAttachments.length;
+    if (remainingSlots <= 0) {
+      return;
+    }
+
+    const filesArray = Array.from(files).slice(0, remainingSlots);
+    const newAttachments: DocumentAttachment[] = [];
+
+    for (const file of filesArray) {
+      const validation = validateDocumentFile(file);
+      if (!validation.valid) {
+        console.error('Document processing error for pasted file:', `${file.name}: ${validation.error}`);
+        continue;
+      }
+      try {
+        const attachment = await fileToDocumentAttachment(file);
+        newAttachments.push(attachment);
+      } catch {
+        console.error('Document processing error for pasted file:', `${file.name}: Failed to read file`);
+      }
+    }
+
+    if (newAttachments.length > 0) {
+      setEditAttachments(prev => [...prev, ...newAttachments]);
+    }
   };
 
   return (
@@ -243,7 +284,7 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+            accept=".sh,.bash,.zsh,.txt,.md,.markdown,.ts,.tsx,.js,.jsx,.mjs,.cjs,.json,.jsonc,.py,.pyw,.java,.kt,.kts,.cs,.fs,.go,.rs,.cpp,.c,.cc,.cxx,.h,.hpp,.hxx,.rb,.php,.swift,.yaml,.yml,.toml,.ini,.cfg,.conf,.xml,.html,.htm,.css,.scss,.sass,.less,.sql,.r,.lua,.pl,.pm,.env,.gitignore,.dockerignore,.dockerfile,.makefile,.cmake,.gradle,.properties,.log,.csv,text/*,application/json"
             multiple
             onChange={handleFileChange}
             className="hidden"
@@ -310,6 +351,7 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
               value={editContent}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
               onSelect={handleSelect}
               onClick={handleSelect}
               onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}

@@ -2,21 +2,22 @@ import { useRef, useState, useEffect } from 'react';
 import { Undo2 } from 'lucide-react';
 import { MessageEditForm } from './message-edit-form';
 import { MentionText } from './mention-text';
-import type { ImageAttachment } from '../../types/chat';
+
 import type { ChatMode } from '../../types/chat-mode';
 import type { Provider } from '../../types/api-settings';
 import type { ContextUsageResult } from '../../hooks/use-context-usage';
+import { stripAttachedFileBlocks, type DocumentAttachment } from '../../utils/document-utils';
 
 interface UserMessageProps {
   content: string;
   messageId: string;
-  onEdit: (messageId: string, newContent: string, attachments?: ImageAttachment[], forceEchoSearch?: boolean) => void;
+  onEdit: (messageId: string, newContent: string, attachments?: undefined, forceEchoSearch?: boolean) => void;
   onUpdate: (messageId: string, newContent: string) => void;
   isEditing: boolean;
   onEditStart: (messageId: string) => void;
   onEditCancel: () => void;
   onRevert?: (messageId: string) => void;
-  attachments?: ImageAttachment[];
+  attachments?: DocumentAttachment[];
   mode?: ChatMode;
   onModeChange?: (mode: ChatMode) => void;
   provider: Provider;
@@ -31,6 +32,7 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
   const [isHovered, setIsHovered] = useState(false);
   const contentRef = useRef<HTMLParagraphElement>(null);
   const [isSingleLine, setIsSingleLine] = useState(true);
+  const displayContent = stripAttachedFileBlocks(content);
 
   // Scroll to make edit form visible when entering edit mode
   useEffect(() => {
@@ -63,7 +65,7 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
     setTimeout(() => {
       setIsSingleLine(lineCount <= 1.1);
     }, 0);
-  }, [content]);
+  }, [displayContent]);
 
   const handleMessageClick = (e: React.MouseEvent) => {
     // Don't trigger edit if clicking the revert button
@@ -84,8 +86,9 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
     }
   };
 
-  const handleSubmit = (newContent: string, attachments?: ImageAttachment[], forceEchoSearch?: boolean) => {
-    onEdit(messageId, newContent, attachments, forceEchoSearch);
+  const handleSubmit = (newContent: string, _attachments?: undefined, forceEchoSearch?: boolean) => {
+    // Attachments are now embedded in content as <attached_file> blocks
+    onEdit(messageId, newContent, undefined, forceEchoSearch);
   };
 
   const handleSave = (newContent: string) => {
@@ -137,7 +140,7 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
               overflow: 'hidden'
             }}
           >
-            <MentionText text={content} />
+            <MentionText text={displayContent} />
           </p>
         </div>
 
