@@ -7,12 +7,19 @@ import { StreamingText } from './streaming-text';
 import { tokenizeContent } from '../../utils/content-tokenizer';
 import type { ToolCall, ToolExecutionState } from '../../types/tool';
 
+// Planning tools that can be visually connected across message boundaries
+const PLANNING_TOOL_NAMES = ['plan_navigator', 'plan_handoff', 'todo_write'];
+
 interface AssistantMessageProps {
   content: string;
   messageId?: string;
   isStreaming?: boolean;
   isCompressing?: boolean;
   toolExecutions?: Map<string, ToolExecutionState>;
+  /** Connect first tool to previous message's last tool */
+  connectToPrevious?: boolean;
+  /** Connect last tool to next message's first tool */
+  connectToNext?: boolean;
 }
 
 function sanitizeAssistantText(content: string): string {
@@ -34,7 +41,7 @@ function sanitizeAssistantText(content: string): string {
   ];
 
   for (const tag of internalBlockTags) {
-    const blockRegex = new RegExp(`<${tag}[^>]*>[\\s\\S]*?<\\/${tag}>`, 'g');
+    const blockRegex = new RegExp(`<${tag}[^>]*>[\\s\\S]*?</${tag}>`, 'g');
     sanitized = sanitized.replace(blockRegex, '');
   }
 
@@ -45,7 +52,7 @@ function sanitizeAssistantText(content: string): string {
   return sanitized;
 }
 
-function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming = false, isCompressing = false, toolExecutions }: AssistantMessageProps) {
+function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming = false, isCompressing = false, toolExecutions, connectToPrevious = false, connectToNext = false }: AssistantMessageProps) {
   // Allow text/think to span wider while staying slightly inset
   const contentMaxWidth = 'min(110ch, 100%)';
 
@@ -147,8 +154,19 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
           // Tool block
           if (token.type === 'tool') {
             // Check adjacent tools in VISIBLE tokens list for sequential grouping
-            const isConnectedTop = prevToken?.type === 'tool';
-            const isConnectedBottom = nextToken?.type === 'tool';
+            const isFirstToken = index === 0;
+            const isLastToken = index === visibleTokens.length - 1;
+            
+            // For planning tools, allow cross-message connection
+            const isPlanningTool = PLANNING_TOOL_NAMES.includes(token.toolName);
+            
+            // Connect to previous: either adjacent tool in same message, or cross-message for planning tools
+            const isConnectedTop = prevToken?.type === 'tool' || 
+              (isFirstToken && isPlanningTool && connectToPrevious);
+            
+            // Connect to next: either adjacent tool in same message, or cross-message for planning tools  
+            const isConnectedBottom = nextToken?.type === 'tool' || 
+              (isLastToken && isPlanningTool && connectToNext);
 
             // Override margin if connected to top tool (collapse spacing)
             const toolMarginTop = isConnectedTop ? 0 : marginTop;
@@ -287,12 +305,16 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
               return false;
             });
 
-            // If any tool executions are still active (pending/executing), we're still in the tool phase
-            // and should not yet show the bottom loading dots, even if one parallel tool has finished.
+            // Track whether any VISIBLE tool tokens exist in the current content
+            const hasVisibleToolToken = visibleTokens.some(token => token.type === 'tool');
+
+            // If any tool executions are still active (pending/executing) AND we already have
+            // at least one visible tool token, we're in the visible tool phase and should let the
+            // ToolBlock handle its own status UI instead of showing extra loading dots.
             const hasActiveToolExecutions = Array.from(toolExecutions?.values() || []).some(state =>
               state.status === 'pending' || state.status === 'executing' || state.status === 'fetching_diagnostics'
             );
-            if (hasActiveToolExecutions) {
+            if (hasActiveToolExecutions && hasVisibleToolToken) {
               return null;
             }
             
@@ -356,6 +378,15 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                   </div>
                 );
               }
+
+              // Case 4: Last visible content is text but tools are executing (no visible tool yet)
+              if (lastToken.type === 'text' && hasActiveToolExecutions && !hasVisibleToolToken) {
+                return (
+                  <div className="mt-2" style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
+                    <LoadingDots />
+                  </div>
+                );
+              }
             } else if (tokens.length > 0) {
               // Case 4: Have tokens but all filtered (incomplete tool blocks) - show loading dots
               return (
@@ -398,5 +429,7 @@ export const AssistantMessage = memo(AssistantMessageComponent, (prev, next) => 
          prev.messageId === next.messageId && 
          prev.isStreaming === next.isStreaming &&
          prev.isCompressing === next.isCompressing &&
+         prev.connectToPrevious === next.connectToPrevious &&
+         prev.connectToNext === next.connectToNext &&
          toolExecutionsEqual;
 });

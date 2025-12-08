@@ -7,6 +7,7 @@
 import { chatApi } from '../../services/chat-api';
 import { hasCompleteToolBlock, trimToFirstCompleteToolBlock } from '../../lib/tool-parser';
 import type { ChatMessage } from '../../types/chat-api';
+import type { ChatMode } from '../../types/chat-mode';
 import type { Message, ImageAttachment } from '../../types/chat';
 import type { ExecuteToolAndContinueFn } from './types';
 
@@ -58,6 +59,7 @@ export interface ContinuationStreamConfig {
   setIsExecutingTool: React.Dispatch<React.SetStateAction<boolean>>;
   executeToolAndContinue: ExecuteToolAndContinueFn;
   logPrefix?: string;
+  mode: ChatMode;
 }
 
 /**
@@ -80,6 +82,7 @@ export async function runContinuationStream(config: ContinuationStreamConfig): P
     setIsExecutingTool,
     executeToolAndContinue,
     logPrefix = '[ContinuationStream]',
+    mode,
   } = config;
 
   let continuationContent = assistantContent;
@@ -114,7 +117,8 @@ export async function runContinuationStream(config: ContinuationStreamConfig): P
 
       for await (const chunk of chatApi.streamChat(
         continuationHistory,
-        newAbortController.signal
+        newAbortController.signal,
+        mode
       )) {
         chunkCount++;
         if (chunkCount <= 3) {

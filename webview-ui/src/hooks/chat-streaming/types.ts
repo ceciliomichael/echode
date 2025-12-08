@@ -92,6 +92,7 @@ export interface ForcedEchoSearchContext {
   messagesToSend: Message[];
   assistantMessageId: string;
   modelSupportsVision: boolean;
+  mode: ChatMode;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   setIsExecutingTool: React.Dispatch<React.SetStateAction<boolean>>;
   executeToolAndContinue: ChatStreamingProps['executeToolAndContinue'];

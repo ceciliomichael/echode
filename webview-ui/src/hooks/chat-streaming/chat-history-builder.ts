@@ -5,6 +5,7 @@ import { removeThinkBlocks } from '../../utils/think-block-parser';
 import { buildChatMessage } from '../../utils/vision-utils';
 import { formatToolExecutionResults } from './tool-result-formatter';
 import { trimHistory } from './helpers';
+import { stripUnavailableToolCalls } from '../../utils/tool-history-filter';
 
 /**
  * Build chat history with system prompt, context messages, tool results, and final user message
@@ -34,12 +35,18 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
   // contextMessages may be summarized (first + summary + last N) or original messages
   for (const msg of contextMessages) {
     // Strip <think> and <thinking> blocks from message content before adding to chat history
-    const contentWithoutThinking = removeThinkBlocks(msg.content);
+    let processedContent = removeThinkBlocks(msg.content);
+    
+    // For assistant messages, also strip tool call XML for tools not available in current mode
+    // This prevents Plan/Ask mode from seeing <invoke name="write_to_file"> in history
+    if (msg.role === 'assistant') {
+      processedContent = stripUnavailableToolCalls(processedContent, mode);
+    }
 
     // Build message with vision support if available
     const chatMessage = buildChatMessage(
       msg.role,
-      contentWithoutThinking,
+      processedContent,
       msg.attachments,
       modelSupportsVision
     );
@@ -93,7 +100,8 @@ export function buildMinimalChatHistory(
   messagesToSend: Message[],
   content: string,
   attachments: import('../../types/chat').ImageAttachment[] | undefined,
-  modelSupportsVision: boolean
+  modelSupportsVision: boolean,
+  mode: import('../../types/chat-mode').ChatMode = 'agent'
 ): ChatMessage[] {
   const chatHistory: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
@@ -101,10 +109,16 @@ export function buildMinimalChatHistory(
 
   // Add previous messages
   for (const msg of messagesToSend) {
-    const contentWithoutThinking = removeThinkBlocks(msg.content);
+    let processedContent = removeThinkBlocks(msg.content);
+    
+    // For assistant messages, strip tool call XML for tools not available in current mode
+    if (msg.role === 'assistant') {
+      processedContent = stripUnavailableToolCalls(processedContent, mode);
+    }
+    
     const chatMessage = buildChatMessage(
       msg.role,
-      contentWithoutThinking,
+      processedContent,
       msg.attachments,
       modelSupportsVision
     );

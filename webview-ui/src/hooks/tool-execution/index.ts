@@ -275,6 +275,7 @@ async function handleBufferedResults(
     setIsExecutingTool: context.setIsExecutingTool,
     executeToolAndContinue,
     logPrefix: '[ToolExecution:Buffered]',
+    mode: context.mode,
   });
 }
 

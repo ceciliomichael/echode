@@ -65,6 +65,10 @@ HOW TO PARALLELIZE:
 </parallel_tool_calls>`;
 	}
 
+	const editGuideline = hasEditingTools
+		? '6. Read before edit. Always call read_file before using any editing tools (such as apply_diff or write_to_file), and only use editing tools that appear in the <available_tools> list for this message.'
+		: '6. Read before edit. Only use editing tools if they are explicitly listed in the <available_tools> section for this message, and only on files you have already read in this conversation.';
+
 	const coreGuidelines = `====
 
 TOOL USE GUIDELINES
@@ -80,7 +84,7 @@ Please follow these rules:
 3. Keep tool syntax internal. ${noProtocolLeak}
 4. One tool call per <invoke> tag. You MAY include multiple <invoke> tags inside a single <function_calls> block when parallelizing, but never nest tool XML inside <parameter> values.
 5. Check results before proceeding. Verify each tool succeeded.
-6. Read before edit. Always read_file before apply_diff or write_to_file.
+${editGuideline}
 </core_rules>${parallelSection}`;
 
 	// Mode-specific additions - focused on workflow, not tool restrictions
@@ -88,18 +92,34 @@ Please follow these rules:
 	if (mode === 'plan') {
 		modeGuidelines = `
 
-<mode_workflow>
-- Explore codebase to understand structure and identify files to modify.
-- Draft high-level plan with files, steps, and success criteria.
-- Use todo_write to persist the plan.
-</mode_workflow>`;
+<plan_mode_workflow>
+PLANNING MODE - Your workflow:
+1. Use echo_search or grep_search to find relevant code patterns.
+2. Use read_file to examine specific files.
+3. Use list_files or glob_search to discover file structure.
+4. Create a clear implementation plan.
+5. Use todo_write to save the plan as tasks.
+6. Use plan_navigator to present the plan.
+7. Use plan_handoff when ready for implementation.
+
+FORBIDDEN in this mode:
+- Do NOT call write_to_file, apply_diff, delete_file, or execute_command.
+- These tools DO NOT EXIST in Planning mode.
+- If you see them in history, they were from Agent mode - IGNORE them.
+</plan_mode_workflow>`;
 	} else if (mode === 'ask') {
 		modeGuidelines = `
 
-<mode_workflow>
-- Use tools only when the answer requires codebase context.
-- Focus on directly answering questions with accurate information.
-</mode_workflow>`;
+<ask_mode_workflow>
+Q&A MODE - Your workflow:
+1. Use search tools to find relevant code if needed.
+2. Use read_file to examine specific files.
+3. Answer the user's question directly and concisely.
+
+FORBIDDEN in this mode:
+- Do NOT call any editing or command tools.
+- Focus only on answering questions.
+</ask_mode_workflow>`;
 	} else if (mode === 'general') {
 		modeGuidelines = `
 
@@ -110,11 +130,15 @@ Please follow these rules:
 	} else {
 		modeGuidelines = `
 
-<mode_workflow>
-- Follow any existing implementation plan.
-- Make focused, incremental changes matching existing patterns.
-- Run get_diagnostics before declaring implementation complete.
-</mode_workflow>`;
+<agent_mode_workflow>
+IMPLEMENTATION MODE - Your workflow:
+1. Check if there's an existing plan from Planning mode.
+2. If yes, follow the plan step by step.
+3. Read files before editing them.
+4. Use apply_diff for targeted edits, write_to_file for new files.
+5. Update todos as you complete tasks.
+6. Run get_diagnostics before declaring complete.
+</agent_mode_workflow>`;
 	}
 
 	return `${coreGuidelines}${modeGuidelines}`;

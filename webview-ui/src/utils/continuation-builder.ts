@@ -6,6 +6,7 @@ import { getSystemPrompt } from './prompts';
 import { formatToolResultsForHistory } from './tool-result-formatter';
 import { buildChatMessage, getCurrentModel, isVisionCapableModel } from './vision-utils';
 import { summarizeToolSections } from './tool-context-cleaner';
+import { stripUnavailableToolCalls } from './tool-history-filter';
 
 /**
  * Context Management Constants
@@ -30,8 +31,9 @@ interface TodoItem {
 
 /**
  * Build todo context for AI
+ * Mode-aware: Plan mode gets planning-focused instructions, Agent mode gets implementation instructions
  */
-export function buildTodoContext(todos: TodoItem[]): string {
+export function buildTodoContext(todos: TodoItem[], mode: ChatMode = 'agent'): string {
   if (todos.length === 0) {return '';}
 
   const pendingTasks = todos
@@ -53,11 +55,21 @@ export function buildTodoContext(todos: TodoItem[]): string {
   if (completedTasks) {todoContext += `Completed:\n${completedTasks}\n`;}
   todoContext += '</current_todo_list>\n\n';
   
-  const hasIncompleteTasks = pendingTasks || inProgressTasks;
-  if (hasIncompleteTasks) {
-    todoContext += '[CRITICAL REMINDER: After completing a task, you MUST immediately use todo_write to mark it as completed BEFORE starting the next task. Do NOT proceed to the next task without updating the todo list first. This is essential for tracking progress.]';
+  // Mode-specific instructions
+  if (mode === 'plan') {
+    // Plan mode: remind AI it's still in planning, no editing tools
+    todoContext += '[PLANNING MODE: This is your implementation plan. You are still in PLANNING mode. You do NOT have editing tools. Use plan_handoff when the plan is complete and the user is ready to implement.]';
+  } else if (mode === 'ask') {
+    // Ask mode: no task execution
+    todoContext += '[Q&A MODE: This todo list is for reference only. Focus on answering the user\'s question.]';
   } else {
-    todoContext += '[INSTRUCTION: All tasks in the todo list are now completed. Do NOT use todo_write again. You should now respond to the user to conclude the task.]';
+    // Agent mode: implementation instructions
+    const hasIncompleteTasks = pendingTasks || inProgressTasks;
+    if (hasIncompleteTasks) {
+      todoContext += '[REMINDER: After completing a task, use todo_write to mark it as completed before starting the next task.]';
+    } else {
+      todoContext += '[All tasks completed. Respond to the user to conclude.]';
+    }
   }
 
   return todoContext;
@@ -120,9 +132,14 @@ export function buildContinuationHistory(
     const firstMsg = messagesToInclude[0];
     
     // If truncated, clean any embedded tool sections from old message content
-    const cleanedContent = wasTruncated 
+    let cleanedContent = wasTruncated 
       ? summarizeToolSections(firstMsg.content)
       : firstMsg.content;
+    
+    // For assistant messages, strip tool call XML for tools not available in current mode
+    if (firstMsg.role === 'assistant') {
+      cleanedContent = stripUnavailableToolCalls(cleanedContent, mode);
+    }
     
     const chatMessage = buildChatMessage(
       firstMsg.role,
@@ -170,10 +187,15 @@ export function buildContinuationHistory(
   for (let i = 1; i < messagesToInclude.length; i++) {
     const msg = messagesToInclude[i];
     
+    // For assistant messages, strip tool call XML for tools not available in current mode
+    const processedContent = msg.role === 'assistant'
+      ? stripUnavailableToolCalls(msg.content, mode)
+      : msg.content;
+    
     // Build message with vision support if available
     const chatMessage = buildChatMessage(
       msg.role,
-      msg.content,
+      processedContent,
       msg.attachments,
       modelSupportsVision
     );
@@ -205,7 +227,8 @@ export function buildContinuationHistory(
   });
 
   // Build the tool result message in a structured format (like how Claude receives context)
-  const todoContext = buildTodoContext(currentTodos);
+  // Pass mode to get mode-appropriate instructions
+  const todoContext = buildTodoContext(currentTodos, mode);
 
   const boundedDiagnosticsText = diagnosticsText.length > MAX_DIAGNOSTICS_CHARS
     ? `${diagnosticsText.slice(0, MAX_DIAGNOSTICS_CHARS)}\n... [truncated]`

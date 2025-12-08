@@ -83,22 +83,64 @@ export function useChatScroll(
     const previousMessageCount = lastMessageCountRef.current;
     const hasNewMessage = currentMessageCount > previousMessageCount;
     const hasNewContent = lastMessageKey !== lastMessageKeyRef.current;
-    const isStreamingUpdate = hasNewContent && (isStreaming || isExecutingTool);
 
-    if (currentMessageCount > 0) {
-      requestAnimationFrame(() => {
-        // When auto-scroll is enabled, always pin to the bottom on new messages
-        // and while streaming content (including loading dots), regardless of
-        // the current scroll position.
-        if (isAutoScrollEnabledRef.current && (hasNewMessage || isStreamingUpdate)) {
-          scrollToBottom({ behavior: hasNewMessage || !isStreamingUpdate ? 'smooth' : 'auto' });
-        }
-      });
+    // When auto-scroll is enabled, always pin to the bottom on new messages
+    // and while streaming content (including loading dots)
+    if (isAutoScrollEnabledRef.current && currentMessageCount > 0) {
+      if (hasNewMessage) {
+        // New message: smooth scroll
+        scrollToBottom({ behavior: 'smooth' });
+      } else if (hasNewContent && (isStreaming || isExecutingTool)) {
+        // Streaming update: instant scroll to keep up with fast content
+        scrollToBottom({ behavior: 'auto' });
+      }
     }
 
     lastMessageCountRef.current = currentMessageCount;
     lastMessageKeyRef.current = lastMessageKey;
   }, [messageCount, lastMessageKey, isStreaming, isExecutingTool, scrollToBottom]);
+
+  // Keep pinned to bottom when content height changes while user is at bottom.
+  // This covers tool output (e.g. plan_navigator / plan_handoff) and tool
+  // expansion (isExpanded) that add extra vertical space without changing
+  // message content.
+  useEffect(() => {
+    // Guard for environments without ResizeObserver (should be present in VS Code webview)
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    let lastHeight = container.scrollHeight;
+
+    const observer = new ResizeObserver(() => {
+      const target = scrollContainerRef.current;
+      if (!target) return;
+
+      const { scrollTop, scrollHeight, clientHeight } = target;
+      const heightGrew = scrollHeight > lastHeight;
+      lastHeight = scrollHeight;
+
+      // Only auto-scroll on height increase (not shrink)
+      if (!heightGrew) return;
+
+      const distanceToBottom = scrollHeight - scrollTop - clientHeight;
+      const nearBottom = distanceToBottom <= bottomThresholdPx;
+
+      // Scroll if auto-scroll enabled AND (near bottom OR actively streaming/executing)
+      if (isAutoScrollEnabledRef.current && nearBottom) {
+        scrollToBottom({ behavior: 'auto' });
+      }
+    });
+
+    observer.observe(container);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [scrollToBottom]);
 
   return {
     scrollContainerRef,

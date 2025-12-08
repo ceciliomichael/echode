@@ -172,6 +172,7 @@ export function useChatStreaming({
           messagesToSend,
           assistantMessageId,
           modelSupportsVision,
+          mode,
           setMessages,
           setIsExecutingTool,
           executeToolAndContinue,

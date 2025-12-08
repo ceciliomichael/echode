@@ -11,6 +11,9 @@ interface SessionManagementProps {
   compressedMessagesRef: React.MutableRefObject<Message[] | null>;
   compressedContextTokensRef: React.MutableRefObject<number | null>;
   compressionAnchorId: string | null;
+  isStreamingRef: React.MutableRefObject<boolean>;
+  isExecutingToolRef: React.MutableRefObject<boolean>;
+  abortAndReset: () => boolean;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   setCurrentSessionId: React.Dispatch<React.SetStateAction<string | null>>;
   setEditingMessageId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -29,6 +32,9 @@ export function useSessionManagement({
   compressedMessagesRef,
   compressedContextTokensRef,
   compressionAnchorId,
+  isStreamingRef,
+  isExecutingToolRef,
+  abortAndReset,
   setMessages,
   setCurrentSessionId,
   setEditingMessageId,
@@ -86,10 +92,24 @@ export function useSessionManagement({
   }, [ensureSessionId, messagesRef, compressedMessagesRef, compressedContextTokensRef, compressionAnchorId]);
 
   const loadSession = useCallback((sessionId: string) => {
+    // If currently streaming or executing tools, abort and save first
+    if (isStreamingRef.current || isExecutingToolRef.current) {
+      console.log('[Session] Aborting active stream before switching session');
+      
+      // Save current session state before aborting
+      const currentMessages = messagesRef.current;
+      if (currentMessages.length > 0) {
+        saveCurrentSession(currentMessages);
+      }
+      
+      // Abort the stream/tool execution
+      abortAndReset();
+    }
+    
     if (window.vscode) {
       window.vscode.postMessage({ type: 'getSession', sessionId });
     }
-  }, []);
+  }, [isStreamingRef, isExecutingToolRef, messagesRef, saveCurrentSession, abortAndReset]);
 
   // Listen for session events from extension
   useEffect(() => {

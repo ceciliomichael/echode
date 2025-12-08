@@ -179,6 +179,7 @@ export async function executeToolsInParallel(
     setIsExecutingTool,
     executeToolAndContinue,
     logPrefix: '[ParallelExecutor]',
+    mode,
   });
 
   return { wasStopped: false, continueExecution: true };

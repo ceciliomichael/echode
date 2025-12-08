@@ -202,6 +202,7 @@ export async function executeSingleTool(
     setIsExecutingTool,
     executeToolAndContinue,
     logPrefix: '[SingleExecutor]',
+    mode,
   });
 
   return { wasStopped: false, isPlanningTool: false, continueExecution: true };

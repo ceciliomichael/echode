@@ -14,6 +14,7 @@ export async function handleForcedEchoSearch(ctx: ForcedEchoSearchContext): Prom
     messagesToSend,
     assistantMessageId,
     modelSupportsVision,
+    mode,
     setMessages,
     setIsExecutingTool,
     executeToolAndContinue,
@@ -46,12 +47,14 @@ export async function handleForcedEchoSearch(ctx: ForcedEchoSearchContext): Prom
   setIsExecutingTool(true);
 
   // Build minimal chat history for continuation after tool execution
+  // Pass mode to ensure unavailable tool calls are stripped from history
   const chatHistory = buildMinimalChatHistory(
     systemPrompt,
     messagesToSend,
     content,
     attachments,
-    modelSupportsVision
+    modelSupportsVision,
+    mode
   );
 
   // Execute tool directly and continue
