@@ -1,4 +1,4 @@
-import { Loader, Folder, Search, FileSearch, Trash2, Radar, XCircle, type LucideIcon } from 'lucide-react';
+import { Loader, Folder, Search, FileSearch, Trash2, Radar, XCircle, Stethoscope, type LucideIcon } from 'lucide-react';
 import type { IconType } from 'react-icons';
 import { getToolMetadata } from '../lib/tool-registry';
 import { getFileIconConfig, extractFileName } from './file-icon-mapper';
@@ -115,6 +115,18 @@ export function getToolFileInfo(
       fullPath: path || '',
       icon: getIcon(FileSearch),
       iconColor: getIconColor('var(--vscode-editor-foreground)'),
+      isSpinning: isExecuting,
+    };
+  }
+
+  // Get diagnostics -> Use Stethoscope icon
+  if (toolName === 'get_diagnostics') {
+    const targetPath = path || (parameters.file_pattern as string) || 'workspace';
+    return {
+      displayName: `${targetPath}`,
+      fullPath: path || '',
+      icon: getIcon(Stethoscope),
+      iconColor: getIconColor('var(--vscode-editorWarning-foreground)'),
       isSpinning: isExecuting,
     };
   }

@@ -63,6 +63,10 @@ export function getToolStatusDisplay(
       executingText = 'Editing';
     } else if (toolName === 'echo_search') {
       executingText = 'Echoing';
+    } else if (toolName === 'get_diagnostics') {
+      executingText = 'Linting';
+    } else if (toolName === 'glob_search') {
+      executingText = 'Searching';
     }
 
     return renderWaveLabel(executingText);
