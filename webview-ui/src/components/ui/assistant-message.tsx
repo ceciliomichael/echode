@@ -292,6 +292,9 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                 const path = token.parameters.path as string | undefined;
                 return !path || path.trim() === '';
               }
+              // Planning tools are shown even when not closed, so don't count them as filtered
+              const isPlanningTool = token.toolName === 'plan_navigator' || token.toolName === 'plan_handoff' || token.toolName === 'todo_write';
+              if (isPlanningTool) return false;
               // Check if non-file-modification tool was filtered out
               if (!token.isClosed) return true;
               return false;
