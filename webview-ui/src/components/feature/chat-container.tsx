@@ -50,6 +50,7 @@ export function ChatContainer() {
     abortedAttachments,
     abortedImageAttachments,
     compressedContextTokens,
+    compressionAnchorId,
   } = useStreamingChat(tasks, mode);
 
   // Context usage tracking
@@ -61,6 +62,7 @@ export function ChatContainer() {
     messages,
     contextSettings: settings.contextSettings,
     compressedContextTokens,
+    compressionAnchorId,
   });
 
   const visibleMessages = messages.filter(msg => !msg.hidden);

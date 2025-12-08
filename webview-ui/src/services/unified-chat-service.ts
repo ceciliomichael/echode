@@ -65,9 +65,18 @@ export class UnifiedChatService implements IChatService {
     if (typeof window !== 'undefined' && window.vscode) {
       this.messageHandler = (event: MessageEvent) => {
         const message = event.data;
+        
+        // Log all chat-related messages for debugging
+        if (message.type?.startsWith('chatStream')) {
+          console.log('[UnifiedChatService] Received message:', message.type, 'requestId:', message.requestId);
+        }
+        
         const pending = this.pendingStreams.get(message.requestId);
 
         if (!pending) {
+          if (message.type?.startsWith('chatStream')) {
+            console.log('[UnifiedChatService] No pending stream for requestId:', message.requestId, 'pendingStreams:', Array.from(this.pendingStreams.keys()));
+          }
           return;
         }
 
@@ -80,6 +89,7 @@ export class UnifiedChatService implements IChatService {
 
           case 'chatStreamComplete': {
             // Stream complete
+            console.log('[UnifiedChatService] Stream complete for requestId:', message.requestId);
             pending.controller.close();
             pending.resolve();
             this.pendingStreams.delete(message.requestId);
@@ -88,6 +98,7 @@ export class UnifiedChatService implements IChatService {
 
           case 'chatStreamError': {
             // Stream error - use controller.error() to properly propagate errors
+            console.log('[UnifiedChatService] Stream error for requestId:', message.requestId, 'error:', message.error);
             const error = new Error(message.error);
             pending.controller.error(error);
             pending.reject(error);
@@ -105,11 +116,14 @@ export class UnifiedChatService implements IChatService {
    * Stream chat completion through VSCode extension backend
    */
   async *streamChat({ messages, signal }: StreamChatParams): AsyncGenerator<string, void, unknown> {
+    console.log('[UnifiedChatService] streamChat called with', messages.length, 'messages');
+    
     if (typeof window === 'undefined' || !window.vscode) {
       throw new Error('VSCode API not available');
     }
 
     const requestId = ++this.requestCounter;
+    console.log('[UnifiedChatService] Created requestId:', requestId);
 
     // Create a ReadableStream for streaming chunks
     const stream = new ReadableStream<string>({
@@ -139,6 +153,7 @@ export class UnifiedChatService implements IChatService {
         }
 
         // Send request to backend
+        console.log('[UnifiedChatService] Sending chatStream request to backend, requestId:', requestId);
         window.vscode.postMessage({
           type: 'chatStream',
           requestId,
@@ -155,6 +170,7 @@ export class UnifiedChatService implements IChatService {
             streamingTimeout: this.config.streamingTimeout,
           }
         });
+        console.log('[UnifiedChatService] chatStream request sent');
 
         // Wait for stream to complete or error
         streamPromise.catch(() => {

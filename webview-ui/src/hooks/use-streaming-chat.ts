@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import type { ChatMode } from '../types/chat-mode';
 import type { DocumentAttachment } from '../utils/document-utils';
 import type { ImageAttachment } from '../types/chat';
@@ -48,10 +48,17 @@ export function useStreamingChat(
   });
 
   // Auto-load last session on mount using stored session ID only
+  // Use a ref to ensure this only runs once on mount, not when loadSession changes
+  const hasLoadedInitialSession = useRef(false);
   useEffect(() => {
+    if (hasLoadedInitialSession.current) {
+      return; // Already loaded, don't reload
+    }
+    
     const storedSessionId = storageService.getCurrentSessionId();
 
     if (storedSessionId) {
+      hasLoadedInitialSession.current = true;
       loadSession(storedSessionId);
     }
   }, [loadSession]);
@@ -185,6 +192,7 @@ export function useStreamingChat(
     isCompressing: state.isCompressing,
     compressedContextTokens: state.compressedContextTokens,
     compressedMessages: state.compressedMessages,
+    compressionAnchorId: state.compressionAnchorId,
     revertPreviewMessageId: state.revertPreviewMessageId,
     editingMessageId: state.editingMessageId,
     currentSessionId: state.currentSessionId,

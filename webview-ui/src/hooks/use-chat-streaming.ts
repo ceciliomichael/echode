@@ -151,10 +151,12 @@ export function useChatStreaming({
       });
 
       if (compressionResult.wasAborted) {
+        console.log('[Chat] Compression was aborted, exiting early');
         return; // Compression was aborted, exit early
       }
 
       const contextMessages = compressionResult.contextMessages;
+      console.log('[Chat] After compression, contextMessages count:', contextMessages.length);
 
       // === MODEL CAPABILITIES ===
       const currentModel = getCurrentModel();
@@ -181,6 +183,13 @@ export function useChatStreaming({
       }
 
       // === BUILD CHAT HISTORY (delegated to helper) ===
+      console.log('[Chat] Building chat history with:', {
+        systemPromptLength: systemPrompt.length,
+        contextMessagesCount: contextMessages.length,
+        messagesToSendCount: messagesToSend.length,
+        contentLength: content.length,
+      });
+      
       const finalChatHistory = buildChatHistoryWithToolResults({
         systemPrompt,
         contextMessages,
@@ -191,7 +200,10 @@ export function useChatStreaming({
         mode,
       });
 
+      console.log('[Chat] Final chat history built, message count:', finalChatHistory.length);
+
       // === STREAMING LOOP (delegated to helper) ===
+      console.log('[Chat] Starting streaming loop...');
       const streamResult = await runStreamingLoop({
         finalChatHistory,
         messagesToSend,

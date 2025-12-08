@@ -182,6 +182,7 @@ export async function prepareContextWithCompression(
     }
 
     // Compression done - reset content and switch to streaming state
+    console.log('[Chat] Compression phase complete, resetting UI for streaming');
     setIsCompressing(false);
     setMessages((prev) =>
       prev.map((msg) =>
@@ -192,5 +193,9 @@ export async function prepareContextWithCompression(
     );
   }
 
+  console.log('[Chat] prepareContextWithCompression returning:', {
+    contextMessagesCount: contextMessages.length,
+    wasAborted: false,
+  });
   return { contextMessages, wasAborted: false };
 }

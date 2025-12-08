@@ -54,6 +54,12 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
   let retryCount = 0;
   let streamSuccess = false;
 
+  console.log('[STREAMING] runStreamingLoop called with:', {
+    chatHistoryLength: finalChatHistory.length,
+    mode,
+    isStoppingRef: isStoppingRef.current,
+  });
+
   while (!streamSuccess && !isStoppingRef.current) {
     try {
       const abortController = new AbortController();
@@ -67,7 +73,7 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
         updateUI();
       }
 
-      console.log('[STREAMING] Starting stream...');
+      console.log('[STREAMING] Starting stream, creating chatApi.streamChat...');
       let chunkCount = 0;
 
       // Incremental tool execution state
