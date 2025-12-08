@@ -121,8 +121,7 @@ export function ChatContainer() {
     abortStream();
     clearChat();
     clearTodos();
-    handleModeChange('agent');
-  }, [abortStream, clearChat, clearTodos, handleModeChange, messages, saveCurrentSession]);
+  }, [abortStream, clearChat, clearTodos, messages, saveCurrentSession]);
 
   const {
     isHistoryOpen,
