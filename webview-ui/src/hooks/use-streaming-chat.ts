@@ -102,7 +102,6 @@ export function useStreamingChat(
     executeToolAndContinue,
     updateToolExecution,
     isStoppingRef: state.isStoppingRef,
-    messagesRef: state.messagesRef,
     saveSession: saveCurrentSession,
     mode,
   });
