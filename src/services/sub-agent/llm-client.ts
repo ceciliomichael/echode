@@ -2,8 +2,9 @@ import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { QwenCredentialManager } from '../llm/qwen/credential-manager';
 import { ConversationMessage, SubAgentApiSettings, IndexingSettings, ProgressCallback } from './types';
+import { createFirstChunkTimeoutPromise, StreamingTimeoutError } from '../../utils/streaming-timeout';
 
-const DEFAULT_REQUEST_TIMEOUT = 5000; // 5 seconds
+const DEFAULT_FIRST_CHUNK_TIMEOUT = 15000; // 15 seconds to receive first chunk
 
 /**
  * LLM client abstraction for sub-agent
@@ -91,8 +92,8 @@ export class LLMClient {
           throw error;
         }
 
-        if (error instanceof Error && error.name === 'TimeoutError') {
-          this.onProgress?.(`Request timeout, retrying (attempt ${attempt})...`);
+        if (error instanceof StreamingTimeoutError) {
+          this.onProgress?.(`No response received, retrying (attempt ${attempt})...`);
           continue;
         }
         throw error;
@@ -115,39 +116,50 @@ export class LLMClient {
       baseURL: this.apiSettings.anthropicCustomUrl || undefined,
     });
 
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
-        const error = new Error('Request timed out');
-        error.name = 'TimeoutError';
-        reject(error);
-      }, DEFAULT_REQUEST_TIMEOUT);
+    // Create timeout that only triggers if no streaming data is received
+    const timeout = createFirstChunkTimeoutPromise(DEFAULT_FIRST_CHUNK_TIMEOUT, signal);
+
+    // Use streaming API
+    const stream = client.messages.stream({
+      model: model || 'claude-3-5-sonnet-20241022',
+      max_tokens: 4096,
+      system: systemPrompt,
+      messages: conversation.map(m => ({
+        role: m.role,
+        content: m.content,
+      })),
     });
 
-    const abortPromise = signal ? new Promise<never>((_, reject) => {
-      const abortHandler = () => reject(new Error('Aborted'));
-      signal.addEventListener('abort', abortHandler, { once: true });
-    }) : null;
+    // Collect streamed text
+    let result = '';
+    
+    const streamPromise = (async () => {
+      for await (const event of stream) {
+        if (signal?.aborted) {
+          stream.abort();
+          throw new Error('Aborted');
+        }
+        
+        // Notify timeout controller that we received data
+        timeout.notifyChunk();
+        
+        if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+          result += event.delta.text;
+        }
+      }
+      return result;
+    })();
 
-    const racers: Promise<Anthropic.Message>[] = [
-      client.messages.create({
-        model: model || 'claude-3-5-sonnet-20241022',
-        max_tokens: 4096,
-        system: systemPrompt,
-        messages: conversation.map(m => ({
-          role: m.role,
-          content: m.content,
-        })),
-      }, { signal }),
-      timeoutPromise,
-    ];
-    if (abortPromise) {
-      racers.push(abortPromise);
+    try {
+      // Race between streaming and timeout
+      const response = await Promise.race([streamPromise, timeout.promise]);
+      timeout.cancel();
+      return response;
+    } catch (error) {
+      timeout.cancel();
+      stream.abort();
+      throw error;
     }
-
-    const response = await Promise.race(racers);
-
-    const textBlock = response.content.find(block => block.type === 'text');
-    return textBlock?.type === 'text' ? textBlock.text : '';
   }
 
   /**
@@ -176,8 +188,8 @@ export class LLMClient {
           throw error;
         }
 
-        if (error instanceof Error && error.name === 'TimeoutError') {
-          this.onProgress?.(`Request timeout, retrying (attempt ${attempt})...`);
+        if (error instanceof StreamingTimeoutError) {
+          this.onProgress?.(`No response received, retrying (attempt ${attempt})...`);
           continue;
         }
         throw error;
@@ -207,39 +219,51 @@ export class LLMClient {
       baseURL: normalizedBaseUrl || undefined,
     });
 
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
-        const error = new Error('Request timed out');
-        error.name = 'TimeoutError';
-        reject(error);
-      }, DEFAULT_REQUEST_TIMEOUT);
-    });
+    // Create timeout that only triggers if no streaming data is received
+    const timeout = createFirstChunkTimeoutPromise(DEFAULT_FIRST_CHUNK_TIMEOUT, signal);
 
-    const abortPromise = signal ? new Promise<never>((_, reject) => {
-      const abortHandler = () => reject(new Error('Aborted'));
-      signal.addEventListener('abort', abortHandler, { once: true });
-    }) : null;
+    // Use streaming API
+    const stream = await client.chat.completions.create({
+      model: model || 'gpt-4o',
+      max_tokens: 4096,
+      stream: true,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...conversation.map(m => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+        })),
+      ],
+    }, { signal });
 
-    const racers: Promise<OpenAI.Chat.Completions.ChatCompletion>[] = [
-      client.chat.completions.create({
-        model: model || 'gpt-4o',
-        max_tokens: 4096,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...conversation.map(m => ({
-            role: m.role as 'user' | 'assistant',
-            content: m.content,
-          })),
-        ],
-      }, { signal }),
-      timeoutPromise,
-    ];
-    if (abortPromise) {
-      racers.push(abortPromise);
+    // Collect streamed text
+    let result = '';
+    
+    const streamPromise = (async () => {
+      for await (const chunk of stream) {
+        if (signal?.aborted) {
+          throw new Error('Aborted');
+        }
+        
+        // Notify timeout controller that we received data
+        timeout.notifyChunk();
+        
+        const content = chunk.choices[0]?.delta?.content;
+        if (content) {
+          result += content;
+        }
+      }
+      return result;
+    })();
+
+    try {
+      // Race between streaming and timeout
+      const response = await Promise.race([streamPromise, timeout.promise]);
+      timeout.cancel();
+      return response;
+    } catch (error) {
+      timeout.cancel();
+      throw error;
     }
-
-    const response = await Promise.race(racers);
-
-    return response.choices[0]?.message?.content || '';
   }
 }
