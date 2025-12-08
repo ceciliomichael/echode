@@ -54,6 +54,7 @@ async function executeEchoSearch(
     openaiCompatibleCustomUrl: settings.openaiCompatibleCustomUrl,
     megallmApiKey: settings.megallmApiKey,
     megallmCustomUrl: settings.megallmCustomUrl,
+    streamingTimeout: settings.streamingTimeout,
   };
 
   return executeToolViaExtension(

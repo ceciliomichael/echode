@@ -23,6 +23,7 @@ export interface SubAgentApiSettings {
   megallmApiKey?: string;
   megallmCustomUrl?: string;
   qwenCodeOauthPath?: string;
+  streamingTimeout?: number;
 }
 
 /**

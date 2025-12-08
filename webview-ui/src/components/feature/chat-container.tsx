@@ -17,57 +17,6 @@ import { useContextUsage } from '../../hooks/use-context-usage';
 import { useWorkspaceContext } from '../../hooks/use-workspace-context';
 import { getSystemPrompt } from '../../utils/prompts';
 import { storageService } from '../../utils/storage';
-import { tokenizeContent } from '../../utils/content-tokenizer';
-import type { Message } from '../../types/chat';
-
-// Planning tools that can be visually connected across message boundaries
-const PLANNING_TOOL_NAMES = ['plan_navigator', 'plan_handoff', 'todo_write'];
-
-/**
- * Get visible tokens from a message (filters out empty text and incomplete non-planning tools)
- */
-function getVisibleTokens(message: Message) {
-  if (message.role !== 'assistant' || !message.content) return [];
-  
-  const tokens = tokenizeContent(message.content, message.id);
-  
-  return tokens.filter(token => {
-    // Filter empty text
-    if (token.type === 'text' && token.content.trim() === '') {
-      return false;
-    }
-    // Planning tools are always visible
-    if (token.type === 'tool') {
-      const isPlanningTool = PLANNING_TOOL_NAMES.includes(token.toolName);
-      if (isPlanningTool) return true;
-      // Non-planning tools need to be closed
-      if (!token.isClosed) return false;
-    }
-    return true;
-  });
-}
-
-/**
- * Check if a message ends with a planning tool (last visible token is a planning tool)
- */
-function messageEndsWithPlanningTool(message: Message): boolean {
-  const visibleTokens = getVisibleTokens(message);
-  if (visibleTokens.length === 0) return false;
-  
-  const lastToken = visibleTokens[visibleTokens.length - 1];
-  return lastToken.type === 'tool' && PLANNING_TOOL_NAMES.includes(lastToken.toolName);
-}
-
-/**
- * Check if a message starts with a planning tool (first visible token is a planning tool)
- */
-function messageStartsWithPlanningTool(message: Message): boolean {
-  const visibleTokens = getVisibleTokens(message);
-  if (visibleTokens.length === 0) return false;
-  
-  const firstToken = visibleTokens[0];
-  return firstToken.type === 'tool' && PLANNING_TOOL_NAMES.includes(firstToken.toolName);
-}
 
 export function ChatContainer() {
   const { tasks, updateTodos, clearTodos } = useTodo();
@@ -117,6 +66,20 @@ export function ChatContainer() {
   const visibleMessages = messages.filter(msg => !msg.hidden);
   const lastVisibleMessage = visibleMessages[visibleMessages.length - 1];
   const lastMessageKey = lastVisibleMessage ? `${lastVisibleMessage.id}:${lastVisibleMessage.content.length}` : '';
+
+  const hasPlanningTool = (message: typeof messages[number]): boolean => {
+    if (message.role !== 'assistant' || !message.toolExecutions) {
+      return false;
+    }
+
+    for (const execution of message.toolExecutions.values()) {
+      if (execution.toolName === 'plan_navigator' || execution.toolName === 'plan_handoff') {
+        return true;
+      }
+    }
+
+    return false;
+  };
 
   const {
     scrollContainerRef,
@@ -235,22 +198,20 @@ export function ChatContainer() {
               <div className="space-y-3">
               {visibleMessages.map((message, index) => {
                 const isLastAssistantMessage = index === visibleMessages.length - 1 && message.role === 'assistant';
-                
-                // Compute cross-message tool connection for planning tools
-                const prevMessage = index > 0 ? visibleMessages[index - 1] : null;
-                const nextMessage = index < visibleMessages.length - 1 ? visibleMessages[index + 1] : null;
-                
-                // Connect to previous if: current starts with planning tool AND previous ends with planning tool
-                const connectToPrevious = message.role === 'assistant' && 
-                  prevMessage !== null &&
-                  messageStartsWithPlanningTool(message) && 
-                  messageEndsWithPlanningTool(prevMessage);
-                
-                // Connect to next if: current ends with planning tool AND next starts with planning tool
-                const connectToNext = message.role === 'assistant' && 
-                  nextMessage !== null &&
-                  messageEndsWithPlanningTool(message) && 
-                  messageStartsWithPlanningTool(nextMessage);
+
+                // Determine if this assistant message participates in a planning tool chain
+                let planChainPosition: { connectTop: boolean; connectBottom: boolean } | undefined;
+                if (hasPlanningTool(message)) {
+                  const prevMsg = index > 0 ? visibleMessages[index - 1] : undefined;
+                  const nextMsg = index < visibleMessages.length - 1 ? visibleMessages[index + 1] : undefined;
+
+                  const connectTop = !!(prevMsg && hasPlanningTool(prevMsg));
+                  const connectBottom = !!(nextMsg && hasPlanningTool(nextMsg));
+
+                  if (connectTop || connectBottom) {
+                    planChainPosition = { connectTop, connectBottom };
+                  }
+                }
                 
                 return (
                   <MessageBubble
@@ -270,8 +231,7 @@ export function ChatContainer() {
                     model={model}
                     onModelChange={setActiveProviderAndModel}
                     contextUsage={contextUsage}
-                    connectToPrevious={connectToPrevious}
-                    connectToNext={connectToNext}
+                    planChainPosition={planChainPosition}
                   />
                 );
               })}

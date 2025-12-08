@@ -4,7 +4,7 @@ import { QwenCredentialManager } from '../llm/qwen/credential-manager';
 import { ConversationMessage, SubAgentApiSettings, IndexingSettings, ProgressCallback } from './types';
 import { createFirstChunkTimeoutPromise, StreamingTimeoutError } from '../../utils/streaming-timeout';
 
-const DEFAULT_FIRST_CHUNK_TIMEOUT = 15000; // 15 seconds to receive first chunk
+const DEFAULT_FIRST_CHUNK_TIMEOUT = 5000; // 5 seconds to receive first chunk (configurable via settings)
 
 /**
  * LLM client abstraction for sub-agent
@@ -117,7 +117,8 @@ export class LLMClient {
     });
 
     // Create timeout that only triggers if no streaming data is received
-    const timeout = createFirstChunkTimeoutPromise(DEFAULT_FIRST_CHUNK_TIMEOUT, signal);
+    const timeoutMs = this.apiSettings.streamingTimeout ?? DEFAULT_FIRST_CHUNK_TIMEOUT;
+    const timeout = createFirstChunkTimeoutPromise(timeoutMs, signal);
 
     // Use streaming API
     const stream = client.messages.stream({
@@ -220,7 +221,8 @@ export class LLMClient {
     });
 
     // Create timeout that only triggers if no streaming data is received
-    const timeout = createFirstChunkTimeoutPromise(DEFAULT_FIRST_CHUNK_TIMEOUT, signal);
+    const timeoutMs = this.apiSettings.streamingTimeout ?? DEFAULT_FIRST_CHUNK_TIMEOUT;
+    const timeout = createFirstChunkTimeoutPromise(timeoutMs, signal);
 
     // Use streaming API
     const stream = await client.chat.completions.create({

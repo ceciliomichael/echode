@@ -22,13 +22,14 @@ interface MessageBubbleProps {
   model: string;
   onModelChange: (provider: Provider, model: string) => void;
   contextUsage?: ContextUsageResult;
-  /** Connect first tool to previous message's last tool */
-  connectToPrevious?: boolean;
-  /** Connect last tool to next message's first tool */
-  connectToNext?: boolean;
+  planChainPosition?: {
+    connectTop: boolean;
+    connectBottom: boolean;
+  };
 }
 
-export function MessageBubble({ message, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, isStreaming, isCompressing, mode, onModeChange, provider, model, onModelChange, contextUsage, connectToPrevious, connectToNext }: MessageBubbleProps) {
+export function MessageBubble({ message, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, isStreaming, isCompressing, mode, onModeChange, provider, model, onModelChange, contextUsage, planChainPosition }: MessageBubbleProps) {
+
   if (message.role === 'user') {
     return (
       <UserMessage
@@ -59,8 +60,7 @@ export function MessageBubble({ message, onEdit, onUpdate, isEditing, onEditStar
           isStreaming={isStreaming}
           isCompressing={isCompressing}
           toolExecutions={message.toolExecutions}
-          connectToPrevious={connectToPrevious}
-          connectToNext={connectToNext}
+          planChainPosition={planChainPosition}
         />
       </div>
     </div>
