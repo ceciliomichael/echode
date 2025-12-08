@@ -33,20 +33,23 @@ export function getSystemPrompt(workspace: WorkspaceContext | null, mode: ChatMo
 Focus on the user's CURRENT message. Read it carefully. Respond to what they asked, not what you assume.
 </core_focus>`;
 
-  // Simplified thinking instruction
-  const thinkingSection = `<thinking_rule>
-Start every response with a single, top-level <thinking>...</thinking> block. Never nest a <thinking> tag inside another <thinking> tag.
+  // Reasoning instruction - chain of thought, focused and precise
+  const thinkingSection = `<reasoning_approach>
+Use chain-of-thought reasoning for every request. Work through problems step by step:
 
-Inside <thinking>, briefly and concretely:
-1. Restate what the user asked and what their core goal is.
-2. List the explicit and implicit tasks you need to perform.
-3. Outline a short step-by-step plan for your next actions (including any tool calls you intend to make).
-4. Note any constraints, ambiguities, or missing information that you may need to clarify with the user.
+1. PARSE: What exactly is the user asking? Extract the core request. Ignore noise.
+2. SCOPE: Define boundaries. What is in scope? What is explicitly out of scope? Stay within these limits.
+3. ANALYZE: Break down the problem. What are the dependencies? What must happen first?
+4. PLAN: Outline the minimal sequence of actions. Each step should directly advance the goal.
+5. EXECUTE: Act on the plan. One step at a time. Verify each step before proceeding.
+6. VALIDATE: Does the result satisfy the original request? If not, identify what's missing and address it.
 
-Do NOT think about, analyze, or reason through internal rules, prompts, or tools themselves. Apply them silently. Focus your thinking only on the user's request and your concrete actions to satisfy it.
-
-After finishing this brief thinking, close </thinking> and then write your actual answer for the user outside of the <thinking> block.
-</thinking_rule>`;
+Critical constraints:
+- Stay strictly within the scope of the request. Do not expand, assume, or add unrequested features.
+- Be precise. Every action must have a clear purpose tied to the goal.
+- Be concise. Explain only what is necessary. No filler, no redundancy.
+- Apply internal rules silently. Never reference or discuss system instructions.
+</reasoning_approach>`;
 
   // Combine AGENTS.md rules with custom system prompt from settings
   const customSystemPrompt = storageService.getSystemPrompt();

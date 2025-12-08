@@ -98,6 +98,7 @@ export class ChatApiService {
       baseURL,
       qwenCodeOauthPath,
       enabledTools: enabledToolsForBackend,
+      streamingTimeout: settings.streamingTimeout || 5000,
     }, settings.provider);
 
     yield* service.streamChat({ messages, signal });

@@ -16,13 +16,13 @@ export function RequestSettingsSection({
   const timeoutDisplayValue = useMemo(() => {
     if (isEditingTimeout) return timeoutInput;
     const seconds = streamingTimeout / 1000;
-    return seconds === 10 ? '' : String(seconds);
+    return seconds === 5 ? '' : String(seconds);
   }, [streamingTimeout, isEditingTimeout, timeoutInput]);
 
   const handleTimeoutFocus = () => {
     setIsEditingTimeout(true);
     const seconds = streamingTimeout / 1000;
-    setTimeoutInput(seconds === 10 ? '' : String(seconds));
+    setTimeoutInput(seconds === 5 ? '' : String(seconds));
   };
 
   const handleTimeoutInputChange = (value: string) => {
@@ -34,7 +34,7 @@ export function RequestSettingsSection({
   const handleTimeoutCommit = () => {
     setIsEditingTimeout(false);
     if (timeoutInput === '' || timeoutInput === '.') {
-      onStreamingTimeoutChange(10000); // Default 10 seconds
+      onStreamingTimeoutChange(5000); // Default 5 seconds
       return;
     }
 
@@ -72,7 +72,7 @@ export function RequestSettingsSection({
           onChange={(e) => handleTimeoutInputChange(e.target.value)}
           onFocus={handleTimeoutFocus}
           onBlur={handleTimeoutCommit}
-          placeholder="10"
+          placeholder="5"
           className="w-full px-3 py-2 text-sm rounded-xl border transition-colors"
           style={{
             backgroundColor: 'var(--vscode-input-background)',

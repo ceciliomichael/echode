@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { ILLMProvider, ChatMessage, ChatStreamSettings } from './llm-provider.interface';
 import { StreamingTimeoutError } from '../../utils/streaming-timeout';
 
-const DEFAULT_STREAMING_TIMEOUT = 10000; // 10 seconds
+const DEFAULT_STREAMING_TIMEOUT = 5000; // 5 seconds
 
 export class VSCodeLMProvider implements ILLMProvider {
   async streamChat(

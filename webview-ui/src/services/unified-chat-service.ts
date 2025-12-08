@@ -151,7 +151,8 @@ export class UnifiedChatService implements IChatService {
             temperature: this.config.temperature,
             baseURL: this.config.baseURL,
             qwenCodeOauthPath: this.config.qwenCodeOauthPath,
-            enabledTools: this.config.enabledTools
+            enabledTools: this.config.enabledTools,
+            streamingTimeout: this.config.streamingTimeout,
           }
         });
 

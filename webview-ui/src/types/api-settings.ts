@@ -117,7 +117,7 @@ export const DEFAULT_API_SETTINGS: ApiSettings = {
   megallmTemperature: 0.0,
   vscodeLmTemperature: 1.0,
   qwenCodeTemperature: 0.0,
-  streamingTimeout: 10000,
+  streamingTimeout: 5000,
   systemPrompt: '',
 };
 

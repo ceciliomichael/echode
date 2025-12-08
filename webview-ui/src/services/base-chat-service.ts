@@ -11,6 +11,8 @@ export interface ChatServiceConfig {
   baseURL: string;
   qwenCodeOauthPath?: string;
   enabledTools?: Array<{ id: string; enabled: boolean }>;
+  /** Timeout in ms before treating a stream as stalled and retrying */
+  streamingTimeout: number;
 }
 
 /**

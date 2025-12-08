@@ -45,7 +45,7 @@ export function useProviderSettings(initialSettings: ApiSettings) {
   const [megallmTemperature, setMegallmTemperature] = useState(initialSettings.megallmTemperature);
   
   const [qwenCodeOauthPath, setQwenCodeOauthPath] = useState(initialSettings.qwenCodeOauthPath || '');
-  const [streamingTimeout, setStreamingTimeout] = useState(initialSettings.streamingTimeout || 10000);
+  const [streamingTimeout, setStreamingTimeout] = useState(initialSettings.streamingTimeout || 5000);
 
   const [model, setModel] = useState(initialSettings.model);
 
@@ -123,7 +123,7 @@ export function useProviderSettings(initialSettings: ApiSettings) {
       setQwenCodeTemperature(initialSettings.qwenCodeTemperature);
       setMegallmTemperature(initialSettings.megallmTemperature);
       setQwenCodeOauthPath(initialSettings.qwenCodeOauthPath || '');
-      setStreamingTimeout(initialSettings.streamingTimeout || 10000);
+      setStreamingTimeout(initialSettings.streamingTimeout || 5000);
     }, 0);
     return () => clearTimeout(timeoutId);
   }, [initialSettings]);

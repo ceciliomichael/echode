@@ -3,7 +3,7 @@ import OpenAI from 'openai';
 import { QwenCredentialManager } from '../llm/qwen/credential-manager';
 import { ConversationMessage, SubAgentApiSettings, IndexingSettings, ProgressCallback } from './types';
 
-const DEFAULT_REQUEST_TIMEOUT = 10000; // 10 seconds
+const DEFAULT_REQUEST_TIMEOUT = 5000; // 5 seconds
 
 /**
  * LLM client abstraction for sub-agent

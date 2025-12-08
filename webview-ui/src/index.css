@@ -15,23 +15,6 @@
   animation: fadeIn 200ms ease-out forwards;
 }
 
-@keyframes streamFadeIn {
-  0% {
-    opacity: 0;
-    transform: translateY(2px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.streaming-text-container [data-streamed] {
-  animation: streamFadeIn var(--streaming-duration, 320ms) ease-out forwards;
-  animation-delay: var(--streaming-delay, 0ms);
-  will-change: opacity, transform;
-}
-
 @layer base {
   :root {
     --vscode-editor-background: #ffffff;

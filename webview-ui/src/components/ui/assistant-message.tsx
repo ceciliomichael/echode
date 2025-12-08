@@ -66,6 +66,10 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
       if (token.type === 'text' && token.content.trim() === '') {
         return false;
       }
+      // Hide think/thinking blocks until they have actual content
+      if (token.type === 'think' && token.content.trim() === '') {
+        return false;
+      }
       // For file modification tools, show as soon as path parameter is present (even if not fully closed)
       if (token.type === 'tool') {
         const isFileModificationTool = token.toolName === 'write_to_file' || token.toolName === 'apply_diff';
