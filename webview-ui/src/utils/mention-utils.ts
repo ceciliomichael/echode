@@ -271,42 +271,52 @@ export function parseMentionFilenames(text: string): string[] {
 /**
  * Parse all @mentions from text and return their full paths
  * Uses the mention path map to resolve filenames to full paths
- * Falls back to filename if no mapping exists
+ * ONLY returns paths for registered mentions - unregistered @mentions are ignored
  */
-export function parseMentions(text: string, workspaceFiles?: string[]): string[] {
+export function parseMentions(text: string): string[] {
   const filenames = parseMentionFilenames(text);
   
-  return filenames.map(filename => {
-    // First check the path map
-    const mappedPath = getMentionPath(filename);
-    if (mappedPath) {
-      return mappedPath;
-    }
-    
-    // Try to find in workspace files by basename
-    if (workspaceFiles) {
+  // Only return mentions that are explicitly registered
+  return filenames
+    .map(filename => getMentionPath(filename))
+    .filter((path): path is string => path !== undefined);
+}
+
+/**
+ * Try to resolve @mentions from text using workspace files
+ * Used for restoring mentions from aborted input
+ */
+export function resolveMentionsFromWorkspace(text: string, workspaceFiles: string[]): string[] {
+  const filenames = parseMentionFilenames(text);
+  
+  return filenames
+    .map(filename => {
+      // First check the path map
+      const mappedPath = getMentionPath(filename);
+      if (mappedPath) {
+        return mappedPath;
+      }
+      
+      // Try to find in workspace files by basename
       const matchingFile = workspaceFiles.find(f => {
         const basename = f.split('/').pop() || f;
         return basename.toLowerCase() === filename.toLowerCase();
       });
-      if (matchingFile) {
-        return matchingFile;
-      }
-    }
-    
-    // Fallback to filename as-is
-    return filename;
-  });
+      return matchingFile || null;
+    })
+    .filter((path): path is string => path !== null);
 }
 
 /**
  * Expand @mentions in text with full paths for sending to AI
+ * ONLY expands mentions that were explicitly registered (selected from autocomplete)
+ * Pasted @something text that wasn't registered will be left as-is
  */
-export function expandMentionsForAI(text: string, workspaceFiles?: string[]): string {
+export function expandMentionsForAI(text: string): string {
   let result = text;
   let match;
   
-  // Find all @mentions and replace with full paths
+  // Find all @mentions and replace ONLY registered ones with full paths
   const regex = /@((?:[^\s@]|\\ )+)/g;
   const replacements: Array<{ start: number; end: number; replacement: string }> = [];
   
@@ -314,25 +324,13 @@ export function expandMentionsForAI(text: string, workspaceFiles?: string[]): st
     const filename = unescapeSpaces(match[1]);
     const fullPath = getMentionPath(filename);
     
+    // Only expand if explicitly registered - ignore unregistered @mentions
     if (fullPath) {
       replacements.push({
         start: match.index,
         end: match.index + match[0].length,
         replacement: `@${fullPath}`,
       });
-    } else if (workspaceFiles) {
-      // Try to find in workspace files
-      const matchingFile = workspaceFiles.find(f => {
-        const basename = f.split('/').pop() || f;
-        return basename.toLowerCase() === filename.toLowerCase();
-      });
-      if (matchingFile) {
-        replacements.push({
-          start: match.index,
-          end: match.index + match[0].length,
-          replacement: `@${matchingFile}`,
-        });
-      }
     }
   }
   

@@ -49,7 +49,8 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
   const workspaceFiles = useMemo(() => workspace?.files || [], [workspace]);
 
   // Register mentions from initial content so they get highlighted
-  // We use useMemo to ensure this runs synchronously during render
+  // Only register mentions that actually match workspace files
+  // This prevents pasted @something text from being treated as file mentions
   useMemo(() => {
     const mentions = parseMentionFilenames(parsed.text);
     for (const mention of mentions) {
@@ -58,8 +59,10 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
         const basename = f.split('/').pop() || f;
         return basename.toLowerCase() === mention.toLowerCase();
       });
-      // Register with the matched path or just the mention itself
-      registerMentionPath(mention, matchingFile || mention);
+      // Only register if it matches an actual workspace file
+      if (matchingFile) {
+        registerMentionPath(mention, matchingFile);
+      }
     }
   }, [parsed.text, workspaceFiles]);
 
