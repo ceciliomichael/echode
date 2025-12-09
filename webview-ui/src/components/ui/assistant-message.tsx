@@ -366,10 +366,10 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                 }
               }
               
-              // Case 2: Think block - show dots while thinking is visible and no tools are yet visible
-              // This ensures the user still sees progress feedback while internal reasoning is streaming
-              // but before any tool blocks or final text have appeared.
-              if (lastToken.type === 'think' && !hasVisibleToolToken) {
+              // Case 2: Think block - show dots after thinking has completed (closed)
+              // and no tools are yet visible. While the think block itself is streaming,
+              // it already acts as the primary progress indicator so we avoid extra dots.
+              if (lastToken.type === 'think' && lastToken.isClosed && !hasVisibleToolToken) {
                 return (
                   <div className="mt-2" style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
                     <LoadingDots />
