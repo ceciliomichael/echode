@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { memo, useState, useRef, useEffect } from 'react';
 import { useHoverEffect, hoverPresets } from '../../hooks/use-hover-effect';
 import { Check, Cpu, Search, RefreshCcw } from 'lucide-react';
 import type { ApiSettings, Provider } from '../../types/api-settings';
@@ -23,7 +23,7 @@ interface ChatModelSelectorProps {
   direction?: 'up' | 'down';
 }
 
-export function ChatModelSelector({ provider: activeProvider, model: activeModel, onChange, disabled = false, direction = 'up' }: ChatModelSelectorProps) {
+function ChatModelSelectorComponent({ provider: activeProvider, model: activeModel, onChange, disabled = false, direction = 'up' }: ChatModelSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -390,3 +390,5 @@ export function ChatModelSelector({ provider: activeProvider, model: activeModel
     </div>
   );
 }
+
+export const ChatModelSelector = memo(ChatModelSelectorComponent);

@@ -21,6 +21,8 @@ export function useDropdownDirection(
   const [direction, setDirection] = useState<DropdownDirection>(defaultDirection);
 
   useEffect(() => {
+    let frameId: number | null = null;
+
     const measure = () => {
       const trigger = triggerRef.current;
       if (!trigger) {
@@ -56,18 +58,32 @@ export function useDropdownDirection(
 
     const boundary = document.querySelector(boundarySelector) as HTMLElement | null;
 
-    measure();
+    const scheduleMeasure = () => {
+      if (frameId !== null) {
+        return;
+      }
+      frameId = window.requestAnimationFrame(() => {
+        frameId = null;
+        measure();
+      });
+    };
+
+    scheduleMeasure();
 
     if (boundary) {
-      boundary.addEventListener('scroll', measure);
+      boundary.addEventListener('scroll', scheduleMeasure, { passive: true });
     }
-    window.addEventListener('resize', measure);
+    window.addEventListener('resize', scheduleMeasure);
 
     return () => {
-      if (boundary) {
-        boundary.removeEventListener('scroll', measure);
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+        frameId = null;
       }
-      window.removeEventListener('resize', measure);
+      if (boundary) {
+        boundary.removeEventListener('scroll', scheduleMeasure);
+      }
+      window.removeEventListener('resize', scheduleMeasure);
     };
   }, [boundarySelector, defaultDirection, estimatedPanelHeight, triggerRef]);
 

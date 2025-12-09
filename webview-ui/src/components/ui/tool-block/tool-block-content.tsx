@@ -19,16 +19,22 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded }: ToolBlockCo
     (toolCall.toolName === 'write_to_file' && toolCall.parameters.content) ||
     (toolCall.toolName === 'echo_search');
 
+  const isStreamingPhase =
+    (toolCall.status === 'executing' || toolCall.status === 'pending' || (isAborted && hasStreamedContent)) &&
+    !toolCall.result?.success;
+
+  const shouldRenderInnerContent = isExpanded || isStreamingPhase;
+
   return (
     <div
-      className={`overflow-hidden transition-all duration-300 ease-in-out ${
-        isExpanded ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'
+      className={`overflow-hidden transition-[max-height,opacity] duration-200 ease-out ${
+        isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
       }`}
     >
-      <div className="border-t" style={{ borderColor: 'var(--vscode-input-border)' }}>
-        {/* Processing indicator or Real-time Streaming */}
-        {((toolCall.status === 'executing' || toolCall.status === 'pending' || (isAborted && hasStreamedContent)) &&
-          !toolCall.result?.success) && (
+      {shouldRenderInnerContent && (
+        <div className="border-t" style={{ borderColor: 'var(--vscode-input-border)' }}>
+          {/* Processing indicator or Real-time Streaming */}
+          {isStreamingPhase && (
             <>
               {toolCall.toolName === 'write_to_file' && toolCall.parameters.content ? (
                 <div className="px-3 py-3">
@@ -51,45 +57,46 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded }: ToolBlockCo
             </>
           )}
 
-        {/* Result - only show if not aborted (aborted handled above) */}
-        {toolCall.result && !isAborted && (
-          <div className="overflow-x-auto">
-            {toolCall.result.success ? (
-              <div style={{ color: 'var(--vscode-editor-foreground)' }}>
-                {renderToolResult(toolCall.toolName, toolCall.result.data, fileInfo.displayName)}
-              </div>
-            ) : (
-              <div
-                className="px-3 py-3"
-                style={{
-                  backgroundColor: 'var(--vscode-inputValidation-errorBackground)',
-                }}
-              >
-                <div className="flex items-start gap-2">
-                  <X
-                    className="w-3.5 h-3.5 mt-0.5 shrink-0"
-                    style={{ color: 'var(--vscode-errorForeground)' }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div
-                      className="text-sm font-semibold mb-1"
+          {/* Result - only show if not aborted (aborted handled above) */}
+          {toolCall.result && !isAborted && (
+            <div className="overflow-x-auto">
+              {toolCall.result.success ? (
+                <div style={{ color: 'var(--vscode-editor-foreground)' }}>
+                  {renderToolResult(toolCall.toolName, toolCall.result.data, fileInfo.displayName)}
+                </div>
+              ) : (
+                <div
+                  className="px-3 py-3"
+                  style={{
+                    backgroundColor: 'var(--vscode-inputValidation-errorBackground)',
+                  }}
+                >
+                  <div className="flex items-start gap-2">
+                    <X
+                      className="w-3.5 h-3.5 mt-0.5 shrink-0"
                       style={{ color: 'var(--vscode-errorForeground)' }}
-                    >
-                      Error
-                    </div>
-                    <div
-                      className="text-sm break-words whitespace-pre-wrap"
-                      style={{ color: 'var(--vscode-errorForeground)' }}
-                    >
-                      {toolCall.result.error?.split('\n\n')[0]}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div
+                        className="text-sm font-semibold mb-1"
+                        style={{ color: 'var(--vscode-errorForeground)' }}
+                      >
+                        Error
+                      </div>
+                      <div
+                        className="text-sm break-words whitespace-pre-wrap"
+                        style={{ color: 'var(--vscode-errorForeground)' }}
+                      >
+                        {toolCall.result.error?.split('\n\n')[0]}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

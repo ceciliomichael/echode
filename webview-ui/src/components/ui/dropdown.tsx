@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 
 interface DropdownProps {
   isOpen: boolean;
@@ -7,7 +7,7 @@ interface DropdownProps {
   variant?: 'default' | 'fullwidth';
 }
 
-export function Dropdown({ isOpen, onClose, children, variant = 'default' }: DropdownProps) {
+function DropdownComponent({ isOpen, onClose, children, variant = 'default' }: DropdownProps) {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -59,3 +59,5 @@ export function Dropdown({ isOpen, onClose, children, variant = 'default' }: Dro
     </div>
   );
 }
+
+export const Dropdown = memo(DropdownComponent);

@@ -10,7 +10,7 @@ export class WriteFileTool implements ITool {
   name = 'write_to_file';
 
   private readonly BINARY_EXTENSIONS = new Set([
-    'png', 'jpg', 'jpeg', 'gif', 'ico', 'bmp', 'webp', 'svg',
+    'png', 'jpg', 'jpeg', 'gif', 'ico', 'bmp', 'webp',
     'zip', 'tar', 'gz', 'rar', '7z',
     'exe', 'dll', 'so', 'dylib',
     'pdf', 'doc', 'docx', 'xls', 'xlsx',

@@ -192,6 +192,37 @@ export class ContextCompressorService {
 
     // Only compress if there's meaningful content in middle
     if (middleMessages.length < 2) {
+      // Fallback: if we're already over the token limit but the middle slice is too small,
+      // compress everything except the most recent RECENT_MESSAGES_TO_KEEP messages.
+      if (totalAfterNewMessage >= maxTokens && messages.length > RECENT_MESSAGES_TO_KEEP) {
+        const hardRecentStart = Math.max(0, messages.length - RECENT_MESSAGES_TO_KEEP);
+        const hardMiddle: Message[] = [];
+        const hardRecent: Message[] = [];
+
+        for (let i = 0; i < hardRecentStart; i++) {
+          hardMiddle.push(messages[i]);
+        }
+        for (let i = hardRecentStart; i < messages.length; i++) {
+          hardRecent.push(messages[i]);
+        }
+
+        if (hardMiddle.length >= 1) {
+          console.log('[ContextCompressor] Using hard overflow compression mode:', {
+            messageCount: messages.length,
+            hardMiddleCount: hardMiddle.length,
+            hardRecentCount: hardRecent.length,
+          });
+
+          return {
+            needsCompression: true,
+            firstMessages: [],
+            middleMessages: hardMiddle,
+            recentMessages: hardRecent,
+            estimatedTokens: totalAfterNewMessage,
+          };
+        }
+      }
+
       return {
         needsCompression: false,
         firstMessages: [],

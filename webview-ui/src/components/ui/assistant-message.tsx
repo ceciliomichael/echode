@@ -56,11 +56,15 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
   // Tokenize content into stable segments
   const tokens = useMemo(() => tokenizeContent(content, messageId), [content, messageId]);
 
-  // Filter out empty text tokens and incomplete tool blocks
+  // Filter out empty text tokens, empty think blocks, and incomplete tool blocks
   const visibleTokens = useMemo(() => {
     return tokens.filter(token => {
       // Filter empty text
       if (token.type === 'text' && token.content.trim() === '') {
+        return false;
+      }
+      // Hide think/thinking blocks until they have actual content
+      if (token.type === 'think' && token.content.trim() === '') {
         return false;
       }
       // For file modification tools, show as soon as path parameter is present (even if not fully closed)
@@ -300,18 +304,28 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
               return false;
             });
 
-            // If any tool executions are still active (pending/executing), we're still in the tool phase
-            // and should not yet show the bottom loading dots, even if one parallel tool has finished.
+            // Track whether any VISIBLE tool tokens exist in the current content
+            const hasVisibleToolToken = visibleTokens.some(token => token.type === 'tool');
+
+            // If any tool executions are still active (pending/executing) AND we already have
+            // at least one visible tool token, we're in the visible tool phase and should let the
+            // ToolBlock handle its own status UI instead of showing extra loading dots.
             const hasActiveToolExecutions = Array.from(toolExecutions?.values() || []).some(state =>
               state.status === 'pending' || state.status === 'executing' || state.status === 'fetching_diagnostics'
             );
-            if (hasActiveToolExecutions) {
+            if (hasActiveToolExecutions && hasVisibleToolToken) {
               return null;
             }
             
             // If there are visible tokens, check the last one
             if (visibleTokens.length > 0) {
               const lastToken = visibleTokens[visibleTokens.length - 1];
+
+              // If the last visible content is text, rely on the streaming text itself
+              // as the progress indicator and do not show extra bottom LoadingDots.
+              if (lastToken.type === 'text') {
+                return null;
+              }
               
               // Case 1: Tool block - only show dots if completed/error/aborted (waiting for AI)
               // Do NOT show if executing (ToolBlock shows status) or incomplete
@@ -352,8 +366,10 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                 }
               }
               
-              // Case 2: Think block - show dots if closed (waiting for text)
-              if (lastToken.type === 'think' && lastToken.isClosed) {
+              // Case 2: Think block - show dots while thinking is visible and no tools are yet visible
+              // This ensures the user still sees progress feedback while internal reasoning is streaming
+              // but before any tool blocks or final text have appeared.
+              if (lastToken.type === 'think' && !hasVisibleToolToken) {
                 return (
                   <div className="mt-2" style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
                     <LoadingDots />
@@ -361,7 +377,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                 );
               }
               
-              // Case 3: Has filtered tool blocks after visible content - show loading dots
+              // Case 3: Has filtered tool blocks after visible non-text content - show loading dots
               if (hasFilteredToolBlocks) {
                 return (
                   <div className="mt-2" style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
@@ -370,7 +386,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                 );
               }
             } else if (tokens.length > 0) {
-              // Case 4: Have tokens but all filtered (incomplete tool blocks) - show loading dots
+              // Case 4: Have tokens but all filtered (incomplete tool blocks or empty think) - show loading dots
               return (
                 <div style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
                   <LoadingDots />

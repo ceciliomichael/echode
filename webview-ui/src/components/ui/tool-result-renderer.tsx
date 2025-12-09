@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { getToolRenderer } from '../../lib/tool-registry';
 import { DiffViewer } from './diff-viewer';
+import { DiffResultWrapper } from './diff-result-wrapper';
 
 /**
  * Normalize content by converting escaped sequences to actual characters.
@@ -110,7 +111,7 @@ export function renderToolResult(
     if (result.newContent !== undefined) {
       return (
         <div className="px-3 py-3">
-          <DiffViewer
+          <DiffResultWrapper
             oldContent={result.oldContent ?? null}
             newContent={result.newContent}
             fileName={fileName}
@@ -131,7 +132,7 @@ export function renderToolResult(
     if (result.newContent !== undefined && result.oldContent !== undefined) {
       return (
         <div className="px-3 py-3">
-          <DiffViewer
+          <DiffResultWrapper
             oldContent={result.oldContent ?? null}
             newContent={result.newContent}
             fileName={fileName}

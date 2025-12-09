@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { BookOpen, Check, Code, Hammer, HelpCircle, MessageCircle } from 'lucide-react';
 import { useHoverEffect, hoverPresets } from '../../hooks/use-hover-effect';
 import type { ChatMode } from '../../types/chat-mode';
@@ -19,7 +19,7 @@ interface ModeDropdownProps {
   direction?: 'up' | 'down';
 }
 
-export function ModeDropdown({ mode, onModeChange, disabled = false, direction = 'up' }: ModeDropdownProps) {
+function ModeDropdownComponent({ mode, onModeChange, disabled = false, direction = 'up' }: ModeDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { handleMouseEnter, handleMouseLeave } = useHoverEffect();
@@ -149,3 +149,5 @@ export function ModeDropdown({ mode, onModeChange, disabled = false, direction =
     </div>
   );
 }
+
+export const ModeDropdown = memo(ModeDropdownComponent);

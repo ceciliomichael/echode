@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { Message } from '../../types/chat';
 import type { ChatMode } from '../../types/chat-mode';
 import type { Provider } from '../../types/api-settings';
@@ -28,7 +29,7 @@ interface MessageBubbleProps {
   };
 }
 
-export function MessageBubble({ message, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, isStreaming, isCompressing, mode, onModeChange, provider, model, onModelChange, contextUsage, planChainPosition }: MessageBubbleProps) {
+function MessageBubbleComponent({ message, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, isStreaming, isCompressing, mode, onModeChange, provider, model, onModelChange, contextUsage, planChainPosition }: MessageBubbleProps) {
 
   if (message.role === 'user') {
     return (
@@ -66,3 +67,5 @@ export function MessageBubble({ message, onEdit, onUpdate, isEditing, onEditStar
     </div>
   );
 }
+
+export const MessageBubble = memo(MessageBubbleComponent);
