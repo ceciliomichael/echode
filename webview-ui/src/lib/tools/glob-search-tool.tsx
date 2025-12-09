@@ -105,7 +105,7 @@ Find files and directories by name patterns.
    \`<parameter name="path">src</parameter>\`
 
 **PARALLEL SEARCHES:**
-\`\`\`xml
+
 <function_calls>
 <invoke name="glob_search">
   <parameter name="pattern">**/*.tsx</parameter>
@@ -116,7 +116,6 @@ Find files and directories by name patterns.
   <parameter name="path">src/utils</parameter>
 </invoke>
 </function_calls>
-\`\`\`
 
 **AFTER GLOB_SEARCH:** Use read_file on found files for content`,
     icon: FileSearch,

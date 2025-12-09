@@ -25,17 +25,13 @@ Create or update the task list for tracking work progress.
 **FORMATS (pick one):**
 
 1. **JSON tasks array** (precise control):
-   \`\`\`json
    [{"id":"1","content":"Task description","status":"pending"}]
-   \`\`\`
    Status: "pending" | "in_progress" | "completed"
 
 2. **Markdown checklist** (quick updates):
-   \`\`\`
    - [ ] Pending task
    - [-] In progress task
    - [x] Completed task
-   \`\`\`
 
 **BEST PRACTICES:**
 
@@ -45,9 +41,7 @@ Create or update the task list for tracking work progress.
 4. **Break down complex work**: Multiple small tasks > one large task
 
 **WORKFLOW (Plan Mode):**
-\`\`\`
 Analyze task → Create todo list → Work through items → Update status → Hand off
-\`\`\`
 
 **Parameters:**
 - tasks: JSON array of task objects

@@ -210,13 +210,12 @@ Fast text search for KNOWN identifiers across files.
 **INTELLIGENT PATTERNS:**
 
 1. **Always narrow your search**: Specify path
-   \`\`\`xml
+   
    <parameter name="path">src/components</parameter>  <!-- Good -->
    <parameter name="path">.</parameter>  <!-- Avoid - too broad -->
-   \`\`\`
 
 2. **Parallel searches** for multiple identifiers:
-   \`\`\`xml
+   
    <function_calls>
    <invoke name="grep_search">
      <parameter name="query">handleSubmit</parameter>
@@ -226,8 +225,7 @@ Fast text search for KNOWN identifiers across files.
      <parameter name="query">handleChange</parameter>
      <parameter name="path">src</parameter>
    </invoke>
-   </function_calls>
-   \`\`\`
+   </function_calls>   
 
 3. **Find definitions vs usages**:
    - "function handleSubmit" → definitions

@@ -34,25 +34,25 @@ Parameters:
 
 **INTELLIGENT USAGE:**
 
-1. **Before ANY edit**: Always read first to get current state
-   \`\`\`
-   read_file → verify content → apply_diff (or write_to_file)
-   \`\`\`
+1. **Before ANY change**: Always read first to get current state
+   
+   read_file → verify content → then plan or apply changes using the appropriate tools
+   
 
 2. **Large files (>300 lines)**: Use offset/limit strategically
    - Need function at line 150? → offset:140, limit:50
    - Scanning for pattern? → grep_search first, then read_file on matches
 
 3. **Parallel reads**: Read multiple unrelated files at once
-   \`\`\`xml
+   
    <function_calls>
    <invoke name="read_file"><parameter name="path">src/a.ts</parameter></invoke>
    <invoke name="read_file"><parameter name="path">src/b.ts</parameter></invoke>
    <invoke name="read_file"><parameter name="path">src/c.ts</parameter></invoke>
    </function_calls>
-   \`\`\`
+   
 
-4. **For apply_diff**: Copy SEARCH content EXACTLY from read_file output (character-for-character)
+4. **For precise modifications**: When a later step needs exact search/replace, copy the source content EXACTLY from read_file output (character-for-character)
 
 **ERROR HANDLING:**
 - "Cannot read directory" → Use list_files instead

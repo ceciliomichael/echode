@@ -200,19 +200,15 @@ Prioritize by severity:
 **WORKFLOWS:**
 
 1. **After edits (verification):**
-   \`\`\`
    apply_diff → get_diagnostics → fix errors if any
-   \`\`\`
 
 2. **Targeted check** (recommended - faster):
-   \`\`\`xml
+   
    <parameter name="path">src/components</parameter>
-   \`\`\`
 
 3. **Full workspace check** (use sparingly):
-   \`\`\`xml
+   
    <invoke name="get_diagnostics"></invoke>
-   \`\`\`
 
 **HANDLING RESULTS:**
 - totalDiagnostics = 0 → No issues found, proceed

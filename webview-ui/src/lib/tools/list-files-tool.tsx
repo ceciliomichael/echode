@@ -34,19 +34,16 @@ Explore directory structure. Use for paths WITHOUT extensions.
 **INTELLIGENT PATTERNS:**
 
 1. **Verify before read**: Check if path is directory
-   \`\`\`
-   User mentions "src/app" → list_files first
-                           → then read_file on specific files
-   \`\`\`
+   User mentions "src/app" → list_files first 
+   → then read_file on specific files
 
 2. **Parallel exploration**:
-   \`\`\`xml
+   
    <function_calls>
    <invoke name="list_files"><parameter name="path">src/components</parameter></invoke>
    <invoke name="list_files"><parameter name="path">src/hooks</parameter></invoke>
    <invoke name="list_files"><parameter name="path">src/utils</parameter></invoke>
    </function_calls>
-   \`\`\`
 
 3. **Error recovery**:
    - read_file returns "Cannot read directory" → switch to list_files

@@ -57,8 +57,10 @@ export function buildTodoContext(todos: TodoItem[], mode: ChatMode = 'agent'): s
   
   // Mode-specific instructions
   if (mode === 'plan') {
-    // Plan mode: remind AI it's still in planning, no editing tools
-    todoContext += '[PLANNING MODE: This is your implementation plan. You are still in PLANNING mode. You do NOT have editing tools. Use plan_handoff when the plan is complete and the user is ready to implement.]';
+    // Plan mode: remind AI it's still in planning, no editing tools, and allowed next actions
+    todoContext += '[PLANNING MODE: This is your implementation plan. You are still in PLANNING mode and you do NOT have editing tools. '
+      + 'Your allowed next actions are: (1) refine or expand this plan in natural language, (2) use plan_navigator to propose focused follow-up questions or branches, '
+      + 'or (3) use plan_handoff when the plan is complete and the user is ready to implement. Do NOT describe or attempt concrete code edits or file modifications in Plan mode.]';
   } else if (mode === 'ask') {
     // Ask mode: no task execution
     todoContext += '[Q&A MODE: This todo list is for reference only. Focus on answering the user\'s question.]';

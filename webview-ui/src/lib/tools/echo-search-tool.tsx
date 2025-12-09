@@ -290,24 +290,20 @@ registerToolPlugin({
 **BEST PRACTICES:**
 
 1. **Explore BEFORE action:**
-   \`\`\`
    User: "Fix the login bug"
    You: echo_search "how is login implemented" → understand → fix
-   \`\`\`
 
 2. **Be specific in queries:**
    - 🚫 "find auth" (too vague)
    - ✓ "find where user authentication token is validated"
 
 3. **Use hints for faster searches:**
-   \`\`\`xml
+   
    <parameter name="hints">["auth", "token", "validate", "jwt"]</parameter>
-   \`\`\`
 
 4. **Narrow path when possible:**
-   \`\`\`xml
+   
    <parameter name="path">src/services</parameter>
-   \`\`\`
 
 **RETURNS:**
 - summary: Quick overview of findings

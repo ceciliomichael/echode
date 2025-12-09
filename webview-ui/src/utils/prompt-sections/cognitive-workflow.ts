@@ -4,7 +4,13 @@ export function getCognitiveWorkflowSection(mode: ChatMode = 'agent'): string {
     // Chat mode doesn't need cognitive workflow
     if (mode === 'chat') return '';
 
-    const baseWorkflow = `<cognitive_workflow>
+    const includeModificationFlow = mode === 'agent' || mode === 'general';
+
+    const decisionFlow = mode === 'plan'
+        ? 'Parse Request → Identify Required Information → Gather Context → Design Plan → Document Plan → Hand Off'
+        : 'Parse Request → Identify Required Information → Gather Context → Execute Changes → Verify';
+
+    let baseWorkflow = `<cognitive_workflow>
 ## BEFORE EVERY ACTION
 
 Ask yourself:
@@ -15,17 +21,25 @@ Ask yourself:
 
 ## DECISION FLOW
 
-Parse Request → Identify Required Information → Gather Context → Execute Changes → Verify
+${decisionFlow}
 
 **Information Gathering:**
 - Need to understand code → echo_search first (or grep_search if exact name known)
 - Need file contents → read_file (verify path exists)
 - Need directory structure → list_files
+`;
+
+    if (includeModificationFlow) {
+        baseWorkflow += `
 
 **Modification Flow:**
 - File exists → read_file FIRST, then apply_diff
 - New file → write_to_file with complete content
 - apply_diff fails twice → switch to write_to_file
+`;
+    }
+
+    baseWorkflow += `
 
 **Verification:**
 - Confirm tool success before proceeding
@@ -38,9 +52,11 @@ Parse Request → Identify Required Information → Gather Context → Execute C
 
 <planning_workflow>
 **Plan Mode Flow:** Explore → Analyze → Document → Hand off
-- Use exploration tools to understand current state
-- Create clear implementation plans with todo_write
-- Hand off to Agent mode when ready to implement
+- Use exploration tools to understand current state (read_file, grep_search, echo_search, list_files).
+- Capture and update the implementation plan with todo_write.
+- When the plan needs clarification or branching, use plan_navigator to propose focused next questions/options.
+- When the plan is complete and the user seems ready, use plan_handoff to switch to implementation mode.
+- Never attempt to edit files or run implementation steps in Plan mode.
 </planning_workflow>`
         : mode === 'ask'
             ? `

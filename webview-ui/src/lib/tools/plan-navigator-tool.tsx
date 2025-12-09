@@ -38,10 +38,10 @@ Present a question with clickable options to guide planning discussion.
 - Use instead of open-ended questions when you have specific paths
 
 **EXAMPLE:**
-\`\`\`xml
+
 <parameter name="question">Which auth method should we use?</parameter>
 <parameter name="options">["JWT tokens", "Session cookies", "OAuth2"]</parameter>
-\`\`\``,
+`,
     icon: HelpCircle,
     usage: 'Present a question with clickable options',
     formatExample: '<function_calls>\n<invoke name="plan_navigator">\n<parameter name="question">Question text?</parameter>\n<parameter name="options">["Option 1", "Option 2"]</parameter>\n</invoke>\n</function_calls>',

@@ -134,14 +134,13 @@ Each must be in its own separate <function_calls> block and executed sequentiall
 **STRICT XML FORMATTING - FOLLOW EXACTLY:**
 
 Format:
-\`\`\`xml
+
 <function_calls>
 <invoke name="TOOL_NAME">
 <parameter name="param1">value1</parameter>
 <parameter name="param2">value2</parameter>
 </invoke>
 </function_calls>
-\`\`\`
 
 **CRITICAL RULES:**
 1. COMPLETE each </parameter> tag BEFORE starting the next parameter
@@ -151,17 +150,15 @@ Format:
 5. Each parameter value must be complete - no partial content
 
 **CORRECT - Multiple tools:**
-\`\`\`xml
+
 <function_calls>
 <invoke name="read_file"><parameter name="path">file1.ts</parameter></invoke>
 <invoke name="read_file"><parameter name="path">file2.ts</parameter></invoke>
 </function_calls>
-\`\`\`
 
 **WRONG - DO NOT DO THIS:**
-\`\`\`xml
+
 <invoke name="read_file"><parameter name="path">file1.ts<invoke name="read_file">...
-\`\`\`
 </tool_format>
 
 ${parallelRulesSection}

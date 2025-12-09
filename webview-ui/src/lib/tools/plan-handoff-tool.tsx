@@ -33,9 +33,9 @@ Signal that planning is complete and offer to begin implementation.
 - summary: Brief 1-3 sentence summary of what will be implemented (optional)
 
 **WORKFLOW:**
-\`\`\`
+
 explore → analyze → create plan with todo_write → plan_handoff
-\`\`\`
+
 
 **IMPORTANT:**
 - Only use when the plan is truly complete

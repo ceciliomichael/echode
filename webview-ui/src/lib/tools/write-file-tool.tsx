@@ -26,7 +26,6 @@ registerToolPlugin({
 Create NEW files or complete file rewrites.
 
 **DECISION TREE - When to use:**
-\`\`\`
 File exists?
 ├── NO → write_to_file ✓ (creates new file + directories)
 └── YES → How much is changing?
@@ -34,7 +33,6 @@ File exists?
     ├── Large changes (>50%) → write_to_file ✓
     ├── File is now SHORTER after refactor → write_to_file ✓
     └── apply_diff failed twice → write_to_file ✓
-\`\`\`
 
 **Parameters:**
 - path: File path (relative to workspace)
@@ -49,7 +47,7 @@ File exists?
 
 **PARALLEL CREATION:**
 Create multiple files at once:
-\`\`\`xml
+
 <function_calls>
 <invoke name="write_to_file">
 <parameter name="path">File path here</parameter>
