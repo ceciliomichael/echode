@@ -5,6 +5,14 @@ import { StreamingTimeoutError } from '../../utils/streaming-timeout';
 
 const DEFAULT_STREAMING_TIMEOUT = 5000; // 5 seconds
 
+type ChatCompletionChunkLike = {
+  choices: Array<{
+    delta?: {
+      content?: string;
+    };
+  }>;
+};
+
 export class OpenAIProvider implements ILLMProvider {
   async streamChat(
     requestId: number,
@@ -68,16 +76,7 @@ export class OpenAIProvider implements ILLMProvider {
     });
 
     try {
-      const stream = await client.chat.completions.create({
-        model: settings.model,
-        messages: messages.map(m => ({
-          role: m.role,
-          content: m.content
-        })) as OpenAI.ChatCompletionMessageParam[],
-        max_tokens: settings.maxTokens,
-        temperature: settings.temperature ?? 0.7,
-        stream: true,
-      });
+      const stream = await this.createChatCompletionStream(client, messages, settings) as AsyncIterable<ChatCompletionChunkLike>;
 
       const processStream = async () => {
         for await (const chunk of stream) {
@@ -150,5 +149,61 @@ export class OpenAIProvider implements ILLMProvider {
         clearTimeout(timeoutId);
       }
     }
+  }
+
+  private async createChatCompletionStream(
+    client: OpenAI,
+    messages: ChatMessage[],
+    settings: ChatStreamSettings,
+  ) {
+    const basePayload = {
+      model: settings.model,
+      messages: messages.map(m => ({
+        role: m.role,
+        content: m.content
+      })) as OpenAI.ChatCompletionMessageParam[],
+      temperature: settings.temperature ?? 0.7,
+      stream: true,
+    };
+
+    const maxTokensPayload = {
+      ...basePayload,
+      max_tokens: settings.maxTokens,
+    };
+
+    const maxCompletionTokensPayload: Record<string, unknown> = {
+      ...basePayload,
+      max_completion_tokens: settings.maxTokens,
+    };
+
+    try {
+      return await client.chat.completions.create(
+        maxTokensPayload as unknown as OpenAI.ChatCompletionCreateParams,
+      );
+    } catch (error: unknown) {
+      if (this.isMaxTokensUnsupportedError(error)) {
+        return await client.chat.completions.create(
+          maxCompletionTokensPayload as unknown as OpenAI.ChatCompletionCreateParams,
+        );
+      }
+      throw error;
+    }
+  }
+
+  private isMaxTokensUnsupportedError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') {
+      return false;
+    }
+
+    const message = (error as Error).message;
+    if (typeof message !== 'string') {
+      return false;
+    }
+
+    if (!message.includes('max_tokens')) {
+      return false;
+    }
+
+    return message.includes('Unsupported parameter') && message.includes('max_completion_tokens');
   }
 }

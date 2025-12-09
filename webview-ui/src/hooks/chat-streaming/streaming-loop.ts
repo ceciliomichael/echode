@@ -105,6 +105,9 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
 
         // Check for complete and pending invoke blocks (incremental execution)
         const { blocks, pendingBlocks, hasFunctionCallsClose } = extractCompleteInvokeBlocksIncremental(assistantContent);
+        
+        console.log(`[STREAMING] Incremental check: blocks=${blocks.length}, pendingBlocks=${pendingBlocks.length}, hasFunctionCallsClose=${hasFunctionCallsClose}, scheduledToolIndices=${Array.from(scheduledToolIndices).join(',')}`);
+
 
         // Update pending execution states for invoke blocks that have opened but not closed yet
         // This allows the UI to show them as "pending" with streaming content

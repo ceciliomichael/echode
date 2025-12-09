@@ -80,9 +80,12 @@ ${toolSelectionItems.join('\n')}
 <core_rules>
 Please follow these rules:
 1. Trust tool results. Never guess file contents or paths.
-2. Do not re-read files. If you saw it earlier, reuse that content.
+2. Avoid re-reading the exact same file range repeatedly when you already have the necessary details, but if you are unsure or need to confirm behavior, re-read with read_file instead of relying on memory.
 3. Keep tool syntax internal. ${noProtocolLeak}
-4. One tool call per <invoke> tag. You MAY include multiple <invoke> tags inside a single <function_calls> block when parallelizing, but never nest tool XML inside <parameter> values.
+4. One tool call per <invoke> tag. You MAY include multiple sibling <invoke> tags inside a single <function_calls> block when parallelizing, but:
+   - There MUST be exactly one <function_calls>...</function_calls> block per response.
+   - You MUST finish each <parameter>, then close </invoke>, before starting the next <invoke>.
+   - NEVER start a new <invoke> or <function_calls> block inside a <parameter> value.
 5. Check results before proceeding. Verify each tool succeeded.
 ${editGuideline}
 </core_rules>${parallelSection}`;

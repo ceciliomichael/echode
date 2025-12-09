@@ -44,6 +44,71 @@ export class AutocompleteProvider implements vscode.InlineCompletionItemProvider
     this.config = config;
   }
 
+  private async createChatCompletion(
+    client: OpenAI,
+    userPrompt: string,
+  ): Promise<OpenAI.ChatCompletion> {
+    if (!this.config) {
+      throw new Error('Autocomplete config not available');
+    }
+
+    const basePayload = {
+      model: this.config.model,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: userPrompt },
+      ] as OpenAI.ChatCompletionMessageParam[],
+      temperature: this.config.temperature || 0,
+      stop: ['\n\n', '```'],
+    };
+
+    const maxTokensPayload = {
+      ...basePayload,
+      max_tokens: this.config.maxTokens || 100,
+    };
+
+    const maxCompletionTokensPayload: Record<string, unknown> = {
+      ...basePayload,
+      max_completion_tokens: this.config.maxTokens || 100,
+    };
+
+    try {
+      return await client.chat.completions.create(
+        maxTokensPayload as unknown as OpenAI.ChatCompletionCreateParams,
+        {
+          signal: this.lastRequest?.signal,
+        },
+      ) as unknown as OpenAI.ChatCompletion;
+    } catch (error: unknown) {
+      if (this.isMaxTokensUnsupportedError(error)) {
+        return await client.chat.completions.create(
+          maxCompletionTokensPayload as unknown as OpenAI.ChatCompletionCreateParams,
+          {
+            signal: this.lastRequest?.signal,
+          },
+        ) as unknown as OpenAI.ChatCompletion;
+      }
+      throw error;
+    }
+  }
+
+  private isMaxTokensUnsupportedError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') {
+      return false;
+    }
+
+    const message = (error as Error).message;
+    if (typeof message !== 'string') {
+      return false;
+    }
+
+    if (!message.includes('max_tokens')) {
+      return false;
+    }
+
+    return message.includes('Unsupported parameter') && message.includes('max_completion_tokens');
+  }
+
   async provideInlineCompletionItems(
     document: vscode.TextDocument,
     position: vscode.Position,
@@ -136,18 +201,10 @@ export class AutocompleteProvider implements vscode.InlineCompletionItemProvider
         baseURL,
       });
 
-      const response = await client.chat.completions.create({
-        model: this.config.model,
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: userPrompt }
-        ],
-        max_tokens: this.config.maxTokens || 100,
-        temperature: this.config.temperature || 0,
-        stop: ['\n\n', '```'],
-      }, {
-        signal: this.lastRequest.signal,
-      });
+      const response = await this.createChatCompletion(
+        client,
+        userPrompt,
+      );
 
       if (token.isCancellationRequested) {
         return null;

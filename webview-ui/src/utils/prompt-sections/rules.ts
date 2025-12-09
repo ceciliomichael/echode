@@ -28,7 +28,7 @@ function getEditingInstructions(mode: ChatMode, enabledTools: Tool[]): string {
 	}
 
 	if (enabledIds.has('read_file')) {
-		instructions.push('- **read_file**: Avoid re-reading the same file and range repeatedly. Reuse earlier results unless the user or tools indicate the file changed.');
+		instructions.push('- **read_file**: Prefer reusing earlier results to avoid redundant reads, but if you are unsure about details or need to verify behavior, call read_file again instead of guessing.');
 	}
 
 	return instructions.length > 0 ? instructions.join('\n') : '';

@@ -81,9 +81,10 @@ export async function handleChatStream(
 
         const systemReminder = `\n\n<system_reminder>\nPlease remember:${toolsMessage}
 - Use only the XML format: <function_calls><invoke name="TOOL">...</invoke></function_calls>
-- Do not re-read files you already have. Reuse earlier results.
+- Avoid redundant file reads when you already have the necessary code in context, but if you are unsure or need to verify details, call the relevant tool again instead of guessing.
 - Do not nest tool XML inside parameters.
 - Keep tool syntax internal. Never show it to the user.
+- Always base code descriptions and edits on the latest tool output you have. If you are missing details, fetch them with tools first.
 - Stay focused on the current task.
 </system_reminder>`;
 

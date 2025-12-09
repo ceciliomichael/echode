@@ -68,18 +68,21 @@ const ToolBlockComponent = ({
 
   // Determine whether the icon should appear in an executing/spinning state
   const isIconExecuting = useMemo(() => {
-    const baseExecuting = isStreaming || toolCall.status === 'pending' || toolCall.status === 'executing';
-
-    // For write_to_file and apply_diff, keep the icon in executing state until we have a successful
-    // result with data (diff stats). This avoids dropping the spinner during the "no diff yet" window.
-    const isWriteOrApply = toolCall.toolName === 'write_to_file' || toolCall.toolName === 'apply_diff';
-    const hasResultData = !!toolCall.result && !!toolCall.result.success && toolCall.result.data != null;
-
-    if (isWriteOrApply && toolCall.status === 'completed' && !hasResultData) {
-      return true;
+    // If the tool has completed with results, it's NOT executing anymore
+    // This allows individual tools in a parallel batch to stop spinning when done
+    if (toolCall.status === 'completed' && toolCall.result) {
+      // For write_to_file and apply_diff, keep spinning only if we don't have diff data yet
+      const isWriteOrApply = toolCall.toolName === 'write_to_file' || toolCall.toolName === 'apply_diff';
+      const hasResultData = toolCall.result.success && toolCall.result.data != null;
+      
+      if (isWriteOrApply && !hasResultData) {
+        return true; // Still waiting for diff data
+      }
+      return false; // Tool completed with results, stop spinning
     }
 
-    return baseExecuting;
+    // Tool is still pending/executing or streaming hasn't completed this tool yet
+    return isStreaming || toolCall.status === 'pending' || toolCall.status === 'executing';
   }, [toolCall, isStreaming]);
 
   // Get file info and icon configuration

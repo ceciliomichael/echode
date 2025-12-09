@@ -337,10 +337,13 @@ export function extractCompleteInvokeBlocksIncremental(content: string): {
   // Extract all complete invoke blocks from this content
   const invokeBlocks = extractInvokeBlocks(innerContent);
   
+  console.log(`[extractCompleteInvokeBlocksIncremental] hasFunctionCallsClose=${hasFunctionCallsClose}, invokeBlocks.length=${invokeBlocks.length}`);
+  
   for (const block of invokeBlocks) {
     if (block.toolName && typeof block.toolName === 'string') {
       const parsed = parseInvokeBlockInternal(block.innerContent, block.toolName, block.fullMatch);
       if (parsed) {
+        console.log(`[extractCompleteInvokeBlocksIncremental] Found complete invoke: ${block.toolName}`);
         blocks.push(parsed);
       }
     }
