@@ -183,19 +183,19 @@ export function ChatContainer() {
       )}
 
     <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--vscode-sideBar-background)' }}>
-        <div 
+        <div
           ref={scrollContainerRef}
           onScroll={handleScroll}
           data-chat-scroll-container="true"
           data-chat-message-list-boundary="true"
-        className={`flex-1 py-3 sm:py-4 lg:py-6 ${horizontalPaddingClass} ${editingMessageId ? 'overflow-y-hidden' : 'overflow-y-auto'}`}
+        className={`flex-1 ${editingMessageId ? 'overflow-y-hidden' : 'overflow-y-auto'}`}
         >
           {visibleMessages.length === 0 ? (
-          <div className={`${contentWidthClass} mx-auto h-full`}>
+          <div className={`${contentWidthClass} mx-auto h-full py-3 sm:py-4 lg:py-6 ${horizontalPaddingClass}`}>
               <ChatEmptyState />
             </div>
           ) : (
-          <div className={`${contentWidthClass} mx-auto`}>
+          <div className={`${contentWidthClass} mx-auto py-3 sm:py-4 lg:py-6 ${horizontalPaddingClass}`}>
               <div className="space-y-3">
               {visibleMessages.map((message, index) => {
                 const isLastAssistantMessage = index === visibleMessages.length - 1 && message.role === 'assistant';

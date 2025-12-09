@@ -114,13 +114,17 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: Mark
       if (isInline) {
         return (
           <code
-            className="rounded px-1.5 py-0.5 text-xs font-mono border whitespace-nowrap"
+            className="px-1.5 py-0.5 text-xs font-mono border"
             style={{
-              display: 'inline-block',
               backgroundColor: 'var(--vscode-textCodeBlock-background)',
               borderColor: 'var(--vscode-input-border)',
-              color: 'var(--vscode-textLink-foreground)'
-            }}
+              color: 'var(--vscode-textLink-foreground)',
+              borderRadius: '4px',
+              // box-decoration-break: clone ensures each wrapped line fragment
+              // gets the full box styling (background, border, padding, border-radius)
+              WebkitBoxDecorationBreak: 'clone',
+              boxDecorationBreak: 'clone',
+            } as React.CSSProperties}
             {...props}
           >
             {children}
