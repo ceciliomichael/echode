@@ -57,7 +57,7 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
   const [imageAttachments, setImageAttachments] = useState<ImageAttachment[]>(restoredImageAttachments ?? []);
 
   const [scrollTop, setScrollTop] = useState(0);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Get workspace files for mentions - use reactive hook so it updates when files change
@@ -344,14 +344,14 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
       )}
 
       <section
-        className="w-full rounded-xl shadow-sm border transition-colors"
+        className="w-full rounded-xl shadow-sm border p-1 transition-colors"
         style={{
           backgroundColor: 'var(--vscode-chat-surface)',
           borderColor: 'var(--vscode-input-border)'
         }}
         aria-label="Chat input area"
       >
-        <form onSubmit={handleSubmit} className="flex flex-col gap-0 p-1">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-0">
           <input
             ref={fileInputRef}
             type="file"
@@ -446,7 +446,7 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
               />
             )}
             {/* Mention highlighter - positioned behind textarea */}
-            <MentionHighlighter text={input} scrollTop={scrollTop} />
+            <MentionHighlighter text={input} scrollTop={scrollTop} textareaRef={textareaRef} />
             <textarea
               ref={textareaRef}
               value={input}

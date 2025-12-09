@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useLayoutEffect, useMemo, useState, type RefObject } from 'react';
 import { getMentionPath, unescapeSpaces } from '../../utils/mention-utils';
 
 interface MentionHighlighterProps {
@@ -6,6 +6,7 @@ interface MentionHighlighterProps {
   scrollTop?: number;
   // When true, highlight all @mentions regardless of registration
   highlightAll?: boolean;
+  textareaRef?: RefObject<HTMLTextAreaElement | null>;
 }
 
 // Regex to match @mentions - local copy to avoid modifying global state
@@ -16,7 +17,7 @@ const MENTION_REGEX = /@((?:[^\s@]|\\ )+)/g;
  * Only highlights mentions that were selected from the context menu
  * (i.e., those registered in the mentionPathMap)
  */
-export function MentionHighlighter({ text, scrollTop = 0, highlightAll = false }: MentionHighlighterProps) {
+export function MentionHighlighter({ text, scrollTop = 0, highlightAll = false, textareaRef }: MentionHighlighterProps) {
   const segments = useMemo(() => {
     const result: Array<{ text: string; isMention: boolean }> = [];
 
@@ -52,6 +53,27 @@ export function MentionHighlighter({ text, scrollTop = 0, highlightAll = false }
     return result;
   }, [text, highlightAll]);
 
+  const [computedStyles, setComputedStyles] = useState<Pick<CSSStyleDeclaration, 'paddingTop' | 'paddingRight' | 'paddingBottom' | 'paddingLeft' | 'fontSize' | 'lineHeight' | 'fontFamily'> | null>(null);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- useLayoutEffect with setState is valid for DOM measurement sync
+  useLayoutEffect(() => {
+    const textarea = textareaRef?.current;
+    if (!textarea) {
+      return;
+    }
+
+    const styles = window.getComputedStyle(textarea);
+    setComputedStyles({
+      paddingTop: styles.paddingTop,
+      paddingRight: styles.paddingRight,
+      paddingBottom: styles.paddingBottom,
+      paddingLeft: styles.paddingLeft,
+      fontSize: styles.fontSize,
+      lineHeight: styles.lineHeight,
+      fontFamily: styles.fontFamily,
+    });
+  }, [textareaRef]);
+
   return (
     <div
       aria-hidden="true"
@@ -62,22 +84,28 @@ export function MentionHighlighter({ text, scrollTop = 0, highlightAll = false }
         right: 0,
         bottom: 0,
         pointerEvents: 'none',
-        overflow: 'hidden',
+        overflowX: 'hidden',
+        overflowY: 'scroll', // Match textarea scrollbar to prevent content shift
       }}
     >
       <div
         style={{
           transform: `translateY(${-scrollTop}px)`,
           // Match textarea: px-1.5 py-1 = 6px 4px
-          padding: '4px 6px',
+          padding: computedStyles
+            ? `${computedStyles.paddingTop} ${computedStyles.paddingRight} ${computedStyles.paddingBottom} ${computedStyles.paddingLeft}`
+            : '4px 6px',
           // Match textarea: text-sm leading-normal
-          fontSize: '0.875rem',
-          lineHeight: '1.5',
-          fontFamily: 'inherit',
+          fontSize: computedStyles?.fontSize || '0.875rem',
+          lineHeight: computedStyles?.lineHeight || '1.5',
+          fontFamily: computedStyles?.fontFamily || 'inherit',
           whiteSpace: 'pre-wrap',
           wordWrap: 'break-word',
           overflowWrap: 'break-word',
           color: 'transparent',
+          boxSizing: 'border-box',
+          width: '100%',
+          textAlign: 'left',
         }}
       >
         {segments.map((segment, index) => {

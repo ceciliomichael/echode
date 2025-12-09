@@ -23,23 +23,36 @@ registerToolPlugin({
     name: 'Write File',
     description: 'Create NEW files or perform complete rewrites (never small edits)',
     aiDescription: `## write_to_file
-Description: Request to write content to a file. This tool should ONLY be used in these specific scenarios:
-1. **Creating NEW files** that don't exist yet.
-2. **Complete rewrites** where the entire file structure has changed significantly.
-3. **Large refactors where the file is now SHORTER** - when a file has been heavily refactored and the new version is significantly shorter, making a full rewrite more efficient than multiple diffs.
-4. **Fallback when apply_diff keeps failing** - if apply_diff repeatedly fails due to content mismatch, use write_to_file to rewrite the entire file instead.
+Create NEW files or complete file rewrites.
 
-For ALL other modifications to existing files, you MUST use apply_diff instead for targeted edits.
+**DECISION TREE - When to use:**
+\`\`\`
+File exists?
+├── NO → write_to_file ✓ (creates new file + directories)
+└── YES → How much is changing?
+    ├── Small section (<30 lines) → apply_diff ✓
+    ├── Large changes (>50%) → write_to_file ✓
+    ├── File is now SHORTER after refactor → write_to_file ✓
+    └── apply_diff failed twice → write_to_file ✓
+\`\`\`
 
-If the file exists, it will be overwritten. If it doesn't exist, it will be created. This tool will automatically create any directories needed to write the file.
+**Parameters:**
+- path: File path (relative to workspace)
+- content: COMPLETE file content (no truncation, no placeholders)
 
-Parameters:
-- path: (required) The path of the file to write to (relative to workspace)
-- content: (required) The content to write to the file. When performing a full rewrite of an existing file or creating a new one, ALWAYS provide the COMPLETE intended content of the file, without any truncation or omissions. You MUST include ALL parts of the file, even if they haven't been modified. Do NOT include line numbers in the content though, just the actual content of the file.
+**REQUIREMENTS:**
+- Content must be COMPLETE - include ALL parts of file
+- No line numbers in content
+- No placeholders like "// ... rest of code"
+- No truncation like "// existing code unchanged"
+- No omissions - every line must be present
 
-Usage:
+**PARALLEL CREATION:**
+Create multiple files at once:
+\`\`\`xml
 <function_calls>
 <invoke name="write_to_file">
+<<<<<<< HEAD
 <parameter name="path">File path here</parameter>
 <parameter name="content">
 Your file content here
@@ -67,22 +80,6 @@ Example: Requesting to write to config.json
 </invoke>
 </function_calls>
 
-Example: Creating multiple files in parallel (use multiple invoke blocks within one function_calls block):
-<function_calls>
-<invoke name="write_to_file">
-<parameter name="path">src/components/Button.tsx</parameter>
-<parameter name="content">
-export function Button() { return <button>Click</button>; }
-</parameter>
-</invoke>
-<invoke name="write_to_file">
-<parameter name="path">src/components/Input.tsx</parameter>
-<parameter name="content">
-export function Input() { return <input />; }
-</parameter>
-</invoke>
-</function_calls>
-
 IMPORTANT: Tool Safety and Usage Guidelines:
 - ONLY use for: (1) NEW files, (2) complete rewrites, or (3) large refactors where file is now shorter
 - NEVER use write_to_file for small, localized edits to existing files; use apply_diff instead
@@ -90,6 +87,26 @@ IMPORTANT: Tool Safety and Usage Guidelines:
 - Files with null bytes or control characters are BLOCKED automatically
 - Maximum file size: 5MB
 - After creating or rewriting a file, use read_file to verify the result before continuing.`,
+=======
+  <parameter name="path">src/new-a.ts</parameter>
+  <parameter name="content">// complete content A</parameter>
+</invoke>
+<invoke name="write_to_file">
+  <parameter name="path">src/new-b.ts</parameter>
+  <parameter name="content">// complete content B</parameter>
+</invoke>
+</function_calls>
+\`\`\`
+
+**BLOCKED AUTOMATICALLY:**
+- Binary files (.png, .jpg, .ico, .zip, etc.)
+- Files >5MB
+- Files with null bytes
+
+**BEST PRACTICE:**
+- For existing files, prefer apply_diff for targeted edits
+- Only use write_to_file for new files or major rewrites`,
+>>>>>>> f39d87b54a52b2c7582a27b32539f23ea2710301
     icon: FilePlus,
     usage: 'NEW files, complete rewrites, or when refactored file is shorter',
     formatExample: '<function_calls>\n<invoke name="write_to_file">\n<parameter name="path">src/new-file.ts</parameter>\n<parameter name="content">// new file content</parameter>\n</invoke>\n</function_calls>',

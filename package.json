@@ -2,7 +2,11 @@
   "name": "echode",
   "displayName": "Echode",
   "description": "Agentic Coding",
-  "version": "1.0.846",
+<<<<<<< HEAD
+  "version": "1.0.885",
+=======
+  "version": "1.0.860",
+>>>>>>> f39d87b54a52b2c7582a27b32539f23ea2710301
   "publisher": "EchoSphere",
   "icon": "icon.png",
   "repository": {
@@ -14,6 +18,9 @@
   },
   "categories": [
     "Other"
+  ],
+  "extensionDependencies": [
+    "vscode.git"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -63,6 +70,11 @@
       {
         "command": "echode.acceptNextLine",
         "title": "Echode: Accept Next Line"
+      },
+      {
+        "command": "echode.generateCommitMessage",
+        "title": "Generate Commit Message",
+        "icon": "icon.svg"
       }
     ],
     "keybindings": [
@@ -101,6 +113,13 @@
           "command": "echode.openSettings",
           "when": "view == echode.sidebar",
           "group": "navigation@3"
+        }
+      ],
+      "scm/title": [
+        {
+          "command": "echode.generateCommitMessage",
+          "when": "scmProvider == git",
+          "group": "navigation@0"
         }
       ]
     },

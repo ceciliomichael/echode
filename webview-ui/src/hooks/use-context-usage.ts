@@ -17,6 +17,7 @@ export interface ContextUsageResult {
   systemPromptTokens: number;
   historyTokens: number;
   toolResultsTokens: number;
+  compressedHistoryTokens: number;
   totalTokens: number;
   maxTokens: number;
 }
@@ -128,10 +129,16 @@ export function useContextUsage({
     
     const maxTokens = contextSettings.maxContextTokens;
     
+    // When compression is active, report the compressed base tokens
+    const compressedHistoryTokens = (compressedContextTokens !== null && compressedContextTokens !== undefined && anchorIndex >= 0)
+      ? compressedContextTokens
+      : 0;
+    
     return {
       systemPromptTokens,
       historyTokens,
       toolResultsTokens,
+      compressedHistoryTokens,
       totalTokens,
       maxTokens,
     };

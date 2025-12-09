@@ -20,7 +20,7 @@ async function executeEchoSearch(
 ): Promise<ToolExecutionResult> {
   // Inject indexing settings and API credentials from storage
   const settings = storageService.getSettings();
-  
+
   // Get the provider-specific model based on current main chat provider
   const getMainChatModel = () => {
     switch (settings.provider) {
@@ -39,10 +39,10 @@ async function executeEchoSearch(
   const indexingSettings = (rawIndexingSettings && rawIndexingSettings.model)
     ? rawIndexingSettings
     : {
-        enabled: rawIndexingSettings?.enabled ?? true,
-        provider: settings.provider,
-        model: getMainChatModel(),
-      };
+      enabled: rawIndexingSettings?.enabled ?? true,
+      provider: settings.provider,
+      model: getMainChatModel(),
+    };
 
   // Build API settings needed by sub-agent
   const apiSettings = {
@@ -153,16 +153,16 @@ function EchoSearchRendererComponent({ data }: { data: unknown }) {
     const result = data as EchoSearchResult;
 
     const isEmpty = !result.snippets || result.snippets.length === 0;
-    
+
     // Calculate total tool calls for display
-    const totalToolCalls = (result.searchStats?.grepCalls || 0) + 
-                           (result.searchStats?.globCalls || 0) + 
-                           (result.searchStats?.readFileCalls || 0) + 
-                           (result.searchStats?.listDirCalls || 0);
+    const totalToolCalls = (result.searchStats?.grepCalls || 0) +
+      (result.searchStats?.globCalls || 0) +
+      (result.searchStats?.readFileCalls || 0) +
+      (result.searchStats?.listDirCalls || 0);
 
     return (
       <div className="rounded-xl overflow-hidden border border-[var(--vscode-input-border)] bg-[var(--vscode-editor-background)]">
-        
+
         {/* Summary - Collapsible */}
         <div
           className="border-b border-[var(--vscode-input-border)] bg-[var(--vscode-sideBar-background)]"
@@ -186,7 +186,7 @@ function EchoSearchRendererComponent({ data }: { data: unknown }) {
               )}
             </div>
           </button>
-          
+
           {isSummaryExpanded && result.highLevelAnswer && (
             <div
               className="px-3 pb-2 pt-0 border-t border-[var(--vscode-input-border)] max-h-48 overflow-y-auto"
@@ -269,64 +269,54 @@ registerToolPlugin({
     name: 'Echo Search',
     description: 'Sub-agent that iteratively searches the codebase to find relevant context',
     aiDescription: `## echo_search
-Description: **YOUR PRIMARY TOOL FOR CODEBASE EXPLORATION.** An intelligent sub-agent that efficiently explores codebases to find relevant code. Use this FIRST when you need to understand code, find implementations, or explore unfamiliar areas. Optimized for any repository size with parallel search execution and smart narrowing strategies.
+**YOUR PRIMARY EXPLORATION TOOL.** Intelligent sub-agent that understands and navigates code.
 
-**ALWAYS USE echo_search FIRST when:**
-- You need to understand how something works in the codebase
-- You're looking for implementations, patterns, or architecture
-- You don't know exact file paths or function names
-- The user asks about code behavior or structure
-- You need fast context understanding
+**USE ECHO_SEARCH FIRST when:**
+- You need to understand how something works
+- Looking for implementations, patterns, or architecture
+- Don't know exact file paths or function names
+- User asks about code behavior or structure
+- Exploring unfamiliar codebase areas
 
-**Only use grep_search instead when:**
-- You already know the EXACT function/variable/class name
-- You need a simple text search for a known identifier
+**DON'T USE when:**
+- You already know the EXACT function/variable name → use grep_search
+- You know the exact file path → use read_file
 
-**Capabilities:**
-- Searches code patterns with grep_search
-- Finds files by name with glob_search  
-- Reads specific file sections with read_file_snippet
-- Explores directory structure with list_dir
-- Executes multiple searches in parallel for speed
-- Returns context-rich explanations with ranked snippets
+**Parameters:**
+- query: Natural language description (required) - be specific!
+- path: Starting directory (optional but recommended for speed)
+- hints: Keywords to help locate code (optional array)
 
-Parameters:
-- query: (required) Natural language description of what you're looking for. Be specific.
-- path: (optional) Starting directory to search in. Narrow this for faster searches.
-- hints: (optional) Array of keywords that might help locate the code.
+**BEST PRACTICES:**
 
-Usage:
-<function_calls>
-<invoke name="echo_search">
-<parameter name="query">Find where user authentication is handled</parameter>
-<parameter name="path">src</parameter>
-</invoke>
-</function_calls>
+1. **Explore BEFORE action:**
+   \`\`\`
+   User: "Fix the login bug"
+   You: echo_search "how is login implemented" → understand → fix
+   \`\`\`
 
-Examples:
+2. **Be specific in queries:**
+   - 🚫 "find auth" (too vague)
+   - ✓ "find where user authentication token is validated"
 
-1. Understand implementation:
-<function_calls>
-<invoke name="echo_search">
-<parameter name="query">How is chat message streaming implemented</parameter>
-<parameter name="path">src</parameter>
-</invoke>
-</function_calls>
+3. **Use hints for faster searches:**
+   \`\`\`xml
+   <parameter name="hints">["auth", "token", "validate", "jwt"]</parameter>
+   \`\`\`
 
-2. Explore with hints:
-<function_calls>
-<invoke name="echo_search">
-<parameter name="query">Find the tool execution pipeline</parameter>
-<parameter name="path">src</parameter>
-<parameter name="hints">["tool", "execute", "handler"]</parameter>
-</invoke>
-</function_calls>
+4. **Narrow path when possible:**
+   \`\`\`xml
+   <parameter name="path">src/services</parameter>
+   \`\`\`
 
-Returns:
-- summary: Brief overview of findings
-- highLevelAnswer: Explanation of how the code works
-- snippets: Ranked file locations with reasons
-- searchStats: Iterations, files scanned, matches found`,
+**RETURNS:**
+- summary: Quick overview of findings
+- highLevelAnswer: Explanation of how code works
+- snippets: Ranked relevant code locations with reasons
+- searchStats: Iterations, files scanned, matches
+
+**WORKFLOW:**
+echo_search (understand) → grep_search (pinpoint) → read_file (full context) → edit`,
     icon: Radar,
     usage: 'Iteratively search the codebase to find relevant context',
     formatExample: '<function_calls>\n<invoke name="echo_search">\n<parameter name="query">How is authentication handled</parameter>\n<parameter name="path">src</parameter>\n</invoke>\n</function_calls>',

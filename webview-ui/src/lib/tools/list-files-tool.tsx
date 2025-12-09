@@ -21,48 +21,46 @@ registerToolPlugin({
     name: 'List Files',
     description: 'List directory contents - USE THIS for paths without extensions',
     aiDescription: `## list_files
-Description: Request to list files and directories in a specified workspace path. Use this tool to explore directory structures, discover available files, and understand the organization of the codebase.
+Explore directory structure. Use for paths WITHOUT extensions.
 
-Parameters:
-- path: (required) The directory path to list (relative to workspace root)
-- recursive: (optional) If 'true', list all files under this directory recursively. Defaults to false (top-level only).
+**DECISION RULE:**
+- Path has extension (.ts, .json, etc.) → use read_file
+- Path has NO extension → use list_files
 
-Examples:
+**Parameters:**
+- path: Directory path (required)
+- recursive: List all nested files (optional, default: false)
 
-1. List a single directory:
-<function_calls>
-<invoke name="list_files">
-<parameter name="path">src</parameter>
-</invoke>
-</function_calls>
+**INTELLIGENT PATTERNS:**
 
-2. List multiple directories in parallel:
-<function_calls>
-<invoke name="list_files">
-<parameter name="path">src/components</parameter>
-</invoke>
-<invoke name="list_files">
-<parameter name="path">src/hooks</parameter>
-</invoke>
-<invoke name="list_files">
-<parameter name="path">src/utils</parameter>
-</invoke>
-</function_calls>
+1. **Verify before read**: Check if path is directory
+   \`\`\`
+   User mentions "src/app" → list_files first
+                           → then read_file on specific files
+   \`\`\`
 
-3. List root directory:
-<function_calls>
-<invoke name="list_files">
-<parameter name="path">.</parameter>
-</invoke>
-</function_calls>
+2. **Parallel exploration**:
+   \`\`\`xml
+   <function_calls>
+   <invoke name="list_files"><parameter name="path">src/components</parameter></invoke>
+   <invoke name="list_files"><parameter name="path">src/hooks</parameter></invoke>
+   <invoke name="list_files"><parameter name="path">src/utils</parameter></invoke>
+   </function_calls>
+   \`\`\`
 
-IMPORTANT:
-- Use list_files for paths WITHOUT file extensions (e.g., src/app, api, components/ui)
-- Use list_files when you receive "Cannot read directory" error from read_file
-- After listing, use read_file on specific FILES from the results (e.g., src/app/page.tsx)
-- NEVER use read_file directly on directory paths - always list_files first, then read_file on individual files
-- Very large directories may be truncated to the first 200 files for performance
-- Use multiple <invoke> blocks within a single <function_calls> to list multiple directories in parallel`,
+3. **Error recovery**:
+   - read_file returns "Cannot read directory" → switch to list_files
+   - Path not found → verify parent directory first
+
+**WORKFLOW:**
+list_files → identify relevant files → read_file on specific files
+
+**WHEN TO USE ALTERNATIVES:**
+- Find by pattern → glob_search
+- Search content → grep_search
+- Understand code → echo_search
+
+**NOTE:** Large directories may be truncated to 200 files`,
     icon: FolderTree,
     usage: 'List directory contents - DEFAULT for extensionless paths',
     formatExample: '<function_calls>\n<invoke name="list_files">\n<parameter name="path">src/app</parameter>\n</invoke>\n</function_calls>',
@@ -72,12 +70,12 @@ IMPORTANT:
   },
   renderer: (data: unknown) => {
     if (typeof data === 'object' && data !== null) {
-      const result = data as { 
-        path: string; 
+      const result = data as {
+        path: string;
         directories?: Array<{ name: string; type: 'directory' }>;
         files?: Array<{ name: string; type: 'file'; size?: number }>;
       };
-      
+
       const directories = result.directories || [];
       const files = result.files || [];
       const isEmpty = directories.length === 0 && files.length === 0;
@@ -98,11 +96,11 @@ IMPORTANT:
                     key={`dir-${index}`}
                     className="flex items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-[var(--vscode-list-hoverBackground)] border-b border-[var(--vscode-input-border)]"
                   >
-                    <Folder 
-                      className="w-4 h-4 flex-shrink-0" 
+                    <Folder
+                      className="w-4 h-4 flex-shrink-0"
                       style={{ color: 'var(--vscode-charts-blue)' }}
                     />
-                    <span 
+                    <span
                       className="font-medium truncate"
                       style={{ color: 'var(--vscode-foreground)' }}
                     >
@@ -110,29 +108,29 @@ IMPORTANT:
                     </span>
                   </div>
                 ))}
-                
+
                 {/* Files */}
                 {files.map((file, index) => {
                   const iconConfig = getFileIconConfig(file.name);
                   const Icon = iconConfig.icon;
-                  
+
                   return (
                     <div
                       key={`file-${index}`}
                       className="flex items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-[var(--vscode-list-hoverBackground)] border-b border-[var(--vscode-input-border)] last:border-b-0"
                     >
-                      <Icon 
-                        className="w-4 h-4 flex-shrink-0" 
+                      <Icon
+                        className="w-4 h-4 flex-shrink-0"
                         style={{ color: iconConfig.color }}
                       />
-                      <span 
+                      <span
                         className="truncate flex-1"
                         style={{ color: 'var(--vscode-foreground)' }}
                       >
                         {file.name}
                       </span>
                       {file.size !== undefined && (
-                        <span 
+                        <span
                           className="text-xs flex-shrink-0 opacity-50"
                           style={{ color: 'var(--vscode-descriptionForeground)' }}
                         >

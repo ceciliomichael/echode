@@ -30,6 +30,18 @@ export const DEFAULT_AUTOCOMPLETE_SETTINGS: AutocompleteSettings = {
   temperature: 0.2,
 };
 
+export interface CommitMessageSettings {
+  provider: Provider;
+  model: string;
+  customPrompt: string;
+}
+
+export const DEFAULT_COMMIT_MESSAGE_SETTINGS: CommitMessageSettings = {
+  provider: 'anthropic',
+  model: '',
+  customPrompt: '',
+};
+
 export interface ContextSettings {
   maxContextTokens: number;
   summarizerProvider: Provider;
@@ -89,6 +101,7 @@ export interface ApiSettings {
   indexingSettings?: IndexingSettings;
   autocompleteSettings?: AutocompleteSettings;
   contextSettings?: ContextSettings;
+  commitMessageSettings?: CommitMessageSettings;
 }
 
 export const DEFAULT_API_SETTINGS: ApiSettings = {

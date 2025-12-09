@@ -2,7 +2,7 @@ import type { WorkspaceContext } from '../types/workspace';
 import { storageService } from './storage';
 import { getAllTools, getToolSystemPrompt, getToolsForMode, PLAN_ONLY_TOOL_IDS } from '../lib/tool-config';
 import { type ChatMode, DEFAULT_CHAT_MODE } from '../types/chat-mode';
-import { getSystemInfoSection, getRulesSection } from './prompt-sections';
+import { getSystemInfoSection, getRulesSection, getCognitiveWorkflowSection, getToolChainPatternsSection } from './prompt-sections';
 
 export interface PromptConfig {
   name: string;
@@ -26,22 +26,17 @@ export function getSystemPrompt(workspace: WorkspaceContext | null, mode: ChatMo
     ? `You are ${config.name}, a thoughtful and intelligent conversational AI.\n\nYou are an articulate, insightful, and engaging conversational partner. You excel at thoughtful discussion, creative exploration, analytical reasoning, and empathetic dialogue. You adapt naturally to the tone and depth your conversation partner seeks—whether that's casual chat, deep intellectual discourse, playful banter, or supportive listening. You think carefully before responding, offer nuanced perspectives, and communicate with clarity and warmth. You are curious, open-minded, and genuine in your interactions.`
     : mode === 'general'
       ? `You are ${config.name}, a general-purpose AI assistant.\n\nYou are precise, articulate, and reliable. You support a broad range of non-coding tasks, including academic and professional writing, critical analysis, research support, explanation of concepts, document organization, and structured brainstorming. Use clear, direct language with an academic tone when appropriate. Think step by step to reach sound conclusions, and keep responses concise, well-structured, and focused on the user's stated objective.`
-      : `You are ${config.name}, ${config.purpose}.\n\nYou are a skilled software engineer with extensive knowledge in many programming languages, frameworks, design patterns, and best practices. You must reason carefully and logically about the code you read before editing it: analyze structure and intent, plan minimal targeted changes, and verify your conclusions using tools instead of guessing. Think step by step to reach correct decisions, but keep your final responses concise and focused on the user's goal.`;
-  // Core focus instruction - placed at top for priority
+      : `You are ${config.name}, ${config.purpose}.\n\nYou are a skilled software engineer with extensive knowledge in many programming languages, frameworks, design patterns, and best practices. You reason carefully about code before editing: analyze structure and intent, plan minimal targeted changes, and verify using tools instead of guessing. You follow the READ BEFORE EDIT principle—always read files before modifying them. Think step by step, but keep responses concise and focused on the user's goal.`;
+
+  // Core focus instruction
   const focusInstruction = `<core_focus>
 Focus on the user's CURRENT message. Read it carefully. Respond to what they asked, not what you assume.
 </core_focus>`;
 
-  // Reasoning instruction - concise chain of thought
-  const thinkingSection = `<reasoning>
-Think step by step: Parse request → Scope boundaries → Plan actions → Execute → Verify.
-Stay within scope. Be precise. Be concise.
-</reasoning>`;
-
   // Combine AGENTS.md rules with custom system prompt from settings
   const customSystemPrompt = storageService.getSystemPrompt();
 
-  // Build user-specific rules section
+  // Build user-specific rules section (highest priority - placed last)
   const workspaceLevelRules = config.userSpecificRules && config.userSpecificRules.trim().length > 0
     ? `====\n\nWORKSPACE-LEVEL RULES (FROM AGENTS.md - HIGHEST PRIORITY)\n\nThese rules are loaded from the AGENTS.md file at the root of the current workspace.\n\nCRITICAL: If any instruction in this section conflicts with other rules in this prompt, you MUST follow this section.\n\n${config.userSpecificRules}`
     : '';
@@ -54,7 +49,7 @@ Stay within scope. Be precise. Be concise.
     ? `\n${workspaceLevelRules}${workspaceLevelRules && userLevelRules ? '\n\n' : ''}${userLevelRules}`
     : '';
 
-  // Mode-specific behavior - concise, no overlap with rules.ts
+  // Mode-specific behavior section
   let modeSection: string;
   if (mode === 'plan') {
     modeSection = `
@@ -95,12 +90,15 @@ AGENT MODE
 
 Implement code changes. Follow any existing plan.
 
-Workflow: read_file → apply_diff (or write_to_file for new files) → verify
+**CRITICAL WORKFLOW:**
+1. read_file FIRST → get current file content
+2. apply_diff → make targeted edits (copy SEARCH content exactly from read_file output)
+3. Verify success → move on (or fix errors if any)
 
-Rules:
-- Read before edit. Re-read if unsure.
-- On 2nd apply_diff failure, switch to write_to_file.
-- Move on after successful edits.`;
+**RULES:**
+- NEVER edit a file without reading it first
+- On 2nd apply_diff failure on same file → switch to write_to_file
+- Use write_to_file only for NEW files or complete rewrites`;
   }
 
   // Add tool configuration - use mode-aware tool filtering
@@ -145,18 +143,22 @@ No tools are currently enabled. You cannot use any tools for this request. All r
 </tool_status>
 `;
 
+  // Get dynamic sections based on mode and enabled tools
   const rulesSection = getRulesSection(workspace, mode, activeTools);
+  const cognitiveSection = getCognitiveWorkflowSection(mode);
+  const toolChainSection = getToolChainPatternsSection(mode, activeTools);
 
-  // Build the complete system prompt - priority order: focus first, then tools, then details
-  return `${thinkingSection}
+  // Build the complete system prompt
+  // Priority order: identity → focus → cognitive workflow → tools → tool chains → rules → mode → user rules → system info
+  return `${identitySection}
 
 ${focusInstruction}
-
-${identitySection}
-${userRulesSection}
+${cognitiveSection ? `\n${cognitiveSection}` : ''}
+${toolsSection}${toolChainSection ? `\n${toolChainSection}` : ''}
 ${rulesSection}
 ${modeSection}
-${toolsSection}
+${userRulesSection}
+
 ${getSystemInfoSection(workspace)}
 `.trim();
 }

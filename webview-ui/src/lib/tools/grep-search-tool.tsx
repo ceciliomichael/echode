@@ -188,59 +188,58 @@ registerToolPlugin({
     name: 'Grep Search',
     description: 'Search for patterns across workspace files',
     aiDescription: `## grep_search
-Description: Simple text search across workspace files. Use this ONLY when you already know the EXACT identifier (function name, variable, class name) you're looking for.
+Fast text search for KNOWN identifiers across files.
 
-**When to use grep_search vs echo_search:**
-- Use grep_search: You know the exact name (e.g., "handleSubmit", "UserService", "AUTH_TOKEN")
-- Use echo_search: You need to explore, understand, or find implementations (use echo_search FIRST for exploration)
+**WHEN TO USE grep_search:**
+- You know the EXACT name (function, variable, class, string literal)
+- Looking for all usages/references of an identifier
+- Simple pattern matching for known terms
 
-Parameters:
-- query: (required) The EXACT text to search for (function name, variable, etc.)
-- path: (optional) Directory to search in. ALWAYS narrow this.
-- isRegex: (optional) true for regex, false for plain text (default: false)
-- includes: (optional) File globs to filter (e.g., *.ts,*.tsx)
+**WHEN TO USE echo_search INSTEAD:**
+- Exploring unfamiliar code
+- Finding implementations (not just names)
+- Need context and explanation
+- Don't know exact identifier
 
-Examples:
+**Parameters:**
+- query: EXACT text to find (required)
+- path: Directory to search (ALWAYS specify to narrow scope)
+- isRegex: true for regex patterns (default: false)
+- includes: Glob filters (e.g., "*.ts,*.tsx")
 
-1. Find function references:
-<function_calls>
-<invoke name="grep_search">
-<parameter name="query">handleSubmit</parameter>
-<parameter name="path">src</parameter>
-</invoke>
-</function_calls>
+**INTELLIGENT PATTERNS:**
 
-2. Search multiple patterns in parallel:
-<function_calls>
-<invoke name="grep_search">
-<parameter name="query">handleSubmit</parameter>
-<parameter name="path">src</parameter>
-</invoke>
-<invoke name="grep_search">
-<parameter name="query">handleChange</parameter>
-<parameter name="path">src</parameter>
-</invoke>
-<invoke name="grep_search">
-<parameter name="query">handleClick</parameter>
-<parameter name="path">src</parameter>
-</invoke>
-</function_calls>
+1. **Always narrow your search**: Specify path
+   \`\`\`xml
+   <parameter name="path">src/components</parameter>  <!-- Good -->
+   <parameter name="path">.</parameter>  <!-- Avoid - too broad -->
+   \`\`\`
 
-3. Find interface in TypeScript files:
-<function_calls>
-<invoke name="grep_search">
-<parameter name="query">interface User</parameter>
-<parameter name="path">src</parameter>
-<parameter name="includes">*.ts,*.tsx</parameter>
-</invoke>
-</function_calls>
+2. **Parallel searches** for multiple identifiers:
+   \`\`\`xml
+   <function_calls>
+   <invoke name="grep_search">
+     <parameter name="query">handleSubmit</parameter>
+     <parameter name="path">src</parameter>
+   </invoke>
+   <invoke name="grep_search">
+     <parameter name="query">handleChange</parameter>
+     <parameter name="path">src</parameter>
+   </invoke>
+   </function_calls>
+   \`\`\`
 
-IMPORTANT:
-- Only use when you know the EXACT identifier
-- For exploration or understanding code, use echo_search instead
-- Always narrow path to relevant directory
-- After finding matches, use read_file for full context
-- Use multiple <invoke> blocks within a single <function_calls> to search multiple patterns in parallel`,
+3. **Find definitions vs usages**:
+   - "function handleSubmit" → definitions
+   - "handleSubmit(" → function calls
+   - "handleSubmit" → all references
+
+4. **After grep_search**: Use read_file on matched files for full context
+
+**REGEX TIPS (isRegex: true):**
+- \\bword\\b → whole word match
+- function\\s+\\w+ → function definitions
+- import.*from → import statements`,
     icon: Search,
     usage: 'Search for patterns across workspace files',
     formatExample: '<function_calls>\n<invoke name="grep_search">\n<parameter name="query">function</parameter>\n<parameter name="path">src</parameter>\n</invoke>\n</function_calls>',

@@ -20,32 +20,28 @@ registerToolPlugin({
     id: 'plan_handoff',
     name: 'Implementation Handoff',
     description: 'Offers to transition from planning to implementation',
-    aiDescription: `Signal that planning is complete and offer to transition to implementation.
+    aiDescription: `## plan_handoff
+Signal that planning is complete and offer to begin implementation.
 
-**When to use:**
-- After completing your planning analysis and creating a structured plan
-- When you've answered all clarifying questions
-- Before you would normally start implementing code changes
+**WHEN TO USE:**
+- Planning analysis is complete
+- Todo list is created with todo_write
+- All clarifying questions are answered
+- Ready to start actual code changes
 
 **Parameters:**
 - summary: Brief 1-3 sentence summary of what will be implemented (optional)
 
-**Example:**
-<function_calls>
-<invoke name="plan_handoff">
-<parameter name="summary">Ready to implement the authentication system with JWT tokens, login/logout endpoints, and user session management as planned.</parameter>
-</invoke>
-</function_calls>
+**WORKFLOW:**
+\`\`\`
+explore → analyze → create plan with todo_write → plan_handoff
+\`\`\`
 
-**Important:**
-- Use this ONLY when the plan is truly complete
-- After the user clicks "Start Implementation", implementation will begin with full tool access
-- The user must explicitly approve before implementation begins
-
-**Re-planning Behavior:**
-- If user sends a NEW message AFTER you used plan_handoff (but BEFORE clicking "Start Implementation"), your previous plan_handoff is INVALIDATED
-- Treat the new message as feedback, refinement, or new requirements
-- Update/recreate the plan, ask questions if needed, then use plan_handoff AGAIN`,
+**IMPORTANT:**
+- Only use when the plan is truly complete
+- User must click "Start Implementation" to begin
+- If user sends a message after this, the handoff is invalidated
+- Update plan based on feedback, then call plan_handoff again`,
     icon: Rocket,
     usage: 'Offer to transition from planning to implementation',
     formatExample: '<function_calls>\n<invoke name="plan_handoff">\n<parameter name="summary">Brief implementation summary</parameter>\n</invoke>\n</function_calls>',
@@ -65,7 +61,7 @@ export function PlanHandoffRenderer({ data }: PlanHandoffRendererProps) {
   const resultData = data as { clicked?: boolean; superseded?: boolean } | undefined;
   const wasClicked = resultData?.clicked === true;
   const isSuperseded = resultData?.superseded === true;
-  
+
   const [isSwitching, setIsSwitching] = useState(wasClicked);
 
   // Button is disabled if already clicked/switching or superseded by user message
@@ -74,7 +70,7 @@ export function PlanHandoffRenderer({ data }: PlanHandoffRendererProps) {
   const handleImplementClick = () => {
     if (isDisabled) return;
     setIsSwitching(true);
-    
+
     // Dispatch event with flag to update tool result data
     window.dispatchEvent(new CustomEvent('echode:planImplementHandoff', {
       detail: { markAsClicked: true }
@@ -84,7 +80,7 @@ export function PlanHandoffRenderer({ data }: PlanHandoffRendererProps) {
   return (
     <div className="py-3 px-1">
       {/* Info Section */}
-      <div 
+      <div
         className="px-3 py-2 rounded-xl mb-3 border"
         style={{
           backgroundColor: 'var(--vscode-input-background)',
@@ -93,18 +89,18 @@ export function PlanHandoffRenderer({ data }: PlanHandoffRendererProps) {
         }}
       >
         <div className="flex items-start gap-2">
-          <Rocket 
+          <Rocket
             className="w-4 h-4 mt-0.5 flex-shrink-0"
             style={{ color: 'var(--vscode-charts-orange)' }}
           />
           <div className="flex-1 min-w-0">
-            <div 
+            <div
               className="text-xs font-medium mb-1"
               style={{ color: 'var(--vscode-foreground)' }}
             >
               Ready to implement
             </div>
-            <div 
+            <div
               className="text-[10px] leading-relaxed opacity-70"
               style={{ color: 'var(--vscode-descriptionForeground)' }}
             >

@@ -132,7 +132,7 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
         <div className="overflow-hidden">
           <p
             ref={contentRef}
-            className="text-sm leading-relaxed whitespace-pre-wrap break-words pointer-events-none pr-8"
+            className="text-sm leading-relaxed whitespace-pre-wrap break-words pointer-events-none"
             style={{
               display: '-webkit-box',
               WebkitBoxOrient: 'vertical',

@@ -19,7 +19,20 @@ registerToolPlugin({
     id: 'todo_read',
     name: 'Todo Read',
     description: 'Read current todo list tasks',
-    aiDescription: 'Read the current todo list to see all tasks and their status.',
+    aiDescription: `## todo_read
+Read the current task list to see all tasks and their status.
+
+**WHEN TO USE:**
+- Check current task list before starting work
+- Review progress during implementation
+- Verify which tasks remain before completing
+
+**RETURNS:**
+- List of tasks with id, content, and status
+- Status: "pending" | "in_progress" | "completed"
+
+**WORKFLOW:**
+todo_read → see current state → work on tasks → todo_write (update progress)`,
     icon: ListChecks,
     usage: 'Read the current session todo list',
     formatExample: '<function_calls>\n<invoke name="todo_read">\n</invoke>\n</function_calls>',
@@ -60,7 +73,7 @@ registerToolPlugin({
           return (
             <div
               className="w-4 h-4 flex items-center justify-center rounded-full text-[10px] font-semibold"
-              style={{ 
+              style={{
                 backgroundColor: 'var(--vscode-charts-blue)',
                 color: 'var(--vscode-editor-background)',
                 opacity: 0.9
@@ -74,7 +87,7 @@ registerToolPlugin({
           return (
             <div
               className="w-4 h-4 flex items-center justify-center rounded-full text-[10px] font-semibold"
-              style={{ 
+              style={{
                 backgroundColor: 'var(--vscode-descriptionForeground)',
                 color: 'var(--vscode-editor-background)',
                 opacity: 0.4
@@ -88,8 +101,8 @@ registerToolPlugin({
 
     return (
       <div className="text-sm">
-        <div 
-          className="font-semibold mb-2 text-xs uppercase tracking-wide" 
+        <div
+          className="font-semibold mb-2 text-xs uppercase tracking-wide"
           style={{ color: 'var(--vscode-descriptionForeground)' }}
         >
           Todo List ({tasks.filter(t => t.status === 'completed').length}/{tasks.length})
@@ -101,9 +114,8 @@ registerToolPlugin({
                 {getStatusIcon(task.status, index)}
               </div>
               <span
-                className={`text-sm flex-1 leading-snug ${
-                  task.status === 'completed' ? 'line-through opacity-60' : ''
-                }`}
+                className={`text-sm flex-1 leading-snug ${task.status === 'completed' ? 'line-through opacity-60' : ''
+                  }`}
                 style={{ color: 'var(--vscode-input-foreground)' }}
               >
                 {task.content}

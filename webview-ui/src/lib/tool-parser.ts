@@ -8,6 +8,7 @@ import {
   findMatchingInvokeClosingTag,
   isInsideInvokeParameterValue,
 } from './parser';
+import { isParallelAllowed } from './tool-parallel-config';
 
 // Legacy regex pattern kept for parseToolBlock backward compatibility
 const TOOL_BLOCK_REGEX = /<function_calls>([\s\S]*?)<\/function_calls>/;
@@ -263,19 +264,11 @@ export function extractFirstToolBlock(content: string): ParsedToolBlock | null {
 
 /**
  * Check if a tool is parallelizable.
- * By default, tools are treated as parallelizable unless explicitly marked as serial-only.
- * Serial-only tools include planning/todo helpers and destructive operations.
+ * Uses a strict ALLOW-LIST approach - only tools explicitly listed in
+ * PARALLEL_ALLOWED_TOOLS can ever be parallelized. All other tools are serial-only.
  */
 export function isParallelizableTool(toolName: string): boolean {
-  const serialOnlyTools = new Set<string>([
-    'todo_write',
-    'todo_read',
-    'plan_navigator',
-    'plan_handoff',
-    'delete_file',
-    'execute_command',
-  ]);
-  return !serialOnlyTools.has(toolName);
+  return isParallelAllowed(toolName);
 }
 
 /**
@@ -301,7 +294,28 @@ export function extractCompleteInvokeBlocksIncremental(content: string): {
   pendingBlocks: PendingInvokeBlock[];
   hasFunctionCallsClose: boolean;
 } {
+  const fenceMatches = content.match(/```/g);
+  const fenceCount = fenceMatches ? fenceMatches.length : 0;
+  const shouldLog = content.includes('<function_calls>');
+
+  if (shouldLog) {
+    console.log('[extractCompleteInvokeBlocksIncremental] RAW content snippet:', JSON.stringify(content.slice(0, 400)));
+    console.log('[extractCompleteInvokeBlocksIncremental] RAW fenceCount:', fenceCount);
+  }
+
+  // If there is an unmatched markdown code fence (odd number of ```),
+  // we must NOT execute tools yet. This covers streaming cases where
+  // ```xml has been opened but the closing ``` has not arrived.
+  if (fenceCount % 2 === 1) {
+    console.log('[extractCompleteInvokeBlocksIncremental] Unmatched code fence detected, skipping tool extraction');
+    return { blocks: [], pendingBlocks: [], hasFunctionCallsClose: false };
+  }
+
   const preprocessed = preprocessContent(content);
+
+  if (shouldLog) {
+    console.log('[extractCompleteInvokeBlocksIncremental] PREPROCESSED snippet:', JSON.stringify(preprocessed.slice(0, 400)));
+  }
   const blocks: ParsedToolBlock[] = [];
   const pendingBlocks: PendingInvokeBlock[] = [];
   
@@ -318,9 +332,22 @@ export function extractCompleteInvokeBlocksIncremental(content: string): {
     }
   }
   
-  const openPos = preprocessed.indexOf(openTag, searchStart);
-  if (openPos === -1) {
-    return { blocks: [], pendingBlocks: [], hasFunctionCallsClose: false };
+  // Find a function_calls opening that is not inside a code block
+  let openPos = searchStart;
+  while (openPos < preprocessed.length) {
+    openPos = preprocessed.indexOf(openTag, openPos);
+    if (openPos === -1) {
+      return { blocks: [], pendingBlocks: [], hasFunctionCallsClose: false };
+    }
+
+    // Skip if preceded by backtick (inside code block or inline code)
+    if (openPos > 0 && preprocessed[openPos - 1] === '`') {
+      console.log(`[extractCompleteInvokeBlocksIncremental] Skipping function_calls at ${openPos} - preceded by backtick`);
+      openPos += openTag.length;
+      continue;
+    }
+
+    break;
   }
   
   const openTagEnd = openPos + openTag.length;
@@ -338,6 +365,10 @@ export function extractCompleteInvokeBlocksIncremental(content: string): {
   const invokeBlocks = extractInvokeBlocks(innerContent);
   
   console.log(`[extractCompleteInvokeBlocksIncremental] hasFunctionCallsClose=${hasFunctionCallsClose}, invokeBlocks.length=${invokeBlocks.length}`);
+
+  if (shouldLog) {
+    console.log('[extractCompleteInvokeBlocksIncremental] INNER content snippet:', JSON.stringify(innerContent.slice(0, 400)));
+  }
   
   for (const block of invokeBlocks) {
     if (block.toolName && typeof block.toolName === 'string') {

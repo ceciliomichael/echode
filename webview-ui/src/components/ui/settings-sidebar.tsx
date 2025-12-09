@@ -1,6 +1,6 @@
-import { Settings, FileText, Wrench, Search, Zap, Brain } from 'lucide-react';
+import { Settings, FileText, Wrench, Search, Zap, Brain, GitCommit } from 'lucide-react';
 
-type TabType = 'api' | 'system' | 'tools' | 'indexing' | 'autocomplete' | 'context';
+type TabType = 'api' | 'system' | 'tools' | 'indexing' | 'autocomplete' | 'context' | 'commit-message';
 
 interface SettingsSidebarProps {
   activeTab: TabType;
@@ -156,6 +156,28 @@ export function SettingsSidebar({ activeTab, onTabChange }: SettingsSidebarProps
           >
             <Brain size={14} strokeWidth={1.5} />
             <span className="font-medium">Context</span>
+          </button>
+          <button
+            onClick={() => onTabChange('commit-message')}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs rounded-xl transition-all border"
+            style={{
+              backgroundColor: activeTab === 'commit-message' ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent',
+              color: activeTab === 'commit-message' ? 'var(--vscode-list-activeSelectionForeground)' : 'var(--vscode-foreground)',
+              borderColor: activeTab === 'commit-message' ? 'var(--vscode-focusBorder)' : 'transparent'
+            }}
+            onMouseEnter={(e) => {
+              if (activeTab !== 'commit-message') {
+                e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (activeTab !== 'commit-message') {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }
+            }}
+          >
+            <GitCommit size={14} strokeWidth={1.5} />
+            <span className="font-medium">Commit Message</span>
           </button>
         </nav>
       </div>

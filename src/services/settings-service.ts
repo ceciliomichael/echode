@@ -41,6 +41,7 @@ export interface ApiSettings {
   indexingSettings?: unknown;
   autocompleteSettings?: unknown;
   contextSettings?: unknown;
+  commitMessageSettings?: unknown;
 }
 
 const DEFAULT_SETTINGS: ApiSettings = {

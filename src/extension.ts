@@ -3,6 +3,7 @@ import { EchodeSidebarProvider } from './sidebar-provider';
 import { AutocompleteService } from './autocomplete';
 import { clearGitignoreCache } from './utils/workspace-scanner';
 import { clearListFilesGitignoreCache } from './services/tools/list-files-tool';
+import { generateGitCommitMessage } from './services/git-commit-generator';
 
 export function activate(context: vscode.ExtensionContext) {
   const autocompleteService = new AutocompleteService(context);
@@ -53,6 +54,12 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('echode.openSettings', () => {
       sidebarProvider.openSettingsPanel();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('echode.generateCommitMessage', async () => {
+      await generateGitCommitMessage();
     })
   );
 

@@ -67,54 +67,58 @@ registerToolPlugin({
     name: 'Glob Search',
     description: 'Find files based on glob patterns',
     aiDescription: `## glob_search
-Description: Find files and directories matching glob patterns. Use this tool to discover files by name, extension, or path patterns across your workspace. Ideal for finding files when you know the filename pattern or structure but not the exact location.
+Find files and directories by name patterns.
 
-Parameters:
-- pattern: (required) Glob pattern(s) to search for (e.g., *.ts, **/*.json, components/**/Button.tsx)
-- path: (optional) Directory to search in (default: workspace root)
-- excludes: (optional) Glob patterns to exclude (e.g., node_modules/**)
-- sortBy: (optional) Sort results by 'name', 'size', or 'extension' (default: name)
-- sortOrder: (optional) Sort order 'asc' or 'desc' (default: asc)
+**WHEN TO USE:**
+- Know the filename pattern but not exact location
+- Find all files of a specific type
+- Locate config files, test files, etc.
 
-Examples:
+**WHEN TO USE ALTERNATIVES:**
+- Search file contents → grep_search or echo_search
+- Explore directory → list_files
+- Understand code → echo_search
+
+**Parameters:**
+- pattern: Glob pattern(s) to match (required)
+- path: Starting directory (optional, default: workspace root)
+- excludes: Patterns to skip (e.g., "node_modules/**")
+- sortBy: 'name', 'size', or 'extension'
+- sortOrder: 'asc' or 'desc'
+
+**PATTERN SYNTAX:**
+- \`*\` → any characters in single directory level
+- \`**\` → any characters across multiple levels
+- \`{a,b,c}\` → match alternatives
+- \`?\` → single character
+
+**EXAMPLES:**
 
 1. Find all TypeScript files:
+   \`<parameter name="pattern">**/*.ts</parameter>\`
+
+2. Find config files:
+   \`<parameter name="pattern">*.config.{js,ts,json}</parameter>\`
+
+3. Find tests in specific directory:
+   \`<parameter name="pattern">**/*.test.ts</parameter>\`
+   \`<parameter name="path">src</parameter>\`
+
+**PARALLEL SEARCHES:**
+\`\`\`xml
 <function_calls>
 <invoke name="glob_search">
-<parameter name="pattern">**/*.ts</parameter>
+  <parameter name="pattern">**/*.tsx</parameter>
+  <parameter name="path">src/components</parameter>
+</invoke>
+<invoke name="glob_search">
+  <parameter name="pattern">**/*.ts</parameter>
+  <parameter name="path">src/utils</parameter>
 </invoke>
 </function_calls>
+\`\`\`
 
-2. Search multiple patterns in parallel:
-<function_calls>
-<invoke name="glob_search">
-<parameter name="pattern">**/*.tsx</parameter>
-<parameter name="path">src/components</parameter>
-</invoke>
-<invoke name="glob_search">
-<parameter name="pattern">**/*.ts</parameter>
-<parameter name="path">src/hooks</parameter>
-</invoke>
-<invoke name="glob_search">
-<parameter name="pattern">**/*.ts</parameter>
-<parameter name="path">src/utils</parameter>
-</invoke>
-</function_calls>
-
-3. Find config files with specific extension:
-<function_calls>
-<invoke name="glob_search">
-<parameter name="pattern">*.config.{js,ts,json}</parameter>
-</invoke>
-</function_calls>
-
-IMPORTANT: Pattern Guidelines:
-- Use * to match any characters in a single directory level
-- Use ** to match any characters across multiple directory levels
-- Use {a,b,c} to match multiple alternatives
-- After finding files with glob_search, use read_file to examine specific files
-- For content search (finding code/text), use grep_search instead
-- Use multiple <invoke> blocks within a single <function_calls> to search multiple patterns in parallel`,
+**AFTER GLOB_SEARCH:** Use read_file on found files for content`,
     icon: FileSearch,
     usage: 'Find files based on glob patterns',
     formatExample: '<function_calls>\n<invoke name="glob_search">\n<parameter name="pattern">*.ts</parameter>\n<parameter name="path">src</parameter>\n</invoke>\n</function_calls>',
@@ -186,7 +190,7 @@ function GlobSearchRendererComponent({ data }: { data: unknown }) {
                             <span className="italic opacity-70 flex-shrink-0">
                               ({skipped.reason === 'tooLarge' ? 'too large' :
                                 skipped.reason === 'permissionDenied' ? 'permission denied' :
-                                'invalid type'})
+                                  'invalid type'})
                             </span>
                           </div>
                         ))}

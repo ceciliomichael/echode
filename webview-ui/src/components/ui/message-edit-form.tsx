@@ -39,7 +39,7 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
   const [cursorPos, setCursorPos] = useState(parsed.text.length);
   const [editAttachments, setEditAttachments] = useState<DocumentAttachment[]>(attachments || parsed.attachments);
   const [scrollTop, setScrollTop] = useState(0);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropdownDirection = useDropdownDirection(containerRef);
@@ -348,7 +348,7 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
               />
             )}
             {/* Mention highlighter - positioned behind textarea */}
-            <MentionHighlighter text={editContent} scrollTop={scrollTop} />
+            <MentionHighlighter text={editContent} scrollTop={scrollTop} textareaRef={textareaRef} />
             <textarea
               ref={textareaRef}
               value={editContent}

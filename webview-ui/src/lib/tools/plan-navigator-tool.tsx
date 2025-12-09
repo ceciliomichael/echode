@@ -20,29 +20,28 @@ registerToolPlugin({
     id: 'plan_navigator',
     name: 'Plan Navigator',
     description: 'Provides a question with clickable options during planning',
-    aiDescription: `Present a question with up to 4 clickable options to guide the planning discussion.
+    aiDescription: `## plan_navigator
+Present a question with clickable options to guide planning discussion.
 
-**When to use:**
-- When you need the user to choose between specific implementation strategies
-- To get quick confirmation on a preference
-- To narrow down scope with predefined choices
+**WHEN TO USE:**
+- Need user to choose between implementation strategies
+- Confirm a preference or approach
+- Narrow scope with predefined choices
 
 **Parameters:**
-- question: The main question string (required)
+- question: The question to ask (required)
 - options: Array of 1-4 short option strings (required)
 
-**Example:**
-<function_calls>
-<invoke name="plan_navigator">
-<parameter name="question">Which authentication method should we implement?</parameter>
-<parameter name="options">["JWT with local storage", "Session cookies", "OAuth2 / Social Login"]</parameter>
-</invoke>
-</function_calls>
+**BEST PRACTICES:**
+- Keep question clear and concise
+- Keep options short (under 40 chars each)
+- Use instead of open-ended questions when you have specific paths
 
-**Best practices:**
-- Keep the question clear and concise
-- Keep options short (under 40 characters)
-- Use this instead of asking open-ended questions when you have specific paths in mind`,
+**EXAMPLE:**
+\`\`\`xml
+<parameter name="question">Which auth method should we use?</parameter>
+<parameter name="options">["JWT tokens", "Session cookies", "OAuth2"]</parameter>
+\`\`\``,
     icon: HelpCircle,
     usage: 'Present a question with clickable options',
     formatExample: '<function_calls>\n<invoke name="plan_navigator">\n<parameter name="question">Question text?</parameter>\n<parameter name="options">["Option 1", "Option 2"]</parameter>\n</invoke>\n</function_calls>',
@@ -64,7 +63,7 @@ export function PlanNavigatorRenderer({ data }: { data: unknown }) {
     );
   }
 
-  const result = data as { 
+  const result = data as {
     question: string;
     options: string[];
     selectedIndex?: number;
@@ -75,7 +74,7 @@ export function PlanNavigatorRenderer({ data }: { data: unknown }) {
   const options = result.options || [];
   const persistedIndex = result.selectedIndex ?? null;
   const isSuperseded = result.superseded === true;
-  
+
   // Use persisted index if available, otherwise use local state
   const effectiveClickedIndex = clickedIndex ?? persistedIndex;
 
@@ -101,7 +100,7 @@ export function PlanNavigatorRenderer({ data }: { data: unknown }) {
   return (
     <div className="py-2 px-1">
       {question && (
-        <div 
+        <div
           className="text-xs font-medium mb-2 px-2 opacity-80"
           style={{ color: 'var(--vscode-descriptionForeground)' }}
         >
@@ -123,13 +122,13 @@ export function PlanNavigatorRenderer({ data }: { data: unknown }) {
               disabled={isInteractionDisabled}
               className="w-full text-left px-3 py-2 rounded-xl border text-xs transition-all"
               style={{
-                backgroundColor: isClicked 
+                backgroundColor: isClicked
                   ? 'rgba(249, 115, 22, 0.15)'
                   : 'var(--vscode-input-background)',
-                color: isClicked 
+                color: isClicked
                   ? 'var(--vscode-charts-orange)'
                   : 'var(--vscode-foreground)',
-                borderColor: isClicked 
+                borderColor: isClicked
                   ? 'var(--vscode-charts-orange)'
                   : 'var(--vscode-input-border)',
                 minHeight: '36px',

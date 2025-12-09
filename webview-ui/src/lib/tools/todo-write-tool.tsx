@@ -19,23 +19,40 @@ registerToolPlugin({
     id: 'todo_write',
     name: 'Todo Write',
     description: 'Write and manage todo list tasks',
-    aiDescription: `You can update the todo list in two ways:
+    aiDescription: `## todo_write
+Create or update the task list for tracking work progress.
 
-1. JSON tasks array (preferred when editing specific tasks):
-   - Each task MUST have exactly 3 fields: "id" (string), "content" (string), "status" ("pending"|"in_progress"|"completed").
-   - Example: [{"id":"1","content":"Fix bug","status":"pending"}]
-   - Keep content concise (under 80 chars). Use sequential numeric IDs ("1", "2", "3").
+**FORMATS (pick one):**
 
-2. Markdown checklist via a todos string (similar to Roo Code update_todo_list):
-   - Provide a markdown checklist where:
-     - "[ ] task" = pending
-     - "[-] task" or "[~] task" = in_progress
-     - "[x] task" or "[X] task" = completed
-   - Example:
-     - [ ] Implement auth
-     - [x] Set up CI
+1. **JSON tasks array** (precise control):
+   \`\`\`json
+   [{"id":"1","content":"Task description","status":"pending"}]
+   \`\`\`
+   Status: "pending" | "in_progress" | "completed"
 
-If both tasks and todos are provided, tasks takes precedence.`,
+2. **Markdown checklist** (quick updates):
+   \`\`\`
+   - [ ] Pending task
+   - [-] In progress task
+   - [x] Completed task
+   \`\`\`
+
+**BEST PRACTICES:**
+
+1. **Keep tasks concise**: Under 80 characters
+2. **Use sequential IDs**: "1", "2", "3", etc.
+3. **Update status as you work**: Mark tasks in_progress, then completed
+4. **Break down complex work**: Multiple small tasks > one large task
+
+**WORKFLOW (Plan Mode):**
+\`\`\`
+Analyze task → Create todo list → Work through items → Update status → Hand off
+\`\`\`
+
+**Parameters:**
+- tasks: JSON array of task objects
+- todos: Markdown checklist string
+(If both provided, tasks takes precedence)`,
     icon: ListChecks,
     usage: 'Manage session todo list by writing tasks',
     formatExample: '<function_calls>\n<invoke name="todo_write">\n<parameter name="tasks">[{"id":"1","content":"Implement auth","status":"pending"},{"id":"2","content":"Add tests","status":"in_progress"}]</parameter>\n</invoke>\n</function_calls>',
@@ -76,7 +93,7 @@ If both tasks and todos are provided, tasks takes precedence.`,
           return (
             <div
               className="w-4 h-4 flex items-center justify-center rounded-full text-[10px] font-semibold"
-              style={{ 
+              style={{
                 backgroundColor: 'var(--vscode-charts-blue)',
                 color: 'var(--vscode-editor-background)',
                 opacity: 0.9
@@ -90,7 +107,7 @@ If both tasks and todos are provided, tasks takes precedence.`,
           return (
             <div
               className="w-4 h-4 flex items-center justify-center rounded-full text-[10px] font-semibold"
-              style={{ 
+              style={{
                 backgroundColor: 'var(--vscode-descriptionForeground)',
                 color: 'var(--vscode-editor-background)',
                 opacity: 0.4
@@ -104,8 +121,8 @@ If both tasks and todos are provided, tasks takes precedence.`,
 
     return (
       <div className="text-sm">
-        <div 
-          className="font-semibold mb-2 text-xs uppercase tracking-wide" 
+        <div
+          className="font-semibold mb-2 text-xs uppercase tracking-wide"
           style={{ color: 'var(--vscode-descriptionForeground)' }}
         >
           Todo List Updated ({tasks.filter(t => t.status === 'completed').length}/{tasks.length})
@@ -117,9 +134,8 @@ If both tasks and todos are provided, tasks takes precedence.`,
                 {getStatusIcon(task.status, index)}
               </div>
               <span
-                className={`text-sm flex-1 leading-snug ${
-                  task.status === 'completed' ? 'line-through opacity-60' : ''
-                }`}
+                className={`text-sm flex-1 leading-snug ${task.status === 'completed' ? 'line-through opacity-60' : ''
+                  }`}
                 style={{ color: 'var(--vscode-input-foreground)' }}
               >
                 {task.content}

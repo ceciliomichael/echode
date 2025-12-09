@@ -393,21 +393,34 @@ function findMatchingFunctionCallsClose(content: string, openTagEnd: number): nu
  */
 function findNextToolStart(content: string, fromPosition: number): number {
   const tag = '<function_calls>';
-  let searchPos = fromPosition;
-  
-  while (searchPos < content.length) {
-    const pos = content.indexOf(tag, searchPos);
-    if (pos === -1) return -1;
-    
-    // Skip if preceded by backtick (inside code block or inline code)
-    if (pos > 0 && content[pos - 1] === '`') {
-      searchPos = pos + tag.length;
+  let inFence = false;
+
+  for (let i = 0; i < content.length; ) {
+    if (content.startsWith('```', i)) {
+      inFence = !inFence;
+      i += 3;
+
+      if (inFence) {
+        while (i < content.length && content[i] !== '\n' && content[i] !== '\r') {
+          i++;
+        }
+      }
+
       continue;
     }
-    
-    return pos;
+
+    if (i >= fromPosition && !inFence && content.startsWith(tag, i)) {
+      if (i > 0 && content[i - 1] === '`') {
+        i += tag.length;
+        continue;
+      }
+
+      return i;
+    }
+
+    i++;
   }
-  
+
   return -1;
 }
 

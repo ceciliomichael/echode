@@ -56,10 +56,10 @@ function getSeverityColor(severity: string) {
 function DiagnosticFileItem({ file, isExpanded, onToggle }: DiagnosticFileItemProps) {
   const iconConfig = getFileIconConfig(file.filePath);
   const Icon = iconConfig.icon;
-  
+
   const errorCount = file.diagnostics.filter(d => d.severity === 'Error').length;
   const warningCount = file.diagnostics.filter(d => d.severity === 'Warning').length;
-  
+
   return (
     <div className="border-b border-[var(--vscode-input-border)] last:border-b-0">
       <button
@@ -179,40 +179,49 @@ registerToolPlugin({
     name: 'Get Diagnostics',
     description: 'Collect current linter/compiler diagnostics from the workspace',
     aiDescription: `## get_diagnostics
-Description: Collect all available diagnostics (lint/compile errors and warnings, plus information and hints) from the workspace as reported by the language servers.
+Collect linter/compiler diagnostics (errors, warnings, info) from workspace.
 
-Primary purpose:
-- Use this tool near the END of an implementation flow to verify that your edits did not introduce new errors.
-- If diagnostics are returned, you should usually perform another round of fixes (e.g., with write_to_file or apply_diff) before declaring the task complete.
+**WHEN TO USE:**
+- Verify changes didn't introduce errors
+- Find syntax/type issues to fix
+- Check workspace health
 
-Parameters:
-- path: (optional) Target within the workspace. Can be either a specific file path (e.g., "src/app.ts") or a directory path (e.g., "src"). When provided, diagnostics are limited to that file or to files under that directory.
-- file_pattern: (optional) Plain string used to filter files by path substring (e.g., "src/" or ".ts"). Only used when path is not provided. When omitted, diagnostics for all files are returned.
+**Parameters:**
+- path: (optional) File or directory to check (e.g., "src" or "src/app.ts")
+- file_pattern: (optional) Filter by path substring when path not provided
 
-Recommended usage patterns:
-1. Final workspace check before completion (entire workspace):
-<function_calls>
-<invoke name="get_diagnostics">
-</invoke>
-</function_calls>
+**DIAGNOSTIC TRIAGE:**
 
-2. Focus diagnostics on a specific directory:
-<function_calls>
-<invoke name="get_diagnostics">
-<parameter name="path">src</parameter>
-</invoke>
-</function_calls>
+Prioritize by severity:
+- 🔴 **Errors** → Fix immediately (blocks functionality)
+- 🟡 **Warnings** → Fix if relevant to current task
+- 🔵 **Info/Hints** → Low priority, nice to address
 
-3. Focus diagnostics on a specific file:
-<function_calls>
-<invoke name="get_diagnostics">
-<parameter name="path">src/app.ts</parameter>
-</invoke>
-</function_calls>
+**WORKFLOWS:**
 
-Handling results:
-- If totalDiagnostics is 0: You can safely report that no diagnostics were found.
-- If diagnostics exist: summarize them for the user and consider applying fixes before finishing.`,
+1. **After edits (verification):**
+   \`\`\`
+   apply_diff → get_diagnostics → fix errors if any
+   \`\`\`
+
+2. **Targeted check** (recommended - faster):
+   \`\`\`xml
+   <parameter name="path">src/components</parameter>
+   \`\`\`
+
+3. **Full workspace check** (use sparingly):
+   \`\`\`xml
+   <invoke name="get_diagnostics"></invoke>
+   \`\`\`
+
+**HANDLING RESULTS:**
+- totalDiagnostics = 0 → No issues found, proceed
+- Diagnostics exist → read_file on problem files, then apply_diff to fix
+
+**BEST PRACTICE:**
+- Narrow to changed files/directories for faster results
+- Check once at end of task, not after every edit
+- Not always needed for simple, obvious edits`,
     icon: AlertTriangle,
     usage: 'Collect linter/compiler diagnostics for the current workspace, a directory, or a specific file',
     formatExample:

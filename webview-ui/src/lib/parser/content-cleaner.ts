@@ -101,10 +101,59 @@ export function removeThinkBlocks(content: string): string {
 }
 
 /**
+ * Remove markdown code blocks from content
+ * Code blocks should not be parsed as executable tool calls
+ * Handles fenced code blocks: ```language ... ```
+ */
+export function removeCodeBlocks(content: string): string {
+  // Streaming-safe implementation using a simple scanner instead of regex.
+  // Any content between matching ``` fences is treated as non-executable
+  // and completely removed from the string that the tool parser sees.
+  //
+  // Behavior:
+  // - When an opening ``` (with optional language, e.g. ```xml) is seen,
+  //   we enter a fenced block and skip ALL characters until the closing ```.
+  // - While inside a fence, <function_calls> XML is invisible to the parser.
+  // - If the closing ``` never arrives (streaming/incomplete block), the
+  //   rest of the content is treated as code and ignored for tool parsing.
+
+  let result = '';
+  let i = 0;
+  let inFence = false;
+
+  while (i < content.length) {
+    // Detect a triple-backtick fence at the current position
+    if (content.startsWith('```', i)) {
+      inFence = !inFence;
+      i += 3;
+
+      // On opening fence, skip optional language identifier up to newline
+      if (inFence) {
+        while (i < content.length && content[i] !== '\n' && content[i] !== '\r') {
+          i++;
+        }
+      }
+
+      // Do not include the fence or language in the result used for parsing
+      continue;
+    }
+
+    if (!inFence) {
+      result += content[i];
+    }
+
+    i++;
+  }
+
+  return result;
+}
+
+/**
  * Preprocess content for tool parsing
- * Combines think block removal and content cleaning
+ * Combines code block removal, think block removal, and content cleaning
  */
 export function preprocessContent(content: string): string {
-  const withoutThink = removeThinkBlocks(content);
+  const withoutCodeBlocks = removeCodeBlocks(content);
+  const withoutThink = removeThinkBlocks(withoutCodeBlocks);
   return cleanToolCallContent(withoutThink);
 }

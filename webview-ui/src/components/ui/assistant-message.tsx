@@ -24,8 +24,6 @@ function sanitizeAssistantText(content: string): string {
     return content;
   }
 
-  let sanitized = content;
-
   // Remove internal section blocks entirely from user-visible text
   const internalBlockTags = [
     'function_calls',
@@ -37,16 +35,55 @@ function sanitizeAssistantText(content: string): string {
     'system_reminder',
   ];
 
-  for (const tag of internalBlockTags) {
-    const blockRegex = new RegExp(`<${tag}[^>]*>[\\s\\S]*?<\\/${tag}>`, 'g');
-    sanitized = sanitized.replace(blockRegex, '');
+  const sanitizeSegment = (segment: string): string => {
+    let sanitized = segment;
+
+    for (const tag of internalBlockTags) {
+      const blockRegex = new RegExp(`<${tag}[^>]*>[\\s\\S]*?<\\/${tag}>`, 'g');
+      sanitized = sanitized.replace(blockRegex, '');
+    }
+
+    // Remove any stray invoke/parameter blocks that might leak into text
+    sanitized = sanitized.replace(/<invoke[^>]*>[\s\S]*?<\/invoke>/g, '');
+    sanitized = sanitized.replace(/<parameter[^>]*>[\s\S]*?<\/parameter>/g, '');
+
+    return sanitized;
+  };
+
+  let result = '';
+  let i = 0;
+
+  while (i < content.length) {
+    if (content.startsWith('```', i)) {
+      const fenceStart = i;
+      i += 3;
+
+      while (i < content.length && content[i] !== '\n' && content[i] !== '\r') {
+        i++;
+      }
+
+      const fenceBodyStart = fenceStart;
+      const closePos = content.indexOf('```', i);
+
+      if (closePos === -1) {
+        result += content.slice(fenceBodyStart);
+        return result;
+      }
+
+      const fenceBlockEnd = closePos + 3;
+      result += content.slice(fenceBodyStart, fenceBlockEnd);
+      i = fenceBlockEnd;
+      continue;
+    }
+
+    const nextFencePos = content.indexOf('```', i);
+    const segmentEnd = nextFencePos === -1 ? content.length : nextFencePos;
+    const segment = content.slice(i, segmentEnd);
+    result += sanitizeSegment(segment);
+    i = segmentEnd;
   }
 
-  // Remove any stray invoke/parameter blocks that might leak into text
-  sanitized = sanitized.replace(/<invoke[^>]*>[\s\S]*?<\/invoke>/g, '');
-  sanitized = sanitized.replace(/<parameter[^>]*>[\s\S]*?<\/parameter>/g, '');
-
-  return sanitized;
+  return result;
 }
 
 function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming = false, isCompressing = false, toolExecutions, planChainPosition }: AssistantMessageProps) {

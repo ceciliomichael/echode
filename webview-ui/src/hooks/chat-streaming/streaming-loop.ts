@@ -2,7 +2,7 @@ import type { StreamingLoopContext } from './types';
 import type { ToolExecutionState } from '../../types/tool';
 import { chatApi } from '../../services/chat-api';
 import { hasCompleteToolBlock, trimToFirstCompleteToolBlock, extractCompleteInvokeBlocksIncremental } from '../../lib/tool-parser';
-import { createToolExecutionState, updateToolExecutionStatus, updateToolExecutionProgress, generateToolExecutionId } from '../../lib/tool-execution-tracker';
+import { generateToolExecutionId } from '../../lib/tool-execution-tracker';
 import { isRetryableError } from './helpers';
 
 /**
@@ -32,7 +32,6 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
     setIsExecutingTool,
     updateToolExecution,
     executeToolAndContinue,
-    getToolExecutor,
   } = ctx;
 
   let assistantContent = '';
@@ -76,10 +75,8 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
       console.log('[STREAMING] Starting stream, creating chatApi.streamChat...');
       let chunkCount = 0;
 
-      // Incremental tool execution state
+      // Track which tool indices have been shown in UI
       const scheduledToolIndices = new Set<number>();
-      const runningToolPromises: Promise<{ toolName: string; result: string; index: number }>[] = [];
-      const toolExecutor = getToolExecutor();
 
       for await (const chunk of chatApi.streamChat(finalChatHistory, abortController.signal, mode)) {
         chunkCount++;
@@ -128,72 +125,32 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
           updateToolExecution(assistantMessageId, execId, pendingState);
         }
 
-        // Schedule execution for any new complete invoke blocks
+        // Update UI state for complete invoke blocks (but do NOT execute yet)
+        // Execution only happens when </function_calls> is received
         for (let i = 0; i < blocks.length; i++) {
           if (!scheduledToolIndices.has(i)) {
             scheduledToolIndices.add(i);
             const block = blocks[i];
             const toolIndex = i;
 
-            console.log(`[STREAMING] Scheduling incremental execution for tool #${toolIndex}: ${block.toolName}`);
+            console.log(`[STREAMING] Complete invoke block detected for tool #${toolIndex}: ${block.toolName} (waiting for </function_calls>)`);
 
-            // Show tool as executing in UI
-            setIsExecutingTool(true);
+            // Show tool as pending in UI (not executing yet)
             const execId = generateToolExecutionId(assistantMessageId, toolIndex);
-            const executionState = createToolExecutionState(execId, block.toolName, block.parameters);
-            updateToolExecution(assistantMessageId, execId, executionState);
-
-            // Create progress callback for echo_search
-            const onProgress = block.toolName === 'echo_search' 
-              ? (progress: import('../../types/tool').EchoSearchProgress) => {
-                  const updatedState = updateToolExecutionProgress(executionState, progress);
-                  updateToolExecution(assistantMessageId, execId, updatedState);
-                }
-              : undefined;
-
-            // Start execution in background (don't await)
-            const toolPromise = (async () => {
-              try {
-                const result = await toolExecutor.executeToolBlock(block, onProgress);
-
-                // Update UI with completed status
-                if (result.executedToolCalls.length > 0) {
-                  const executedTool = result.executedToolCalls[0];
-                  const completedState = updateToolExecutionStatus(
-                    executionState,
-                    executedTool.status,
-                    executedTool.result
-                  );
-                  updateToolExecution(assistantMessageId, execId, completedState);
-                }
-
-                return {
-                  toolName: block.toolName,
-                  result: result.toolResults[0] || '',
-                  index: toolIndex,
-                };
-              } catch (err) {
-                const errorMsg = err instanceof Error ? err.message : 'Unknown error';
-                const errorState = updateToolExecutionStatus(executionState, 'error', {
-                  success: false,
-                  error: errorMsg,
-                });
-                updateToolExecution(assistantMessageId, execId, errorState);
-                return {
-                  toolName: block.toolName,
-                  result: `[${block.toolName} ERROR] ${errorMsg}`,
-                  index: toolIndex,
-                };
-              }
-            })();
-
-            runningToolPromises.push(toolPromise);
+            const pendingState: ToolExecutionState = {
+              toolExecutionId: execId,
+              toolName: block.toolName,
+              parameters: block.parameters,
+              status: 'pending',
+              startedAt: Date.now(),
+            };
+            updateToolExecution(assistantMessageId, execId, pendingState);
           }
         }
 
-        // Check if function_calls is now closed
+        // Check if function_calls is now closed - ONLY THEN execute tools
         if (hasFunctionCallsClose && blocks.length > 0) {
-          console.log('[STREAMING] ✓ function_calls closed with tools executed incrementally!');
+          console.log('[STREAMING] ✓ </function_calls> received - NOW executing tools');
 
           // Trim content to the complete function_calls block
           const trimmedContent = trimToFirstCompleteToolBlock(assistantContent);
@@ -203,37 +160,18 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
           // Abort stream
           abortController.abort();
 
-          // Wait for all running tool executions to complete
-          console.log(`[STREAMING] Waiting for ${runningToolPromises.length} tool executions to complete...`);
-          const toolResults = await Promise.all(runningToolPromises);
+          // Now execute all tools (will be handled by executeToolAndContinue which respects parallel allow-list)
+          setIsExecutingTool(true);
 
-          // Check if user stopped during tool execution
+          // Check if user stopped before executing
           if (isStoppingRef.current) {
-            console.log('[STREAMING] User stopped during tool execution, not continuing AI');
+            console.log('[STREAMING] User stopped before tool execution');
+            setIsExecutingTool(false);
             return { success: false, assistantContent, handledByToolExecution: true };
           }
 
-          // Sort results by index and collect
-          toolResults.sort((a, b) => a.index - b.index);
-
-          // If any planning tools ran (plan_navigator / plan_handoff) in Plan mode,
-          // stop here and wait for user interaction instead of auto-continuing.
-          const hasPlanningTool = toolResults.some(r =>
-            r.toolName === 'plan_navigator' || r.toolName === 'plan_handoff'
-          );
-
-          if (hasPlanningTool && mode === 'plan') {
-            console.log('[STREAMING] Planning tool executed during incremental stream - waiting for user interaction');
-            // Clear executing state since we are pausing for user input
-            setIsExecutingTool(false);
-            return { success: true, assistantContent, handledByToolExecution: true };
-          }
-
-          const bufferedResults = toolResults.map(r => r.result);
-
-          console.log(`[STREAMING] All ${bufferedResults.length} tools completed, passing results to AI`);
-
-          // Pass buffered results to executeToolAndContinue
+          // Delegate to executeToolAndContinue which handles parallel vs serial execution
+          // based on the allow-list
           await executeToolAndContinue(
             assistantContent,
             assistantMessageId,
@@ -242,7 +180,6 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
             content,
             0,
             attachments,
-            bufferedResults // Pass pre-computed results
           );
 
           console.log('[STREAMING] Tool execution completed, exiting stream');

@@ -1,15 +1,6 @@
 import type { ChatMode } from '../../types/chat-mode';
 import type { Tool } from '../../types/tool';
-
-// Tools that must run serially (non-parallelizable)
-const SERIAL_ONLY_TOOLS = new Set<string>([
-	'todo_write',
-	'todo_read',
-	'plan_navigator',
-	'plan_handoff',
-	'delete_file',
-	'execute_command',
-]);
+import { PARALLEL_ALLOWED_TOOLS } from '../../lib/tool-parallel-config';
 
 export function getToolUseGuidelinesSection(_mode: ChatMode, enabledTools: Tool[] = []): string {
 	const enabledIds = new Set(enabledTools.map(t => t.id));
@@ -22,12 +13,14 @@ export function getToolUseGuidelinesSection(_mode: ChatMode, enabledTools: Tool[
 	if (enabledIds.has('list_files')) selectionItems.push('Browse structure → list_files');
 	selectionItems.push('Known path → read_file');
 
-	// Parallel tools guidance - only if multiple parallelizable tools exist
-	const parallelizable = enabledTools.filter(t => !SERIAL_ONLY_TOOLS.has(t.id));
+	// Parallel tools guidance - only tools in PARALLEL_ALLOWED_TOOLS can be batched
+	const parallelizable = enabledTools.filter(t => PARALLEL_ALLOWED_TOOLS.has(t.id));
+	const serialOnly = enabledTools.filter(t => !PARALLEL_ALLOWED_TOOLS.has(t.id));
 	const parallelSection = parallelizable.length > 1
 		? `
 <parallel_calls>
-Batch independent calls in one <function_calls> block. Serial-only: ${[...SERIAL_ONLY_TOOLS].filter(id => enabledIds.has(id)).join(', ') || 'none enabled'}.
+ONLY these tools can be batched in parallel: ${[...PARALLEL_ALLOWED_TOOLS].filter(id => enabledIds.has(id)).join(', ') || 'none'}.
+All other tools MUST run one at a time. Serial-only: ${serialOnly.map(t => t.id).join(', ') || 'none enabled'}.
 </parallel_calls>`
 		: '';
 
@@ -40,7 +33,12 @@ ${selectionItems.join(' | ')}
 </when_to_use>
 
 <tool_format>
-One <function_calls> block per response. Each tool in separate <invoke> tag. Close </invoke> before starting next.
+**STRUCTURE REQUIREMENTS:**
+- One <function_calls> block per response
+- Each tool in separate <invoke> tag
+- CLOSE </parameter> before next parameter
+- CLOSE </invoke> before next invoke
+- NEVER nest invokes inside parameter values
 </tool_format>${parallelSection}`;
 }
 

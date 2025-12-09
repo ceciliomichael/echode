@@ -73,6 +73,7 @@ interface ContextUsage {
   systemPromptTokens: number;
   historyTokens: number;
   toolResultsTokens: number;
+  compressedHistoryTokens: number;
   totalTokens: number;
   maxTokens: number;
 }
@@ -253,22 +254,47 @@ export function ContextIndicator({ usage, disabled = false, mode, isCompressing 
                 {formatTokens(usage.systemPromptTokens)}
               </span>
             </div>
-            <div className="flex justify-between text-xs">
-              <span style={{ color: 'var(--vscode-descriptionForeground)' }}>
-                Chat History
-              </span>
-              <span style={{ color: 'var(--vscode-foreground)' }}>
-                {formatTokens(usage.historyTokens)}
-              </span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span style={{ color: 'var(--vscode-descriptionForeground)' }}>
-                Tool Results
-              </span>
-              <span style={{ color: 'var(--vscode-foreground)' }}>
-                {formatTokens(usage.toolResultsTokens)}
-              </span>
-            </div>
+            {usage.compressedHistoryTokens > 0 ? (
+              <>
+                <div className="flex justify-between text-xs">
+                  <span style={{ color: 'var(--vscode-descriptionForeground)' }}>
+                    Compressed History
+                  </span>
+                  <span style={{ color: 'var(--vscode-foreground)' }}>
+                    {formatTokens(usage.compressedHistoryTokens)}
+                  </span>
+                </div>
+                {(usage.historyTokens > 0 || usage.toolResultsTokens > 0) && (
+                  <div className="flex justify-between text-xs">
+                    <span style={{ color: 'var(--vscode-descriptionForeground)' }}>
+                      New Messages
+                    </span>
+                    <span style={{ color: 'var(--vscode-foreground)' }}>
+                      {formatTokens(usage.historyTokens + usage.toolResultsTokens)}
+                    </span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="flex justify-between text-xs">
+                  <span style={{ color: 'var(--vscode-descriptionForeground)' }}>
+                    Chat History
+                  </span>
+                  <span style={{ color: 'var(--vscode-foreground)' }}>
+                    {formatTokens(usage.historyTokens)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span style={{ color: 'var(--vscode-descriptionForeground)' }}>
+                    Tool Results
+                  </span>
+                  <span style={{ color: 'var(--vscode-foreground)' }}>
+                    {formatTokens(usage.toolResultsTokens)}
+                  </span>
+                </div>
+              </>
+            )}
             
             <div
               className="border-t pt-1.5 mt-1.5 flex justify-between text-xs"

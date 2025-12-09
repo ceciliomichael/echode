@@ -23,47 +23,51 @@ registerToolPlugin({
         name: 'Apply Diff',
         description: 'PREFERRED method for all targeted edits to existing files',
         aiDescription: `## apply_diff
-Preferred tool for targeted edits to existing files. SEARCH blocks must match file content exactly (100%).
+**PREFERRED tool for targeted edits to existing files.**
 
-**Workflow:**
-1. read_file first → get exact content
-2. Copy SEARCH content from read_file output (inside ┌─ FILE CONTENT markers)
+**CRITICAL WORKFLOW:**
+1. read_file first → get exact current content
+2. Copy SEARCH content EXACTLY from read_file output (character-for-character)
 3. Call apply_diff with copied SEARCH + your REPLACE
 
 **Parameters:**
-- path: file path (relative to workspace)
+- path: File path (relative to workspace)
 - diff: SEARCH/REPLACE blocks
 
 **Format:**
-\`\`\`
 <<<<<<< SEARCH
 :start_line:N
 -------
-[copied exact content from read_file]
+[EXACT content copied from read_file - must match perfectly]
 =======
-[replacement content]
+[your replacement content]
 >>>>>>> REPLACE
-\`\`\`
 
-**Multiple edits** - use multiple SEARCH/REPLACE blocks in one diff parameter.
+**SUCCESS PATTERNS:**
 
-**If failing:** Re-read file with read_file, copy fresh content. After 2 failures on same file, switch to write_to_file.
+1. **Single edit**: Read file → Copy exact lines → Apply diff
+2. **Multiple edits in same file**: Use multiple SEARCH/REPLACE blocks in one call
+3. **After success**: Move on unless verification explicitly needed
 
-**Example:**
-<function_calls>
-<invoke name="apply_diff">
-<parameter name="path">src/file.ts</parameter>
-<parameter name="diff">
-<<<<<<< SEARCH
-:start_line:5
--------
-function oldName() {
-=======
-function newName() {
->>>>>>> REPLACE
-</parameter>
-</invoke>
-</function_calls>`,
+**FAILURE RECOVERY:**
+
+When apply_diff fails:
+1. **1st failure**: Re-read file with read_file (content may have changed)
+2. **Copy fresh**: Use exact characters from new read_file output
+3. **Retry**: apply_diff with fresh SEARCH content
+4. **2nd failure**: SWITCH to write_to_file for complete rewrite
+
+**COMMON MISTAKES TO AVOID:**
+- Using outdated/remembered content → always re-read first
+- Wrong indentation in SEARCH → must match file exactly
+- Missing/extra whitespace → copy character-by-character
+- Wrong :start_line → verify line numbers from read_file
+
+**WHEN TO USE write_to_file INSTEAD:**
+- Creating NEW files (path doesn't exist)
+- Complete file rewrites (>50% changed)
+- After 2 failed apply_diff attempts
+- File is now significantly SHORTER after refactor`,
         icon: FilePenLine,
         usage: 'PREFERRED for all targeted edits to existing files',
         formatExample: '<function_calls>\n<invoke name="apply_diff">\n<parameter name="path">src/file.ts</parameter>\n<parameter name="diff">\n<<<<<<< SEARCH\n:start_line:10\n-------\nold code\n=======\nnew code\n>>>>>>> REPLACE\n</parameter>\n</invoke>\n</function_calls>',

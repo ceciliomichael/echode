@@ -23,51 +23,46 @@ registerToolPlugin({
     name: 'Read File',
     description: 'Read file contents - ONLY for paths WITH file extensions',
     aiDescription: `## read_file
-Description: Read contents of a single file. Outputs line-numbered content for easy reference.
+Read contents of files. Outputs line-numbered content for easy reference.
 
-**DEFAULT: Reads first 500 lines.** Use offset/limit for different sections.
+**CRITICAL: You MUST read_file BEFORE editing any file. Never edit from memory.**
 
 Parameters:
-- path: (required) File path with extension (e.g., src/app.ts)
-- offset: (optional) Start line number (1-based, default: 1)
-- limit: (optional) Number of lines to read (default: 500)
+- path: (required) File path with extension
+- offset: (optional) Start line (1-based, default: 1)
+- limit: (optional) Lines to read (default: 500)
 
-Examples:
+**INTELLIGENT USAGE:**
 
-1. Read a single file:
-<function_calls>
-<invoke name="read_file">
-<parameter name="path">src/app.ts</parameter>
-</invoke>
-</function_calls>
+1. **Before ANY edit**: Always read first to get current state
+   \`\`\`
+   read_file → verify content → apply_diff (or write_to_file)
+   \`\`\`
 
-2. Read multiple files in parallel (recommended for efficiency):
-<function_calls>
-<invoke name="read_file">
-<parameter name="path">src/components/header.tsx</parameter>
-</invoke>
-<invoke name="read_file">
-<parameter name="path">src/components/footer.tsx</parameter>
-</invoke>
-<invoke name="read_file">
-<parameter name="path">src/utils/helpers.ts</parameter>
-</invoke>
-</function_calls>
+2. **Large files (>300 lines)**: Use offset/limit strategically
+   - Need function at line 150? → offset:140, limit:50
+   - Scanning for pattern? → grep_search first, then read_file on matches
 
-3. Custom line range:
-<function_calls>
-<invoke name="read_file">
-<parameter name="path">src/large.ts</parameter>
-<parameter name="offset">101</parameter>
-<parameter name="limit">50</parameter>
-</invoke>
-</function_calls>
+3. **Parallel reads**: Read multiple unrelated files at once
+   \`\`\`xml
+   <function_calls>
+   <invoke name="read_file"><parameter name="path">src/a.ts</parameter></invoke>
+   <invoke name="read_file"><parameter name="path">src/b.ts</parameter></invoke>
+   <invoke name="read_file"><parameter name="path">src/c.ts</parameter></invoke>
+   </function_calls>
+   \`\`\`
 
-IMPORTANT:
-- File paths MUST have extensions (treat extension-less paths as directories) - if no extension, call list_files first, then read_file on a specific file.
-- If you get a "Cannot read directory" error, switch to list_files on that path.
-- Avoid re-reading the same file and range repeatedly in one conversation; reuse earlier results unless the file has changed.
-- Use multiple <invoke> blocks within a single <function_calls> to read multiple files in parallel.`,
+4. **For apply_diff**: Copy SEARCH content EXACTLY from read_file output (character-for-character)
+
+**ERROR HANDLING:**
+- "Cannot read directory" → Use list_files instead
+- "File not found" → Verify path with glob_search
+- No content returned → Check if file is binary (blocked automatically)
+
+**DO NOT:**
+- Read same file/range repeatedly unless file changed
+- Assume file contents from earlier reads—always re-read before edit
+- Call read_file on paths without extensions (use list_files for directories)`,
     icon: FileText,
     usage: 'Read file content - ONLY for paths WITH extensions',
     formatExample: '<function_calls>\n<invoke name="read_file">\n<parameter name="path">src/app.ts</parameter>\n</invoke>\n</function_calls>',
