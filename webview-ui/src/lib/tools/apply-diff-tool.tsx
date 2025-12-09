@@ -23,136 +23,43 @@ registerToolPlugin({
         name: 'Apply Diff',
         description: 'PREFERRED method for all targeted edits to existing files',
         aiDescription: `## apply_diff
-Description: This is the PREFERRED and DEFAULT method for making ANY targeted modifications to existing files. Request to apply PRECISE, TARGETED edits to an existing file by searching for specific sections of content and replacing them. Use this tool for ALL modifications to existing files unless the file is being completely rewritten or heavily refactored to be shorter.
+Preferred tool for targeted edits to existing files. SEARCH blocks must match file content exactly (100%).
 
-**CRITICAL PREREQUISITE - YOU MUST DO THIS FIRST:**
-Before EVERY apply_diff call, you MUST use read_file to get the current, exact file content. The SEARCH blocks must match the file content EXACTLY (100% match including all whitespace, tabs, and line endings). Working from memory or assumptions will cause the diff to fail.
+**Workflow:**
+1. read_file first → get exact content
+2. Copy SEARCH content from read_file output (inside ┌─ FILE CONTENT markers)
+3. Call apply_diff with copied SEARCH + your REPLACE
 
-WORKFLOW:
-1. FIRST: Use read_file to get exact current content of the file
-2. THEN: Create your SEARCH blocks by copying the EXACT text from the read_file output (including exact whitespace/indentation)
-3. FINALLY: Call apply_diff with your precise SEARCH/REPLACE blocks
+**Parameters:**
+- path: file path (relative to workspace)
+- diff: SEARCH/REPLACE blocks
 
-You can perform multiple distinct search and replace operations within a single apply_diff call by providing multiple SEARCH/REPLACE blocks in the diff parameter. This is the preferred way to make several targeted changes efficiently.
-
-The SEARCH section must exactly match existing content including whitespace and indentation.
-When applying the diffs, be extra careful to remember to change any closing brackets or other syntax that may be affected by the diff farther down in the file.
-ALWAYS make as many changes in a single 'apply_diff' request as possible using multiple SEARCH/REPLACE blocks
-
-**IMPORTANT - When apply_diff keeps failing:**
-If apply_diff fails for the same file with similar SEARCH content, do NOT keep retrying the same diff blindly. Instead:
-- First, call read_file again to confirm the latest content and adjust your SEARCH/REPLACE blocks.
-- If apply_diff continues to fail even after you correct the SEARCH content, switch to using write_to_file instead to rewrite the entire file.
-This is more reliable when:
-- The file has been heavily modified and content doesn't match.
-- Repeated failures indicate the search content is incorrect.
-- The changes are extensive enough that a full rewrite is more practical.
-
-Parameters:
-- path: (required) The path of the file to modify (relative to the current workspace directory)
-- diff: (required) The search/replace block defining the changes.
-
-Diff format:
+**Format:**
 \`\`\`
 <<<<<<< SEARCH
-:start_line: (required) The line number of original content where the search block starts.
+:start_line:N
 -------
-[exact content to find including whitespace]
+[copied exact content from read_file]
 =======
-[new content to replace with]
->>>>>>> REPLACE
-
-\`\`\`
-
-
-Example:
-
-Original file:
-\`\`\`
-1 | def calculate_total(items):
-2 |     total = 0
-3 |     for item in items:
-4 |         total += item
-5 |     return total
-\`\`\`
-
-Search/Replace content:
-\`\`\`
-<<<<<<< SEARCH
-:start_line:1
--------
-def calculate_total(items):
-    total = 0
-    for item in items:
-        total += item
-    return total
-=======
-def calculate_total(items):
-    """Calculate total with 10% markup"""
-    return sum(item * 1.1 for item in items)
->>>>>>> REPLACE
-
-\`\`\`
-
-Search/Replace content with multiple edits:
-\`\`\`
-<<<<<<< SEARCH
-:start_line:1
--------
-def calculate_total(items):
-    sum = 0
-=======
-def calculate_sum(items):
-    sum = 0
->>>>>>> REPLACE
-
-<<<<<<< SEARCH
-:start_line:4
--------
-        total += item
-    return total
-=======
-        sum += item
-    return sum 
+[replacement content]
 >>>>>>> REPLACE
 \`\`\`
 
+**Multiple edits** - use multiple SEARCH/REPLACE blocks in one diff parameter.
 
-Usage:
+**If failing:** Re-read file with read_file, copy fresh content. After 2 failures on same file, switch to write_to_file.
+
+**Example:**
 <function_calls>
 <invoke name="apply_diff">
-<parameter name="path">File path here</parameter>
-<parameter name="diff">
-Your search/replace content here
-You can use multi search/replace block in one diff block, but make sure to include the line numbers for each block.
-Only use a single line of '=======' between search and replacement content, because multiple '=======' will corrupt the file.
-</parameter>
-</invoke>
-</function_calls>
-
-Example: Applying diffs to multiple files in parallel (use multiple invoke blocks within one function_calls block):
-<function_calls>
-<invoke name="apply_diff">
-<parameter name="path">src/utils/helpers.ts</parameter>
+<parameter name="path">src/file.ts</parameter>
 <parameter name="diff">
 <<<<<<< SEARCH
 :start_line:5
 -------
-export function oldHelper() {
+function oldName() {
 =======
-export function newHelper() {
->>>>>>> REPLACE
-</parameter>
-</invoke>
-<invoke name="apply_diff">
-<parameter name="path">src/components/Button.tsx</parameter>
-<parameter name="diff">
-<<<<<<< SEARCH
-:start_line:10
--------
-const label = "Click";
-=======
-const label = "Submit";
+function newName() {
 >>>>>>> REPLACE
 </parameter>
 </invoke>

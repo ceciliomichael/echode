@@ -33,12 +33,15 @@ function formatSingleToolResult(execution: ToolExecutionState): string {
       const endLine = data.endLine as number;
       const content = data.content as string;
 
-      let header = `[read_file] ${path} (${totalLines} lines)`;
-      if (startLine !== 1 || endLine !== totalLines) {
-        header += ` [lines ${startLine}-${endLine}]`;
-      }
-
-      return `${header}\n${content}`;
+      const rangeInfo = (startLine !== 1 || endLine !== totalLines)
+        ? ` [lines ${startLine}-${endLine}]`
+        : '';
+      
+      // Format with clear markers for apply_diff SEARCH block copying
+      return `[read_file] ${path} (${totalLines} lines)${rangeInfo}
+┌─ FILE CONTENT (use for apply_diff SEARCH blocks) ─┐
+${content}
+└─ END ${path} ─┘`;
     }
 
     case 'write_to_file': {

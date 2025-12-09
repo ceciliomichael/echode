@@ -1,11 +1,37 @@
 import type { Message } from '../../types/chat';
 import type { ChatMessage } from '../../types/chat-api';
 import type { ChatHistoryContext } from './types';
+import type { ToolExecutionState } from '../../types/tool';
 import { removeThinkBlocks } from '../../utils/think-block-parser';
 import { buildChatMessage } from '../../utils/vision-utils';
 import { formatToolExecutionResults } from './tool-result-formatter';
 import { trimHistory } from './helpers';
 import { stripUnavailableToolCalls } from '../../utils/tool-history-filter';
+
+/**
+ * Extract list of files read in the conversation for context
+ */
+function extractFilesRead(messages: Message[]): string[] {
+  const filesRead: string[] = [];
+  
+  for (const msg of messages) {
+    if (msg.toolExecutions) {
+      msg.toolExecutions.forEach((execution: ToolExecutionState) => {
+        if (execution.toolName === 'read_file' && execution.status === 'completed' && execution.result?.success) {
+          const data = execution.result.data as Record<string, unknown>;
+          if (data.path) {
+            const rangeInfo = (data.startLine && data.endLine && (data.startLine !== 1 || data.endLine !== data.totalLines))
+              ? ` [${data.startLine}-${data.endLine}]`
+              : '';
+            filesRead.push(`${data.path}${rangeInfo}`);
+          }
+        }
+      });
+    }
+  }
+  
+  return filesRead;
+}
 
 /**
  * Build chat history with system prompt, context messages, tool results, and final user message
@@ -72,13 +98,17 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
 
   // Add current user message with attachments
   const hasToolResults = messagesToSend.some(msg => msg.toolExecutions && msg.toolExecutions.size > 0);
+  const filesRead = extractFilesRead(contextMessages);
 
-  // Build instruction based on context
-  let instruction: string;
+  // Build instruction based on context - concise and actionable
+  let instruction = '';
+  
+  if (filesRead.length > 0) {
+    instruction += `\n\n<session_state>\nFiles read: ${filesRead.slice(-10).join(', ')}${filesRead.length > 10 ? ` (+${filesRead.length - 10} more)` : ''}\nFor apply_diff: copy SEARCH content exactly from <tool_results> above.\n</session_state>`;
+  }
+  
   if (hasToolResults) {
-    instruction = '\n\n[INSTRUCTION: You have tool execution results in <tool_results>. Use them instead of guessing file contents. Follow your system prompt and tool rules. Respond concisely and stay focused on the coding task.]';
-  } else {
-    instruction = '\n\n[INSTRUCTION: Follow your system prompt and tool rules. Respond concisely and stay focused on the coding task.]';
+    instruction += '\n[Use <tool_results> for exact content. Stay focused.]';
   }
 
   const finalUserMessage = buildChatMessage(

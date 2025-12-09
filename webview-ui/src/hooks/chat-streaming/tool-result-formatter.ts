@@ -27,16 +27,18 @@ export function formatToolExecutionResults(
         let formattedResult = '';
 
         if (execution.toolName === 'read_file') {
-          // For read_file, handle both single and multiple files
+          // For read_file, format with clear markers for apply_diff SEARCH copying
           if ('files' in data && Array.isArray(data.files)) {
             // Multiple files case
             const files = data.files as Array<{ path: string; content: string }>;
             formattedResult = files
-              .map(f => `File: ${f.path}\n${truncateContent(f.content, MAX_FILE_CONTENT_CHARS)}`)
-              .join('\n\n---\n\n');
+              .map(f => `┌─ ${f.path} (copy for SEARCH blocks) ─┐\n${truncateContent(f.content, MAX_FILE_CONTENT_CHARS)}\n└─ END ${f.path} ─┘`)
+              .join('\n\n');
           } else if ('content' in data && 'path' in data) {
             // Single file case
-            formattedResult = `File: ${data.path as string}\n${truncateContent(String(data.content), MAX_FILE_CONTENT_CHARS)}`;
+            const filePath = data.path as string;
+            const content = truncateContent(String(data.content), MAX_FILE_CONTENT_CHARS);
+            formattedResult = `┌─ ${filePath} (copy for SEARCH blocks) ─┐\n${content}\n└─ END ${filePath} ─┘`;
           } else {
             formattedResult = JSON.stringify(data);
           }

@@ -2,7 +2,6 @@ import type { ChatMode } from '../../types/chat-mode';
 import type { Tool } from '../../types/tool';
 
 // Tools that must run serially (non-parallelizable)
-// Planning/todo helpers and destructive operations are always executed one at a time.
 const SERIAL_ONLY_TOOLS = new Set<string>([
 	'todo_write',
 	'todo_read',
@@ -12,138 +11,36 @@ const SERIAL_ONLY_TOOLS = new Set<string>([
 	'execute_command',
 ]);
 
-export function getToolUseGuidelinesSection(mode: ChatMode, enabledTools: Tool[] = []): string {
+export function getToolUseGuidelinesSection(_mode: ChatMode, enabledTools: Tool[] = []): string {
 	const enabledIds = new Set(enabledTools.map(t => t.id));
-	const hasEditingTools = enabledIds.has('write_to_file') || enabledIds.has('apply_diff');
 
-	// Build tool selection guide based on enabled tools
-	const toolSelectionItems: string[] = [];
-	if (enabledIds.has('echo_search')) {
-		toolSelectionItems.push('- Explore/understand code: echo_search first');
-	}
-	if (enabledIds.has('grep_search')) {
-		toolSelectionItems.push('- Know exact identifier: grep_search');
-	}
-	toolSelectionItems.push('- Know file path: read_file directly');
-	if (enabledIds.has('glob_search')) {
-		toolSelectionItems.push('- Find files by name: glob_search');
-	}
-	if (enabledIds.has('list_files')) {
-		toolSelectionItems.push('- Explore structure: list_files once, then targeted reads');
-	}
+	// Tool selection - concise decision tree
+	const selectionItems: string[] = [];
+	if (enabledIds.has('echo_search')) selectionItems.push('Explore codebase → echo_search');
+	if (enabledIds.has('grep_search')) selectionItems.push('Find identifier → grep_search');
+	if (enabledIds.has('glob_search')) selectionItems.push('Find by filename → glob_search');
+	if (enabledIds.has('list_files')) selectionItems.push('Browse structure → list_files');
+	selectionItems.push('Known path → read_file');
 
-	const noProtocolLeak = hasEditingTools
-		? 'Never write tool-call syntax into workspace files.'
-		: 'Never expose tool-call syntax in outputs.';
+	// Parallel tools guidance - only if multiple parallelizable tools exist
+	const parallelizable = enabledTools.filter(t => !SERIAL_ONLY_TOOLS.has(t.id));
+	const parallelSection = parallelizable.length > 1
+		? `
+<parallel_calls>
+Batch independent calls in one <function_calls> block. Serial-only: ${[...SERIAL_ONLY_TOOLS].filter(id => enabledIds.has(id)).join(', ') || 'none enabled'}.
+</parallel_calls>`
+		: '';
 
-	// Determine which tools are serial-only vs parallelizable for guidance
-	const enabledSerialOnly = enabledTools.filter(t => SERIAL_ONLY_TOOLS.has(t.id)).map(t => t.id);
-	const enabledParallelizable = enabledTools
-		.filter(t => !SERIAL_ONLY_TOOLS.has(t.id))
-		.map(t => t.id);
+	return `====
 
-	// Build parallelization section only if relevant tools exist
-	let parallelSection = '';
-	if (enabledParallelizable.length > 0) {
-		parallelSection = `
+TOOL GUIDANCE
 
-<parallel_tool_calls>
-WHEN TO PARALLELIZE:
-- You MAY batch multiple independent tool calls in one response when ALL of them are parallelizable (non-planning, non-todo, non-destructive).
-- Parallelizable tools: ${enabledParallelizable.join(', ')}
-- Good for: gathering context from multiple files/searches or applying edits to multiple files efficiently.
+<when_to_use>
+${selectionItems.join(' | ')}
+</when_to_use>
 
-WHEN NOT TO PARALLELIZE:
-- NEVER parallelize serial-only tools${enabledSerialOnly.length > 0 ? ` (${enabledSerialOnly.join(', ')})` : ''}.
-- NEVER parallelize when one call depends on another's result.
-- NEVER parallelize when debugging a failing tool; run one at a time.
-
-HOW TO PARALLELIZE:
-- Use a single <function_calls> block containing multiple <invoke> tags, one per tool call.
-- The system may execute parallelizable tools from that block in parallel automatically.
-- Wait for all results before deciding next action.
-</parallel_tool_calls>`;
-	}
-
-	const editGuideline = hasEditingTools
-		? '6. Read before edit. Always call read_file before using any editing tools (such as apply_diff or write_to_file), and only use editing tools that appear in the <available_tools> list for this message.'
-		: '6. Read before edit. Only use editing tools if they are explicitly listed in the <available_tools> section for this message, and only on files you have already read in this conversation.';
-
-	const coreGuidelines = `====
-
-TOOL USE GUIDELINES
-
-<tool_selection>
-${toolSelectionItems.join('\n')}
-</tool_selection>
-
-<core_rules>
-Please follow these rules:
-1. Trust tool results. Never guess file contents or paths.
-2. Avoid re-reading the exact same file range repeatedly when you already have the necessary details, but if you are unsure or need to confirm behavior, re-read with read_file instead of relying on memory.
-3. Keep tool syntax internal. ${noProtocolLeak}
-4. One tool call per <invoke> tag. You MAY include multiple sibling <invoke> tags inside a single <function_calls> block when parallelizing, but:
-   - There MUST be exactly one <function_calls>...</function_calls> block per response.
-   - You MUST finish each <parameter>, then close </invoke>, before starting the next <invoke>.
-   - NEVER start a new <invoke> or <function_calls> block inside a <parameter> value.
-5. Check results before proceeding. Verify each tool succeeded.
-${editGuideline}
-</core_rules>${parallelSection}`;
-
-	// Mode-specific additions - focused on workflow, not tool restrictions
-	let modeGuidelines: string;
-	if (mode === 'plan') {
-		modeGuidelines = `
-
-<plan_mode_workflow>
-PLANNING MODE - Your workflow:
-1. Use echo_search or grep_search to find relevant code patterns.
-2. Use read_file to examine specific files.
-3. Use list_files or glob_search to discover file structure.
-4. Create a clear implementation plan.
-5. Use todo_write to save the plan as tasks.
-6. Use plan_navigator to present the plan.
-7. Use plan_handoff when ready for implementation.
-
-FORBIDDEN in this mode:
-- Do NOT call write_to_file, apply_diff, delete_file, or execute_command.
-- These tools DO NOT EXIST in Planning mode.
-- If you see them in history, they were from Agent mode - IGNORE them.
-</plan_mode_workflow>`;
-	} else if (mode === 'ask') {
-		modeGuidelines = `
-
-<ask_mode_workflow>
-Q&A MODE - Your workflow:
-1. Use search tools to find relevant code if needed.
-2. Use read_file to examine specific files.
-3. Answer the user's question directly and concisely.
-
-FORBIDDEN in this mode:
-- Do NOT call any editing or command tools.
-- Focus only on answering questions.
-</ask_mode_workflow>`;
-	} else if (mode === 'general') {
-		modeGuidelines = `
-
-<mode_workflow>
-- Use tools for document management when needed.
-- Provide well-structured, comprehensive responses.
-</mode_workflow>`;
-	} else {
-		modeGuidelines = `
-
-<agent_mode_workflow>
-IMPLEMENTATION MODE - Your workflow:
-1. Check if there's an existing plan from Planning mode.
-2. If yes, follow the plan step by step.
-3. Read files before editing them.
-4. Use apply_diff for targeted edits, write_to_file for new files.
-5. Update todos as you complete tasks.
-6. Run get_diagnostics before declaring complete.
-</agent_mode_workflow>`;
-	}
-
-	return `${coreGuidelines}${modeGuidelines}`;
+<tool_format>
+One <function_calls> block per response. Each tool in separate <invoke> tag. Close </invoke> before starting next.
+</tool_format>${parallelSection}`;
 }
 
