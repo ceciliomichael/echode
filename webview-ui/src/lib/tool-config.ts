@@ -99,28 +99,49 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
     .join('\n');
 
   // Build parallel tools list from enabled tools
-  const enabledParallelTools = enabledTools.filter(t => PARALLEL_ALLOWED_TOOLS.has(t.id)).map(t => t.id);
-  const serialOnlyTools = enabledTools.filter(t => !PARALLEL_ALLOWED_TOOLS.has(t.id)).map(t => t.id);
+  const enabledParallelTools = enabledTools
+    .filter(t => PARALLEL_ALLOWED_TOOLS.has(t.id))
+    .map(t => t.id);
+
+  const serialOnlyTools = enabledTools
+    .filter(t => !PARALLEL_ALLOWED_TOOLS.has(t.id))
+    .map(t => t.id);
+
+  // Destructive / write tools should only be mentioned if they are actually enabled
+  const destructiveToolIds = ['apply_diff', 'write_to_file', 'delete_file'];
+  const enabledDestructiveTools = enabledTools
+    .filter(t => destructiveToolIds.includes(t.id))
+    .map(t => t.id);
+
+  const parallelRulesSection = `<parallel_execution_rules>
+**PARALLEL EXECUTION IS STRICTLY LIMITED:**
+
+ONLY these tools can be batched together in a single <function_calls> block:
+${enabledParallelTools.length > 0 ? enabledParallelTools.join(', ') : 'NONE'}
+
+ALL OTHER TOOLS MUST BE CALLED ONE AT A TIME - NEVER batch these:
+${serialOnlyTools.length > 0 ? serialOnlyTools.join(', ') : 'none'}
+` + (enabledDestructiveTools.length > 0 ? `
+
+**DESTRUCTIVE / WRITE TOOLS (NEVER PARALLELIZE):**
+${enabledDestructiveTools.join(', ')}
+Each must be in its own separate <function_calls> block and executed sequentially.
+` : '') + `
+</parallel_execution_rules>`;
 
   return `<tools>
 <tool_format>
 **STRICT XML FORMATTING - FOLLOW EXACTLY:**
 
 Format:
-<<<<<<< HEAD
-=======
 \`\`\`xml
->>>>>>> f39d87b54a52b2c7582a27b32539f23ea2710301
 <function_calls>
 <invoke name="TOOL_NAME">
 <parameter name="param1">value1</parameter>
 <parameter name="param2">value2</parameter>
 </invoke>
 </function_calls>
-<<<<<<< HEAD
-=======
 \`\`\`
->>>>>>> f39d87b54a52b2c7582a27b32539f23ea2710301
 
 **CRITICAL RULES:**
 1. COMPLETE each </parameter> tag BEFORE starting the next parameter
@@ -128,8 +149,6 @@ Format:
 3. NEVER nest invoke blocks inside parameter values
 4. NEVER start a new tool call before closing the previous one
 5. Each parameter value must be complete - no partial content
-<<<<<<< HEAD
-=======
 
 **CORRECT - Multiple tools:**
 \`\`\`xml
@@ -143,33 +162,9 @@ Format:
 \`\`\`xml
 <invoke name="read_file"><parameter name="path">file1.ts<invoke name="read_file">...
 \`\`\`
->>>>>>> f39d87b54a52b2c7582a27b32539f23ea2710301
 </tool_format>
 
-<parallel_execution_rules>
-**PARALLEL EXECUTION IS STRICTLY LIMITED:**
-
-ONLY these tools can be batched together in a single <function_calls> block:
-${enabledParallelTools.length > 0 ? enabledParallelTools.join(', ') : 'NONE'}
-
-ALL OTHER TOOLS MUST BE CALLED ONE AT A TIME - NEVER batch these:
-${serialOnlyTools.length > 0 ? serialOnlyTools.join(', ') : 'none'}
-
-**IMPORTANT:** Tools like write_to_file, apply_diff, delete_file, execute_command CANNOT be parallelized.
-Each must be in its own separate <function_calls> block and executed sequentially.
-
-**WRONG - DO NOT batch write operations:**
-<function_calls>
-<invoke name="write_to_file">...</invoke>
-<invoke name="write_to_file">...</invoke>
-</function_calls>
-
-**CORRECT - Write operations must be separate:**
-<function_calls>
-<invoke name="write_to_file">...</invoke>
-</function_calls>
-(wait for result, then next call)
-</parallel_execution_rules>
+${parallelRulesSection}
 
 <available_tools>
 Only use tools listed below. If a tool name is not listed here, it does not exist and MUST NOT be called.

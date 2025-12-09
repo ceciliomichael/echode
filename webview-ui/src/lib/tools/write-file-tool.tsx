@@ -52,7 +52,6 @@ Create multiple files at once:
 \`\`\`xml
 <function_calls>
 <invoke name="write_to_file">
-<<<<<<< HEAD
 <parameter name="path">File path here</parameter>
 <parameter name="content">
 Your file content here
@@ -87,26 +86,6 @@ IMPORTANT: Tool Safety and Usage Guidelines:
 - Files with null bytes or control characters are BLOCKED automatically
 - Maximum file size: 5MB
 - After creating or rewriting a file, use read_file to verify the result before continuing.`,
-=======
-  <parameter name="path">src/new-a.ts</parameter>
-  <parameter name="content">// complete content A</parameter>
-</invoke>
-<invoke name="write_to_file">
-  <parameter name="path">src/new-b.ts</parameter>
-  <parameter name="content">// complete content B</parameter>
-</invoke>
-</function_calls>
-\`\`\`
-
-**BLOCKED AUTOMATICALLY:**
-- Binary files (.png, .jpg, .ico, .zip, etc.)
-- Files >5MB
-- Files with null bytes
-
-**BEST PRACTICE:**
-- For existing files, prefer apply_diff for targeted edits
-- Only use write_to_file for new files or major rewrites`,
->>>>>>> f39d87b54a52b2c7582a27b32539f23ea2710301
     icon: FilePlus,
     usage: 'NEW files, complete rewrites, or when refactored file is shorter',
     formatExample: '<function_calls>\n<invoke name="write_to_file">\n<parameter name="path">src/new-file.ts</parameter>\n<parameter name="content">// new file content</parameter>\n</invoke>\n</function_calls>',

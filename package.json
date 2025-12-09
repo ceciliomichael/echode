@@ -2,11 +2,7 @@
   "name": "echode",
   "displayName": "Echode",
   "description": "Agentic Coding",
-<<<<<<< HEAD
-  "version": "1.0.885",
-=======
-  "version": "1.0.860",
->>>>>>> f39d87b54a52b2c7582a27b32539f23ea2710301
+  "version": "1.0.887",
   "publisher": "EchoSphere",
   "icon": "icon.png",
   "repository": {
