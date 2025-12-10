@@ -19,47 +19,9 @@ registerToolPlugin({
   metadata: {
     id: 'list_files',
     name: 'List Files',
-    description: 'List directory contents - USE THIS for paths without extensions',
-    aiDescription: `## list_files
-Explore directory structure. Use for paths WITHOUT extensions.
-
-**DECISION RULE:**
-- Path has extension (.ts, .json, etc.) → use read_file
-- Path has NO extension → use list_files
-
-**Parameters:**
-- path: Directory path (required)
-- recursive: List all nested files (optional, default: false)
-
-**INTELLIGENT PATTERNS:**
-
-1. **Verify before read**: Check if path is directory
-   User mentions "src/app" → list_files first 
-   → then read_file on specific files
-
-2. **Parallel exploration**:
-   
-   <function_calls>
-   <invoke name="list_files"><parameter name="path">src/components</parameter></invoke>
-   <invoke name="list_files"><parameter name="path">src/hooks</parameter></invoke>
-   <invoke name="list_files"><parameter name="path">src/utils</parameter></invoke>
-   </function_calls>
-
-3. **Error recovery**:
-   - read_file returns "Cannot read directory" → switch to list_files
-   - Path not found → verify parent directory first
-
-**WORKFLOW:**
-list_files → identify relevant files → read_file on specific files
-
-**WHEN TO USE ALTERNATIVES:**
-- Find by pattern → glob_search
-- Search content → grep_search
-- Understand code → echo_search
-
-**NOTE:** Large directories may be truncated to 200 files`,
+    description: 'List directory contents',
     icon: FolderTree,
-    usage: 'List directory contents - DEFAULT for extensionless paths',
+    usage: 'List directory contents',
     formatExample: '<function_calls>\n<invoke name="list_files">\n<parameter name="path">src/app</parameter>\n</invoke>\n</function_calls>',
   },
   handler: {

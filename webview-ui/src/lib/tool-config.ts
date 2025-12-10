@@ -1,11 +1,25 @@
+/**
+ * Tool Configuration
+ * 
+ * Defines which tools are available for each chat mode and generates
+ * the tool system prompt with available tools and format instructions.
+ * 
+ * NOTE: Mode-specific tool instructions are in prompts/[mode]/tools/
+ * This file only handles generic XML format and tool filtering.
+ */
+
 import type { Tool } from '../types/tool';
 import { getAllToolMetadata, getAllTools as getToolsFromRegistry } from './tool-registry';
 import type { ChatMode } from '../types/chat-mode';
-import { PARALLEL_ALLOWED_TOOLS } from './tool-parallel-config';
 
+// ============================================================================
+// MODE-SPECIFIC TOOL SETS
+// ============================================================================
+
+/** All available tools (used for Agent mode) */
 export const AVAILABLE_TOOLS: Tool[] = getToolsFromRegistry(false);
 
-// Fixed exploration-only tools for Plan mode
+/** Plan mode: exploration + planning tools only */
 export const PLAN_MODE_TOOL_IDS = [
   'read_file',
   'list_files',
@@ -18,6 +32,7 @@ export const PLAN_MODE_TOOL_IDS = [
   'plan_handoff',
 ] as const;
 
+/** Ask mode: read-only exploration tools */
 export const ASK_MODE_TOOL_IDS = [
   'read_file',
   'list_files',
@@ -26,7 +41,7 @@ export const ASK_MODE_TOOL_IDS = [
   'echo_search',
 ] as const;
 
-// General mode: file operations only (no code-specific search tools)
+/** General mode: file operations (no code search) */
 export const GENERAL_MODE_TOOL_IDS = [
   'read_file',
   'write_to_file',
@@ -35,105 +50,74 @@ export const GENERAL_MODE_TOOL_IDS = [
   'delete_file',
 ] as const;
 
-// Plan-exclusive helpers should never be surfaced outside of Plan mode
+/** Tools exclusive to Plan mode (never shown in Agent/other modes) */
 export const PLAN_ONLY_TOOL_IDS = new Set<string>([
   'plan_navigator',
   'plan_handoff',
 ]);
 
-// Re-export getAllTools for external use
+// ============================================================================
+// TOOL RETRIEVAL FUNCTIONS
+// ============================================================================
+
+/** Get all registered tools */
 export function getAllTools(defaultEnabled = true): Tool[] {
   return getToolsFromRegistry(defaultEnabled);
 }
 
 /**
  * Get tools filtered by chat mode
- * - Agent mode: uses all enabled tools from settings
- * - Plan mode: fixed 7 tools (read_file, list_files, grep_search, glob_search, todo_write, plan_navigator, plan_handoff)
  */
 export function getToolsForMode(mode: ChatMode, defaultEnabled = true): Tool[] {
   const allTools = getToolsFromRegistry(defaultEnabled);
 
-  if (mode === 'plan') {
-    // Plan mode: filter to exploration tools only
-    return allTools.filter(tool => (PLAN_MODE_TOOL_IDS as readonly string[]).includes(tool.id));
-  }
+  switch (mode) {
+    case 'plan':
+      return allTools.filter(t => (PLAN_MODE_TOOL_IDS as readonly string[]).includes(t.id));
 
-  if (mode === 'ask') {
-    // Ask mode: fixed read-only tools including echo_search
-    return allTools.filter(tool =>
-      (ASK_MODE_TOOL_IDS as readonly string[]).includes(tool.id)
-    );
-  }
+    case 'ask':
+      return allTools.filter(t => (ASK_MODE_TOOL_IDS as readonly string[]).includes(t.id));
 
-  if (mode === 'general') {
-    // General mode: file operations only for document-based workflows
-    return allTools.filter(tool =>
-      (GENERAL_MODE_TOOL_IDS as readonly string[]).includes(tool.id)
-    );
-  }
+    case 'general':
+      return allTools.filter(t => (GENERAL_MODE_TOOL_IDS as readonly string[]).includes(t.id));
 
-  if (mode === 'chat') {
-    // Chat mode: no tools at all - pure conversation
-    return [];
-  }
+    case 'chat':
+      return []; // No tools in chat mode
 
-  // Agent mode: include all tools except plan-only helpers
-  return allTools.filter(tool => !PLAN_ONLY_TOOL_IDS.has(tool.id));
+    case 'agent':
+    default:
+      // Agent mode: all tools except plan-only
+      return allTools.filter(t => !PLAN_ONLY_TOOL_IDS.has(t.id));
+  }
 }
 
+// ============================================================================
+// TOOL SYSTEM PROMPT GENERATION
+// ============================================================================
+
+/**
+ * Generate the tool system prompt with format instructions and available tools
+ * NOTE: This is GENERIC - mode-specific instructions are in prompts/[mode]/tools/
+ */
 export function getToolSystemPrompt(enabledTools: Tool[]): string {
-  if (enabledTools.length === 0) { return ''; }
+  if (enabledTools.length === 0) return '';
 
   const allMetadata = getAllToolMetadata();
   const toolIdsList = enabledTools.map(t => `\`${t.id}\``).join(', ');
 
-  const toolDescriptions = enabledTools
+  // Build minimal tool list (just names and basic description)
+  const toolList = enabledTools
     .map((tool) => {
       const metadata = allMetadata.find((m) => m.id === tool.id);
-      if (!metadata) { return ''; }
-      const promptDescription = tool.aiDescription || metadata.description;
-      return `- **${metadata.id}**: ${promptDescription}\n  ${metadata.formatExample}`;
+      if (!metadata) return '';
+      return `- ${metadata.id}: ${metadata.description}`;
     })
     .filter(Boolean)
     .join('\n');
 
-  // Build parallel tools list from enabled tools
-  const enabledParallelTools = enabledTools
-    .filter(t => PARALLEL_ALLOWED_TOOLS.has(t.id))
-    .map(t => t.id);
-
-  const serialOnlyTools = enabledTools
-    .filter(t => !PARALLEL_ALLOWED_TOOLS.has(t.id))
-    .map(t => t.id);
-
-  // Destructive / write tools should only be mentioned if they are actually enabled
-  const destructiveToolIds = ['apply_diff', 'write_to_file', 'delete_file'];
-  const enabledDestructiveTools = enabledTools
-    .filter(t => destructiveToolIds.includes(t.id))
-    .map(t => t.id);
-
-  const parallelRulesSection = `<parallel_execution_rules>
-**PARALLEL EXECUTION IS STRICTLY LIMITED:**
-
-ONLY these tools can be batched together in a single <function_calls> block:
-${enabledParallelTools.length > 0 ? enabledParallelTools.join(', ') : 'NONE'}
-
-ALL OTHER TOOLS MUST BE CALLED ONE AT A TIME - NEVER batch these:
-${serialOnlyTools.length > 0 ? serialOnlyTools.join(', ') : 'none'}
-` + (enabledDestructiveTools.length > 0 ? `
-
-**DESTRUCTIVE / WRITE TOOLS (NEVER PARALLELIZE):**
-${enabledDestructiveTools.join(', ')}
-Each must be in its own separate <function_calls> block and executed sequentially.
-` : '') + `
-</parallel_execution_rules>`;
-
   return `<tools>
 <tool_format>
-**STRICT XML FORMATTING - FOLLOW EXACTLY:**
-
-Format:
+XML FORMAT (follow exactly):
 
 <function_calls>
 <invoke name="TOOL_NAME">
@@ -142,32 +126,19 @@ Format:
 </invoke>
 </function_calls>
 
-**CRITICAL RULES:**
-1. COMPLETE each </parameter> tag BEFORE starting the next parameter
-2. COMPLETE each </invoke> tag BEFORE starting the next invoke
-3. NEVER nest invoke blocks inside parameter values
-4. NEVER start a new tool call before closing the previous one
-5. Each parameter value must be complete - no partial content
-
-**CORRECT - Multiple tools:**
-
-<function_calls>
-<invoke name="read_file"><parameter name="path">file1.ts</parameter></invoke>
-<invoke name="read_file"><parameter name="path">file2.ts</parameter></invoke>
-</function_calls>
-
-**WRONG - DO NOT DO THIS:**
-
-<invoke name="read_file"><parameter name="path">file1.ts<invoke name="read_file">...
+RULES:
+1. Complete each </parameter> before starting the next
+2. Complete each </invoke> before starting the next
+3. Never nest invoke blocks inside parameter values
+4. Read operations can be batched together
+5. Write operations must be sequential (one at a time)
 </tool_format>
 
-${parallelRulesSection}
-
 <available_tools>
-Only use tools listed below. If a tool name is not listed here, it does not exist and MUST NOT be called.
 Available: ${toolIdsList}
-</available_tools>
+Only use tools listed above.
 
-${toolDescriptions}
+${toolList}
+</available_tools>
 </tools>`;
 }

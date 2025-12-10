@@ -1,6 +1,6 @@
 /**
  * General Mode - Rules specific to general assistance mode
- * ONLY references tools that exist in General mode
+ * Focus on file operations with same edit discipline as Agent
  */
 
 import type { WorkspaceContext } from '../../types/workspace';
@@ -12,74 +12,50 @@ export function getGeneralRules(workspace: WorkspaceContext | null): string {
 
 RULES
 
-<general_mode_tools>
-YOUR AVAILABLE TOOLS:
-- read_file: Read file contents
-- write_to_file: Create new files or completely rewrite existing ones
-- apply_diff: Make targeted edits to existing files
-- list_files: Explore directory structure
-- delete_file: Remove files (only when explicitly requested)
-- echo_search: Understand code semantically (best for exploration)
-- grep_search: Find exact text/identifiers in code
-- glob_search: Find files by name pattern
-</general_mode_tools>
+<your_tools>
+- read_file: Read file contents (REQUIRED before edits)
+- write_to_file: Create new files or complete rewrites
+- apply_diff: Targeted edits (COPY from read_file)
+- list_files: Directory structure
+- delete_file: Remove files (explicit request only)
+</your_tools>
 
-<workflow>
-GENERAL WORKFLOW:
-1. UNDERSTAND: Parse the user's request
-2. READ: Always read_file before editing existing files
-3. EDIT: Use apply_diff for targeted changes, write_to_file for new/complete rewrites
-4. VERIFY: Confirm success before moving on
+<edit_workflow>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE EDIT WORKFLOW (same as Agent mode):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-OUTPUT FORMAT:
-- Clear, well-structured prose
-- Adjust formality to context
-- Complete content in file operations (no placeholders)
-</workflow>
+1. read_file → Get FRESH file content
+2. COPY exact lines from output (don't type from memory)
+3. apply_diff → PASTE copied content in SEARCH block
+4. Verify success → Move on
+
+IF APPLY_DIFF FAILS:
+- read_file AGAIN
+- COPY fresh content
+- Retry apply_diff
+- If fails TWICE → use write_to_file
+
+NEVER edit without reading first.
+NEVER type SEARCH content from memory.
+</edit_workflow>
 
 <tool_selection>
 TOOL SELECTION:
-- Need to understand code → echo_search (semantic) or grep_search (exact match)
-- Explore directories → list_files
-- Find files by pattern → glob_search
-- Read file contents → read_file
-- Create new file → write_to_file
-- Edit existing file → read_file FIRST, then apply_diff
-- Complete rewrite → write_to_file (after reading)
-- Remove file → delete_file (only when user explicitly asks)
 
-SEARCH TOOL BALANCE:
-- echo_search: Great for initial exploration and understanding code semantics
-- grep_search: Best for finding exact identifiers, function names, specific strings
-- glob_search: Best for finding files by name pattern
-
-Don't over-rely on echo_search:
-- Use it to START exploration and understand unfamiliar areas
-- Switch to grep_search when you know the exact identifier
-- Use glob_search when finding files by name/extension
-- Use read_file when you already know the file to examine
+Explore directories   → list_files
+Read content          → read_file
+Create new file       → write_to_file
+Edit existing file    → read_file FIRST → apply_diff
+Complete rewrite      → read_file FIRST → write_to_file
 </tool_selection>
 
-<editing_rules>
-EDITING RULES:
-- READ BEFORE EDIT: Always read_file before modifying
-- apply_diff: Copy SEARCH content exactly from read_file output
-- If apply_diff fails twice → use write_to_file instead
-- write_to_file: Provide COMPLETE content, no placeholders
-</editing_rules>
+<execution>
+Write operations → must be sequential (one at a time)
+Read operations → can batch in parallel
+</execution>
 
 <workspace>
-WORKSPACE:
 Root: ${cwd}
-All paths are relative to workspace root.
-</workspace>
-
-<execution_rules>
-EXECUTION:
-- Batch independent read calls in one <function_calls> block
-- Write operations must be sequential (one at a time)
-- Complete each </invoke> before starting the next
-- Never nest tool calls inside parameters
-- Keep tool syntax internal (never show to user)
-</execution_rules>`;
+</workspace>`;
 }

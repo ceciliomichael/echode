@@ -1,0 +1,26 @@
+/**
+ * General Mode - read_file Instructions
+ * Same as Agent - required before edits
+ */
+
+export function getReadFileInstructions(): string {
+    return `## read_file
+Read file contents. Returns line-numbered output.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CRITICAL: You MUST read_file BEFORE every apply_diff.
+This output is your SOURCE OF TRUTH - COPY from it for edits.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Parameters:
+- path: (required) File path with extension
+- offset: (optional) Start line (1-based)
+- limit: (optional) Lines to read (default: 500)
+
+USAGE:
+1. Before ANY edit: read_file → COPY content → apply_diff
+2. Large files: Use offset/limit
+3. Multiple files: Batch reads in parallel
+
+DON'T type content from memory for edits.`;
+}

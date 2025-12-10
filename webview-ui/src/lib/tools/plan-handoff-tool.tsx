@@ -19,37 +19,9 @@ registerToolPlugin({
   metadata: {
     id: 'plan_handoff',
     name: 'Implementation Handoff',
-    description: 'Offers to transition from planning to implementation',
-    aiDescription: `## plan_handoff
-Signal that planning is complete and offer to begin implementation.
-
-**CRITICAL: ONLY USE AFTER ALL QUESTIONS ARE RESOLVED**
-Do NOT use plan_handoff if:
-- You have ANY ambiguous requirements → use plan_navigator first
-- There are multiple implementation approaches → use plan_navigator first
-- You need user input or confirmation → use plan_navigator first
-
-**WHEN TO USE:**
-- ALL clarifying questions answered via plan_navigator
-- Planning analysis is fully complete
-- Todo list is created with todo_write
-- Ready to start actual code changes with NO uncertainties
-
-**Parameters:**
-- summary: Brief 1-3 sentence summary of what will be implemented (optional)
-
-**WORKFLOW:**
-
-explore → analyze → ASK QUESTIONS (plan_navigator) → create plan (todo_write) → plan_handoff
-
-
-**IMPORTANT:**
-- Only use when the plan is truly complete AND all questions resolved
-- User must click "Start Implementation" to begin
-- If user sends a message instead of clicking button, the handoff is invalidated → the button becomes disabled
-- If handoff invalidated: incorporate feedback, then call plan_handoff again`,
+    description: 'Transition from planning to implementation',
     icon: Rocket,
-    usage: 'Offer to transition from planning to implementation',
+    usage: 'Transition from planning to implementation',
     formatExample: '<function_calls>\n<invoke name="plan_handoff">\n<parameter name="summary">Brief implementation summary</parameter>\n</invoke>\n</function_calls>',
   },
   handler: {

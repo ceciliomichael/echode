@@ -177,51 +177,10 @@ registerToolPlugin({
   metadata: {
     id: 'get_diagnostics',
     name: 'Get Diagnostics',
-    description: 'Collect current linter/compiler diagnostics from the workspace',
-    aiDescription: `## get_diagnostics
-Collect linter/compiler diagnostics (errors, warnings, info) from workspace.
-
-**WHEN TO USE:**
-- Verify changes didn't introduce errors
-- Find syntax/type issues to fix
-- Check workspace health
-
-**Parameters:**
-- path: (optional) File or directory to check (e.g., "src" or "src/app.ts")
-- file_pattern: (optional) Filter by path substring when path not provided
-
-**DIAGNOSTIC TRIAGE:**
-
-Prioritize by severity:
-- 🔴 **Errors** → Fix immediately (blocks functionality)
-- 🟡 **Warnings** → Fix if relevant to current task
-- 🔵 **Info/Hints** → Low priority, nice to address
-
-**WORKFLOWS:**
-
-1. **After edits (verification):**
-   apply_diff → get_diagnostics → fix errors if any
-
-2. **Targeted check** (recommended - faster):
-   
-   <parameter name="path">src/components</parameter>
-
-3. **Full workspace check** (use sparingly):
-   
-   <invoke name="get_diagnostics"></invoke>
-
-**HANDLING RESULTS:**
-- totalDiagnostics = 0 → No issues found, proceed
-- Diagnostics exist → read_file on problem files, then apply_diff to fix
-
-**BEST PRACTICE:**
-- Narrow to changed files/directories for faster results
-- Check once at end of task, not after every edit
-- Not always needed for simple, obvious edits`,
+    description: 'Collect linter/compiler diagnostics from the workspace',
     icon: AlertTriangle,
-    usage: 'Collect linter/compiler diagnostics for the current workspace, a directory, or a specific file',
-    formatExample:
-      '<function_calls>\n<invoke name="get_diagnostics">\n<parameter name="path">src</parameter>\n</invoke>\n</function_calls>',
+    usage: 'Get linter/compiler errors and warnings',
+    formatExample: '<function_calls>\n<invoke name="get_diagnostics">\n<parameter name="path">src</parameter>\n</invoke>\n</function_calls>',
   },
   handler: {
     execute: executeGetDiagnostics,

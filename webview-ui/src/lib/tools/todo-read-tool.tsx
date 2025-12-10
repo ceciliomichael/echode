@@ -19,22 +19,8 @@ registerToolPlugin({
     id: 'todo_read',
     name: 'Todo Read',
     description: 'Read current todo list tasks',
-    aiDescription: `## todo_read
-Read the current task list to see all tasks and their status.
-
-**WHEN TO USE:**
-- Check current task list before starting work
-- Review progress during implementation
-- Verify which tasks remain before completing
-
-**RETURNS:**
-- List of tasks with id, content, and status
-- Status: "pending" | "in_progress" | "completed"
-
-**WORKFLOW:**
-todo_read → see current state → work on tasks → todo_write (update progress)`,
     icon: ListChecks,
-    usage: 'Read the current session todo list',
+    usage: 'Read the current todo list',
     formatExample: '<function_calls>\n<invoke name="todo_read">\n</invoke>\n</function_calls>',
   },
   handler: {

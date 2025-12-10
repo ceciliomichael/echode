@@ -10,6 +10,7 @@ import { getPlanModeSection } from './mode-section';
 import { getPlanRules } from './rules';
 import { getPlanCognitiveWorkflow } from './cognitive-workflow';
 import { getPlanToolChains } from './tool-chains';
+import { getPlanToolInstructions } from './tools';
 import { getToolSystemPrompt } from '../../lib/tool-config';
 
 export interface PlanPromptOptions {
@@ -29,12 +30,15 @@ export function buildPlanPrompt(options: PlanPromptOptions): string {
     const focus = getFocusInstruction();
     const cognitiveWorkflow = getPlanCognitiveWorkflow();
 
-    // Tool-related sections (read-only tools only)
+    // Tool format section (generic XML format)
     const toolsSection = enabledTools.length > 0
         ? getToolSystemPrompt(enabledTools)
         : `<tool_status>
-No tools are currently enabled. You cannot use any tools for this request.
+No tools are currently enabled.
 </tool_status>`;
+
+    // Mode-specific tool instructions (Plan-specific, no editing tool mentions)
+    const toolInstructions = getPlanToolInstructions(enabledTools);
 
     const toolChains = getPlanToolChains(enabledTools);
     const rules = getPlanRules(workspace);
@@ -48,6 +52,7 @@ No tools are currently enabled. You cannot use any tools for this request.
         focus,
         cognitiveWorkflow,
         toolsSection,
+        toolInstructions,
         toolChains,
         rules,
         modeSection,
@@ -58,9 +63,10 @@ No tools are currently enabled. You cannot use any tools for this request.
     return sections.join('\n\n').trim();
 }
 
-// Re-export components for direct access if needed
+// Re-export components
 export { getPlanModeSection } from './mode-section';
 export { getPlanRules } from './rules';
 export { getPlanCognitiveWorkflow } from './cognitive-workflow';
 export { getPlanToolChains } from './tool-chains';
+export { getPlanToolInstructions } from './tools';
 export { getPlanSystemReminder, getPlanTodoReminder } from './reminders';

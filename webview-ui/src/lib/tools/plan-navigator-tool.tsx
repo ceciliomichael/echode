@@ -19,38 +19,7 @@ registerToolPlugin({
   metadata: {
     id: 'plan_navigator',
     name: 'Plan Navigator',
-    description: 'Provides a question with clickable options during planning',
-    aiDescription: `## plan_navigator
-Present a question with clickable options to guide planning discussion.
-
-**CRITICAL: MUST USE BEFORE plan_handoff**
-Always use plan_navigator BEFORE plan_handoff if you have ANY:
-- Ambiguous requirements or unclear scope
-- Multiple possible implementation approaches
-- Technology, pattern, or styling choices
-- Assumptions that need validation
-
-**WHEN TO USE:**
-- Need user to choose between implementation strategies
-- Confirm a preference or approach
-- Narrow scope with predefined choices
-- Clarify any ambiguous requirements
-
-**Parameters:**
-- question: The question to ask (required)
-- options: Array of 1-4 short option strings (required)
-
-**BEST PRACTICES:**
-- Keep question clear and concise
-- Keep options short (under 40 chars each)
-- Use instead of open-ended questions when you have specific paths
-- Ask ONE focused question at a time
-
-**EXAMPLE:**
-
-<parameter name="question">Which auth method should we use?</parameter>
-<parameter name="options">["JWT tokens", "Session cookies", "OAuth2"]</parameter>
-`,
+    description: 'Present a question with clickable options during planning',
     icon: HelpCircle,
     usage: 'Present a question with clickable options',
     formatExample: '<function_calls>\n<invoke name="plan_navigator">\n<parameter name="question">Question text?</parameter>\n<parameter name="options">["Option 1", "Option 2"]</parameter>\n</invoke>\n</function_calls>',

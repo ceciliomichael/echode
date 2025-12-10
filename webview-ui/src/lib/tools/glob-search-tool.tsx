@@ -66,61 +66,9 @@ registerToolPlugin({
     id: 'glob_search',
     name: 'Glob Search',
     description: 'Find files based on glob patterns',
-    aiDescription: `## glob_search
-Find files and directories by name patterns.
-
-**WHEN TO USE:**
-- Know the filename pattern but not exact location
-- Find all files of a specific type
-- Locate config files, test files, etc.
-
-**WHEN TO USE ALTERNATIVES:**
-- Search file contents → grep_search or echo_search
-- Explore directory → list_files
-- Understand code → echo_search
-
-**Parameters:**
-- pattern: Glob pattern(s) to match (required)
-- path: Starting directory (optional, default: workspace root)
-- excludes: Patterns to skip (e.g., "node_modules/**")
-- sortBy: 'name', 'size', or 'extension'
-- sortOrder: 'asc' or 'desc'
-
-**PATTERN SYNTAX:**
-- \`*\` → any characters in single directory level
-- \`**\` → any characters across multiple levels
-- \`{a,b,c}\` → match alternatives
-- \`?\` → single character
-
-**EXAMPLES:**
-
-1. Find all TypeScript files:
-   \`<parameter name="pattern">**/*.ts</parameter>\`
-
-2. Find config files:
-   \`<parameter name="pattern">*.config.{js,ts,json}</parameter>\`
-
-3. Find tests in specific directory:
-   \`<parameter name="pattern">**/*.test.ts</parameter>\`
-   \`<parameter name="path">src</parameter>\`
-
-**PARALLEL SEARCHES:**
-
-<function_calls>
-<invoke name="glob_search">
-  <parameter name="pattern">**/*.tsx</parameter>
-  <parameter name="path">src/components</parameter>
-</invoke>
-<invoke name="glob_search">
-  <parameter name="pattern">**/*.ts</parameter>
-  <parameter name="path">src/utils</parameter>
-</invoke>
-</function_calls>
-
-**AFTER GLOB_SEARCH:** Use read_file on found files for content`,
     icon: FileSearch,
-    usage: 'Find files based on glob patterns',
-    formatExample: '<function_calls>\n<invoke name="glob_search">\n<parameter name="pattern">*.ts</parameter>\n<parameter name="path">src</parameter>\n</invoke>\n</function_calls>',
+    usage: 'Find files by name pattern',
+    formatExample: '<function_calls>\n<invoke name="glob_search">\n<parameter name="pattern">**/*.ts</parameter>\n<parameter name="path">src</parameter>\n</invoke>\n</function_calls>',
   },
   handler: {
     execute: executeGlobSearch,

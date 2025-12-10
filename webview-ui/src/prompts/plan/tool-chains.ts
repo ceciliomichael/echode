@@ -1,6 +1,5 @@
 /**
- * Plan Mode - Tool chain patterns for planning workflows
- * Only references tools available in Plan mode
+ * Plan Mode - Tool chain patterns
  */
 
 import type { Tool } from '../../types/tool';
@@ -10,37 +9,37 @@ export function getPlanToolChains(enabledTools: Tool[] = []): string {
 
     const patterns: string[] = [];
 
-    // Exploration patterns
-    if (enabledIds.has('echo_search') && enabledIds.has('read_file')) {
-        patterns.push('EXPLORE: echo_search → read_file (understand, then verify details)');
-    }
-    if (enabledIds.has('grep_search') && enabledIds.has('read_file')) {
-        patterns.push('FIND: grep_search → read_file (locate, then read context)');
-    }
-    if (enabledIds.has('list_files') && enabledIds.has('read_file')) {
-        patterns.push('BROWSE: list_files → read_file (structure, then content)');
+    // Question-first pattern (CRITICAL)
+    if (enabledIds.has('plan_navigator') && enabledIds.has('plan_handoff')) {
+        patterns.push('CLARIFY FIRST: plan_navigator (any uncertainty) → THEN plan_handoff');
     }
 
-    // Planning patterns
+    // Exploration patterns
+    if (enabledIds.has('echo_search')) {
+        patterns.push('UNDERSTAND: echo_search → semantic code exploration');
+    }
+    if (enabledIds.has('grep_search') && enabledIds.has('read_file')) {
+        patterns.push('PINPOINT: grep_search → read_file (find then verify)');
+    }
+    if (enabledIds.has('list_files') && enabledIds.has('read_file')) {
+        patterns.push('BROWSE: list_files → read_file (structure then content)');
+    }
+
+    // Documentation pattern
     if (enabledIds.has('todo_write')) {
-        patterns.push('DOCUMENT: Analyze → todo_write (capture implementation plan after questions resolved)');
-    }
-    if (enabledIds.has('plan_navigator')) {
-        patterns.push('CLARIFY: plan_navigator (ask questions BEFORE finalizing plan - REQUIRED if any uncertainties)');
-    }
-    if (enabledIds.has('plan_handoff')) {
-        patterns.push('COMPLETE: plan_handoff (ONLY after all questions resolved via plan_navigator)');
+        patterns.push('DOCUMENT: Analyze findings → todo_write (capture plan)');
     }
 
     if (patterns.length === 0) return '';
 
     return `<tool_chains>
-COMMON WORKFLOWS:
+PLANNING WORKFLOWS:
 ${patterns.map(p => `- ${p}`).join('\n')}
 
-PARALLEL EXECUTION:
-- Multiple grep_search for different patterns → parallel
-- Multiple read_file for unrelated files → parallel
-- Need result first → sequential (separate blocks)
+QUESTION-FIRST RULE:
+Any ambiguity or uncertainty? → plan_navigator BEFORE plan_handoff
+Never skip straight to plan_handoff if questions remain.
+
+PARALLEL: Multiple read_file/grep_search → batch together
 </tool_chains>`;
 }

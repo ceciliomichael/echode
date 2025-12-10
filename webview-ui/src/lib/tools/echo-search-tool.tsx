@@ -268,53 +268,16 @@ registerToolPlugin({
     id: 'echo_search',
     name: 'Echo Search',
     description: 'Sub-agent that iteratively searches the codebase to find relevant context',
-    aiDescription: `## echo_search
-**YOUR PRIMARY EXPLORATION TOOL.** Intelligent sub-agent that understands and navigates code.
+    aiDescription: `Intelligent code exploration sub-agent.
 
-**USE ECHO_SEARCH FIRST when:**
-- You need to understand how something works
-- Looking for implementations, patterns, or architecture
-- Don't know exact file paths or function names
-- User asks about code behavior or structure
-- Exploring unfamiliar codebase areas
-
-**DON'T USE when:**
-- You already know the EXACT function/variable name → use grep_search
-- You know the exact file path → use read_file
-
-**Parameters:**
-- query: Natural language description (required) - be specific!
-- path: Starting directory (optional but recommended for speed)
+Parameters:
+- query: Natural language description (required)
+- path: Starting directory (optional, recommended)
 - hints: Keywords to help locate code (optional array)
 
-**BEST PRACTICES:**
-
-1. **Explore BEFORE action:**
-   User: "Fix the login bug"
-   You: echo_search "how is login implemented" → understand → fix
-
-2. **Be specific in queries:**
-   - 🚫 "find auth" (too vague)
-   - ✓ "find where user authentication token is validated"
-
-3. **Use hints for faster searches:**
-   
-   <parameter name="hints">["auth", "token", "validate", "jwt"]</parameter>
-
-4. **Narrow path when possible:**
-   
-   <parameter name="path">src/services</parameter>
-
-**RETURNS:**
-- summary: Quick overview of findings
-- highLevelAnswer: Explanation of how code works
-- snippets: Ranked relevant code locations with reasons
-- searchStats: Iterations, files scanned, matches
-
-**WORKFLOW:**
-echo_search (understand) → grep_search (pinpoint) → read_file (full context) → edit`,
+Returns: summary, snippets with code locations, searchStats`,
     icon: Radar,
-    usage: 'Iteratively search the codebase to find relevant context',
+    usage: 'Semantic code search and exploration',
     formatExample: '<function_calls>\n<invoke name="echo_search">\n<parameter name="query">How is authentication handled</parameter>\n<parameter name="path">src</parameter>\n</invoke>\n</function_calls>',
   },
   handler: {

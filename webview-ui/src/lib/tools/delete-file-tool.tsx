@@ -19,30 +19,6 @@ registerToolPlugin({
     id: 'delete_file',
     name: 'Delete File',
     description: 'Delete a file from the workspace',
-    aiDescription: `## delete_file
-Remove a file from workspace. File goes to trash/recycle bin (recoverable).
-
-**Parameters:**
-- path: File path to delete (required)
-
-**SAFETY RULES:**
-
-1. **Only delete when explicitly requested** by user
-2. **Verify path first**: Use list_files or glob_search to confirm
-3. **Never delete speculatively** - only on user instruction
-4. **Mention deletion in response**: Let user know what was removed
-
-**COMMON USE CASES:**
-- User explicitly says "delete X" or "remove this file"
-- Refactoring: removing old files after migration
-- Cleanup: removing generated or obsolete files
-
-**DO NOT:**
-- Delete files without explicit user request
-- Assume files should be deleted
-- Delete multiple files without confirmation
-
-**RECOVERY:** Files go to trash/recycle bin, not permanently deleted.`,
     icon: Trash2,
     usage: 'Delete a file from the workspace',
     formatExample: '<function_calls>\n<invoke name="delete_file">\n<parameter name="path">src/old-file.ts</parameter>\n</invoke>\n</function_calls>',

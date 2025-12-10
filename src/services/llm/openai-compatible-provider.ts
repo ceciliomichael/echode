@@ -57,7 +57,7 @@ export class OpenAICompatibleProvider implements ILLMProvider {
   ): Promise<void> {
     // Add /v1 to baseURL for OpenAI-compatible APIs
     const baseURL = `${settings.baseURL}/v1`;
-    
+
     const client = new OpenAI({
       apiKey: settings.apiKey,
       baseURL,
@@ -68,10 +68,17 @@ export class OpenAICompatibleProvider implements ILLMProvider {
     let hasFinishReason = false;
     let timeoutId: NodeJS.Timeout | null = null;
 
+    // Internal abort controller to stop the stream on timeout
+    // This prevents duplicate responses when retry occurs
+    const internalAbortController = new AbortController();
+    const combinedAborted = () => signal.aborted || internalAbortController.signal.aborted;
+
     // Create timeout promise for first chunk
     const timeoutPromise = new Promise<never>((_, reject) => {
       timeoutId = setTimeout(() => {
         if (!hasReceivedContent) {
+          // Abort the stream before rejecting to prevent it from continuing
+          internalAbortController.abort();
           reject(new StreamingTimeoutError('No streaming data received within timeout'));
         }
       }, timeoutMs);
@@ -82,17 +89,17 @@ export class OpenAICompatibleProvider implements ILLMProvider {
 
       const processStream = async () => {
         for await (const chunk of stream) {
-          // Check for abort
-          if (signal.aborted) {
+          // Check for abort (external or internal timeout abort)
+          if (combinedAborted()) {
             break;
           }
-          
+
           // Check for finish_reason indicating stream completion
           const finishReason = chunk.choices[0]?.finish_reason;
           if (finishReason) {
             hasFinishReason = true;
           }
-          
+
           // Extract content from delta - OpenAI-compatible APIs send deltas, not cumulative
           const content = chunk.choices[0]?.delta?.content;
           if (content) {
@@ -104,7 +111,12 @@ export class OpenAICompatibleProvider implements ILLMProvider {
                 timeoutId = null;
               }
             }
-            
+
+            // Don't post if aborted during processing
+            if (combinedAborted()) {
+              break;
+            }
+
             webview.webview.postMessage({
               type: 'chatStreamChunk',
               requestId,
@@ -121,7 +133,7 @@ export class OpenAICompatibleProvider implements ILLMProvider {
       ]);
 
       // Signal completion only if not aborted
-      if (!signal.aborted) {
+      if (!combinedAborted()) {
         webview.webview.postMessage({
           type: 'chatStreamComplete',
           requestId
@@ -133,15 +145,19 @@ export class OpenAICompatibleProvider implements ILLMProvider {
         clearTimeout(timeoutId);
       }
 
-      if (signal.aborted) {
-        // Stream was aborted, don't throw
+      if (combinedAborted()) {
+        // Stream was aborted (externally or due to timeout), don't throw
+        // For timeout case, we still want to propagate the timeout error for retry
+        if (error instanceof StreamingTimeoutError) {
+          throw error;
+        }
         return;
       }
 
       if (error instanceof StreamingTimeoutError) {
         throw error; // Let retry logic handle this
       }
-      
+
       // If we received content and/or a finish signal, treat late errors as non-fatal
       // Many OpenAI-compatible servers report errors like HTTP 5xx or "terminated" after
       // successfully delivering the streamed content.
@@ -152,7 +168,7 @@ export class OpenAICompatibleProvider implements ILLMProvider {
         });
         return;
       }
-      
+
       throw new Error(`OpenAI Compatible API Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       if (timeoutId) {

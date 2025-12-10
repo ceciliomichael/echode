@@ -187,60 +187,16 @@ registerToolPlugin({
     id: 'grep_search',
     name: 'Grep Search',
     description: 'Search for patterns across workspace files',
-    aiDescription: `## grep_search
-Fast text search for KNOWN identifiers across files.
+    aiDescription: `Fast text search for exact patterns across files.
 
-**WHEN TO USE grep_search:**
-- You know the EXACT name (function, variable, class, string literal)
-- Looking for all usages/references of an identifier
-- Simple pattern matching for known terms
-
-**WHEN TO USE echo_search INSTEAD:**
-- Exploring unfamiliar code
-- Finding implementations (not just names)
-- Need context and explanation
-- Don't know exact identifier
-
-**Parameters:**
-- query: EXACT text to find (required)
-- path: Directory to search (ALWAYS specify to narrow scope)
+Parameters:
+- query: Text to find (required)
+- path: Directory to search (required, narrow scope)
 - isRegex: true for regex patterns (default: false)
-- includes: Glob filters (e.g., "*.ts,*.tsx")
-
-**INTELLIGENT PATTERNS:**
-
-1. **Always narrow your search**: Specify path
-   
-   <parameter name="path">src/components</parameter>  <!-- Good -->
-   <parameter name="path">.</parameter>  <!-- Avoid - too broad -->
-
-2. **Parallel searches** for multiple identifiers:
-   
-   <function_calls>
-   <invoke name="grep_search">
-     <parameter name="query">handleSubmit</parameter>
-     <parameter name="path">src</parameter>
-   </invoke>
-   <invoke name="grep_search">
-     <parameter name="query">handleChange</parameter>
-     <parameter name="path">src</parameter>
-   </invoke>
-   </function_calls>   
-
-3. **Find definitions vs usages**:
-   - "function handleSubmit" → definitions
-   - "handleSubmit(" → function calls
-   - "handleSubmit" → all references
-
-4. **After grep_search**: Use read_file on matched files for full context
-
-**REGEX TIPS (isRegex: true):**
-- \\bword\\b → whole word match
-- function\\s+\\w+ → function definitions
-- import.*from → import statements`,
+- includes: Glob filters (e.g., "*.ts,*.tsx")`,
     icon: Search,
-    usage: 'Search for patterns across workspace files',
-    formatExample: '<function_calls>\n<invoke name="grep_search">\n<parameter name="query">function</parameter>\n<parameter name="path">src</parameter>\n</invoke>\n</function_calls>',
+    usage: 'Search for exact patterns across files',
+    formatExample: '<function_calls>\n<invoke name="grep_search">\n<parameter name="query">functionName</parameter>\n<parameter name="path">src</parameter>\n</invoke>\n</function_calls>',
   },
   handler: {
     execute: executeGrepSearch,

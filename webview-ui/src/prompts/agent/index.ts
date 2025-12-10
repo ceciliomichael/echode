@@ -10,6 +10,7 @@ import { getAgentModeSection } from './mode-section';
 import { getAgentRules } from './rules';
 import { getAgentCognitiveWorkflow } from './cognitive-workflow';
 import { getAgentToolChains } from './tool-chains';
+import { getAgentToolInstructions } from './tools';
 import { getToolSystemPrompt } from '../../lib/tool-config';
 
 export interface AgentPromptOptions {
@@ -29,12 +30,15 @@ export function buildAgentPrompt(options: AgentPromptOptions): string {
     const focus = getFocusInstruction();
     const cognitiveWorkflow = getAgentCognitiveWorkflow();
 
-    // Tool-related sections
+    // Tool format section (generic XML format)
     const toolsSection = enabledTools.length > 0
         ? getToolSystemPrompt(enabledTools)
         : `<tool_status>
-No tools are currently enabled. You cannot use any tools for this request. All responses must be provided without using any tools.
+No tools are currently enabled.
 </tool_status>`;
+
+    // Mode-specific tool instructions
+    const toolInstructions = getAgentToolInstructions(enabledTools);
 
     const toolChains = getAgentToolChains(enabledTools);
     const rules = getAgentRules(workspace, enabledTools);
@@ -48,6 +52,7 @@ No tools are currently enabled. You cannot use any tools for this request. All r
         focus,
         cognitiveWorkflow,
         toolsSection,
+        toolInstructions,
         toolChains,
         rules,
         modeSection,
@@ -58,9 +63,10 @@ No tools are currently enabled. You cannot use any tools for this request. All r
     return sections.join('\n\n').trim();
 }
 
-// Re-export components for direct access if needed
+// Re-export components
 export { getAgentModeSection } from './mode-section';
 export { getAgentRules } from './rules';
 export { getAgentCognitiveWorkflow } from './cognitive-workflow';
 export { getAgentToolChains } from './tool-chains';
+export { getAgentToolInstructions } from './tools';
 export { getAgentSystemReminder, getAgentTodoReminder } from './reminders';

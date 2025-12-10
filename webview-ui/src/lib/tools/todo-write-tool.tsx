@@ -19,37 +19,9 @@ registerToolPlugin({
     id: 'todo_write',
     name: 'Todo Write',
     description: 'Write and manage todo list tasks',
-    aiDescription: `## todo_write
-Create or update the task list for tracking work progress.
-
-**FORMATS (pick one):**
-
-1. **JSON tasks array** (precise control):
-   [{"id":"1","content":"Task description","status":"pending"}]
-   Status: "pending" | "in_progress" | "completed"
-
-2. **Markdown checklist** (quick updates):
-   - [ ] Pending task
-   - [-] In progress task
-   - [x] Completed task
-
-**BEST PRACTICES:**
-
-1. **Keep tasks concise**: Under 80 characters
-2. **Use sequential IDs**: "1", "2", "3", etc.
-3. **Update status as you work**: Mark tasks in_progress, then completed
-4. **Break down complex work**: Multiple small tasks > one large task
-
-**WORKFLOW (Plan Mode):**
-Analyze task → Create todo list → Work through items → Update status → Hand off
-
-**Parameters:**
-- tasks: JSON array of task objects
-- todos: Markdown checklist string
-(If both provided, tasks takes precedence)`,
     icon: ListChecks,
-    usage: 'Manage session todo list by writing tasks',
-    formatExample: '<function_calls>\n<invoke name="todo_write">\n<parameter name="tasks">[{"id":"1","content":"Implement auth","status":"pending"},{"id":"2","content":"Add tests","status":"in_progress"}]</parameter>\n</invoke>\n</function_calls>',
+    usage: 'Write tasks to the todo list',
+    formatExample: '<function_calls>\n<invoke name="todo_write">\n<parameter name="tasks">[{"id":"1","content":"Task","status":"pending"}]</parameter>\n</invoke>\n</function_calls>',
   },
   handler: {
     execute: executeTodoWrite,
