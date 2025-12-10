@@ -217,7 +217,7 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
     if (remainingSlots <= 0) return;
 
     const { attachments: newAttachments, errors } = await processDocumentFiles(files, remainingSlots);
-    
+
     if (errors.length > 0) {
       console.error('Document processing errors:', errors);
     }
@@ -274,7 +274,7 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
   };
 
   return (
-    <div ref={containerRef} className="px-2 relative z-[60]">
+    <div ref={containerRef} className="relative z-[60]">
       <section
         className="w-full rounded-xl shadow-sm border p-1 transition-colors"
         style={{
@@ -362,7 +362,7 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
               rows={1}
               className="w-full px-1.5 py-1 rounded-xl bg-transparent text-sm leading-normal min-h-[36px] max-h-[100px] overflow-y-auto resize-none border-0 relative z-10"
               style={{
-                color: 'var(--vscode-input-foreground)',
+                color: 'transparent',
                 outline: 'none',
                 caretColor: 'var(--vscode-input-foreground)',
               }}

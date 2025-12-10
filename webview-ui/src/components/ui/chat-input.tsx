@@ -116,13 +116,13 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
       // Build <attached_file> blocks and append to message content
       const attachmentBlocks = buildAllAttachedFileBlocks(attachments);
       const contentWithAttachments = content + attachmentBlocks;
-      
+
       onSendMessage(
         contentWithAttachments,
         imageAttachments,
         forceEchoSearch
       );
-      
+
       setInput('');
       setAttachments([]);
       setImageAttachments([]);
@@ -202,7 +202,7 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
     if (remainingSlots <= 0) return;
 
     const { attachments: newAttachments, errors } = await processDocumentFiles(files, remainingSlots);
-    
+
     if (errors.length > 0) {
       console.error('Document processing errors:', errors);
     }
@@ -312,14 +312,14 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
   const handleRefactorRequest = (filePath: string) => {
     // Extract basename
     const basename = filePath.split(/[/\\]/).pop() || filePath;
-    
+
     // Register mention path so the system knows the full path
     registerMentionPath(basename, filePath);
-    
+
     // Build and send refactor message
     const message = buildRefactorMessage(basename);
     onSendMessage(message, undefined, false);
-    
+
     // Clear mentions after a short delay to ensure processing
     setTimeout(() => {
       clearMentionPaths();
@@ -332,7 +332,6 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
       data-edit-outside-ignore="true"
       style={{
         paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))",
-        paddingTop: "0.5rem",
         backgroundColor: 'var(--vscode-sideBar-background)'
       }}
     >
@@ -461,7 +460,7 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
               rows={1}
               className="w-full px-1.5 py-1 rounded-xl bg-transparent text-sm leading-normal min-h-[36px] max-h-[100px] overflow-y-auto resize-none border-0 relative z-10 disabled:opacity-50 disabled:cursor-not-allowed placeholder:opacity-50"
               style={{
-                color: 'var(--vscode-input-foreground)',
+                color: 'transparent',
                 outline: 'none',
                 caretColor: 'var(--vscode-input-foreground)',
               }}

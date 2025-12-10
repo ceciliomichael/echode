@@ -13,8 +13,9 @@ interface MentionHighlighterProps {
 const MENTION_REGEX = /@((?:[^\s@]|\\ )+)/g;
 
 /**
- * Renders text with highlighted @mentions
- * Only highlights mentions that were selected from the context menu
+ * Renders text with styled @mentions (blue text color)
+ * This overlay renders ALL text visibly - the textarea text should be transparent
+ * Only mentions that were selected from the context menu get blue color
  * (i.e., those registered in the mentionPathMap)
  */
 export function MentionHighlighter({ text, scrollTop = 0, highlightAll = false, textareaRef }: MentionHighlighterProps) {
@@ -55,7 +56,6 @@ export function MentionHighlighter({ text, scrollTop = 0, highlightAll = false, 
 
   const [computedStyles, setComputedStyles] = useState<Pick<CSSStyleDeclaration, 'paddingTop' | 'paddingRight' | 'paddingBottom' | 'paddingLeft' | 'fontSize' | 'lineHeight' | 'fontFamily'> | null>(null);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- useLayoutEffect with setState is valid for DOM measurement sync
   useLayoutEffect(() => {
     const textarea = textareaRef?.current;
     if (!textarea) {
@@ -85,38 +85,34 @@ export function MentionHighlighter({ text, scrollTop = 0, highlightAll = false, 
         bottom: 0,
         pointerEvents: 'none',
         overflowX: 'hidden',
-        overflowY: 'scroll', // Match textarea scrollbar to prevent content shift
+        overflowY: 'auto',
       }}
     >
       <div
         style={{
           transform: `translateY(${-scrollTop}px)`,
-          // Match textarea: px-1.5 py-1 = 6px 4px
           padding: computedStyles
             ? `${computedStyles.paddingTop} ${computedStyles.paddingRight} ${computedStyles.paddingBottom} ${computedStyles.paddingLeft}`
             : '4px 6px',
-          // Match textarea: text-sm leading-normal
           fontSize: computedStyles?.fontSize || '0.875rem',
           lineHeight: computedStyles?.lineHeight || '1.5',
           fontFamily: computedStyles?.fontFamily || 'inherit',
           whiteSpace: 'pre-wrap',
           wordWrap: 'break-word',
           overflowWrap: 'break-word',
-          color: 'transparent',
           boxSizing: 'border-box',
           width: '100%',
           textAlign: 'left',
+          // Render all text visibly with normal foreground color
+          color: 'var(--vscode-input-foreground)',
         }}
       >
         {segments.map((segment, index) => {
+          // Mentions get blue text color, regular text inherits parent color
           const style: React.CSSProperties | undefined = segment.isMention
-            ? {
-                backgroundColor: 'rgba(55, 148, 255, 0.25)',
-                color: 'transparent',
-                borderRadius: '3px',
-              }
+            ? { color: '#3794ff' }
             : undefined;
-          
+
           return (
             <span key={index} style={style}>
               {segment.text}

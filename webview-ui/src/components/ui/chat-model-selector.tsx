@@ -1,10 +1,9 @@
-import { memo, useState, useRef, useEffect } from 'react';
+import { memo, useState, useRef, useEffect, useMemo } from 'react';
 import { useHoverEffect, hoverPresets } from '../../hooks/use-hover-effect';
 import { Check, Cpu, Search, RefreshCcw } from 'lucide-react';
 import type { ApiSettings, Provider } from '../../types/api-settings';
 import { storageService } from '../../utils/storage';
 import { useModelFetcher, requestModelsRefresh } from '../../hooks/use-model-fetcher';
-import { buildFilteredModelResults } from '../../utils/model-search';
 
 const PROVIDER_OPTIONS: { value: Provider; label: string }[] = [
   { value: 'anthropic', label: 'Anthropic' },
@@ -94,15 +93,6 @@ function ChatModelSelectorComponent({ provider: activeProvider, model: activeMod
     fetchModels: fetchQwenCode,
   } = useModelFetcher('qwen-code', undefined, '');
 
-  const modelsByProvider: Record<Provider, string[]> = {
-    anthropic: anthropicModels,
-    openai: openaiModels,
-    'openai-compatible': openaiCompatibleModels,
-    megallm: megallmModels,
-    'vscode-lm': vscodeLmModels,
-    'qwen-code': qwenCodeModels,
-  };
-
   const anyLoading =
     loadingAnthropic ||
     loadingOpenai ||
@@ -173,12 +163,31 @@ function ChatModelSelectorComponent({ provider: activeProvider, model: activeMod
 
   const buttonLabel = activeModel || 'Select model';
 
+  // Flatten all models into a single array
+  const allModels = useMemo(() => {
+    const models: Array<{ provider: Provider; providerLabel: string; model: string }> = [];
+
+    if (anthropicModels) models.push(...anthropicModels.map(m => ({ provider: 'anthropic' as Provider, providerLabel: 'Anthropic', model: m })));
+    if (openaiModels) models.push(...openaiModels.map(m => ({ provider: 'openai' as Provider, providerLabel: 'OpenAI', model: m })));
+    if (openaiCompatibleModels) models.push(...openaiCompatibleModels.map(m => ({ provider: 'openai-compatible' as Provider, providerLabel: 'OpenAI Compatible', model: m })));
+    if (megallmModels) models.push(...megallmModels.map(m => ({ provider: 'megallm' as Provider, providerLabel: 'MEGALLM', model: m })));
+    if (vscodeLmModels) models.push(...vscodeLmModels.map(m => ({ provider: 'vscode-lm' as Provider, providerLabel: 'VS Code LM (Copilot)', model: m })));
+    if (qwenCodeModels) models.push(...qwenCodeModels.map(m => ({ provider: 'qwen-code' as Provider, providerLabel: 'Qwen Code', model: m })));
+
+    return models;
+  }, [anthropicModels, openaiModels, openaiCompatibleModels, megallmModels, vscodeLmModels, qwenCodeModels]);
+
   const searchValue = search.trim().toLowerCase();
   const hasSearch = searchValue.length > 0;
 
-  const filteredResults = hasSearch
-    ? buildFilteredModelResults(searchValue, PROVIDER_OPTIONS, modelsByProvider)
-    : [];
+  // Simple filtering - matches model name OR provider label
+  const filteredResults = useMemo(() => {
+    if (!hasSearch) return allModels;
+    return allModels.filter(item =>
+      item.model.toLowerCase().includes(searchValue) ||
+      item.providerLabel.toLowerCase().includes(searchValue)
+    );
+  }, [allModels, hasSearch, searchValue]);
 
   return (
     <div ref={dropdownRef} className="relative">
@@ -258,131 +267,58 @@ function ChatModelSelectorComponent({ provider: activeProvider, model: activeMod
             className="overflow-y-auto max-h-48 overflow-hidden rounded-b-xl"
             style={{ backgroundColor: 'transparent' }}
           >
-            {anyLoading && !hasSearch && (
+            {anyLoading && filteredResults.length === 0 && (
               <div className="px-2 py-1.5 text-[11px] opacity-70">
                 Loading models...
               </div>
             )}
 
-            {hasSearch ? (
-              filteredResults.length === 0 ? (
-                <div className="px-2 py-1.5 text-[11px] opacity-70">
-                  No models match your search.
-                </div>
-              ) : (
-                <div className="flex flex-col">
-                  {filteredResults.map((item, index) => {
-                    const isSelected =
-                      item.provider === activeProvider && item.model === activeModel;
-                    const isLast = index === filteredResults.length - 1;
-
-                    return (
-                      <button
-                        key={`${item.provider}:${item.model}`}
-                        type="button"
-                        onClick={() => handleSelectModel(item.provider, item.model)}
-                        className={`w-full px-3 py-1.5 text-left transition-colors flex items-center justify-between ${isLast ? 'rounded-b-xl' : ''}`}
-                        style={{
-                          backgroundColor: isSelected
-                            ? 'var(--vscode-list-activeSelectionBackground)'
-                            : 'transparent',
-                          color: isSelected
-                            ? 'var(--vscode-list-activeSelectionForeground)'
-                            : 'var(--vscode-foreground)',
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!isSelected) {
-                            e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!isSelected) {
-                            e.currentTarget.style.backgroundColor = 'transparent';
-                          }
-                        }}
-                      >
-                        <div className="flex-1 min-w-0 mr-2">
-                          <div className="text-xs leading-tight truncate">{item.model}</div>
-                          <div className="text-[10px] opacity-60 leading-tight mt-0.5 truncate">
-                            {item.providerLabel}
-                          </div>
-                        </div>
-                        {isSelected && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              )
+            {filteredResults.length === 0 && !anyLoading ? (
+              <div className="px-2 py-1.5 text-[11px] opacity-70">
+                {hasSearch ? 'No models match your search.' : 'No providers configured.'}
+              </div>
             ) : (
-              <div className="flex flex-col">
-                {PROVIDER_OPTIONS
-                  .filter((providerOption) => {
-                    const providerModels = modelsByProvider[providerOption.value] || [];
-                    return providerModels.length > 0;
-                  })
-                  .map((providerOption) => {
-                    const provider = providerOption.value;
-                    const providerModels = modelsByProvider[provider] || [];
-                    const isActiveProvider = provider === activeProvider;
+              <div key={`list-${searchValue}`} className="flex flex-col">
+                {filteredResults.map((item, index) => {
+                  const isSelected =
+                    item.provider === activeProvider && item.model === activeModel;
+                  const isLast = index === filteredResults.length - 1;
 
-                    return (
-                      <div key={provider} className="pt-1">
-                        <div className="flex items-center justify-between mb-0.5 px-3">
-                          <span className="text-[11px] font-semibold opacity-70">
-                            {providerOption.label}
-                          </span>
-                          {isActiveProvider && activeModel && (
-                            <span className="text-[10px] opacity-60">Active</span>
-                          )}
-                        </div>
-
-                        <div className="flex flex-col">
-                          {providerModels.map((model, modelIndex) => {
-                            const isSelected =
-                              provider === activeProvider && model === activeModel;
-                            const isLastModel = modelIndex === providerModels.length - 1;
-
-                            return (
-                              <button
-                                key={`${provider}:${model}`}
-                                type="button"
-                                onClick={() => handleSelectModel(provider, model)}
-                                className={`w-full px-3 py-1.5 text-left transition-colors flex items-center justify-between ${isLastModel ? 'rounded-b-xl' : ''}`}
-                                style={{
-                                  backgroundColor: isSelected
-                                    ? 'var(--vscode-list-activeSelectionBackground)'
-                                    : 'transparent',
-                                  color: isSelected
-                                    ? 'var(--vscode-list-activeSelectionForeground)'
-                                    : 'var(--vscode-foreground)',
-                                }}
-                                onMouseEnter={(e) => {
-                                  if (!isSelected) {
-                                    e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
-                                  }
-                                }}
-                                onMouseLeave={(e) => {
-                                  if (!isSelected) {
-                                    e.currentTarget.style.backgroundColor = 'transparent';
-                                  }
-                                }}
-                              >
-                                <span className="text-xs leading-tight truncate">{model}</span>
-                                {isSelected && (
-                                  <Check className="w-3.5 h-3.5 flex-shrink-0" />
-                                )}
-                              </button>
-                            );
-                          })}
+                  return (
+                    <button
+                      key={`${item.provider}:${item.model}`}
+                      type="button"
+                      onClick={() => handleSelectModel(item.provider, item.model)}
+                      className={`w-full px-3 py-1.5 text-left transition-colors flex items-center justify-between ${isLast ? 'rounded-b-xl' : ''}`}
+                      style={{
+                        backgroundColor: isSelected
+                          ? 'var(--vscode-list-activeSelectionBackground)'
+                          : 'transparent',
+                        color: isSelected
+                          ? 'var(--vscode-list-activeSelectionForeground)'
+                          : 'var(--vscode-foreground)',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isSelected) {
+                          e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isSelected) {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }
+                      }}
+                    >
+                      <div className="flex-1 min-w-0 mr-2">
+                        <div className="text-xs leading-tight truncate">{item.model}</div>
+                        <div className="text-[10px] opacity-60 leading-tight mt-0.5 truncate">
+                          {item.providerLabel}
                         </div>
                       </div>
-                    );
-                  })}
-                {PROVIDER_OPTIONS.every((p) => (modelsByProvider[p.value] || []).length === 0) && !anyLoading && (
-                  <div className="px-2 py-1.5 text-[11px] opacity-70">
-                    No providers configured.
-                  </div>
-                )}
+                      {isSelected && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
