@@ -22,6 +22,17 @@ export async function handleModelFetch(
   try {
     let models: string[] = [];
 
+    // Skip API calls for providers that require API key if it's empty
+    const requiresApiKey = provider !== 'vscode-lm' && provider !== 'qwen-code';
+    if (requiresApiKey && (!apiKey || apiKey.trim() === '')) {
+      webview.webview.postMessage({
+        type: 'modelsResponse',
+        requestId,
+        models: []
+      });
+      return;
+    }
+
     // Route to appropriate provider
     if (provider === 'anthropic') {
       models = await fetchAnthropicModels(apiKey, baseURL);
@@ -61,9 +72,9 @@ async function fetchAnthropicModels(apiKey: string, baseURL: string): Promise<st
   try {
     const response = await client.models.list();
     const allModels = response.data.map(m => m.id);
-    
+
     // Filter for Claude models only
-    return allModels.filter(modelId => 
+    return allModels.filter(modelId =>
       modelId.toLowerCase().startsWith('claude')
     );
   } catch (error) {
@@ -81,7 +92,7 @@ async function fetchOpenAIModels(
 ): Promise<string[]> {
   // Add /v1 to baseURL for OpenAI-compatible APIs
   const apiBaseURL = `${baseURL}/v1`;
-  
+
   const client = new OpenAI({
     apiKey,
     baseURL: apiBaseURL,
@@ -90,11 +101,11 @@ async function fetchOpenAIModels(
   try {
     const response = await client.models.list();
     const allModels = response.data.map(m => m.id);
-    
+
     // Filter based on provider
     if (provider === 'openai') {
       // Filter for GPT models only
-      return allModels.filter(modelId => 
+      return allModels.filter(modelId =>
         modelId.toLowerCase().startsWith('gpt')
       );
     } else {

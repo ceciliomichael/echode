@@ -70,7 +70,7 @@ export function SettingsModelSelector({
         setOpenUpward(spaceBelow < DROPDOWN_HEIGHT && spaceAbove > spaceBelow);
       }
     };
-    
+
     // Listen to all scroll events (capture phase) and resize
     document.addEventListener('scroll', handlePositionUpdate, true);
     window.addEventListener('resize', handlePositionUpdate);
@@ -96,10 +96,12 @@ export function SettingsModelSelector({
     return () => window.removeEventListener('settingsUpdated', handleSettingsUpdated as EventListener);
   }, []);
 
-  const anthropicKey = settings.anthropicApiKey || settings.apiKey || '';
-  const openaiKey = settings.openaiApiKey || settings.apiKey || '';
-  const openaiCompatibleKey = settings.openaiCompatibleApiKey || settings.apiKey || '';
-  const megallmKey = settings.megallmApiKey || settings.apiKey || '';
+  // For model fetching, only use provider-specific keys (no global fallback)
+  // This prevents unwanted API calls when a provider isn't explicitly configured
+  const anthropicKey = settings.anthropicApiKey || '';
+  const openaiKey = settings.openaiApiKey || '';
+  const openaiCompatibleKey = settings.openaiCompatibleApiKey || '';
+  const megallmKey = settings.megallmApiKey || '';
 
   const {
     models: anthropicModels,
@@ -222,9 +224,8 @@ export function SettingsModelSelector({
 
         {isOpen && (
           <div
-            className={`absolute w-full rounded-xl border overflow-hidden ${
-              openUpward ? 'bottom-full mb-1' : 'top-full mt-1'
-            }`}
+            className={`absolute w-full rounded-xl border overflow-hidden ${openUpward ? 'bottom-full mb-1' : 'top-full mt-1'
+              }`}
             style={{
               backgroundColor: 'var(--vscode-editor-background)',
               borderColor: 'var(--vscode-input-border)',

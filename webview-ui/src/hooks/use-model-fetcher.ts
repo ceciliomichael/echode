@@ -12,6 +12,7 @@ let requestIdCounter = 0;
 let prefetchInitiated = false;
 
 const MODELS_REFRESH_EVENT = 'echodeModelsRefresh';
+const MODELS_CACHE_UPDATE_EVENT = 'echodeModelsCacheUpdate';
 
 export function requestModelsRefresh() {
   window.dispatchEvent(new Event(MODELS_REFRESH_EVENT));
@@ -23,16 +24,25 @@ function generateCacheKey(prov: Provider, url: string | undefined, key: string) 
   return `${prov}:${baseUrl}:${key}`;
 }
 
+// Notify all hook instances that cache has been updated for a specific key
+function notifyCacheUpdate(cacheKey: string, models: string[]) {
+  window.dispatchEvent(new CustomEvent(MODELS_CACHE_UPDATE_EVENT, {
+    detail: { cacheKey, models }
+  }));
+}
+
 // Standalone prefetch function to populate cache at app startup
 export function prefetchAllModels(settings: ApiSettings) {
   if (prefetchInitiated || !window.vscode) return;
   prefetchInitiated = true;
 
+  // For model fetching, only use provider-specific keys (no global fallback)
+  // This prevents unwanted API calls when a provider isn't explicitly configured
   const providers: { provider: Provider; url: string | undefined; key: string }[] = [
-    { provider: 'anthropic', url: settings.anthropicCustomUrl, key: settings.anthropicApiKey || settings.apiKey || '' },
-    { provider: 'openai', url: settings.openaiCustomUrl, key: settings.openaiApiKey || settings.apiKey || '' },
-    { provider: 'openai-compatible', url: settings.openaiCompatibleCustomUrl, key: settings.openaiCompatibleApiKey || settings.apiKey || '' },
-    { provider: 'megallm', url: settings.megallmCustomUrl, key: settings.megallmApiKey || settings.apiKey || '' },
+    { provider: 'anthropic', url: settings.anthropicCustomUrl, key: settings.anthropicApiKey || '' },
+    { provider: 'openai', url: settings.openaiCustomUrl, key: settings.openaiApiKey || '' },
+    { provider: 'openai-compatible', url: settings.openaiCompatibleCustomUrl, key: settings.openaiCompatibleApiKey || '' },
+    { provider: 'megallm', url: settings.megallmCustomUrl, key: settings.megallmApiKey || '' },
     { provider: 'vscode-lm', url: undefined, key: '' },
     { provider: 'qwen-code', url: undefined, key: '' },
   ];
@@ -53,6 +63,8 @@ export function prefetchAllModels(settings: ApiSettings) {
       if (message.requestId === requestId) {
         if (message.type === 'modelsResponse') {
           modelCache.set(cacheKey, message.models);
+          // Notify all hook instances about the cache update
+          notifyCacheUpdate(cacheKey, message.models);
         }
         window.removeEventListener('message', handleResponse);
       }
@@ -68,18 +80,32 @@ export function useModelFetcher(
   customBaseUrl: string | undefined,
   apiKey: string
 ) {
+  // Generate cache key for this hook instance
+  const cacheKey = generateCacheKey(provider, customBaseUrl, apiKey || 'no-key');
+
   // Initialize from cache if available (prevents redundant fetches)
   const [models, setModels] = useState<string[]>(() => {
-    const cacheKey = generateCacheKey(provider, customBaseUrl, apiKey || 'no-key');
     return modelCache.get(cacheKey) || [];
   });
   const [loadingModels, setLoadingModels] = useState(false);
   const requestIdRef = useRef<string | null>(null);
 
-  // Generate cache key based on provider, url, and apiKey
-  const getCacheKey = useCallback((prov: Provider, url: string | undefined, key: string) => {
-    return generateCacheKey(prov, url, key);
-  }, []);
+  // Listen for cache updates from other hook instances
+  useEffect(() => {
+    const handleCacheUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent<{ cacheKey: string; models: string[] }>;
+      if (customEvent.detail.cacheKey === cacheKey) {
+        setModels(customEvent.detail.models);
+        setLoadingModels(false);
+      }
+    };
+
+    window.addEventListener(MODELS_CACHE_UPDATE_EVENT, handleCacheUpdate);
+
+    return () => {
+      window.removeEventListener(MODELS_CACHE_UPDATE_EVENT, handleCacheUpdate);
+    };
+  }, [cacheKey]);
 
   const fetchModels = useCallback((force = false) => {
     // VS Code LM and Qwen Code don't require API key, skip check for them
@@ -89,8 +115,6 @@ export function useModelFetcher(
       return;
     }
 
-    const cacheKey = getCacheKey(provider, customBaseUrl, apiKey || 'no-key');
-    
     // Check cache first (unless force refresh)
     if (!force && modelCache.has(cacheKey)) {
       const cachedModels = modelCache.get(cacheKey)!;
@@ -99,7 +123,7 @@ export function useModelFetcher(
     }
 
     setLoadingModels(true);
-    
+
     const baseURL = customBaseUrl?.trim() || getProviderDefaults(provider).baseUrl;
     // Use counter + timestamp + provider to ensure unique request IDs across simultaneous calls
     requestIdCounter += 1;
@@ -110,9 +134,9 @@ export function useModelFetcher(
       const message = event.data;
       if (message.requestId === requestId) {
         if (message.type === 'modelsResponse') {
-          setModels(message.models);
           modelCache.set(cacheKey, message.models);
-          setLoadingModels(false);
+          // Notify all hook instances about the cache update (including self)
+          notifyCacheUpdate(cacheKey, message.models);
           window.removeEventListener('message', handleResponse);
         } else if (message.type === 'modelsError') {
           console.error('[Model Fetcher] Error:', message.error);
@@ -133,17 +157,17 @@ export function useModelFetcher(
       apiKey,
       baseURL
     });
-  }, [provider, customBaseUrl, apiKey, getCacheKey]);
+  }, [provider, customBaseUrl, apiKey, cacheKey]);
 
   const refetchModels = useCallback(() => {
     fetchModels(true);
   }, [fetchModels]);
 
   const clearCache = useCallback(() => {
-    const cacheKey = getCacheKey(provider, customBaseUrl, apiKey || 'no-key');
     modelCache.delete(cacheKey);
-  }, [provider, customBaseUrl, apiKey, getCacheKey]);
+  }, [cacheKey]);
 
+  // Listen for global refresh requests
   useEffect(() => {
     const handleGlobalRefresh = () => {
       fetchModels(true);

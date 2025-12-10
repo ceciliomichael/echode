@@ -51,10 +51,12 @@ function ChatModelSelectorComponent({ provider: activeProvider, model: activeMod
     };
   }, []);
 
-  const anthropicKey = settings.anthropicApiKey || settings.apiKey || '';
-  const openaiKey = settings.openaiApiKey || settings.apiKey || '';
-  const openaiCompatibleKey = settings.openaiCompatibleApiKey || settings.apiKey || '';
-  const megallmKey = settings.megallmApiKey || settings.apiKey || '';
+  // For model fetching, only use provider-specific keys (no global fallback)
+  // This prevents unwanted API calls when a provider isn't explicitly configured
+  const anthropicKey = settings.anthropicApiKey || '';
+  const openaiKey = settings.openaiApiKey || '';
+  const openaiCompatibleKey = settings.openaiCompatibleApiKey || '';
+  const megallmKey = settings.megallmApiKey || '';
 
   const {
     models: anthropicModels,
@@ -200,9 +202,8 @@ function ChatModelSelectorComponent({ provider: activeProvider, model: activeMod
 
       {isOpen && (
         <div
-          className={`absolute left-0 w-52 rounded-xl border z-[100] ${
-            direction === 'down' ? 'top-full mt-1' : 'bottom-full mb-1'
-          }`}
+          className={`absolute left-0 w-52 rounded-xl border z-[100] ${direction === 'down' ? 'top-full mt-1' : 'bottom-full mb-1'
+            }`}
           style={{
             backgroundColor: 'var(--vscode-editor-background)',
             borderColor: 'var(--vscode-input-border)',
