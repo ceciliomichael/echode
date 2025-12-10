@@ -82,6 +82,31 @@ export function ChatContainer() {
     return false;
   };
 
+  const startsWithPlanningTool = (message: typeof messages[number]): boolean => {
+    if (!hasPlanningTool(message)) return false;
+    // Check if content starts with a planning tool (ignoring leading whitespace)
+    // We look for <function_calls> or <invoke name="plan_navigator"/"plan_handoff">
+    // Note: This matches the tokenizer logic
+    const content = message.content.trimStart();
+
+    // Check for function_calls block or direct invoke
+    if (content.startsWith('<function_calls>') || content.startsWith('<invoke')) {
+      // We need to verify if the first tool is actually a planning tool
+      // This is a simplified check - we assume if it starts with a tool block and contains a planning tool, 
+      // the planning tool is likely first or part of the first block. 
+      // For exact precision we'd need to parse, but this is a purely visual heuristic.
+      return true;
+    }
+    return false;
+  };
+
+  const endsWithPlanningTool = (message: typeof messages[number]): boolean => {
+    if (!hasPlanningTool(message)) return false;
+    // Check if content ends with a planning tool (ignoring trailing whitespace)
+    const content = message.content.trimEnd();
+    return content.endsWith('</function_calls>') || content.endsWith('</invoke>');
+  };
+
   const {
     scrollContainerRef,
     handleScroll,
@@ -205,8 +230,17 @@ export function ChatContainer() {
                     const prevMsg = index > 0 ? visibleMessages[index - 1] : undefined;
                     const nextMsg = index < visibleMessages.length - 1 ? visibleMessages[index + 1] : undefined;
 
-                    const connectTop = !!(prevMsg && hasPlanningTool(prevMsg));
-                    const connectBottom = !!(nextMsg && hasPlanningTool(nextMsg));
+                    // Only connect TOP if:
+                    // 1. A previous message exists
+                    // 2. Previous message ENDS with a planning tool
+                    // 3. Current message STARTS with a planning tool
+                    const connectTop = !!(prevMsg && endsWithPlanningTool(prevMsg) && startsWithPlanningTool(message));
+
+                    // Only connect BOTTOM if:
+                    // 1. A next message exists
+                    // 2. Next message STARTS with a planning tool
+                    // 3. Current message ENDS with a planning tool
+                    const connectBottom = !!(nextMsg && startsWithPlanningTool(nextMsg) && endsWithPlanningTool(message));
 
                     if (connectTop || connectBottom) {
                       planChainPosition = { connectTop, connectBottom };

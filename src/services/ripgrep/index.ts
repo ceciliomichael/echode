@@ -162,6 +162,13 @@ export async function regexSearchFiles(
         throw new Error('Could not find ripgrep binary');
     }
 
+    // Validate that the search directory exists
+    const directoryExists = await fileExistsAtPath(directoryPath);
+    if (!directoryExists) {
+        console.warn(`[GREP] Search path does not exist: ${directoryPath}`);
+        return `Error: Search path "${directoryPath}" does not exist. Use a valid directory path like "src" or "." for the whole workspace.`;
+    }
+
     const args = ['--json', '-e', regex];
 
     // Add default directory excludes from excluded-patterns.ts
@@ -342,6 +349,18 @@ export async function regexSearchFilesStructured(
 
     if (!rgPath) {
         throw new Error('Could not find ripgrep binary');
+    }
+
+    // Validate that the search directory exists
+    const directoryExists = await fileExistsAtPath(directoryPath);
+    if (!directoryExists) {
+        console.warn(`[GREP] Search path does not exist: ${directoryPath}`);
+        return {
+            results: [],
+            formattedString: `Error: Search path "${directoryPath}" does not exist. Use a valid directory path like "src" or "." for the whole workspace.`,
+            totalMatches: 0,
+            filesWithMatches: 0,
+        };
     }
 
     const args = ['--json', '-e', regex];

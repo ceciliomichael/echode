@@ -116,7 +116,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
           // Hide if path is missing or empty
           return false;
         }
-        
+
         // For planning tools (plan_navigator, plan_handoff, todo_write), show even if not fully closed
         // This ensures they appear immediately and can be visually connected to adjacent tools
         const isPlanningTool = token.toolName === 'plan_navigator' || token.toolName === 'plan_handoff' || token.toolName === 'todo_write';
@@ -162,17 +162,17 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
 
   return (
     <div>
-      <div 
-        className="max-w-none" 
+      <div
+        className="max-w-none"
         style={{ color: 'var(--vscode-editor-foreground)' }}
       >
         {visibleTokens.map((token, index) => {
           const prevToken = index > 0 ? visibleTokens[index - 1] : null;
           const nextToken = index < visibleTokens.length - 1 ? visibleTokens[index + 1] : null;
-          
+
           // Margin logic: consistent spacing for all content types
           const marginTop = index === 0 ? '0' : '0.75rem';
-          
+
           if (token.type === 'think') {
             return (
               <div
@@ -188,18 +188,26 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
               </div>
             );
           }
-          
+
           // Tool block
           if (token.type === 'tool') {
             // Check adjacent tools in VISIBLE tokens list for sequential grouping
             const isPlanningTool = token.toolName === 'plan_navigator' || token.toolName === 'plan_handoff';
 
             // Allow external plan-chain hints so planning tools in consecutive assistant messages can connect
-            const externalConnectTop = isPlanningTool ? planChainPosition?.connectTop === true : false;
-            const externalConnectBottom = isPlanningTool ? planChainPosition?.connectBottom === true : false;
+            // External connect should ONLY be used when this tool is at the edge of the message:
+            // - Top: only when this is the first visible token (index === 0)
+            // - Bottom: only when this is the last visible token (no nextToken)
+            // If there's any adjacent non-tool token, we don't use external connect
+            const isFirstVisibleToken = index === 0;
+            const isLastVisibleToken = nextToken === null || nextToken === undefined;
+            const prevIsToolToken = prevToken?.type === 'tool';
+            const nextIsToolToken = nextToken?.type === 'tool';
+            const externalConnectTop = isPlanningTool && isFirstVisibleToken ? planChainPosition?.connectTop === true : false;
+            const externalConnectBottom = isPlanningTool && isLastVisibleToken ? planChainPosition?.connectBottom === true : false;
 
-            const isConnectedTop = prevToken?.type === 'tool' || externalConnectTop;
-            const isConnectedBottom = nextToken?.type === 'tool' || externalConnectBottom;
+            const isConnectedTop = prevIsToolToken || externalConnectTop;
+            const isConnectedBottom = nextIsToolToken || externalConnectBottom;
 
             // Override margin if connected to top tool (collapse spacing)
             const toolMarginTop = isConnectedTop ? 0 : marginTop;
@@ -207,22 +215,22 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
             // Merge token data with execution state if available
             const executionState = toolExecutions?.get(token.toolExecutionId);
             console.log(`[AssistantMessage] Looking up execution for token: toolExecutionId=${token.toolExecutionId}, toolName=${token.toolName}, found=${!!executionState}`);
-            
+
             // Special handling: Split multi-file read_file results into separate tool blocks
             if (token.toolName === 'read_file' && executionState?.result?.success && executionState.result.data) {
               const resultData = executionState.result.data as Record<string, unknown>;
-              
+
               // Check if this is a multi-file result
               if ('files' in resultData && Array.isArray(resultData.files) && resultData.files.length > 1) {
                 const files = resultData.files as Array<{ path: string; content: string; startLine?: number; endLine?: number; totalLines?: number }>;
-                
+
                 // Render each file as a separate tool block
                 return (
                   <>
                     {files.map((file, fileIdx) => {
                       const fileToolExecutionId = `${token.toolExecutionId}-file-${fileIdx}`;
                       const fileExecutionState = toolExecutions?.get(fileToolExecutionId);
-                      
+
                       const fileToolCall: ToolCall = {
                         toolName: token.toolName,
                         parameters: { path: file.path, ...token.parameters },
@@ -233,15 +241,15 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                         },
                         toolExecutionId: fileToolExecutionId,
                       };
-                      
+
                       const isLastFile = fileIdx === files.length - 1;
                       const fileMarginTop = fileIdx === 0 ? toolMarginTop : 0;
                       const fileIsConnectedTop = fileIdx > 0 || isConnectedTop;
                       const fileIsConnectedBottom = !isLastFile || isConnectedBottom;
-                      
+
                       return (
                         <div key={`tool-${messageId}-${token.index}-file-${fileIdx}`} style={{ marginTop: fileMarginTop }}>
-                          <ToolBlock 
+                          <ToolBlock
                             toolCall={fileToolCall}
                             isConnectedTop={fileIsConnectedTop}
                             isConnectedBottom={fileIsConnectedBottom}
@@ -254,13 +262,13 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                 );
               }
             }
-            
+
             // Normal tool rendering (single file or other tools)
             // Determine status: if no executionState and tool isn't closed and not streaming = aborted
             const derivedStatus = executionState?.status || (
               token.isClosed ? 'completed' : (isStreaming ? 'pending' : 'aborted')
             );
-            
+
             const toolCall: ToolCall = {
               toolName: token.toolName,
               // Prioritize execution parameters as they are authoritative during execution
@@ -270,10 +278,10 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
               toolExecutionId: token.toolExecutionId,
               progress: executionState?.progress,
             };
-            
+
             return (
               <div key={`tool-${messageId}-${token.index}`} style={{ marginTop: toolMarginTop }}>
-                <ToolBlock 
+                <ToolBlock
                   toolCall={toolCall}
                   isConnectedTop={isConnectedTop}
                   isConnectedBottom={isConnectedBottom}
@@ -282,15 +290,15 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
               </div>
             );
           }
-          
+
           // Text content with animated streaming markdown
           if (token.type === 'text') {
             // visibleTokens already filtered out empty text, but double check just in case
             if (!token.content.trim()) return null;
-            
+
             // Reduce spacing when text follows a think block for tighter visual flow
             const textMarginTop = prevToken?.type === 'think' ? '0.1rem' : marginTop;
-            
+
             const sanitizedContent = sanitizeAssistantText(token.content);
 
             return (
@@ -298,26 +306,26 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                 key={`text-${messageId}-${token.index}`}
                 style={{ marginTop: textMarginTop, paddingLeft: '1.25rem', paddingRight: '1.25rem', maxWidth: contentMaxWidth }}
               >
-                <StreamingText 
+                <StreamingText
                   content={sanitizedContent}
                   isStreaming={isStreaming}
                 />
               </div>
             );
           }
-          
+
           // Mermaid diagram - render as separate stable block
           if (token.type === 'mermaid') {
             return (
               <div key={`mermaid-${messageId}-${token.index}`} style={{ marginTop, paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
-                <MermaidBlock 
-                  code={token.content} 
+                <MermaidBlock
+                  code={token.content}
                   isGenerating={!token.isClosed}
                 />
               </div>
             );
           }
-          
+
           return null;
         })}
 
@@ -353,7 +361,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
             if (hasActiveToolExecutions && hasVisibleToolToken) {
               return null;
             }
-            
+
             // If there are visible tokens, check the last one
             if (visibleTokens.length > 0) {
               const lastToken = visibleTokens[visibleTokens.length - 1];
@@ -363,12 +371,12 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
               if (lastToken.type === 'text') {
                 return null;
               }
-              
+
               // Case 1: Tool block - only show dots if completed/error/aborted (waiting for AI)
               // Do NOT show if executing (ToolBlock shows status) or incomplete
               if (lastToken.type === 'tool' && lastToken.isClosed) {
                 const status = toolExecutions?.get(lastToken.toolExecutionId)?.status;
-                
+
                 // Special check for multi-file read_file: wait for all files to complete diagnostics
                 const executionState = toolExecutions?.get(lastToken.toolExecutionId);
                 if (lastToken.toolName === 'read_file' && executionState?.result?.success && executionState.result.data) {
@@ -380,7 +388,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                       const fileStatus = toolExecutions?.get(`${lastToken.toolExecutionId}-file-${fileIdx}`)?.status;
                       return fileStatus === 'completed' || fileStatus === 'error' || fileStatus === 'aborted';
                     });
-                    
+
                     if (allFilesCompleted) {
                       return (
                         <div className="mt-2" style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
@@ -392,7 +400,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                     return null;
                   }
                 }
-                
+
                 // Normal single-tool case
                 if (status === 'completed' || status === 'error' || status === 'aborted') {
                   return (
@@ -402,7 +410,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                   );
                 }
               }
-              
+
               // Case 2: Think block - show dots after thinking has completed (closed)
               // and no tools are yet visible. While the think block itself is streaming,
               // it already acts as the primary progress indicator so we avoid extra dots.
@@ -413,7 +421,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                   </div>
                 );
               }
-              
+
               // Case 3: Has filtered tool blocks after visible non-text content - show loading dots
               if (hasFilteredToolBlocks) {
                 return (
@@ -430,7 +438,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                 </div>
               );
             }
-            
+
             return null;
           })()
         )}
@@ -441,28 +449,28 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
 
 export const AssistantMessage = memo(AssistantMessageComponent, (prev, next) => {
   // Compare toolExecutions maps by size and entries (including progress)
-  const toolExecutionsEqual = 
+  const toolExecutionsEqual =
     prev.toolExecutions === next.toolExecutions ||
     (prev.toolExecutions?.size === next.toolExecutions?.size &&
-     Array.from(prev.toolExecutions?.entries() || []).every(([key, value]) => {
-       const nextValue = next.toolExecutions?.get(key);
-       // Compare tools array by content, not just length
-       const prevTools = value.progress?.tools || [];
-       const nextTools = nextValue?.progress?.tools || [];
-       const toolsEqual = prevTools.length === nextTools.length && 
-         prevTools.every((tool, i) => tool === nextTools[i]);
-       
-       return nextValue?.status === value.status && 
-              nextValue?.result === value.result &&
-              nextValue?.progress?.iteration === value.progress?.iteration &&
-              nextValue?.progress?.phase === value.progress?.phase &&
-              nextValue?.progress?.toolsIteration === value.progress?.toolsIteration &&
-              toolsEqual;
-     }));
-  
-  return prev.content === next.content && 
-         prev.messageId === next.messageId && 
-         prev.isStreaming === next.isStreaming &&
-         prev.isCompressing === next.isCompressing &&
-         toolExecutionsEqual;
+      Array.from(prev.toolExecutions?.entries() || []).every(([key, value]) => {
+        const nextValue = next.toolExecutions?.get(key);
+        // Compare tools array by content, not just length
+        const prevTools = value.progress?.tools || [];
+        const nextTools = nextValue?.progress?.tools || [];
+        const toolsEqual = prevTools.length === nextTools.length &&
+          prevTools.every((tool, i) => tool === nextTools[i]);
+
+        return nextValue?.status === value.status &&
+          nextValue?.result === value.result &&
+          nextValue?.progress?.iteration === value.progress?.iteration &&
+          nextValue?.progress?.phase === value.progress?.phase &&
+          nextValue?.progress?.toolsIteration === value.progress?.toolsIteration &&
+          toolsEqual;
+      }));
+
+  return prev.content === next.content &&
+    prev.messageId === next.messageId &&
+    prev.isStreaming === next.isStreaming &&
+    prev.isCompressing === next.isCompressing &&
+    toolExecutionsEqual;
 });

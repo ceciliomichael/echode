@@ -120,10 +120,30 @@ export function removeCodeBlocks(content: string): string {
   let result = '';
   let i = 0;
   let inFence = false;
+  let inFunctionCalls = false;
+
+  const openTag = '<function_calls>';
+  const closeTag = '</function_calls>';
 
   while (i < content.length) {
+    if (!inFence) {
+      if (content.startsWith(openTag, i)) {
+        inFunctionCalls = true;
+        result += openTag;
+        i += openTag.length;
+        continue;
+      }
+
+      if (content.startsWith(closeTag, i)) {
+        inFunctionCalls = false;
+        result += closeTag;
+        i += closeTag.length;
+        continue;
+      }
+    }
+
     // Detect a triple-backtick fence at the current position
-    if (content.startsWith('```', i)) {
+    if (!inFunctionCalls && content.startsWith('```', i)) {
       inFence = !inFence;
       i += 3;
 
