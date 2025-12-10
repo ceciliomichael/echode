@@ -22,6 +22,8 @@ export interface ChatStreamSettings {
   temperature?: number;
   qwenCodeOauthPath?: string;
   enabledTools?: Array<{ id: string; enabled: boolean }>;
+  /** Current chat mode for mode-specific behavior */
+  chatMode?: 'agent' | 'plan' | 'ask' | 'general' | 'chat';
   /** Timeout in ms before retry if no streaming data received (default: 10000) */
   streamingTimeout?: number;
 }

@@ -26,25 +26,24 @@ export function ChatContainer() {
   const contentWidthClass = 'w-full max-w-3xl';
   const horizontalPaddingClass = 'px-4 sm:px-5 lg:px-6';
 
-  const { 
-    messages, 
-    isStreaming, 
+  const {
+    messages,
+    isStreaming,
     isExecutingTool,
     isCompressing,
     revertPreviewMessageId,
     editingMessageId,
-    sendMessage, 
-    editMessage, 
-    updateMessage, 
-    clearChat, 
-    abortStream, 
+    sendMessage,
+    editMessage,
+    updateMessage,
+    clearChat,
+    abortStream,
     loadSession,
     handleEditStart,
     handleEditCancel,
     handleRevertPreview,
     handleCancelRevert,
     updateToolResultData,
-    supersedePlanningTools,
     saveCurrentSession,
     abortedUserInput,
     abortedAttachments,
@@ -91,11 +90,10 @@ export function ChatContainer() {
   } = useChatScroll(visibleMessages.length, lastMessageKey, isStreaming, isExecutingTool || isCompressing);
 
   const handleSendMessage = useCallback(async (
-    content: string, 
-    attachments?: ImageAttachment[], 
+    content: string,
+    attachments?: ImageAttachment[],
     forceEchoSearch: boolean = false
   ) => {
-    supersedePlanningTools();
     // Enable auto-scroll when user sends a message
     setIsAutoScrollEnabled(true);
     // Attachments are now embedded in content as <attached_file> blocks
@@ -104,7 +102,7 @@ export function ChatContainer() {
     setTimeout(() => {
       scrollToBottom({ behavior: 'smooth' });
     }, 100);
-  }, [sendMessage, supersedePlanningTools, setIsAutoScrollEnabled, scrollToBottom]);
+  }, [sendMessage, setIsAutoScrollEnabled, scrollToBottom]);
 
   const handleSendHiddenMessage = useCallback(async (content: string) => {
     setIsAutoScrollEnabled(true);
@@ -182,60 +180,60 @@ export function ChatContainer() {
         />
       )}
 
-    <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--vscode-sideBar-background)' }}>
+      <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--vscode-sideBar-background)' }}>
         <div
           ref={scrollContainerRef}
           onScroll={handleScroll}
           data-chat-scroll-container="true"
           data-chat-message-list-boundary="true"
-        className={`flex-1 ${editingMessageId ? 'overflow-y-hidden' : 'overflow-y-auto'}`}
+          className={`flex-1 ${editingMessageId ? 'overflow-y-hidden' : 'overflow-y-auto'}`}
         >
           {visibleMessages.length === 0 ? (
-          <div className={`${contentWidthClass} mx-auto h-full py-3 sm:py-4 lg:py-6 ${horizontalPaddingClass}`}>
+            <div className={`${contentWidthClass} mx-auto h-full py-3 sm:py-4 lg:py-6 ${horizontalPaddingClass}`}>
               <ChatEmptyState />
             </div>
           ) : (
-          <div className={`${contentWidthClass} mx-auto py-3 sm:py-4 lg:py-6 ${horizontalPaddingClass}`}>
+            <div className={`${contentWidthClass} mx-auto py-3 sm:py-4 lg:py-6 ${horizontalPaddingClass}`}>
               <div className="space-y-3">
-              {visibleMessages.map((message, index) => {
-                const isLastAssistantMessage = index === visibleMessages.length - 1 && message.role === 'assistant';
+                {visibleMessages.map((message, index) => {
+                  const isLastAssistantMessage = index === visibleMessages.length - 1 && message.role === 'assistant';
 
-                // Determine if this assistant message participates in a planning tool chain
-                let planChainPosition: { connectTop: boolean; connectBottom: boolean } | undefined;
-                if (hasPlanningTool(message)) {
-                  const prevMsg = index > 0 ? visibleMessages[index - 1] : undefined;
-                  const nextMsg = index < visibleMessages.length - 1 ? visibleMessages[index + 1] : undefined;
+                  // Determine if this assistant message participates in a planning tool chain
+                  let planChainPosition: { connectTop: boolean; connectBottom: boolean } | undefined;
+                  if (hasPlanningTool(message)) {
+                    const prevMsg = index > 0 ? visibleMessages[index - 1] : undefined;
+                    const nextMsg = index < visibleMessages.length - 1 ? visibleMessages[index + 1] : undefined;
 
-                  const connectTop = !!(prevMsg && hasPlanningTool(prevMsg));
-                  const connectBottom = !!(nextMsg && hasPlanningTool(nextMsg));
+                    const connectTop = !!(prevMsg && hasPlanningTool(prevMsg));
+                    const connectBottom = !!(nextMsg && hasPlanningTool(nextMsg));
 
-                  if (connectTop || connectBottom) {
-                    planChainPosition = { connectTop, connectBottom };
+                    if (connectTop || connectBottom) {
+                      planChainPosition = { connectTop, connectBottom };
+                    }
                   }
-                }
-                
-                return (
-                  <MessageBubble
-                    key={message.id}
-                    message={message}
-                    onEdit={handleEdit}
-                    onUpdate={handleUpdate}
-                    isEditing={editingMessageId === message.id}
-                    onEditStart={handleEditStart}
-                    onEditCancel={handleCancel}
-                    onRevert={handleRevert}
-                    isStreaming={(isStreaming || isExecutingTool || isCompressing) && isLastAssistantMessage}
-                    isCompressing={isCompressing && isLastAssistantMessage}
-                    mode={mode}
-                    onModeChange={handleModeChange}
-                    provider={provider}
-                    model={model}
-                    onModelChange={setActiveProviderAndModel}
-                    contextUsage={contextUsage}
-                    planChainPosition={planChainPosition}
-                  />
-                );
-              })}
+
+                  return (
+                    <MessageBubble
+                      key={message.id}
+                      message={message}
+                      onEdit={handleEdit}
+                      onUpdate={handleUpdate}
+                      isEditing={editingMessageId === message.id}
+                      onEditStart={handleEditStart}
+                      onEditCancel={handleCancel}
+                      onRevert={handleRevert}
+                      isStreaming={(isStreaming || isExecutingTool || isCompressing) && isLastAssistantMessage}
+                      isCompressing={isCompressing && isLastAssistantMessage}
+                      mode={mode}
+                      onModeChange={handleModeChange}
+                      provider={provider}
+                      model={model}
+                      onModelChange={setActiveProviderAndModel}
+                      contextUsage={contextUsage}
+                      planChainPosition={planChainPosition}
+                    />
+                  );
+                })}
                 <div className="h-4 sm:h-6 lg:h-8" aria-hidden="true" />
               </div>
             </div>
@@ -244,14 +242,14 @@ export function ChatContainer() {
 
         <div className={`${horizontalPaddingClass}`}>
           <div className={`${contentWidthClass} mx-auto`}>
-            <ChatInput 
+            <ChatInput
               key={
                 abortedUserInput ||
                 (abortedAttachments ? `attachments-${abortedAttachments.length}` : '') ||
                 (abortedImageAttachments ? `images-${abortedImageAttachments.length}` : '') ||
                 'default'
               }
-              onSendMessage={handleSendMessage} 
+              onSendMessage={handleSendMessage}
               isStreaming={isStreaming}
               isExecutingTool={isExecutingTool}
               isCompressing={isCompressing}

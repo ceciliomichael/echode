@@ -3,98 +3,31 @@ import { getSettingsService, ApiSettings } from './settings-service';
 import { LLMFactory } from './llm/llm-factory';
 import { ChatStreamSettings, ChatMessage } from './llm/llm-provider.interface';
 
-const COMMIT_MESSAGE_SYSTEM_PROMPT = `You are an expert Git commit message generator. Analyze the code diff thoroughly and generate a detailed, well-structured commit message.
+const COMMIT_MESSAGE_SYSTEM_PROMPT = `Generate a concise Git commit message from the diff.
 
-## OUTPUT FORMAT
+## FORMAT
+type(scope): brief description
 
-<subject line>
+Optional: 1-2 sentence body if needed for context.
 
-<blank line>
-
-<bullet points describing specific changes>
-
-## SUBJECT LINE RULES
-
-1. Format: type(scope): concise summary of the overall change
-2. Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
-3. Scope: Use the actual module/component/file area from the code (e.g., auth, api, sidebar, chat, tools)
-4. Max 72 characters
-5. Imperative mood ("add" not "added", "fix" not "fixed")
-6. No period at end
-7. NO emojis
-8. Summarize the PRIMARY purpose of all changes
-
-## BULLET POINT RULES
-
-1. Start each bullet with "- "
-2. Each bullet describes ONE specific change
-3. Reference file names with backticks: \`filename.ts\`
-4. Be specific about WHAT was changed and WHY
-5. Use action verbs: Updated, Added, Removed, Refactored, Fixed, Enhanced, Improved, Streamlined, Revised
-6. Group related changes logically
-7. Include the impact or purpose of each change
-8. Order bullets by importance or logical flow
-
-## ANALYSIS APPROACH
-
-1. Identify ALL files changed in the diff
-2. For each file, determine:
-   - What specific functions/components/sections were modified
-   - The purpose of each modification
-   - How it relates to the overall change
-3. Group related changes across files
-4. Determine the primary theme/purpose of all changes combined
+## RULES
+- Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
+- Scope: module/component name (e.g., auth, api, chat)
+- Subject: max 50 chars, imperative mood, no period, no emoji
+- Body: only if the subject alone isn't clear enough
+- Keep it simple and scannable
 
 ## EXAMPLES
+feat(auth): add token refresh with retry logic
 
-GOOD:
-\`\`\`
-Refactor authentication flow and improve error handling
+fix(chat): resolve race condition in message queue
 
-- Updated \`auth-service.ts\` to implement token refresh with exponential backoff retry logic.
-- Added \`token-validator.ts\` with JWT validation and expiration checking utilities.
-- Enhanced \`login-handler.ts\` to display user-friendly error messages on auth failures.
-- Removed deprecated \`legacy-auth.ts\` module and migrated all references to new auth service.
-- Updated \`api-client.ts\` to automatically attach auth headers and handle 401 responses.
-\`\`\`
+refactor(api): simplify error handling across endpoints
 
-GOOD:
-\`\`\`
-Add user profile image upload with compression
-
-- Added \`image-upload.tsx\` component with drag-and-drop support and file type validation.
-- Implemented \`image-compressor.ts\` utility to resize images to max 500KB before upload.
-- Updated \`user-profile.tsx\` to integrate new upload component and display preview.
-- Added \`upload-service.ts\` with S3 presigned URL generation and multipart upload support.
-- Enhanced \`user-api.ts\` to handle profile image URL updates and cache invalidation.
-\`\`\`
-
-GOOD:
-\`\`\`
-Fix race condition in WebSocket reconnection logic
-
-- Fixed \`websocket-client.ts\` to properly cancel pending reconnection attempts on manual disconnect.
-- Added mutex lock in \`connection-manager.ts\` to prevent concurrent connection state modifications.
-- Updated \`message-queue.ts\` to buffer messages during reconnection and replay on successful connect.
-\`\`\`
-
-BAD (too vague):
-\`\`\`
-Update authentication files
-- Updated auth-service.ts
-- Updated login-handler.ts
-\`\`\`
-
-BAD (no detail):
-\`\`\`
-Fix bug
-
-- Fixed the issue
-\`\`\`
+Consolidated error responses and removed redundant try-catch blocks.
 
 ## OUTPUT
-
-Generate ONLY the commit message (subject + blank line + bullets). No explanations, no markdown code blocks, no additional commentary.`;
+Generate ONLY the commit message. No markdown, no explanations.`;
 
 /**
  * Interface for commit message settings stored in API settings
@@ -123,14 +56,14 @@ const PROVIDER_DEFAULT_URLS: Record<string, string> = {
  */
 function getChatStreamSettings(apiSettings: ApiSettings): ChatStreamSettings & { customPrompt?: string } {
   const commitSettings = apiSettings.commitMessageSettings as CommitMessageSettings | undefined;
-  
+
   // Use commit message settings if configured with a model
   const provider = (commitSettings?.provider && commitSettings?.model)
     ? commitSettings.provider as ChatStreamSettings['provider']
     : apiSettings.provider as ChatStreamSettings['provider'];
-  
+
   const commitModel = (commitSettings?.provider && commitSettings?.model) ? commitSettings.model : '';
-  
+
   let apiKey = '';
   let model = '';
   let maxTokens = 4096;
@@ -211,18 +144,18 @@ async function getGitDiff(): Promise<string | null> {
   }
 
   const repository = git.repositories[0];
-  
+
   try {
     // Try staged changes first
     const stagedDiff = await repository.diff(true);
-    
+
     if (stagedDiff && stagedDiff.trim() !== '') {
       return stagedDiff;
     }
 
     // Fall back to unstaged changes
     const unstagedDiff = await repository.diff(false);
-    
+
     if (unstagedDiff && unstagedDiff.trim() !== '') {
       return unstagedDiff;
     }
@@ -260,9 +193,9 @@ async function generateCommitMessage(diff: string): Promise<string | null> {
   ];
 
   try {
-    // For detailed commit messages with bullet points, we need more tokens
-    const commitSettings = { ...settings, maxTokens: 1024 };
-    
+    // Concise commit messages need fewer tokens
+    const commitSettings = { ...settings, maxTokens: 256 };
+
     // Use a temporary webview-like object to collect the response
     let response = '';
     const collector = {
@@ -277,7 +210,7 @@ async function generateCommitMessage(diff: string): Promise<string | null> {
 
     const provider = LLMFactory.getProvider(commitSettings.provider);
     const abortController = new AbortController();
-    
+
     await provider.streamChat(
       Date.now(),
       messages,

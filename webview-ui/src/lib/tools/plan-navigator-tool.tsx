@@ -23,10 +23,18 @@ registerToolPlugin({
     aiDescription: `## plan_navigator
 Present a question with clickable options to guide planning discussion.
 
+**CRITICAL: MUST USE BEFORE plan_handoff**
+Always use plan_navigator BEFORE plan_handoff if you have ANY:
+- Ambiguous requirements or unclear scope
+- Multiple possible implementation approaches
+- Technology, pattern, or styling choices
+- Assumptions that need validation
+
 **WHEN TO USE:**
 - Need user to choose between implementation strategies
 - Confirm a preference or approach
 - Narrow scope with predefined choices
+- Clarify any ambiguous requirements
 
 **Parameters:**
 - question: The question to ask (required)
@@ -36,6 +44,7 @@ Present a question with clickable options to guide planning discussion.
 - Keep question clear and concise
 - Keep options short (under 40 chars each)
 - Use instead of open-ended questions when you have specific paths
+- Ask ONE focused question at a time
 
 **EXAMPLE:**
 

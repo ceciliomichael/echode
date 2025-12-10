@@ -104,7 +104,14 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
   let instruction = '';
   
   if (filesRead.length > 0) {
-    instruction += `\n\n<session_state>\nFiles read: ${filesRead.slice(-10).join(', ')}${filesRead.length > 10 ? ` (+${filesRead.length - 10} more)` : ''}\nFor apply_diff: copy SEARCH content exactly from <tool_results> above.\n</session_state>`;
+    instruction += `\n\n<session_state>\nFiles read: ${filesRead.slice(-10).join(', ')}${filesRead.length > 10 ? ` (+${filesRead.length - 10} more)` : ''}`;
+
+    // Only mention apply_diff-specific guidance in editing-capable modes
+    if (mode === 'agent' || mode === 'general') {
+      instruction += `\nFor apply_diff: copy SEARCH content exactly from <tool_results> above.`;
+    }
+
+    instruction += `\n</session_state>`;
   }
   
   if (hasToolResults) {

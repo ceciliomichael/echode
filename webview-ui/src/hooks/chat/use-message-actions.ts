@@ -2,8 +2,9 @@ import { useCallback } from 'react';
 import type { Message } from '../../types/chat';
 import type { ToolExecutionState } from '../../types/tool';
 
-// Planning tool names that should be superseded when user sends a new message
-const PLANNING_TOOL_NAMES = ['plan_navigator', 'plan_handoff'];
+import { supersedePlanningToolsInMessages } from '../../utils/planning-utils';
+
+// Planning tool names defined in planning-utils.ts
 
 interface MessageActionsProps {
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
@@ -70,49 +71,7 @@ export function useMessageActions({ setMessages }: MessageActionsProps) {
   }, [setMessages]);
 
   const supersedePlanningTools = useCallback(() => {
-    setMessages(prevMessages => {
-      let hasChanges = false;
-
-      const newMessages = prevMessages.map(msg => {
-        if (msg.role !== 'assistant' || !msg.toolExecutions) {
-          return msg;
-        }
-
-        const newToolExecutions = new Map(msg.toolExecutions);
-        let messageChanged = false;
-
-        for (const [execId, execution] of newToolExecutions.entries()) {
-          if (!PLANNING_TOOL_NAMES.includes(execution.toolName)) {
-            continue;
-          }
-
-          const data = execution.result?.data as Record<string, unknown> | undefined;
-
-          if (data?.superseded) continue;
-          if (execution.toolName === 'plan_navigator' && data?.selectedIndex !== undefined) continue;
-          if (execution.toolName === 'plan_handoff' && data?.clicked) continue;
-
-          const updatedExecution: ToolExecutionState = {
-            ...execution,
-            result: {
-              ...execution.result,
-              success: execution.result?.success ?? true,
-              data: { ...data, superseded: true },
-            },
-          };
-          newToolExecutions.set(execId, updatedExecution);
-          messageChanged = true;
-          hasChanges = true;
-        }
-
-        if (messageChanged) {
-          return { ...msg, toolExecutions: newToolExecutions };
-        }
-        return msg;
-      });
-
-      return hasChanges ? newMessages : prevMessages;
-    });
+    setMessages(prevMessages => supersedePlanningToolsInMessages(prevMessages));
   }, [setMessages]);
 
   return {

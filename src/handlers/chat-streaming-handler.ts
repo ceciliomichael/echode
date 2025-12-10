@@ -43,7 +43,7 @@ export async function handleChatStream(
     const processedMessages = await Promise.all(
       messages.map(async (m) => {
         const cloned = { ...m };
-        
+
         // Expand @file mentions in user messages
         if (cloned.role === 'user' && workspaceRoot) {
           if (Array.isArray(cloned.content)) {
@@ -60,51 +60,67 @@ export async function handleChatStream(
             cloned.content = await expandMentions(cloned.content, workspaceRoot);
           }
         }
-        
+
         return cloned;
       })
     );
-    
+
     if (processedMessages.length > 0) {
       const lastMessage = processedMessages[processedMessages.length - 1];
       if (lastMessage.role === 'user') {
-        // Get enabled tools from settings
-        const enabledTools = settings.enabledTools?.filter(t => t.enabled) || [];
-        const enabledToolNames = enabledTools.map(t => `\`${t.id}\``).join(', ') || '';
-        
-        let toolsMessage = '';
-        if (enabledTools.length === 0) {
-          toolsMessage = '\nNo tools are currently enabled. You cannot use any tools for this request.';
-        } else {
-          toolsMessage = `\nENABLED TOOLS: ${enabledToolNames}\nThese are the ONLY tools you can use. Do not attempt to use any other tools.`;
-        }
+        // Get chat mode from settings - skip reminders for Chat mode
+        const chatMode = settings.chatMode || 'agent';
 
-        const systemReminder = `\n\n<system_reminder>\nPlease remember:${toolsMessage}
+        // Chat mode: NO tools, NO system reminder about tools
+        if (chatMode !== 'chat') {
+          // Get enabled tools from settings
+          const enabledTools = settings.enabledTools?.filter(t => t.enabled) || [];
+          const enabledToolNames = enabledTools.map(t => `\`${t.id}\``).join(', ') || '';
+
+          let toolsMessage = '';
+          if (enabledTools.length === 0) {
+            toolsMessage = '\nNo tools are currently enabled. You cannot use any tools for this request.';
+          } else {
+            const modeLabel = chatMode === 'plan' ? 'AVAILABLE' : 'ENABLED';
+            toolsMessage = `\n${modeLabel} TOOLS: ${enabledToolNames}\nThese are the ONLY tools you can use. Do not attempt to use any other tools.`;
+          }
+
+          // Mode-specific reminder content
+          let modeSpecificReminder = '';
+          if (chatMode === 'plan') {
+            modeSpecificReminder = '\n- You are in PLANNING mode - explore and plan, do NOT implement.';
+          } else if (chatMode === 'ask') {
+            modeSpecificReminder = '\n- You are in Q&A mode - answer questions, do NOT implement changes.';
+          }
+
+          const systemReminder = `\n\n<system_reminder>\nPlease remember:${toolsMessage}
 - Use only the XML format: <function_calls><invoke name="TOOL">...</invoke></function_calls>
 - Avoid redundant file reads when you already have the necessary code in context, but if you are unsure or need to verify details, call the relevant tool again instead of guessing.
 - Do not nest tool XML inside parameters.
 - Keep tool syntax internal. Never show it to the user.
 - Always base code descriptions and edits on the latest tool output you have. If you are missing details, fetch them with tools first.
-- Stay focused on the current task.
+- Stay focused on the current task.${modeSpecificReminder}
 </system_reminder>`;
 
-        // Handle multimodal content (text + images) properly
-        if (Array.isArray(lastMessage.content)) {
-          // Find the text content and append system reminder
-          const textContent = lastMessage.content.find(c => c.type === 'text');
-          if (textContent && textContent.text !== undefined) {
-            textContent.text += systemReminder;
+          // Handle multimodal content (text + images) properly
+          if (Array.isArray(lastMessage.content)) {
+            // Find the text content and append system reminder
+            const textContent = lastMessage.content.find(c => c.type === 'text');
+            if (textContent && textContent.text !== undefined) {
+              textContent.text += systemReminder;
+            }
+          } else {
+            // Simple string content
+            lastMessage.content += systemReminder;
           }
-        } else {
-          // Simple string content
-          lastMessage.content += systemReminder;
         }
+        // Chat mode: no system_reminder injected at all
       }
     }
 
     // Merge consecutive same-role messages for cleaner context (KiloCode pattern)
     const mergedMessages = mergeSameRoleChatMessages(processedMessages);
-    
+
     const provider = LLMFactory.getProvider(settings.provider);
     await provider.streamChat(requestId, mergedMessages, settings, webview, abortController.signal);
   } catch (error) {

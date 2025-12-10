@@ -98,6 +98,7 @@ export class ChatApiService {
       baseURL,
       qwenCodeOauthPath,
       enabledTools: enabledToolsForBackend,
+      chatMode: mode,
       streamingTimeout: settings.streamingTimeout || 5000,
     }, settings.provider);
 

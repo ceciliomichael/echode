@@ -65,12 +65,12 @@ export class UnifiedChatService implements IChatService {
     if (typeof window !== 'undefined' && window.vscode) {
       this.messageHandler = (event: MessageEvent) => {
         const message = event.data;
-        
+
         // Log all chat-related messages for debugging
         if (message.type?.startsWith('chatStream')) {
           console.log('[UnifiedChatService] Received message:', message.type, 'requestId:', message.requestId);
         }
-        
+
         const pending = this.pendingStreams.get(message.requestId);
 
         if (!pending) {
@@ -117,7 +117,7 @@ export class UnifiedChatService implements IChatService {
    */
   async *streamChat({ messages, signal }: StreamChatParams): AsyncGenerator<string, void, unknown> {
     console.log('[UnifiedChatService] streamChat called with', messages.length, 'messages');
-    
+
     if (typeof window === 'undefined' || !window.vscode) {
       throw new Error('VSCode API not available');
     }
@@ -167,6 +167,7 @@ export class UnifiedChatService implements IChatService {
             baseURL: this.config.baseURL,
             qwenCodeOauthPath: this.config.qwenCodeOauthPath,
             enabledTools: this.config.enabledTools,
+            chatMode: this.config.chatMode,
             streamingTimeout: this.config.streamingTimeout,
           }
         });

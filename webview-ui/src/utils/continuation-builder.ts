@@ -7,6 +7,12 @@ import { formatToolResultsForHistory } from './tool-result-formatter';
 import { buildChatMessage, getCurrentModel, isVisionCapableModel } from './vision-utils';
 import { summarizeToolSections } from './tool-context-cleaner';
 import { stripUnavailableToolCalls } from './tool-history-filter';
+import {
+  getAgentTodoReminder,
+  getPlanTodoReminder,
+  getAskTodoReminder,
+  getGeneralTodoReminder,
+} from '../prompts';
 
 /**
  * Context Management Constants
@@ -19,7 +25,7 @@ const N_MESSAGES_TO_ALWAYS_KEEP = 4;    // Always keep last N messages (like Kil
 /**
  * Context truncation notice - shown when older messages are removed
  */
-const CONTEXT_TRUNCATION_NOTICE = 
+const CONTEXT_TRUNCATION_NOTICE =
   `[NOTE] Some previous conversation history has been removed to maintain optimal context window length. ` +
   `The initial user task and the most recent exchanges have been retained for continuity.`;
 
@@ -34,7 +40,7 @@ interface TodoItem {
  * Mode-aware: Plan mode gets planning-focused instructions, Agent mode gets implementation instructions
  */
 export function buildTodoContext(todos: TodoItem[], mode: ChatMode = 'agent'): string {
-  if (todos.length === 0) {return '';}
+  if (todos.length === 0) { return ''; }
 
   const pendingTasks = todos
     .filter((t) => t.status === 'pending')
@@ -50,28 +56,31 @@ export function buildTodoContext(todos: TodoItem[], mode: ChatMode = 'agent'): s
     .join('\n');
 
   let todoContext = '\n\n<current_todo_list>\n';
-  if (pendingTasks) {todoContext += `Pending:\n${pendingTasks}\n\n`;}
-  if (inProgressTasks) {todoContext += `In Progress:\n${inProgressTasks}\n\n`;}
-  if (completedTasks) {todoContext += `Completed:\n${completedTasks}\n`;}
+  if (pendingTasks) { todoContext += `Pending:\n${pendingTasks}\n\n`; }
+  if (inProgressTasks) { todoContext += `In Progress:\n${inProgressTasks}\n\n`; }
+  if (completedTasks) { todoContext += `Completed:\n${completedTasks}\n`; }
   todoContext += '</current_todo_list>\n\n';
-  
-  // Mode-specific instructions
-  if (mode === 'plan') {
-    // Plan mode: remind AI it's still in planning, no editing tools, and allowed next actions
-    todoContext += '[PLANNING MODE: This is your implementation plan. You are still in PLANNING mode and you do NOT have editing tools. '
-      + 'Your allowed next actions are: (1) refine or expand this plan in natural language, (2) use plan_navigator to propose focused follow-up questions or branches, '
-      + 'or (3) use plan_handoff when the plan is complete and the user is ready to implement. Do NOT describe or attempt concrete code edits or file modifications in Plan mode.]';
-  } else if (mode === 'ask') {
-    // Ask mode: no task execution
-    todoContext += '[Q&A MODE: This todo list is for reference only. Focus on answering the user\'s question.]';
-  } else {
-    // Agent mode: implementation instructions
-    const hasIncompleteTasks = pendingTasks || inProgressTasks;
-    if (hasIncompleteTasks) {
-      todoContext += '[REMINDER: After completing a task, use todo_write to mark it as completed before starting the next task.]';
-    } else {
-      todoContext += '[All tasks completed. Respond to the user to conclude.]';
-    }
+
+  // Mode-specific reminders from prompts folder
+  const hasIncompleteTasks = !!(pendingTasks || inProgressTasks);
+
+  switch (mode) {
+    case 'plan':
+      todoContext += getPlanTodoReminder();
+      break;
+    case 'ask':
+      todoContext += getAskTodoReminder();
+      break;
+    case 'general':
+      todoContext += getGeneralTodoReminder(hasIncompleteTasks);
+      break;
+    case 'chat':
+      // Chat mode has no todo reminders
+      break;
+    case 'agent':
+    default:
+      todoContext += getAgentTodoReminder(hasIncompleteTasks);
+      break;
   }
 
   return todoContext;
@@ -117,7 +126,7 @@ export function buildContinuationHistory(
     // Keep first message (original task) + last N messages
     const firstMessage = currentMessages[0];
     const lastMessages = currentMessages.slice(-N_MESSAGES_TO_ALWAYS_KEEP);
-    
+
     // Check if first message is already in the last messages (avoid duplicate)
     if (lastMessages.includes(firstMessage)) {
       messagesToInclude = lastMessages;
@@ -132,17 +141,17 @@ export function buildContinuationHistory(
   // Add first message (original task context)
   if (messagesToInclude.length > 0) {
     const firstMsg = messagesToInclude[0];
-    
+
     // If truncated, clean any embedded tool sections from old message content
-    let cleanedContent = wasTruncated 
+    let cleanedContent = wasTruncated
       ? summarizeToolSections(firstMsg.content)
       : firstMsg.content;
-    
+
     // For assistant messages, strip tool call XML for tools not available in current mode
     if (firstMsg.role === 'assistant') {
       cleanedContent = stripUnavailableToolCalls(cleanedContent, mode);
     }
-    
+
     const chatMessage = buildChatMessage(
       firstMsg.role,
       cleanedContent,
@@ -188,12 +197,12 @@ export function buildContinuationHistory(
   // Add remaining messages (skip first since we already added it)
   for (let i = 1; i < messagesToInclude.length; i++) {
     const msg = messagesToInclude[i];
-    
+
     // For assistant messages, strip tool call XML for tools not available in current mode
     const processedContent = msg.role === 'assistant'
       ? stripUnavailableToolCalls(msg.content, mode)
       : msg.content;
-    
+
     // Build message with vision support if available
     const chatMessage = buildChatMessage(
       msg.role,
@@ -280,10 +289,10 @@ export function calculateContextTokens(
   messages: Message[]
 ): number {
   let tokens = estimateTokens(systemPrompt);
-  
+
   for (const msg of messages) {
     tokens += estimateTokens(msg.content);
-    
+
     if (msg.toolExecutions && msg.toolExecutions.size > 0) {
       msg.toolExecutions.forEach((execution) => {
         tokens += estimateTokens(execution.toolName);
@@ -294,6 +303,6 @@ export function calculateContextTokens(
       });
     }
   }
-  
+
   return tokens;
 }

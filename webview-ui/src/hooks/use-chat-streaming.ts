@@ -8,6 +8,7 @@ import { ToolExecutor } from '../lib/tool-executor';
 import { getToolsForMode } from '../lib/tool-config';
 import { getCurrentModel, isVisionCapableModel } from '../utils/vision-utils';
 import { storageService } from '../utils/storage';
+import { supersedePlanningToolsInMessages } from '../utils/planning-utils';
 
 // Import modular helpers
 import type { ChatStreamingProps } from './chat-streaming/types';
@@ -44,7 +45,7 @@ export function useChatStreaming({
   mode,
 }: ChatStreamingProps) {
   const workspace = useWorkspaceContext();
-  
+
   // Create tool executor for incremental execution
   const toolExecutorRef = { current: null as ToolExecutor | null };
   const getToolExecutor = () => {
@@ -99,7 +100,9 @@ export function useChatStreaming({
     };
 
     const baseMessages = overrideMessages ?? messages;
-    const nextMessages = [...baseMessages, userMessage];
+    // CRITICAL: Mark any active planning tools as superseded since user is responding with text
+    const supersededMessages = supersedePlanningToolsInMessages(baseMessages);
+    const nextMessages = [...supersededMessages, userMessage];
 
     // Save immediately with the precise nextMessages snapshot
     saveSession(nextMessages);
@@ -119,7 +122,7 @@ export function useChatStreaming({
       // === CONTEXT PREPARATION ===
       const latestWorkspace = window.workspaceContext || workspace;
       const systemPrompt = getSystemPrompt(latestWorkspace, mode);
-      const messagesToSend = overrideMessages !== undefined ? overrideMessages : messages;
+      const messagesToSend = overrideMessages !== undefined ? overrideMessages : supersededMessages;
 
       // Get context settings
       const settings = storageService.getSettings();
@@ -189,7 +192,7 @@ export function useChatStreaming({
         messagesToSendCount: messagesToSend.length,
         contentLength: content.length,
       });
-      
+
       const finalChatHistory = buildChatHistoryWithToolResults({
         systemPrompt,
         contextMessages,
@@ -251,7 +254,7 @@ export function useChatStreaming({
       // Save session after stream completion
       saveSession();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, workspace, executeToolAndContinue, setMessages, setIsStreaming, setIsExecutingTool, setIsCompressing, setCompressedContextTokens, setCompressedMessages, setCompressionAnchorId, compressedMessagesRef, compressedContextTokensRef, isStreamingRef, isExecutingToolRef, sendingMessageRef, abortControllerRef, hasStreamedContentRef, saveSession, mode, updateToolExecution]);
 
   return { sendMessage };
