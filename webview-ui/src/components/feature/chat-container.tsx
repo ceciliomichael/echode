@@ -187,6 +187,7 @@ export function ChatContainer() {
           data-chat-scroll-container="true"
           data-chat-message-list-boundary="true"
           className={`flex-1 ${editingMessageId ? 'overflow-y-hidden' : 'overflow-y-auto'}`}
+          style={{ scrollbarGutter: 'stable' }}
         >
           {visibleMessages.length === 0 ? (
             <div className={`${contentWidthClass} mx-auto h-full py-3 sm:py-4 lg:py-6 ${horizontalPaddingClass}`}>
@@ -240,7 +241,7 @@ export function ChatContainer() {
           )}
         </div>
 
-        <div className={`${horizontalPaddingClass}`}>
+        <div className={`${horizontalPaddingClass}`} style={{ paddingRight: 'calc(1rem + 8px)' }}>
           <div className={`${contentWidthClass} mx-auto`}>
             <ChatInput
               key={

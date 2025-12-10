@@ -97,7 +97,13 @@ export class EchoSearchTool implements ITool {
 
     const query = parameters.query as string;
     const searchPath = (parameters.path as string) || '';
-    const hints = (parameters.hints as string[]) || [];
+    // Normalize hints to always be an array (AI might pass a string instead of array)
+    const rawHints = parameters.hints;
+    const hints: string[] = Array.isArray(rawHints)
+      ? rawHints
+      : typeof rawHints === 'string' && rawHints.trim()
+        ? [rawHints]
+        : [];
     const indexingSettings = parameters.indexingSettings as IndexingSettings | undefined;
     const apiSettings = parameters.apiSettings as SubAgentApiSettings | undefined;
 

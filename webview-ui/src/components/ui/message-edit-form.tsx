@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo, type KeyboardEvent, type FormEvent, type ChangeEvent, type ClipboardEvent } from 'react';
 import { ArrowUp, Paperclip } from 'lucide-react';
 import { AttachmentPreview } from './attachment-preview';
+import { ImageAttachmentPreview } from './image-attachment-preview';
 import { ModeDropdown } from './mode-dropdown';
 import { ChatModelSelector } from './chat-model-selector';
 import { ContextMenu } from './context-menu';
@@ -14,6 +15,8 @@ import type { ChatMode } from '../../types/chat-mode';
 import type { ContextUsageResult } from '../../hooks/use-context-usage';
 
 import { processDocumentFiles, buildAllAttachedFileBlocks, extractTextAndAttachmentsFromContent, validateDocumentFile, fileToDocumentAttachment, type DocumentAttachment } from '../../utils/document-utils';
+import { validateImageFile, processImageFiles } from '../../utils/image-utils';
+import type { ImageAttachment } from '../../types/chat';
 import { removeMention, getMentionPath, unescapeSpaces, registerMentionPath, parseMentionFilenames } from '../../utils/mention-utils';
 import type { Provider } from '../../types/api-settings';
 
@@ -38,6 +41,7 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
   const [editContent, setEditContent] = useState(parsed.text);
   const [cursorPos, setCursorPos] = useState(parsed.text.length);
   const [editAttachments, setEditAttachments] = useState<DocumentAttachment[]>(attachments || parsed.attachments);
+  const [editImageAttachments, setEditImageAttachments] = useState<ImageAttachment[]>([]);
   const [scrollTop, setScrollTop] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -213,17 +217,47 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const remainingSlots = 3 - editAttachments.length;
+    const remainingSlots = 3 - (editAttachments.length + editImageAttachments.length);
     if (remainingSlots <= 0) return;
 
-    const { attachments: newAttachments, errors } = await processDocumentFiles(files, remainingSlots);
+    // Separate files into documents and images
+    const filesArray = Array.from(files);
+    const docFiles: File[] = [];
+    const imgFiles: File[] = [];
 
-    if (errors.length > 0) {
-      console.error('Document processing errors:', errors);
+    for (const file of filesArray) {
+      if (validateDocumentFile(file).valid) {
+        docFiles.push(file);
+      } else if (validateImageFile(file).valid) {
+        imgFiles.push(file);
+      }
     }
 
-    if (newAttachments.length > 0) {
-      setEditAttachments(prev => [...prev, ...newAttachments]);
+    // Process document files first
+    let usedSlots = 0;
+    if (docFiles.length > 0) {
+      const docFileList = createFileList(docFiles);
+      const { attachments: newDocAttachments, errors: docErrors } = await processDocumentFiles(docFileList, remainingSlots);
+      if (docErrors.length > 0) {
+        console.error('Document processing errors:', docErrors);
+      }
+      if (newDocAttachments.length > 0) {
+        setEditAttachments(prev => [...prev, ...newDocAttachments]);
+        usedSlots += newDocAttachments.length;
+      }
+    }
+
+    // Process image files with remaining slots
+    const remainingAfterDocs = remainingSlots - usedSlots;
+    if (imgFiles.length > 0 && remainingAfterDocs > 0) {
+      const imgFileList = createFileList(imgFiles);
+      const { attachments: newImgAttachments, errors: imgErrors } = await processImageFiles(imgFileList, remainingAfterDocs);
+      if (imgErrors.length > 0) {
+        console.error('Image processing errors:', imgErrors);
+      }
+      if (newImgAttachments.length > 0) {
+        setEditImageAttachments(prev => [...prev, ...newImgAttachments]);
+      }
     }
 
     if (fileInputRef.current) {
@@ -231,8 +265,19 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
     }
   };
 
+  // Helper to create a FileList-like object from File array
+  const createFileList = (files: File[]): FileList => {
+    const dataTransfer = new DataTransfer();
+    files.forEach(file => dataTransfer.items.add(file));
+    return dataTransfer.files;
+  };
+
   const handleRemoveAttachment = (index: number) => {
     setEditAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleRemoveImageAttachment = (index: number) => {
+    setEditImageAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
   const handlePaste = async (e: ClipboardEvent<HTMLTextAreaElement>) => {
@@ -287,15 +332,15 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
           <input
             ref={fileInputRef}
             type="file"
-            accept=".sh,.bash,.zsh,.txt,.md,.markdown,.ts,.tsx,.js,.jsx,.mjs,.cjs,.json,.jsonc,.py,.pyw,.java,.kt,.kts,.cs,.fs,.go,.rs,.cpp,.c,.cc,.cxx,.h,.hpp,.hxx,.rb,.php,.swift,.yaml,.yml,.toml,.ini,.cfg,.conf,.xml,.html,.htm,.css,.scss,.sass,.less,.sql,.r,.lua,.pl,.pm,.env,.gitignore,.dockerignore,.dockerfile,.makefile,.cmake,.gradle,.properties,.log,.csv,text/*,application/json"
+            accept=".sh,.bash,.zsh,.txt,.md,.markdown,.ts,.tsx,.js,.jsx,.mjs,.cjs,.json,.jsonc,.py,.pyw,.java,.kt,.kts,.cs,.fs,.go,.rs,.cpp,.c,.cc,.cxx,.h,.hpp,.hxx,.rb,.php,.swift,.yaml,.yml,.toml,.ini,.cfg,.conf,.xml,.html,.htm,.css,.scss,.sass,.less,.sql,.r,.lua,.pl,.pm,.env,.gitignore,.dockerignore,.dockerfile,.makefile,.cmake,.gradle,.properties,.log,.csv,text/*,application/json,.jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp"
             multiple
             onChange={handleFileChange}
             className="hidden"
-            aria-label="Upload images"
+            aria-label="Upload files"
           />
           <div className="w-full px-1.5 pt-1.5">
             <div className="flex flex-wrap items-center gap-1 min-h-[28px]">
-              {editAttachments.length === 0 ? (
+              {editAttachments.length === 0 && editImageAttachments.length === 0 ? (
                 <button
                   type="button"
                   onClick={handleAttachmentClick}
@@ -315,7 +360,12 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
                     onRemove={handleRemoveAttachment}
                     disabled={false}
                   />
-                  {editAttachments.length < 3 && (
+                  <ImageAttachmentPreview
+                    attachments={editImageAttachments}
+                    onRemove={handleRemoveImageAttachment}
+                    disabled={false}
+                  />
+                  {editAttachments.length + editImageAttachments.length < 3 && (
                     <button
                       type="button"
                       onClick={handleAttachmentClick}
@@ -374,10 +424,10 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
               <button
                 type="button"
                 onClick={handleAttachmentClick}
-                disabled={editAttachments.length >= 3}
+                disabled={editAttachments.length + editImageAttachments.length >= 3}
                 className="transition-opacity hover:opacity-70 p-1 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ color: 'var(--vscode-foreground)' }}
-                title={editAttachments.length >= 3 ? 'Maximum 3 attachments' : 'Attach images'}
+                title={editAttachments.length + editImageAttachments.length >= 3 ? 'Maximum 3 attachments' : 'Attach files'}
               >
                 <Paperclip className="w-3.5 h-3.5" />
               </button>
