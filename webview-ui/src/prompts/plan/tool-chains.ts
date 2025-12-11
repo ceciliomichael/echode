@@ -27,7 +27,7 @@ export function getPlanToolChains(enabledTools: Tool[] = []): string {
 
     // Documentation pattern
     if (enabledIds.has('todo_write')) {
-        patterns.push('DOCUMENT: Analyze findings → todo_write (capture plan)');
+        patterns.push('DOCUMENT: Analyze findings → structured plan in chat (primary) → compact task list in todo_write (summary only)');
     }
 
     if (patterns.length === 0) return '';

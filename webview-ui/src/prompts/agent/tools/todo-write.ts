@@ -26,5 +26,7 @@ IMPORTANT: Each task in JSON must have id, content, and status fields.
 GUIDELINES:
 - Map tasks directly to concrete steps in your mini plan.
 - Keep the list focused on the current request; avoid unrelated tasks.
+- Use short, action-focused descriptions; do NOT paste the full plan or conversation into todo_write.
+- Do not add testing or test-running tasks unless the user explicitly asks.
 - Update statuses as you complete each mini plan step.`;
 }

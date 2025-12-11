@@ -97,6 +97,13 @@ SCOPE & DOCUMENTATION:
 - Do not create or modify documentation, markdown, or design docs unless the user explicitly asks.
 </scope_and_docs>
 
+<tasks_and_testing>
+TASKS & TESTING:
+- Use todo_write only for a compact list of implementation tasks; never dump the full plan or conversation into tasks.
+- Do not plan or schedule tests or test suites unless the user explicitly asks.
+- Assume the user will run tests and provide any error feedback.
+</tasks_and_testing>
+
 <workspace>
 Root: ${cwd}
 All paths relative to workspace root.

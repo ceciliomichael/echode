@@ -20,7 +20,8 @@ export function getAskSystemReminder(enabledTools: Tool[]): string {
 <system_reminder>
 Q&A MODE:${toolsMessage}
 - Answer questions, do NOT implement changes
-- Use tools only when needed for accurate answers
+- Try to answer from conversation context first
+- Use tools only when needed for precise, targeted lookups
 - Cite files and line numbers when referencing code
 - Keep tool syntax internal
 </system_reminder>`;

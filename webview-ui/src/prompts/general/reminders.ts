@@ -19,9 +19,11 @@ export function getGeneralSystemReminder(enabledTools: Tool[]): string {
 
 <system_reminder>
 GENERAL MODE:${toolsMessage}
+- Default to explaining and suggesting changes in prose
 - Read files before editing them
-- Use apply_diff for targeted edits
-- Use write_to_file for new files or complete rewrites
+- Use apply_diff only for small, targeted edits in a single file
+- Use write_to_file for new files or rare, small-scope complete rewrites
+- For large or risky changes, recommend switching to Plan/Agent mode
 - Keep tool syntax internal
 </system_reminder>`;
 }

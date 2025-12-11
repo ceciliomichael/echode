@@ -5,7 +5,7 @@
 
 export function getTodoWriteInstructions(): string {
    return `## todo_write
-Document your implementation plan as tasks. Use ONE of the two parameter options:
+Capture a compact, high-level task list that corresponds to the plan you described in chat. Use ONE of the two parameter options:
 
 OPTION 1 - JSON (use 'tasks' parameter):
 <parameter name="tasks">[{"id":"1","content":"Explore auth module","status":"pending"},{"id":"2","content":"Ask about API approach","status":"in_progress"}]</parameter>
@@ -23,5 +23,10 @@ STATUS VALUES:
 - completed: Done
 
 Keep tasks concise and actionable.
-IMPORTANT: Each task in JSON must have id, content, and status fields.`;
+IMPORTANT: Each task in JSON must have id, content, and status fields.
+
+GUIDELINES:
+- Use todo_write only for a short, high-level task list that mirrors the chat plan.
+- Do NOT paste the full natural-language plan, explanations, or mermaid diagrams here.
+- The primary source of truth for the plan is the structured chat response.`;
 }

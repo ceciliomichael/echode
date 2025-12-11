@@ -27,7 +27,7 @@ AGENT MODE:${toolsMessage}
 - Use write_to_file for new files or complete rewrites
 - Keep write operations sequential (one write tool call at a time)
 - Do not create or modify documentation/markdown unless the user explicitly asks
-- Use todo_write to track progress
+- Use todo_write only for a compact list of implementation tasks; never copy the full plan there
 - Keep tool syntax internal
 </system_reminder>`;
 }

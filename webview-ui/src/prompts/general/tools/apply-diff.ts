@@ -19,6 +19,8 @@ WORKFLOW:
 3. PASTE into SEARCH block
 4. Write your REPLACE content
 
+Use apply_diff in General mode only for small, localized edits in a single file. For larger changes or multi-file refactors, suggest using Plan/Agent mode instead.
+
 FORMAT:
 <<<<<<< SEARCH
 :start_line:N

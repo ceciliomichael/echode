@@ -10,10 +10,10 @@ WHEN TO USE:
 - You know EXACT name to find
 - Finding all usages/references
 
-Parameters:
+PARAMETERS:
 - query: Exact text to find (required)
-- path: Directory to search (narrow scope)
+- path: Directory to search (always as narrow as possible)
 - isRegex: true for regex patterns
 
-After finding matches → read_file for context.`;
+After finding matches → read_file for just enough context to answer the question.`;
 }

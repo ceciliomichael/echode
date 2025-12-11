@@ -9,13 +9,14 @@ Create NEW files or complete file rewrites.
 ⚠️ CRITICAL: ONE write_to_file PER RESPONSE. Never batch multiple write_to_file or apply_diff calls in parallel.
 
 WHEN TO USE:
-- Creating NEW files
-- Complete rewrites (>50% changed)
-- After 2 failed apply_diff attempts
+- Creating NEW, small files (docs, helpers, config stubs)
+- Small-scope complete rewrites (>50% changed in a single file)
+- After 2 failed apply_diff attempts, when the change is still limited in scope
 
 Parameters:
 - path: File path (relative to workspace)
 - content: COMPLETE file content
 
-Content must be COMPLETE - no placeholders or truncation.`;
+Content must be COMPLETE - no placeholders or truncation.
+For large or multi-file rewrites, recommend switching to Agent mode instead of using write_to_file here.`;
 }

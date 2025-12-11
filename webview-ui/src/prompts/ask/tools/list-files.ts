@@ -4,12 +4,12 @@
 
 export function getListFilesInstructions(): string {
     return `## list_files
-Explore directory structure.
+Explore directory structure (small, relevant areas only).
 
 Parameters:
 - path: Directory to list (required)
 - recursive: Include subdirectories (default: false)
 - ignoreGitignore: Include gitignored files (default: false)
 
-NOTE: If user mentions a path not in context, try it - ignored paths auto-accessible.`;
+NOTE: Prefer listing specific directories related to the current question. Avoid listing very large or top-level directories unless strictly necessary.`;
 }

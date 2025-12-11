@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useMemo } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Undo2 } from 'lucide-react';
 import { MessageEditForm } from './message-edit-form';
 
@@ -6,50 +6,6 @@ import type { ChatMode } from '../../types/chat-mode';
 import type { Provider } from '../../types/api-settings';
 import type { ContextUsageResult } from '../../hooks/use-context-usage';
 import { stripAttachedFileBlocks, type DocumentAttachment } from '../../utils/document-utils';
-
-// Regex to match @mentions
-const MENTION_REGEX = /@([^\s@]+)/g;
-
-/**
- * Inline component to render text with blue @mentions
- * Simpler than MentionHighlighter - no overlay, just inline spans
- */
-function MentionTextInline({ text }: { text: string }) {
-  const segments = useMemo(() => {
-    const result: Array<{ text: string; isMention: boolean }> = [];
-    let lastIndex = 0;
-    let match;
-
-    const regex = new RegExp(MENTION_REGEX.source, 'g');
-
-    while ((match = regex.exec(text)) !== null) {
-      if (match.index > lastIndex) {
-        result.push({ text: text.slice(lastIndex, match.index), isMention: false });
-      }
-      result.push({ text: match[0], isMention: true });
-      lastIndex = match.index + match[0].length;
-    }
-
-    if (lastIndex < text.length) {
-      result.push({ text: text.slice(lastIndex), isMention: false });
-    }
-
-    return result;
-  }, [text]);
-
-  return (
-    <>
-      {segments.map((segment, index) => (
-        <span
-          key={index}
-          style={segment.isMention ? { color: '#3794ff' } : undefined}
-        >
-          {segment.text}
-        </span>
-      ))}
-    </>
-  );
-}
 
 interface UserMessageProps {
   content: string;
@@ -183,7 +139,7 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
               overflow: 'hidden'
             }}
           >
-            <MentionTextInline text={displayContent} />
+            {displayContent}
           </p>
         </div>
 

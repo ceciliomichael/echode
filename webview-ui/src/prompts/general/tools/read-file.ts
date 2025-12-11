@@ -19,8 +19,9 @@ Parameters:
 
 USAGE:
 1. Before ANY edit: read_file → COPY content → apply_diff
-2. Large files: Use offset/limit
-3. Multiple files: Batch reads in parallel
+2. Large files: Use offset/limit to focus only on the relevant region
+3. Multiple files: Batch reads in parallel only for a small number of relevant files
+4. Avoid reading unrelated files "just in case"; stay within the current request
 
 DON'T type content from memory for edits.
 

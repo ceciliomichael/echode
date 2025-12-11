@@ -10,7 +10,7 @@ import { AutocompleteTab } from './autocomplete-tab';
 import { ContextSettingsTab } from './context-settings-tab';
 import { CommitMessageTab } from './commit-message-tab';
 
-import { useProviderSettings } from '../../hooks/use-provider-settings';
+import { useProviderSettings } from '../../hooks/provider-settings';
 import { getAllTools } from '../../lib/tool-config';
 import type { ApiSettings, Tool, IndexingSettings, AutocompleteSettings, ContextSettings, CommitMessageSettings } from '../../types/api-settings';
 import { DEFAULT_INDEXING_SETTINGS, DEFAULT_AUTOCOMPLETE_SETTINGS, DEFAULT_CONTEXT_SETTINGS, DEFAULT_COMMIT_MESSAGE_SETTINGS } from '../../types/api-settings';

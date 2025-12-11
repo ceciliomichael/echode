@@ -7,16 +7,10 @@ import { ImageAttachmentPreview } from './image-attachment-preview';
 
 import { ModeDropdown } from './mode-dropdown';
 import { ChatModelSelector } from './chat-model-selector';
-import { ContextMenu } from './context-menu';
-import { MentionHighlighter } from './mention-highlighter';
 import { ContextIndicator } from './context-indicator';
 import { RefactorIndicator } from './refactor-indicator';
 import { useRefactorScan } from '../../hooks/use-refactor-scan';
 import type { ContextUsageResult } from '../../hooks/use-context-usage';
-
-import { useContextMenu } from '../../hooks/use-context-menu';
-import { useWorkspaceContext } from '../../hooks/use-workspace-context';
-import { clearMentionPaths, removeMention, getMentionPath, unescapeSpaces, registerMentionPath, resolveMentionsFromWorkspace } from '../../utils/mention-utils';
 
 import { buildRefactorMessage } from '../../utils/message-builders';
 import type { TodoTask } from '../../types/todo';
@@ -28,6 +22,7 @@ import type { Provider } from '../../types/api-settings';
 
 interface ChatInputProps {
   onSendMessage: (message: string, attachments?: ImageAttachment[], forceEchoSearch?: boolean) => void;
+  onNewChat?: () => void;
 
   disabled?: boolean;
   isStreaming?: boolean;
@@ -46,57 +41,19 @@ interface ChatInputProps {
   restoredImageAttachments?: ImageAttachment[] | null;
 }
 
-export function ChatInput({ onSendMessage, disabled = false, isStreaming = false, isExecutingTool = false, isCompressing = false, onStop, todos = [], mode, onModeChange, provider, model, onModelChange, contextUsage, restoredInput, restoredAttachments, restoredImageAttachments }: ChatInputProps) {
+export function ChatInput({ onSendMessage, onNewChat, disabled = false, isStreaming = false, isExecutingTool = false, isCompressing = false, onStop, todos = [], mode, onModeChange, provider, model, onModelChange, contextUsage, restoredInput, restoredAttachments, restoredImageAttachments }: ChatInputProps) {
   // Show stop button when streaming OR executing a tool (like echo_search)
   const showStopButton = isStreaming || isExecutingTool;
 
   const [input, setInput] = useState(restoredInput ?? '');
-
-  const [cursorPos, setCursorPos] = useState(0);
   const [attachments, setAttachments] = useState<DocumentAttachment[]>(restoredAttachments ?? []);
   const [imageAttachments, setImageAttachments] = useState<ImageAttachment[]>(restoredImageAttachments ?? []);
 
-  const [scrollTop, setScrollTop] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Get workspace files for mentions - use reactive hook so it updates when files change
-  const workspace = useWorkspaceContext();
-  const workspaceFiles = workspace?.files || [];
-
   // Get refactor scan results
   const { largeFiles, isScanning: isRefactorScanning } = useRefactorScan();
-
-  // Context menu hook for @ mentions
-  const handleInputChange = (newValue: string, newCursorPos?: number) => {
-    setInput(newValue);
-    if (newCursorPos !== undefined) {
-      setCursorPos(newCursorPos);
-    }
-  };
-
-  const contextMenu = useContextMenu({
-    value: input,
-    cursorPos,
-    onChange: handleInputChange,
-    textareaRef,
-    workspaceFiles,
-    enabled: !disabled && !isStreaming,
-  });
-
-  // When we restore aborted input (after a revert/abort), rebuild mention
-  // path mappings so that existing @mentions are recognized again.
-  useEffect(() => {
-    if (!restoredInput || !restoredInput.trim() || workspaceFiles.length === 0) {
-      return;
-    }
-
-    const mentionPaths = resolveMentionsFromWorkspace(restoredInput, workspaceFiles);
-    for (const fullPath of mentionPaths) {
-      const basename = fullPath.split(/[/\\]/).pop() || fullPath;
-      registerMentionPath(basename, fullPath);
-    }
-  }, [restoredInput, workspaceFiles]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -126,50 +83,14 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
       setInput('');
       setAttachments([]);
       setImageAttachments([]);
-      clearMentionPaths(); // Clear mention path mappings after sending
     }
   };
 
   const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
-    setCursorPos(e.target.selectionStart || 0);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    // Let context menu handle keyboard events
-    if (contextMenu.handleKeyDown(e)) {
-      return;
-    }
-
-    // Handle backspace to remove whole mention if it's a registered one
-    // Two-step: first backspace removes trailing space, second removes mention
-    if (e.key === 'Backspace') {
-      // Get fresh cursor position from the textarea
-      const currentPos = e.currentTarget.selectionStart || 0;
-      const beforeCursor = input.slice(0, currentPos);
-      // Only match @mention WITHOUT trailing space (cursor right at end of mention)
-      const mentionMatch = beforeCursor.match(/@([^\s@]+)$/);
-      if (mentionMatch) {
-        const mentionText = unescapeSpaces(mentionMatch[1]);
-        // Only remove whole mention if it's registered (highlighted)
-        if (getMentionPath(mentionText) !== undefined) {
-          e.preventDefault();
-          const result = removeMention(input, currentPos);
-          if (result) {
-            setInput(result.newText);
-            setCursorPos(result.newCursorPos);
-            // Set cursor position after state update
-            requestAnimationFrame(() => {
-              if (textareaRef.current) {
-                textareaRef.current.setSelectionRange(result.newCursorPos, result.newCursorPos);
-              }
-            });
-          }
-          return;
-        }
-      }
-    }
-
     if (e.key === 'Enter' && !e.shiftKey) {
       // Ctrl+Enter: force echo_search for Agent, Plan, and Ask modes
       if (e.ctrlKey || e.metaKey) {
@@ -182,12 +103,6 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
       e.preventDefault();
       handleSubmit(e);
     }
-  };
-
-  // Track cursor position on selection change
-  const handleSelect = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
-    const target = e.target as HTMLTextAreaElement;
-    setCursorPos(target.selectionStart || 0);
   };
 
   const handleAttachmentClick = () => {
@@ -347,19 +262,21 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
   };
 
   const handleRefactorRequest = (filePath: string) => {
-    // Extract basename
-    const basename = filePath.split(/[/\\]/).pop() || filePath;
-
-    // Register mention path so the system knows the full path
-    registerMentionPath(basename, filePath);
-
-    // Build and send refactor message
-    const message = buildRefactorMessage(basename);
-    onSendMessage(message, undefined, false);
-
-    // Clear mentions after a short delay to ensure processing
+    // Create a new chat session for the refactor task
+    if (onNewChat) {
+      onNewChat();
+    }
+    
+    // Switch to plan mode for refactoring
+    if (onModeChange && mode !== 'plan') {
+      onModeChange('plan');
+    }
+    
+    // Small delay to ensure new chat is created before sending message
     setTimeout(() => {
-      clearMentionPaths();
+      // Build and send refactor message with full path
+      const message = buildRefactorMessage(filePath);
+      onSendMessage(message, undefined, false);
     }, 100);
   };
 
@@ -470,36 +387,19 @@ export function ChatInput({ onSendMessage, disabled = false, isStreaming = false
           </div>
 
           <div className="w-full relative rounded-xl">
-            {/* Context menu - positioned above textarea */}
-            {contextMenu.isOpen && (
-              <ContextMenu
-                options={contextMenu.options}
-                selectedIndex={contextMenu.selectedIndex}
-                onSelect={contextMenu.handleSelect}
-                onClose={contextMenu.close}
-                onMouseDown={contextMenu.preventClose}
-                setSelectedIndex={contextMenu.setSelectedIndex}
-              />
-            )}
-            {/* Mention highlighter - positioned behind textarea */}
-            <MentionHighlighter text={input} scrollTop={scrollTop} textareaRef={textareaRef} />
             <textarea
               ref={textareaRef}
               value={input}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
-              onSelect={handleSelect}
-              onClick={handleSelect}
-              onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
-              placeholder="Type your message... (use @ for files)"
+              placeholder="Type your message..."
               disabled={disabled || isStreaming}
               rows={1}
-              className="w-full px-1.5 py-1 rounded-xl bg-transparent text-sm leading-normal min-h-[36px] max-h-[100px] overflow-y-auto resize-none border-0 relative z-10 disabled:opacity-50 disabled:cursor-not-allowed placeholder:opacity-50"
+              className="w-full px-1.5 py-1 rounded-xl bg-transparent text-sm leading-normal min-h-[36px] max-h-[100px] overflow-y-auto resize-none border-0 disabled:opacity-50 disabled:cursor-not-allowed placeholder:opacity-50"
               style={{
-                color: 'transparent',
+                color: 'var(--vscode-input-foreground)',
                 outline: 'none',
-                caretColor: 'var(--vscode-input-foreground)',
               }}
             />
           </div>

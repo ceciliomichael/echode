@@ -1,23 +1,18 @@
-import { useState, useRef, useEffect, useMemo, type KeyboardEvent, type FormEvent, type ChangeEvent, type ClipboardEvent } from 'react';
+import { useState, useRef, useEffect, type KeyboardEvent, type FormEvent, type ChangeEvent, type ClipboardEvent } from 'react';
 import { ArrowUp, Paperclip } from 'lucide-react';
 import { AttachmentPreview } from './attachment-preview';
 import { ImageAttachmentPreview } from './image-attachment-preview';
 import { ModeDropdown } from './mode-dropdown';
 import { ChatModelSelector } from './chat-model-selector';
-import { ContextMenu } from './context-menu';
-import { MentionHighlighter } from './mention-highlighter';
 import { ContextIndicator } from './context-indicator';
 
-import { useContextMenu } from '../../hooks/use-context-menu';
 import { useDropdownDirection } from '../../hooks/use-dropdown-direction';
-import { useWorkspaceContext } from '../../hooks/use-workspace-context';
 import type { ChatMode } from '../../types/chat-mode';
 import type { ContextUsageResult } from '../../hooks/use-context-usage';
 
 import { processDocumentFiles, buildAllAttachedFileBlocks, extractTextAndAttachmentsFromContent, validateDocumentFile, fileToDocumentAttachment, type DocumentAttachment } from '../../utils/document-utils';
 import { validateImageFile, processImageFiles } from '../../utils/image-utils';
 import type { ImageAttachment } from '../../types/chat';
-import { removeMention, getMentionPath, unescapeSpaces, registerMentionPath, parseMentionFilenames } from '../../utils/mention-utils';
 import type { Provider } from '../../types/api-settings';
 
 interface MessageEditFormProps {
@@ -39,53 +34,12 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
   const parsed = extractTextAndAttachmentsFromContent(initialContent);
 
   const [editContent, setEditContent] = useState(parsed.text);
-  const [cursorPos, setCursorPos] = useState(parsed.text.length);
   const [editAttachments, setEditAttachments] = useState<DocumentAttachment[]>(attachments || parsed.attachments);
   const [editImageAttachments, setEditImageAttachments] = useState<ImageAttachment[]>([]);
-  const [scrollTop, setScrollTop] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropdownDirection = useDropdownDirection(containerRef);
-
-  // Get workspace files for mentions - use reactive hook so it updates when workspace changes
-  const workspace = useWorkspaceContext();
-  const workspaceFiles = useMemo(() => workspace?.files || [], [workspace]);
-
-  // Register mentions from initial content so they get highlighted
-  // Only register mentions that actually match workspace files
-  // This prevents pasted @something text from being treated as file mentions
-  useMemo(() => {
-    const mentions = parseMentionFilenames(parsed.text);
-    for (const mention of mentions) {
-      // Try to find the full path in workspace files
-      const matchingFile = workspaceFiles.find(f => {
-        const basename = f.split('/').pop() || f;
-        return basename.toLowerCase() === mention.toLowerCase();
-      });
-      // Only register if it matches an actual workspace file
-      if (matchingFile) {
-        registerMentionPath(mention, matchingFile);
-      }
-    }
-  }, [parsed.text, workspaceFiles]);
-
-  // Context menu hook for @ mentions
-  const handleInputChange = (newValue: string, newCursorPos?: number) => {
-    setEditContent(newValue);
-    if (newCursorPos !== undefined) {
-      setCursorPos(newCursorPos);
-    }
-  };
-
-  const contextMenu = useContextMenu({
-    value: editContent,
-    cursorPos,
-    onChange: handleInputChange,
-    textareaRef,
-    workspaceFiles,
-    enabled: true,
-  });
 
   useEffect(() => {
     // Use requestAnimationFrame to ensure DOM is ready before focusing
@@ -150,43 +104,9 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
 
   const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     setEditContent(e.target.value);
-    setCursorPos(e.target.selectionStart || 0);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    // Let context menu handle keyboard events first
-    if (contextMenu.handleKeyDown(e)) {
-      return;
-    }
-
-    // Handle backspace to remove whole mention if it's a registered one
-    // Two-step: first backspace removes trailing space, second removes mention
-    if (e.key === 'Backspace') {
-      // Get fresh cursor position from the textarea
-      const currentPos = e.currentTarget.selectionStart || 0;
-      const beforeCursor = editContent.slice(0, currentPos);
-      // Only match @mention WITHOUT trailing space (cursor right at end of mention)
-      const mentionMatch = beforeCursor.match(/@([^\s@]+)$/);
-      if (mentionMatch) {
-        const mentionText = unescapeSpaces(mentionMatch[1]);
-        // Only remove whole mention if it's registered (highlighted)
-        if (getMentionPath(mentionText) !== undefined) {
-          e.preventDefault();
-          const result = removeMention(editContent, currentPos);
-          if (result) {
-            setEditContent(result.newText);
-            setCursorPos(result.newCursorPos);
-            requestAnimationFrame(() => {
-              if (textareaRef.current) {
-                textareaRef.current.setSelectionRange(result.newCursorPos, result.newCursorPos);
-              }
-            });
-          }
-          return;
-        }
-      }
-    }
-
     if (e.key === 'Enter' && !e.shiftKey) {
       // Ctrl+Enter: force echo_search for Agent, Plan, and Ask modes
       if (e.ctrlKey || e.metaKey) {
@@ -201,12 +121,6 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
     } else if (e.key === 'Escape') {
       onCancel();
     }
-  };
-
-  // Track cursor position on selection change
-  const handleSelect = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
-    const target = e.target as HTMLTextAreaElement;
-    setCursorPos(target.selectionStart || 0);
   };
 
   const handleAttachmentClick = () => {
@@ -385,36 +299,18 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
           </div>
 
           <div className="w-full relative rounded-xl">
-            {/* Context menu - positioned below textarea */}
-            {contextMenu.isOpen && (
-              <ContextMenu
-                options={contextMenu.options}
-                selectedIndex={contextMenu.selectedIndex}
-                onSelect={contextMenu.handleSelect}
-                onClose={contextMenu.close}
-                onMouseDown={contextMenu.preventClose}
-                setSelectedIndex={contextMenu.setSelectedIndex}
-                direction="down"
-              />
-            )}
-            {/* Mention highlighter - positioned behind textarea */}
-            <MentionHighlighter text={editContent} scrollTop={scrollTop} textareaRef={textareaRef} highlightAll={true} />
             <textarea
               ref={textareaRef}
               value={editContent}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
-              onSelect={handleSelect}
-              onClick={handleSelect}
-              onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
-              placeholder="Type your message... (use @ to mention files)"
+              placeholder="Type your message..."
               rows={1}
-              className="w-full px-1.5 py-1 rounded-xl bg-transparent text-sm leading-normal min-h-[36px] max-h-[100px] overflow-y-auto resize-none border-0 relative z-10"
+              className="w-full px-1.5 py-1 rounded-xl bg-transparent text-sm leading-normal min-h-[36px] max-h-[100px] overflow-y-auto resize-none border-0"
               style={{
-                color: 'transparent',
+                color: 'var(--vscode-input-foreground)',
                 outline: 'none',
-                caretColor: 'var(--vscode-input-foreground)',
               }}
             />
           </div>

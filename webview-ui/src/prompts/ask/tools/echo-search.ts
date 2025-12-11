@@ -22,5 +22,10 @@ BE SPECIFIC:
 - ✓ "how is user authentication implemented"
 
 USE grep_search INSTEAD when:
-- You know EXACT function/variable name`;
+- You know EXACT function/variable name
+
+BOUNDS:
+- Use a small number of focused echo_search calls to support answering the current question.
+- Prefer grep_search once you know the identifier you need.
+- Stop exploring once you have enough information to answer accurately.`;
 }

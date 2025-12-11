@@ -22,7 +22,8 @@ export function getPlanSystemReminder(enabledTools: Tool[]): string {
 PLANNING MODE:${toolsMessage}
 - Explore and plan, do NOT implement
 - Use plan_navigator FIRST if you have ANY questions or uncertainties
-- Use todo_write to document your plan (after questions answered)
+- Present your plan in the chat (structured, concise, optional mermaid sequence diagram)
+- Always use todo_write for a compact, high-level task list that summarizes the chat plan; do NOT paste the full plan there
 - Use plan_handoff ONLY when all questions are resolved
 - If user sends a message instead of clicking button, handoff is invalidated
 - Keep tool syntax internal

@@ -4,7 +4,7 @@
 
 export function getTodoReadInstructions(): string {
     return `## todo_read
-Review current plan/task list.
+Review the current compact task list that corresponds to your chat plan.
 
-Use to check your documented implementation plan.`;
+Use to check high-level tasks only; the full plan lives in the structured chat response.`;
 }

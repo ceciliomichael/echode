@@ -285,6 +285,7 @@ export function ChatContainer() {
                 'default'
               }
               onSendMessage={handleSendMessage}
+              onNewChat={onNewChat}
               isStreaming={isStreaming}
               isExecutingTool={isExecutingTool}
               isCompressing={isCompressing}
