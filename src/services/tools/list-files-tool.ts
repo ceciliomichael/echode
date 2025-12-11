@@ -1,18 +1,24 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { ITool, ToolExecutionResult } from './tool.interface';
 import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
 import { parseGitignore, matchesGitignorePattern } from '../../constants/excluded-patterns';
 
 const MAX_LIST_FILES_RESULTS = 200;
 
-// Cache for gitignore patterns
+interface GitignoreContext {
+  basePath: string; // Relative path from workspace root
+  patterns: string[];
+}
+
+// Cache for gitignore contexts
 const gitignoreCache = new Map<string, string[]>();
 
-function getGitignorePatterns(workspacePath: string): string[] {
-  if (!gitignoreCache.has(workspacePath)) {
-    gitignoreCache.set(workspacePath, parseGitignore(workspacePath));
+function getGitignorePatterns(dirPath: string): string[] {
+  if (!gitignoreCache.has(dirPath)) {
+    gitignoreCache.set(dirPath, parseGitignore(dirPath));
   }
-  return gitignoreCache.get(workspacePath) || [];
+  return gitignoreCache.get(dirPath) || [];
 }
 
 /**
@@ -22,16 +28,48 @@ export function clearListFilesGitignoreCache(): void {
   gitignoreCache.clear();
 }
 
-function shouldExcludeFileFromListing(name: string, workspacePath?: string, relativePath?: string): boolean {
+function shouldExcludeFileFromListing(
+  name: string,
+  workspacePath: string,
+  relativePath: string,
+  contexts: GitignoreContext[],
+  ignoreGitignore?: boolean
+): boolean {
   if (name.toLowerCase() === 'agents.md'.toLowerCase()) {
     return true;
   }
 
-  // Check gitignore patterns
-  if (workspacePath) {
-    const gitignorePatterns = getGitignorePatterns(workspacePath);
-    const pathToCheck = relativePath || name;
-    if (matchesGitignorePattern(pathToCheck, gitignorePatterns)) {
+  // Skip exclusion check if requested (allows listing ignored directories)
+  if (ignoreGitignore) {
+    return false;
+  }
+
+  // Check against all active gitignore contexts
+  for (const context of contexts) {
+    // Calculate path relative to this gitignore context
+    // If context base is '', path is relativePath
+    // If context base is 'src', and relativePath is 'src/file', rel is 'file'
+    let relToContext: string;
+
+    if (context.basePath === '') {
+      relToContext = relativePath || name;
+    } else {
+      // Only apply if file is inside this context's base
+      // e.g. base='src', file='src/foo' -> 'foo'
+      // file='dist/bar' -> not inside, skip
+
+      // Normalize separators
+      const relPathNorm = (relativePath || name).replace(/\\/g, '/');
+      const baseNorm = context.basePath.replace(/\\/g, '/');
+
+      if (relPathNorm === baseNorm || relPathNorm.startsWith(baseNorm + '/')) {
+        relToContext = relPathNorm.slice(baseNorm.length + 1); // +1 for slash
+      } else {
+        continue; // File not in this context
+      }
+    }
+
+    if (matchesGitignorePattern(relToContext, context.patterns)) {
       return true;
     }
   }
@@ -45,17 +83,34 @@ async function collectFilesRecursively(
   currentRelPath: string,
   files: Array<{ name: string; type: string; size?: number }>,
   truncatedRef: { value: boolean },
+  ignoreGitignore: boolean | undefined,
+  contexts: GitignoreContext[]
 ): Promise<void> {
   if (truncatedRef.value) {
     return;
   }
 
-  const effectiveRelPath = currentRelPath || baseDirPath;
-  const absolutePath = effectiveRelPath
-    ? resolveAbsolutePath(effectiveRelPath, workspaceRoot)
+  // Check for .gitignore in this directory and add to contexts
+  let localContexts = contexts;
+  const absolutePath = currentRelPath
+    ? resolveAbsolutePath(currentRelPath, workspaceRoot)
     : workspaceRoot;
-  const uri = vscode.Uri.file(absolutePath);
 
+  const gitignorePath = path.join(absolutePath, '.gitignore');
+  let hasGitignore = false;
+  try {
+    // Check if .gitignore exists (without simple fs.exists which is deprecated)
+    // Actually getGitignorePatterns handles parsing internally, but parseGitignore uses fs.existsSync?
+    // We can just rely on getGitignorePatterns returning [] if file empty or missing?
+    // But we want to avoid disk read if possible? 
+    // Safe to just call getGitignorePatterns for current directory
+    const patterns = getGitignorePatterns(absolutePath);
+    if (patterns.length > 0) {
+      localContexts = [...contexts, { basePath: currentRelPath || '', patterns }];
+    }
+  } catch (e) { }
+
+  const uri = vscode.Uri.file(absolutePath);
   const entries = await vscode.workspace.fs.readDirectory(uri);
 
   for (const [name, fileType] of entries) {
@@ -68,23 +123,23 @@ async function collectFilesRecursively(
       continue;
     }
 
-    const childRelPath = effectiveRelPath
-      ? `${effectiveRelPath}/${name}`
+    const childRelPath = currentRelPath
+      ? `${currentRelPath}/${name}`
       : name;
 
     if (fileType === vscode.FileType.Directory) {
       // Check if directory should be excluded
-      if (shouldExcludeFileFromListing(name, workspaceRoot, childRelPath)) {
+      if (shouldExcludeFileFromListing(name, workspaceRoot, childRelPath, localContexts, ignoreGitignore)) {
         continue;
       }
-      await collectFilesRecursively(workspaceRoot, baseDirPath, childRelPath, files, truncatedRef);
+      await collectFilesRecursively(workspaceRoot, baseDirPath, childRelPath, files, truncatedRef, ignoreGitignore, localContexts);
     } else if (fileType === vscode.FileType.File) {
       if (files.length >= MAX_LIST_FILES_RESULTS) {
         truncatedRef.value = true;
         break;
       }
 
-      if (shouldExcludeFileFromListing(name, workspaceRoot, childRelPath)) {
+      if (shouldExcludeFileFromListing(name, workspaceRoot, childRelPath, localContexts, ignoreGitignore)) {
         continue;
       }
 
@@ -110,6 +165,8 @@ export class ListFilesTool implements ITool {
     const dirPath = (parameters.path as string) || '';
     const rawRecursive = parameters.recursive;
     const recursive = rawRecursive === true || rawRecursive === 'true';
+    const rawIgnoreGitignore = parameters.ignoreGitignore;
+    const ignoreGitignore = rawIgnoreGitignore === true || rawIgnoreGitignore === 'true';
 
     try {
       const workspaceRoot = getWorkspaceRoot();
@@ -125,6 +182,30 @@ export class ListFilesTool implements ITool {
       const directories: Array<{ name: string; type: string }> = [];
       const truncatedRef = { value: false };
 
+
+      // Initial contexts: scan up from dirPath
+      const contexts: GitignoreContext[] = [];
+
+      // 1. Root context
+      contexts.push({ basePath: '', patterns: getGitignorePatterns(workspaceRoot) });
+
+      // 2. Scan intermediate directories if dirPath is set
+      // e.g. path='src/tools'. Check 'src/.gitignore' and 'src/tools/.gitignore'
+      // BUT `getGitignorePatterns` expects Absolute FS Path.
+
+      if (dirPath) {
+        const parts = dirPath.split('/');
+        let currentBuild = '';
+        for (const part of parts) {
+          currentBuild = currentBuild ? `${currentBuild}/${part}` : part;
+          const abs = resolveAbsolutePath(currentBuild, workspaceRoot);
+          const patterns = getGitignorePatterns(abs);
+          if (patterns.length > 0) {
+            contexts.push({ basePath: currentBuild, patterns });
+          }
+        }
+      }
+
       for (const [name, fileType] of entries) {
         // Skip hidden files/folders (except .gitignore)
         if (name.startsWith('.') && name !== '.gitignore') {
@@ -133,7 +214,7 @@ export class ListFilesTool implements ITool {
 
         const relPath = dirPath ? `${dirPath}/${name}` : name;
 
-        if (shouldExcludeFileFromListing(name, workspaceRoot, relPath)) {
+        if (shouldExcludeFileFromListing(name, workspaceRoot, relPath, contexts, ignoreGitignore)) {
           continue;
         }
 
@@ -141,7 +222,7 @@ export class ListFilesTool implements ITool {
           directories.push({ name, type: 'directory' });
 
           if (recursive) {
-            await collectFilesRecursively(workspaceRoot, dirPath, relPath, files, truncatedRef);
+            await collectFilesRecursively(workspaceRoot, dirPath, relPath, files, truncatedRef, ignoreGitignore, contexts);
           }
         } else if (fileType === vscode.FileType.File) {
           if (files.length >= MAX_LIST_FILES_RESULTS) {

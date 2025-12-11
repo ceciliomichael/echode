@@ -8,5 +8,6 @@ Explore directory structure.
 
 Parameters:
 - path: Directory to list (required)
-- recursive: Include subdirectories (default: false)`;
+- recursive: Include subdirectories (default: false)
+- ignoreGitignore: Include gitignored files (default: false)`;
 }

@@ -66,15 +66,21 @@ export async function buildCompressedContextIfNeeded(
     return messages;
   }
 
+  // Helper to strip tool executions from a message
+  const stripToolExecutions = (msg: Message): Message => ({
+    ...msg,
+    toolExecutions: undefined,
+  });
+
   const compressedMessages: Message[] = [];
-  compressedMessages.push(...analysis.firstMessages);
+  compressedMessages.push(...analysis.firstMessages.map(stripToolExecutions));
   compressedMessages.push({
     id: `compressed-summary-${Date.now()}`,
     role: 'assistant',
     content: `[Context Summary]\n${summaryResult.summary}`,
     timestamp: new Date(),
   });
-  compressedMessages.push(...analysis.recentMessages);
+  compressedMessages.push(...analysis.recentMessages.map(stripToolExecutions));
 
   return compressedMessages;
 }

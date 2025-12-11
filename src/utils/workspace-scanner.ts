@@ -2,60 +2,60 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { parseGitignore, matchesGitignorePattern } from '../constants/excluded-patterns';
 
-import { EXCLUDED_FILES as PATTERNS_EXCLUDED_FILES } from '../constants/excluded-patterns';
-
-const EXCLUDED_FILES = PATTERNS_EXCLUDED_FILES
-  .filter(f => !f.startsWith('*')) // Filter out glob patterns for exact matching
-  .map((file) => file.toLowerCase());
-
-// File extension patterns (e.g., *.pyc)
-const EXCLUDED_EXTENSIONS = PATTERNS_EXCLUDED_FILES
-  .filter(f => f.startsWith('*.'))
-  .map(f => f.slice(1).toLowerCase()); // Remove * prefix
-
 // Cache for gitignore patterns per workspace
+interface GitignoreContext {
+  basePath: string; // Relative path from workspace root
+  patterns: string[];
+}
+
+// Cache for gitignore contexts
 const gitignoreCache = new Map<string, string[]>();
 
-/**
- * Get gitignore patterns for a workspace (cached)
- */
-function getGitignorePatterns(workspacePath: string): string[] {
-  if (!gitignoreCache.has(workspacePath)) {
-    gitignoreCache.set(workspacePath, parseGitignore(workspacePath));
+function getGitignorePatterns(dirPath: string): string[] {
+  if (!gitignoreCache.has(dirPath)) {
+    gitignoreCache.set(dirPath, parseGitignore(dirPath));
   }
-  return gitignoreCache.get(workspacePath) || [];
+  return gitignoreCache.get(dirPath) || [];
 }
 
 /**
  * Clear gitignore cache (useful when .gitignore changes)
- * Also clears the workspaceExcludedDirs cache
  */
 export function clearGitignoreCache(): void {
   gitignoreCache.clear();
-  workspaceExcludedDirs.clear();
 }
 
 /**
  * Check if a file or directory should be excluded from scanning
+ * Uses nested gitignore contexts
  */
-export function shouldExclude(name: string, isDirectory: boolean, workspacePath?: string, relativePath?: string): boolean {
-  const normalizedName = name.toLowerCase();
-  if (!isDirectory && EXCLUDED_FILES.includes(normalizedName)) {
-    return true;
-  }
-  // Check extension patterns
-  const lowerName = name.toLowerCase();
-  for (const ext of EXCLUDED_EXTENSIONS) {
-    if (lowerName.endsWith(ext)) {
-      return true;
-    }
-  }
+export function shouldExclude(
+  name: string,
+  isDirectory: boolean,
+  relativePath: string,
+  contexts: GitignoreContext[]
+): boolean {
+  if (name.toLowerCase() === '.git') return true;
 
-  // Check gitignore patterns if workspace path is provided
-  if (workspacePath) {
-    const gitignorePatterns = getGitignorePatterns(workspacePath);
-    const pathToCheck = relativePath || name;
-    if (matchesGitignorePattern(pathToCheck, gitignorePatterns)) {
+  // Check against all active gitignore contexts
+  for (const context of contexts) {
+    let relToContext: string;
+
+    if (context.basePath === '') {
+      relToContext = relativePath || name;
+    } else {
+      const relPathNorm = (relativePath || name).replace(/\\/g, '/');
+      const baseNorm = context.basePath.replace(/\\/g, '/');
+
+      if (relPathNorm === baseNorm || relPathNorm.startsWith(baseNorm + '/')) {
+        // e.g. base='src', file='src/foo' -> 'foo'
+        relToContext = relPathNorm.slice(baseNorm.length + 1);
+      } else {
+        continue;
+      }
+    }
+
+    if (matchesGitignorePattern(relToContext, context.patterns)) {
       return true;
     }
   }
@@ -84,21 +84,43 @@ export function getAgentsConfig(workspacePath: string): string | null {
 export function getWorkspaceFiles(workspacePath: string): string[] {
   const files: string[] = [];
 
-  const traverse = (dir: string, relativePath: string = '') => {
+  const traverse = (dir: string, relativePath: string = '', contexts: GitignoreContext[]) => {
+    // Check for .gitignore in this directory and add to contexts
+    let localContexts = contexts;
+
+    // For root, contexts is passed in as [] usually, but we want to initialize if empty?
+    // Actually we handle root init outside or inside?
+    // Let's handle inside specific to directory.
+
+    // If relativePath is '', we are at root (workspacePath).
+    // If relativePath is 'src', dir is workspacePath/src.
+
+    try {
+      const patterns = getGitignorePatterns(dir);
+      if (patterns.length > 0) {
+        localContexts = [...contexts, { basePath: relativePath, patterns }];
+      }
+    } catch { }
+
     try {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
 
       for (const entry of entries) {
         const relPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
 
-        if (shouldExclude(entry.name, entry.isDirectory(), workspacePath, relPath)) {
+        // Skip hidden files (except .gitignore)
+        if (entry.name.startsWith('.') && entry.name !== '.gitignore') {
+          continue;
+        }
+
+        if (shouldExclude(entry.name, entry.isDirectory(), relPath, localContexts)) {
           continue;
         }
 
         const fullPath = path.join(dir, entry.name);
 
         if (entry.isDirectory()) {
-          traverse(fullPath, relPath);
+          traverse(fullPath, relPath, localContexts);
         } else {
           files.push(relPath);
         }
@@ -108,7 +130,7 @@ export function getWorkspaceFiles(workspacePath: string): string[] {
     }
   };
 
-  traverse(workspacePath);
+  traverse(workspacePath, '', []);
   return files.sort();
 }
 
@@ -174,50 +196,7 @@ function countLinesIfLarge(filePath: string, minBytes: number, threshold: number
   }
 }
 
-// Cache for workspace-specific exclusion sets (includes gitignore)
-const workspaceExcludedDirs = new Map<string, Set<string>>();
 
-/**
- * Get excluded directories set for a workspace (from gitignore)
- */
-function getExcludedDirsForWorkspace(workspacePath: string): Set<string> {
-  if (!workspaceExcludedDirs.has(workspacePath)) {
-    const dirs = new Set<string>();
-
-    // Parse gitignore and add directory patterns
-    const gitignorePatterns = getGitignorePatterns(workspacePath);
-    for (const pattern of gitignorePatterns) {
-      // Simple directory patterns (no wildcards, no slashes)
-      const clean = pattern.replace(/^\/|\/$/g, '').toLowerCase();
-      if (!clean.includes('*') && !clean.includes('/')) {
-        dirs.add(clean);
-      }
-    }
-
-    workspaceExcludedDirs.set(workspacePath, dirs);
-  }
-  return workspaceExcludedDirs.get(workspacePath)!;
-}
-
-/**
- * Fast exclusion check with gitignore support
- */
-function shouldExcludeFast(name: string, isDirectory: boolean, excludedDirs: Set<string>): boolean {
-  const lower = name.toLowerCase();
-
-  if (isDirectory) {
-    return excludedDirs.has(lower);
-  }
-
-  // Check extension patterns for files
-  for (const ext of EXCLUDED_EXTENSIONS) {
-    if (lower.endsWith(ext)) {
-      return true;
-    }
-  }
-
-  return false;
-}
 
 /**
  * Scan workspace for large files that may need refactoring
@@ -227,9 +206,8 @@ function shouldExcludeFast(name: string, isDirectory: boolean, excludedDirs: Set
 export async function scanLargeFilesAsync(workspacePath: string, threshold: number = 300): Promise<LargeFileInfo[]> {
   const largeFiles: LargeFileInfo[] = [];
   const minBytes = threshold * 20;
-  const excludedDirs = getExcludedDirsForWorkspace(workspacePath);
 
-  const traverse = (dir: string, relativePath: string = '') => {
+  const traverse = (dir: string, relativePath: string = '', contexts: GitignoreContext[]) => {
     let entries;
     try {
       entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -237,18 +215,27 @@ export async function scanLargeFilesAsync(workspacePath: string, threshold: numb
       return;
     }
 
+    // Update contexts
+    let localContexts = contexts;
+    try {
+      const patterns = getGitignorePatterns(dir);
+      if (patterns.length > 0) {
+        localContexts = [...contexts, { basePath: relativePath, patterns }];
+      }
+    } catch { }
+
     for (const entry of entries) {
       const name = entry.name;
+      const relPath = relativePath ? `${relativePath}/${name}` : name;
 
-      if (shouldExcludeFast(name, entry.isDirectory(), excludedDirs)) {
+      if (shouldExclude(name, entry.isDirectory(), relPath, localContexts)) {
         continue;
       }
 
       const fullPath = path.join(dir, name);
-      const relPath = relativePath ? `${relativePath}/${name}` : name;
 
       if (entry.isDirectory()) {
-        traverse(fullPath, relPath);
+        traverse(fullPath, relPath, localContexts);
       } else if (isCodeFile(name)) {
         const lineCount = countLinesIfLarge(fullPath, minBytes, threshold);
         if (lineCount > 0) {
@@ -258,7 +245,7 @@ export async function scanLargeFilesAsync(workspacePath: string, threshold: numb
     }
   };
 
-  traverse(workspacePath);
+  traverse(workspacePath, '', []);
   return largeFiles.sort((a, b) => b.lineCount - a.lineCount);
 }
 
@@ -268,9 +255,8 @@ export async function scanLargeFilesAsync(workspacePath: string, threshold: numb
 export function scanLargeFiles(workspacePath: string, threshold: number = 300): LargeFileInfo[] {
   const largeFiles: LargeFileInfo[] = [];
   const minBytes = threshold * 20;
-  const excludedDirs = getExcludedDirsForWorkspace(workspacePath);
 
-  const traverse = (dir: string, relativePath: string = '') => {
+  const traverse = (dir: string, relativePath: string = '', contexts: GitignoreContext[]) => {
     let entries;
     try {
       entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -278,18 +264,27 @@ export function scanLargeFiles(workspacePath: string, threshold: number = 300): 
       return;
     }
 
+    // Update contexts
+    let localContexts = contexts;
+    try {
+      const patterns = getGitignorePatterns(dir);
+      if (patterns.length > 0) {
+        localContexts = [...contexts, { basePath: relativePath, patterns }];
+      }
+    } catch { }
+
     for (const entry of entries) {
       const name = entry.name;
+      const relPath = relativePath ? `${relativePath}/${name}` : name;
 
-      if (shouldExcludeFast(name, entry.isDirectory(), excludedDirs)) {
+      if (shouldExclude(name, entry.isDirectory(), relPath, localContexts)) {
         continue;
       }
 
       const fullPath = path.join(dir, name);
-      const relPath = relativePath ? `${relativePath}/${name}` : name;
 
       if (entry.isDirectory()) {
-        traverse(fullPath, relPath);
+        traverse(fullPath, relPath, localContexts);
       } else if (isCodeFile(name)) {
         const lineCount = countLinesIfLarge(fullPath, minBytes, threshold);
         if (lineCount > 0) {
@@ -299,6 +294,6 @@ export function scanLargeFiles(workspacePath: string, threshold: number = 300): 
     }
   };
 
-  traverse(workspacePath);
+  traverse(workspacePath, '', []);
   return largeFiles.sort((a, b) => b.lineCount - a.lineCount);
 }

@@ -3,7 +3,6 @@ import * as path from 'path';
 import * as readline from 'readline';
 import * as vscode from 'vscode';
 import * as fs from 'fs/promises';
-import { EXCLUDED_FILES } from '../../constants/excluded-patterns';
 
 /**
  * Ripgrep service for Echode
@@ -13,8 +12,7 @@ import { EXCLUDED_FILES } from '../../constants/excluded-patterns';
  * - Uses VSCode's bundled ripgrep binary
  * - JSON output parsing for structured results
  * - Context lines support
- * - Gitignore-aware by default (handles directory exclusions)
- * - Uses excluded-patterns.ts for file exclusion list
+ * - Gitignore-aware by default (handles all exclusions via .gitignore)
  */
 
 const isWindows = process.platform.startsWith('win');
@@ -171,12 +169,7 @@ export async function regexSearchFiles(
 
     const args = ['--json', '-e', regex];
 
-    // Directory excludes handled by ripgrep's native .gitignore support
-
-    // Add default file excludes from excluded-patterns.ts
-    for (const file of EXCLUDED_FILES) {
-        args.push('-g', `!${file}`);
-    }
+    // All exclusions handled by ripgrep's native .gitignore support
 
     // Only add --glob if a specific file pattern is provided
     // Using --glob "*" overrides .gitignore behavior, so we omit it when no pattern is specified
@@ -362,12 +355,7 @@ export async function regexSearchFilesStructured(
 
     const args = ['--json', '-e', regex];
 
-    // Directory excludes handled by ripgrep's native .gitignore support
-
-    // Add default file excludes from excluded-patterns.ts
-    for (const file of EXCLUDED_FILES) {
-        args.push('-g', `!${file}`);
-    }
+    // All exclusions handled by ripgrep's native .gitignore support
 
     // Only add --glob if a specific file pattern is provided
     if (filePattern) {
@@ -473,12 +461,7 @@ export async function listFilesWithRipgrep(
         '--hidden',
     ];
 
-    // Directory excludes handled by ripgrep's native .gitignore support
-
-    // Add default file excludes from excluded-patterns.ts
-    for (const file of EXCLUDED_FILES) {
-        args.push('-g', `!${file}`);
-    }
+    // All exclusions handled by ripgrep's native .gitignore support
 
     // Add custom exclude patterns
     for (const pattern of excludePatterns) {

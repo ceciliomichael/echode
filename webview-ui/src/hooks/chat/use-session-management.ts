@@ -61,14 +61,14 @@ export function useSessionManagement({
     // Build compression context if it exists
     const compressedContext = compressedMessagesRef.current && compressionAnchorId
       ? {
-          messages: compressedMessagesRef.current.map(msg => ({
-            ...msg,
-            timestamp: msg.timestamp instanceof Date ? msg.timestamp.toISOString() : msg.timestamp,
-            toolExecutions: msg.toolExecutions ? Array.from(msg.toolExecutions.entries()) : undefined,
-          })),
-          tokenCount: compressedContextTokensRef.current ?? 0,
-          anchorId: compressionAnchorId,
-        }
+        messages: compressedMessagesRef.current.map(msg => ({
+          ...msg,
+          timestamp: msg.timestamp instanceof Date ? msg.timestamp.toISOString() : msg.timestamp,
+          toolExecutions: msg.toolExecutions ? Array.from(msg.toolExecutions.entries()) : undefined,
+        })),
+        tokenCount: compressedContextTokensRef.current ?? 0,
+        anchorId: compressionAnchorId,
+      }
       : undefined;
 
     const session: ChatSession = {
@@ -94,17 +94,17 @@ export function useSessionManagement({
   const loadSession = useCallback((sessionId: string) => {
     // If currently streaming or executing tools, abort and save first
     if (isStreamingRef.current || isExecutingToolRef.current) {
-      
+
       // Save current session state before aborting
       const currentMessages = messagesRef.current;
       if (currentMessages.length > 0) {
         saveCurrentSession(currentMessages);
       }
-      
+
       // Abort the stream/tool execution
       abortAndReset();
     }
-    
+
     if (window.vscode) {
       window.vscode.postMessage({ type: 'getSession', sessionId });
     }
@@ -208,6 +208,12 @@ export function useSessionManagement({
           storageService.clearCurrentSessionId();
           setEditingMessageId(null);
           setRevertPreviewMessageId(null);
+          // Clear compression state when session is deleted
+          setCompressedMessages(null);
+          setCompressedContextTokens(null);
+          setCompressionAnchorId(null);
+          compressedMessagesRef.current = null;
+          compressedContextTokensRef.current = null;
         }
       }
     };

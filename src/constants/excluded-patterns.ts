@@ -1,126 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-export const EXCLUDED_FILES = [
-  // OS files
-  '.DS_Store',
-  'Thumbs.db',
-  'desktop.ini',
-
-  // Compiled/Binary
-  '*.pyc',
-  '*.pyo',
-  '*.pyd',
-  '*.so',
-  '*.dll',
-  '*.dylib',
-  '*.class',
-  '*.o',
-  '*.obj',
-  '*.exe',
-  '*.jar',
-  '*.war',
-  '*.ear',
-  '*.nupkg',
-  '*.whl',
-  '*.egg',
-
-  // Logs/Temp
-  '*.log',
-  '*.tmp',
-  '*.temp',
-  '*.swp',
-  '*.swo',
-  '*.bak',
-  '*.cache',
-
-  // Lock files
-  'package-lock.json',
-  'yarn.lock',
-  'pnpm-lock.yaml',
-  'Cargo.lock',
-  'Gemfile.lock',
-  'composer.lock',
-  'poetry.lock',
-  'Pipfile.lock',
-  'go.sum',
-  'pubspec.lock',
-  'Podfile.lock',
-  'packages.lock.json',
-
-  // Source maps
-  '*.map',
-  '*.js.map',
-  '*.css.map',
-
-  // Minified files
-  '*.min.js',
-  '*.min.css',
-
-  // Generated
-  '*.generated.*',
-  '*.g.dart',
-  '*.freezed.dart',
-
-  // Special
-  'AGENTS.md',
-];
-
-export function getDefaultGrepExcludes(): string[] {
-  return [...EXCLUDED_FILES];
-}
-
-/**
- * Patterns from .gitignore that should NOT be excluded
- * These are files the AI often needs to access for context
- */
-const GITIGNORE_PATTERNS_TO_SKIP = [
-  // Environment files - AI needs to see variable structure
-  '.env',
-  '.env.*',
-  '.env.local',
-  '.env.development',
-  '.env.production',
-  '.env.test',
-  '.env.example',
-  '*.env',
-];
-
-/**
- * Check if a gitignore pattern matches any pattern we want to skip
- */
-function shouldSkipGitignorePattern(pattern: string): boolean {
-  const normalized = pattern.replace(/^\/+/, '').replace(/\/+$/, '');
-
-  for (const skip of GITIGNORE_PATTERNS_TO_SKIP) {
-    // Exact match
-    if (normalized === skip) {
-      return true;
-    }
-
-    // Pattern ends with the skip pattern (e.g., "**/.env" matches ".env")
-    if (normalized.endsWith('/' + skip) || normalized.endsWith(skip)) {
-      // Check if it's specifically about env files
-      if (skip.includes('.env') && normalized.includes('.env')) {
-        return true;
-      }
-    }
-
-    // Wildcard skip pattern matching (e.g., ".env.*" should skip ".env.local")
-    if (skip.includes('*')) {
-      const skipPrefix = skip.replace('*', '');
-      if (normalized.startsWith(skipPrefix) || normalized.includes('/' + skipPrefix)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
 /**
  * Parse .gitignore file and return patterns
- * Filters out patterns that match files the AI needs access to (e.g., .env files)
+ * Strictly follows .gitignore - no exceptions
  */
 export function parseGitignore(workspacePath: string): string[] {
   const gitignorePath = path.join(workspacePath, '.gitignore');
@@ -144,11 +27,6 @@ export function parseGitignore(workspacePath: string): string[] {
 
       // Skip negation patterns (lines starting with !)
       if (trimmed.startsWith('!')) {
-        continue;
-      }
-
-      // Skip patterns for files the AI needs access to
-      if (shouldSkipGitignorePattern(trimmed)) {
         continue;
       }
 
@@ -189,16 +67,11 @@ export function gitignorePatternsToGlob(patterns: string[]): string[] {
 }
 
 /**
- * Get combined exclude patterns including .gitignore contents
+ * Get exclude patterns from .gitignore
  */
 export function getExcludePatternsWithGitignore(workspacePath: string): string[] {
-  const defaultExcludes = getDefaultGrepExcludes();
   const gitignorePatterns = parseGitignore(workspacePath);
-  const globPatterns = gitignorePatternsToGlob(gitignorePatterns);
-
-  // Combine and deduplicate
-  const combined = [...new Set([...defaultExcludes, ...globPatterns])];
-  return combined;
+  return gitignorePatternsToGlob(gitignorePatterns);
 }
 
 /**
@@ -206,21 +79,9 @@ export function getExcludePatternsWithGitignore(workspacePath: string): string[]
  */
 export function matchesGitignorePattern(filePath: string, patterns: string[]): boolean {
   const normalizedPath = filePath.replace(/\\/g, '/');
-  const segments = normalizedPath.split('/');
 
   for (const pattern of patterns) {
-    // Simple pattern matching
-    const cleanPattern = pattern.replace(/\/+$/, '');
-
-    // Check if any segment matches the pattern
-    for (const segment of segments) {
-      if (matchSimpleGlob(segment, cleanPattern)) {
-        return true;
-      }
-    }
-
-    // Check if full path matches
-    if (matchSimpleGlob(normalizedPath, cleanPattern)) {
+    if (checkPattern(normalizedPath, pattern)) {
       return true;
     }
   }
@@ -229,30 +90,78 @@ export function matchesGitignorePattern(filePath: string, patterns: string[]): b
 }
 
 /**
- * Simple glob matching for gitignore patterns
+ * Check if a single file path matches a gitignore pattern
  */
-function matchSimpleGlob(text: string, pattern: string): boolean {
-  // Handle exact match
-  if (pattern === text) {
-    return true;
+function checkPattern(filePath: string, pattern: string): boolean {
+  // 1. Remove trailing slash (indicates directory match)
+  let p = pattern.trim();
+  if (p.endsWith('/')) {
+    p = p.slice(0, -1);
   }
 
-  // Handle wildcard patterns like *.log
-  if (pattern.startsWith('*')) {
-    const suffix = pattern.slice(1);
-    return text.endsWith(suffix);
-  }
+  // 2. Determine if pattern is rooted (relative to .gitignore location)
+  // Rooted if it starts with '/' or contains '/' (e.g., "src/dist")
+  // Recursive if it has no slashes (e.g., "node_modules", "*.log")
+  const isRooted = p.startsWith('/') || p.includes('/');
 
-  // Handle patterns like dir/*
-  if (pattern.endsWith('/*')) {
-    const prefix = pattern.slice(0, -2);
-    return text.startsWith(prefix + '/');
-  }
+  if (isRooted) {
+    // Clean leading slash
+    if (p.startsWith('/')) {
+      p = p.slice(1);
+    }
 
-  // Handle directory patterns
-  if (pattern.endsWith('/')) {
-    return text === pattern.slice(0, -1) || text.startsWith(pattern);
+    // Check for exact match or child of directory
+    // Pattern "output" (was /output) should match "output" and "output/file.txt"
+    // BUT should NOT match "src/output"
+    if (filePath === p || filePath.startsWith(p + '/')) {
+      return true;
+    }
+
+    // Pattern "dist/*.js" -> matches "dist/app.js"
+    if (p.includes('*') && matchGlob(filePath, p)) {
+      return true;
+    }
+
+  } else {
+    // Recursive match (e.g. "node_modules", "*.log")
+    // Matches "node_modules" and "src/node_modules"
+
+    // Check match against the full path parts
+    const parts = filePath.split('/');
+    for (let i = 0; i < parts.length; i++) {
+      // Check exact name match for directory/file
+      if (matchGlob(parts[i], p)) {
+        // If it's a directory match like "node_modules", it excludes everything inside
+        // We assume successful match on a segment means exclusion
+        return true;
+      }
+    }
+
+    // Check if filename matches (e.g. *.log)
+    if (matchGlob(path.basename(filePath), p)) {
+      return true;
+    }
   }
 
   return false;
 }
+
+/**
+ * Simple glob matching (supports *, ?, etc via regex)
+ */
+function matchGlob(text: string, pattern: string): boolean {
+  if (pattern === text) {
+    return true;
+  }
+
+  // Convert simple glob to regex
+  // Escape special regex chars except * and ?
+  const regexString = pattern
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*/g, '.*')
+    .replace(/\?/g, '.');
+
+  const regex = new RegExp(`^${regexString}$`);
+  return regex.test(text);
+}
+

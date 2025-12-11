@@ -14,6 +14,7 @@ WHEN TO USE:
 Parameters:
 - path: Directory to list (required)
 - recursive: Include subdirectories (default: false)
+- ignoreGitignore: Include gitignored files (default: false)
 
 DON'T use on files - use read_file instead.`;
 }
