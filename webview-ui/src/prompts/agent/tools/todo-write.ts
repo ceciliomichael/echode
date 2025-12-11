@@ -21,5 +21,10 @@ STATUS VALUES:
 - in_progress: Currently working on
 - completed: Done
 
-IMPORTANT: Each task in JSON must have id, content, and status fields.`;
+IMPORTANT: Each task in JSON must have id, content, and status fields.
+
+GUIDELINES:
+- Map tasks directly to concrete steps in your mini plan.
+- Keep the list focused on the current request; avoid unrelated tasks.
+- Update statuses as you complete each mini plan step.`;
 }

@@ -18,5 +18,10 @@ Parameters:
 COMMON PATTERNS:
 - "**/*.test.ts" → all test files
 - "**/components/*.tsx" → all component files
-- "**/*auth*" → files with "auth" in name`;
+- "**/*auth*" → files with "auth" in name
+
+GUIDELINES:
+- Prefer specific, narrow patterns that target files referenced in your mini plan.
+- Avoid broad repo-wide discovery scans unless absolutely necessary for the task.
+- Use glob_search to locate candidates, then switch to read_file for precise context.`;
 }

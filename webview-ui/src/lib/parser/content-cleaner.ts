@@ -13,13 +13,15 @@ export function cleanToolCallContent(content: string): string {
 
   // Remove duplicate opening <function_calls> tags
   const duplicateOpenings = cleaned.match(/<function_calls>\s*<function_calls>/g);
-  if (duplicateOpenings) {    hadErrors = true;
+  if (duplicateOpenings) {
+    hadErrors = true;
     cleaned = cleaned.replace(/<function_calls>\s*<function_calls>/g, '<function_calls>');
   }
 
   // Remove duplicate closing </function_calls> tags
   const duplicateClosings = cleaned.match(/<\/function_calls>\s*<\/function_calls>/g);
-  if (duplicateClosings) {    hadErrors = true;
+  if (duplicateClosings) {
+    hadErrors = true;
     cleaned = cleaned.replace(/<\/function_calls>\s*<\/function_calls>/g, '</function_calls>');
   }
 
@@ -36,21 +38,28 @@ export function cleanToolCallContent(content: string): string {
     }
   );
 
-  if (unclosedFixed > 0) {    hadErrors = true;
+  if (unclosedFixed > 0) {
+    hadErrors = true;
   }
 
   // Fix malformed closing tags with backslashes: <\param> -> </param>
   const backslashClosings = cleaned.match(/<\\[\w_-]+>/g);
-  if (backslashClosings) {    hadErrors = true;
+  if (backslashClosings) {
+    hadErrors = true;
     cleaned = cleaned.replace(/<\\([\w_-]+)>/g, '</$1>');
   }
 
   // Fix malformed invoke tags
   const malformedInvokes = cleaned.match(/<invoke\s+name=["'][^"']+["']\s*[^>]*(?!>)/g);
-  if (malformedInvokes) {    hadErrors = true;
+  if (malformedInvokes) {
+    hadErrors = true;
+    // Handle malformed invoke tags
+    cleaned = cleaned.replace(/<invoke\s+name=["'][^"']+["']\s*[^>]*(?!>)/g, '');
   }
 
-  if (hadErrors) {  }
+  if (hadErrors) {
+    // Handle errors if needed in the future
+  }
 
   return cleaned;
 }

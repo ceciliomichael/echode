@@ -33,6 +33,11 @@ FAILURE PREVENTION:
 - Include 2-3 context lines
 - Preserve EXACT indentation
 
+PLANNING & SCOPE:
+- Have a short mini plan for the edits you are about to apply.
+- Use apply_diff primarily for code/config/tests within the current task scope.
+- Do not use apply_diff to edit documentation/markdown files unless the user explicitly asks.
+
 IF FAILS:
 1. read_file AGAIN
 2. COPY FRESH content

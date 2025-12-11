@@ -15,5 +15,5 @@ Parameters:
 - path: File or directory to check (optional, defaults to workspace)
 
 WORKFLOW:
-Edit files → get_diagnostics → fix errors → verify`;
+Edit related files (as per mini plan) → get_diagnostics on those paths → fix errors → verify`;
 }

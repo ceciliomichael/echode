@@ -48,7 +48,8 @@ export function getAgentToolChains(enabledTools: Tool[] = []): string {
 COMMON WORKFLOWS:
 ${patterns.map(p => `- ${p}`).join('\n')}
 
-PARALLEL: Multiple read_file/grep_search → batch together
-SEQUENTIAL: Write operations → one at a time
+PARALLEL: Multiple read_file/grep_search → batch together (independent reads/searches only)
+PLAN: Brief mini plan (3-7 concrete steps) → then follow the EDIT patterns above
+SEQUENTIAL: Write operations (apply_diff, write_to_file) → one at a time, never in parallel
 </tool_chains>`;
 }

@@ -398,7 +398,7 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
               />
             )}
             {/* Mention highlighter - positioned behind textarea */}
-            <MentionHighlighter text={editContent} scrollTop={scrollTop} textareaRef={textareaRef} />
+            <MentionHighlighter text={editContent} scrollTop={scrollTop} textareaRef={textareaRef} highlightAll={true} />
             <textarea
               ref={textareaRef}
               value={editContent}

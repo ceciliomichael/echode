@@ -15,5 +15,7 @@ Parameters:
 
 CAUTION:
 - Only use when explicitly requested
+- Only delete files that are clearly within the current task's scope.
+- Avoid deleting documentation/markdown files unless the user explicitly asks.
 - Cannot be undone (except via version control)`;
 }

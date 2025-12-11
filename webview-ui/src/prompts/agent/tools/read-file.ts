@@ -19,8 +19,9 @@ Parameters:
 
 USAGE:
 1. Before ANY edit: read_file → COPY content → apply_diff
-2. Large files: Use offset/limit (e.g., offset:140, limit:50)
-3. Multiple files: Batch reads in parallel
+2. Large files: Use offset/limit (e.g., offset:140, limit:50) to focus on the smallest relevant region
+3. Multiple files: Batch reads in parallel only for a small number of independent, relevant files
+4. Use read_file to support the current mini plan; avoid reading unrelated files "just in case"
 
 FOR EDITING:
 - Line numbers help you set :start_line

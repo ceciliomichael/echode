@@ -24,6 +24,10 @@ REQUIREMENTS:
 - No truncation
 - No line numbers in content
 
+PLANNING & SCOPE:
+- Ensure the new or rewritten file is part of your current mini plan.
+- Prefer write_to_file for code/config/tests; only create or overwrite documentation/markdown when the user explicitly asks.
+
 USE apply_diff INSTEAD when:
 - Making small, targeted edits
 - Changing <30 lines in existing file`;
