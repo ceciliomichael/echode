@@ -6,8 +6,9 @@ import { storageService } from '../utils/storage';
 /**
  * Number of recent messages to always keep uncompressed
  * This ensures the AI has immediate context for continuity
+ * Keeping more messages (6) helps preserve recent tool usage patterns
  */
-const RECENT_MESSAGES_TO_KEEP = 2; // Keep last user + assistant exchange
+const RECENT_MESSAGES_TO_KEEP = 6; // Keep last 3 exchanges (user + assistant)
 
 /**
  * Estimate token count from text (~4 chars per token)

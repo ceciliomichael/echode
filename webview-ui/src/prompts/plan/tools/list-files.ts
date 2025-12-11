@@ -16,5 +16,7 @@ Parameters:
 - recursive: Include subdirectories (default: false)
 - ignoreGitignore: Include gitignored files (default: false)
 
-DON'T use on files - use read_file instead.`;
+DON'T use on files - use read_file instead.
+
+NOTE: If user mentions a path not in context, try it - ignored paths auto-accessible.`;
 }

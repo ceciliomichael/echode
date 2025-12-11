@@ -36,6 +36,9 @@ function extractFilesRead(messages: Message[]): string[] {
 /**
  * Build chat history with system prompt, context messages, tool results, and final user message
  * Returns the final chat history ready to send to the LLM
+ * 
+ * NEW: If contextMessages contains a hidden summary message (from compression),
+ * we prepend that summary to the user's message for a fresh start with context.
  */
 export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMessage[] {
   const {
@@ -47,8 +50,34 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
     mode,
   } = ctx;
 
-  // Build chat history with system prompt + all messages + tool results
-  // Use contextMessages (potentially summarized) for LLM context
+  // Check if we have a compressed summary (hidden user message with summary content)
+  const summaryMessage = contextMessages.find(msg => msg.hidden && msg.id?.startsWith('compressed-summary-'));
+
+  if (summaryMessage) {
+    // COMPRESSED CONTEXT: Start fresh with summary prepended to user message
+    console.log('[ChatHistory] Using compressed summary - starting fresh');
+
+    const chatHistory: ChatMessage[] = [
+      {
+        role: 'system',
+        content: systemPrompt,
+      },
+    ];
+
+    // Build user message with summary prepended
+    const summaryPrefix = `<previous_session_summary>\n${summaryMessage.content}\n</previous_session_summary>\n\n`;
+    const finalUserMessage = buildChatMessage(
+      'user',
+      summaryPrefix + content,
+      attachments,
+      modelSupportsVision
+    );
+    chatHistory.push(finalUserMessage);
+
+    return chatHistory;
+  }
+
+  // NORMAL FLOW: Build full chat history with all messages and tool results
   const chatHistory: ChatMessage[] = [
     {
       role: 'system',
@@ -57,13 +86,14 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
   ];
 
   // Add messages with tool results embedded
-  // contextMessages may be summarized (first + summary + last N) or original messages
   for (const msg of contextMessages) {
-    // Strip <think> and <thinking> blocks from message content before adding to chat history
+    // Skip hidden messages
+    if (msg.hidden) continue;
+
+    // Strip <think> and <thinking> blocks from message content
     let processedContent = removeThinkBlocks(msg.content);
 
-    // For assistant messages, also strip tool call XML for tools not available in current mode
-    // This prevents Plan/Ask mode from seeing <invoke name="write_to_file"> in history
+    // For assistant messages, strip tool call XML for tools not available in current mode
     if (msg.role === 'assistant') {
       processedContent = stripUnavailableToolCalls(processedContent, mode);
     }
@@ -78,7 +108,6 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
     chatHistory.push(chatMessage);
 
     // If this message has tool executions, add them as context
-    // Filter to only include tools available in current mode
     if (msg.toolExecutions && msg.toolExecutions.size > 0) {
       const { toolResults } = formatToolExecutionResults(msg.toolExecutions, mode);
 

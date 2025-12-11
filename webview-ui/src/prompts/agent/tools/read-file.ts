@@ -29,5 +29,8 @@ FOR EDITING:
 
 DON'T:
 - Type content from memory for edits
-- Assume file hasn't changed since last read`;
+- Assume file hasn't changed since last read
+
+NOTE: Can read files even if not in context (e.g., .gitignore'd files).
+If user mentions a specific file path, try reading it.`;
 }

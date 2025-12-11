@@ -7,6 +7,8 @@ export function getApplyDiffInstructions(): string {
     return `## apply_diff
 Targeted edits to existing files.
 
+⚠️ CRITICAL: ONE apply_diff PER RESPONSE. Never batch multiple write_to_file or apply_diff calls in parallel.
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 THE GOLDEN RULE: COPY content from read_file output. NEVER type from memory.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -15,6 +15,7 @@ EXTRACTION RULES:
 4. Preserve user preferences and constraints stated
 5. Preserve sequence: order of actions matters for understanding causality
 6. Flag unresolved issues explicitly - do not smooth over problems
+7. CRITICAL: Preserve tool execution patterns - what tools were used and their sequence
 
 WHAT TO CAPTURE:
 - USER INTENT: Original request + any refinements/clarifications
@@ -23,6 +24,7 @@ WHAT TO CAPTURE:
 - DECISIONS + REASONING: Choice made → why (e.g., "Used Redis over Memcached: need persistence")
 - CURRENT STATE: What exists, what works, what's broken
 - BLOCKERS/PENDING: Unresolved issues, waiting on user, next steps needed
+- TOOL EXECUTION: Which tools (read_file, write_to_file, apply_diff, etc.) were used, file paths affected, and in what order
 
 OUTPUT FORMAT:
 GOAL: [User's core objective]
@@ -34,6 +36,9 @@ FACTS:
 ACTIONS:
 1. [Action] → [Outcome]
 2. [Action] → [Outcome]
+
+FILES MODIFIED:
+• [File path] - [What was changed]
 
 DECISIONS:
 • [Choice]: [Reasoning]
@@ -93,13 +98,13 @@ export async function handleContextSummarizer(
 
     // Get the provider and generate summary
     const provider = LLMFactory.getProvider(settings.provider);
-    
+
     // Use non-streaming completion for summarization
     let summary = '';
-    
+
     // Create a mock stream to collect the response
     const abortController = new AbortController();
-    
+
     await provider.streamChat(
       -1, // Use -1 as a sentinel for non-streaming collection
       summarizeMessages,

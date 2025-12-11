@@ -121,6 +121,15 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
   }
 
   /**
+   * Refresh workspace context (called when .gitignore changes)
+   */
+  public refreshWorkspaceContext(): void {
+    if (this._view) {
+      this.sendWorkspaceInfo(this._view);
+    }
+  }
+
+  /**
    * Toggle chat history modal in main webview
    */
   public openHistoryPanel(): void {

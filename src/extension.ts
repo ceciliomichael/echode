@@ -69,7 +69,8 @@ export function activate(context: vscode.ExtensionContext) {
   const clearAllGitignoreCaches = () => {
     clearGitignoreCache();
     clearListFilesGitignoreCache();
-    console.log('[Echode] .gitignore changed, caches cleared');
+    // Refresh the context indicator in the webview
+    sidebarProvider.refreshWorkspaceContext();
   };
 
   gitignoreWatcher.onDidChange(clearAllGitignoreCaches);

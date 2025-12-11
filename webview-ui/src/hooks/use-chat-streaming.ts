@@ -68,14 +68,19 @@ export function useChatStreaming({
   const sendMessage = useCallback(async (content: string, attachments?: ImageAttachment[], overrideMessages?: Message[], isHidden: boolean = false, forceEchoSearch: boolean = false) => {
     // === GUARDS: Prevent concurrent operations ===
     if (isStreamingRef.current) {
+      console.error('[sendMessage] BLOCKED: Already streaming');
       return;
     }
     if (isExecutingToolRef.current) {
+      console.error('[sendMessage] BLOCKED: Already executing tool');
       return;
     }
     if (sendingMessageRef.current) {
+      console.error('[sendMessage] BLOCKED: Already sending message');
       return;
     }
+
+    console.log('[sendMessage] STARTING - No concurrent operation detected');
 
     // === SETUP: Initialize state flags ===
     sendingMessageRef.current = true;

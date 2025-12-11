@@ -22,5 +22,7 @@ USAGE:
 2. Large files: Use offset/limit
 3. Multiple files: Batch reads in parallel
 
-DON'T type content from memory for edits.`;
+DON'T type content from memory for edits.
+
+NOTE: Can read files not in context (e.g., .gitignore'd). If user mentions a file, try it.`;
 }

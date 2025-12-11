@@ -166,7 +166,22 @@ export class ListFilesTool implements ITool {
     const rawRecursive = parameters.recursive;
     const recursive = rawRecursive === true || rawRecursive === 'true';
     const rawIgnoreGitignore = parameters.ignoreGitignore;
-    const ignoreGitignore = rawIgnoreGitignore === true || rawIgnoreGitignore === 'true';
+    let ignoreGitignore = rawIgnoreGitignore === true || rawIgnoreGitignore === 'true';
+
+    // Auto-bypass: If user explicitly provides a path that is ignored by .gitignore,
+    // assume they want to see it (they mentioned it explicitly)
+    if (!ignoreGitignore && dirPath) {
+      try {
+        const workspaceRootCheck = getWorkspaceRoot();
+        if (workspaceRootCheck) {
+          const rootPatterns = getGitignorePatterns(workspaceRootCheck);
+          if (matchesGitignorePattern(dirPath, rootPatterns)) {
+            // Target path is ignored, user must be explicitly asking for it
+            ignoreGitignore = true;
+          }
+        }
+      } catch { }
+    }
 
     try {
       const workspaceRoot = getWorkspaceRoot();

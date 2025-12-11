@@ -111,6 +111,50 @@ export function buildContinuationHistory(
   const modelSupportsVision = isVisionCapableModel(currentModel);
   const systemPrompt = getSystemPrompt(workspace, mode);
 
+  // Check if we have a compressed summary (hidden user message from compression)
+  const summaryMessage = currentMessages.find(msg => msg.hidden && msg.id?.startsWith('compressed-summary-'));
+
+  if (summaryMessage) {
+    // COMPRESSED CONTEXT: Start fresh with summary prepended to tool results
+    console.log('[ContinuationHistory] Using compressed summary - starting fresh');
+
+    const continuationHistory: ChatMessage[] = [
+      {
+        role: 'system',
+        content: systemPrompt,
+      },
+    ];
+
+    // Build user message with summary prepended and tool results
+    const summaryPrefix = `<previous_session_summary>\n${summaryMessage.content}\n</previous_session_summary>\n\n`;
+    const todoContext = buildTodoContext(currentTodos, mode);
+
+    const boundedDiagnosticsText = diagnosticsText.length > MAX_DIAGNOSTICS_CHARS
+      ? `${diagnosticsText.slice(0, MAX_DIAGNOSTICS_CHARS)}\n... [truncated]`
+      : diagnosticsText;
+
+    let toolResultMessage = summaryPrefix;
+    toolResultMessage += '<tool_results>\n' + toolResultText + '\n</tool_results>';
+
+    if (boundedDiagnosticsText.trim()) {
+      toolResultMessage += '\n\n<diagnostics>\n' + boundedDiagnosticsText + '\n</diagnostics>';
+    }
+
+    if (todoContext.trim()) {
+      toolResultMessage += '\n' + todoContext;
+    }
+
+    toolResultMessage += '\n\n[Continue. Focus on the user\'s request.]';
+
+    continuationHistory.push({
+      role: 'user',
+      content: toolResultMessage,
+    });
+
+    return continuationHistory;
+  }
+
+  // NORMAL FLOW: Full continuation history
   const continuationHistory: ChatMessage[] = [
     {
       role: 'system',

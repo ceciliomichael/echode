@@ -28,29 +28,34 @@ function unescapeSpaces(pathStr: string): string {
  */
 async function getWorkspaceFiles(workspaceRoot: string): Promise<string[]> {
   const files: string[] = [];
-  
+
   async function walkDir(dir: string, depth: number = 0): Promise<void> {
     if (depth > 10) {
       return; // Limit recursion depth
     }
-    
+
     try {
       const entries = await fs.readdir(dir, { withFileTypes: true });
-      
+
       for (const entry of entries) {
-        // Skip common ignored directories (except .gitignore)
-        if ((entry.name.startsWith('.') && entry.name !== '.gitignore') || 
-            entry.name === 'node_modules' || 
-            entry.name === 'dist' ||
-            entry.name === 'build' ||
-            entry.name === '__pycache__') {
+        // Skip .git directory (never useful to mention)
+        // But allow ALL other files including gitignored ones
+        // because user is explicitly mentioning them
+        if (entry.name === '.git') {
           continue;
         }
-        
+
         const fullPath = path.join(dir, entry.name);
         const relativePath = path.relative(workspaceRoot, fullPath).replace(/\\/g, '/');
-        
+
         if (entry.isDirectory()) {
+          // Skip node_modules for performance (too many files)
+          // but still allow mentioning files within it if user types full path
+          if (entry.name === 'node_modules') {
+            continue;
+          }
+          // Include directory in list so it can be mentioned (e.g., @downloads)
+          files.push(relativePath);
           await walkDir(fullPath, depth + 1);
         } else {
           files.push(relativePath);
@@ -60,7 +65,7 @@ async function getWorkspaceFiles(workspaceRoot: string): Promise<string[]> {
       // Ignore errors (permission denied, etc.)
     }
   }
-  
+
   await walkDir(workspaceRoot);
   return files;
 }
@@ -76,7 +81,7 @@ export function parseMentions(text: string, workspaceFiles?: string[]): string[]
 
   while ((match = mentionRegex.exec(text)) !== null) {
     const mentionText = unescapeSpaces(match[1]);
-    
+
     // Check special mentions first (e.g., @problems)
     if (isSpecialMention(mentionText)) {
       mentions.push(mentionText);
@@ -92,7 +97,7 @@ export function parseMentions(text: string, workspaceFiles?: string[]): string[]
         const basename = f.split('/').pop() || f;
         return basename.toLowerCase() === mentionText.toLowerCase();
       });
-      
+
       // Only add if we found a real file match - ignore random @words like @echo
       if (matchingFile) {
         mentions.push(matchingFile);
@@ -114,7 +119,7 @@ export async function expandMentions(text: string, workspaceRoot: string): Promi
   // Get workspace files for path resolution
   const workspaceFiles = await getWorkspaceFiles(workspaceRoot);
   const mentions = parseMentions(text, workspaceFiles);
-  
+
   if (mentions.length === 0) {
     return text;
   }
@@ -122,7 +127,7 @@ export async function expandMentions(text: string, workspaceRoot: string): Promi
   // Separate special mentions from file mentions
   const specialMentions: string[] = [];
   const fileMentions: string[] = [];
-  
+
   for (const mention of mentions) {
     if (isSpecialMention(mention)) {
       specialMentions.push(mention);
@@ -162,18 +167,18 @@ export async function expandMentions(text: string, workspaceRoot: string): Promi
   // Replace @mentions with references
   let expandedText = text.replace(/@((?:[^\s@]|\\ )+)/g, (_match, mention) => {
     const unescapedMention = unescapeSpaces(mention);
-    
+
     // Handle special mentions
     if (isSpecialMention(unescapedMention)) {
       return `special '${unescapedMention}' (details shown below)`;
     }
-    
+
     // Look up resolved path for file mentions
     const resolvedPath = resolvedPaths.get(unescapedMention.toLowerCase());
     if (resolvedPath) {
       return resolvedPath;
     }
-    
+
     // Not a valid file mention, keep original text (e.g., @echo stays as @echo)
     return _match;
   });
@@ -208,44 +213,44 @@ export function getWorkspaceRoot(): string | undefined {
 function getProblemsContent(workspaceRoot: string): string {
   const diagnostics = vscode.languages.getDiagnostics();
   const problems: string[] = [];
-  
+
   for (const [uri, fileDiagnostics] of diagnostics) {
     // Only include files in the workspace
     if (!uri.fsPath.startsWith(workspaceRoot)) {
       continue;
     }
-    
+
     const relativePath = path.relative(workspaceRoot, uri.fsPath).replace(/\\/g, '/');
-    
+
     for (const diagnostic of fileDiagnostics) {
       // Only include errors and warnings
-      if (diagnostic.severity !== vscode.DiagnosticSeverity.Error && 
-          diagnostic.severity !== vscode.DiagnosticSeverity.Warning) {
+      if (diagnostic.severity !== vscode.DiagnosticSeverity.Error &&
+        diagnostic.severity !== vscode.DiagnosticSeverity.Warning) {
         continue;
       }
-      
+
       const severity = diagnostic.severity === vscode.DiagnosticSeverity.Error ? 'Error' : 'Warning';
       const line = diagnostic.range.start.line + 1;
       const col = diagnostic.range.start.character + 1;
       const message = diagnostic.message.replace(/\n/g, ' ').trim();
       const source = diagnostic.source ? ` [${diagnostic.source}]` : '';
-      
+
       problems.push(`${relativePath}:${line}:${col} - ${severity}${source}: ${message}`);
     }
   }
-  
+
   if (problems.length === 0) {
     return 'No errors or warnings found in the workspace.';
   }
-  
+
   // Limit to first 50 problems
   const truncated = problems.length > 50;
   const displayProblems = problems.slice(0, 50);
-  
+
   let content = displayProblems.join('\n');
   if (truncated) {
     content += `\n\n... and ${problems.length - 50} more problems`;
   }
-  
+
   return content;
 }

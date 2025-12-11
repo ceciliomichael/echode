@@ -1,31 +1,28 @@
-/**
- * Context Compression Module
- * 
- * Handles token estimation and context compression for tool execution continuations.
- * Uses the ContextCompressorService for lossless compression when context exceeds limits.
- */
 import type { Message } from '../../types/chat';
-import type { ChatMode } from '../../types/chat-mode';
 import type { WorkspaceContext } from '../../types/workspace';
+import type { ChatMode } from '../../types/chat-mode';
 import { getContextCompressor } from '../../services/context-compressor';
 import { storageService } from '../../utils/storage';
 import { getSystemPrompt } from '../../utils/prompts';
 
 /**
- * Estimate tokens from text (~4 chars per token)
+ * Estimate token count from text (~4 chars per token)
  */
-export function estimateTokens(text: string): number {
-  if (!text) {
-    return 0;
-  }
+function estimateTokens(text: string): number {
+  if (!text) return 0;
   return Math.ceil(text.length / 4);
 }
 
 /**
- * Build context messages for continuation, applying lossless compression if needed.
+ * Build context messages for tool execution continuation.
  * 
- * This uses the ContextCompressorService for compression but keeps
- * compression local to the continuation (no React state coupling).
+ * This function checks if compression is needed and either:
+ * - Returns the original messages if no compression needed
+ * - Returns a compressed version with a summary message
+ * 
+ * NEW APPROACH: When compression is needed, we summarize the ENTIRE conversation
+ * and return a single hidden message. The continuation-builder will detect this
+ * and handle it appropriately.
  */
 export async function buildCompressedContextIfNeeded(
   workspace: WorkspaceContext,
@@ -37,50 +34,48 @@ export async function buildCompressedContextIfNeeded(
   const settings = storageService.getSettings();
   const contextSettings = settings.contextSettings;
 
-  // If compression isn't configured, just return original messages
-  if (!contextSettings || !contextSettings.summarizerModel) {
-    return messages;
-  }
-
-  const compressor = getContextCompressor(contextSettings);
-
+  // Calculate system prompt tokens
   const systemPrompt = getSystemPrompt(workspace, mode);
   const systemPromptTokens = estimateTokens(systemPrompt);
 
-  // Treat tool results + diagnostics as the new content added for this continuation
-  const newContentTokens = estimateTokens(toolResultText) + estimateTokens(diagnosticsText);
+  // Estimate tokens for tool results
+  const toolResultTokens = estimateTokens(toolResultText) + estimateTokens(diagnosticsText);
 
-  const analysis = compressor.analyzeContext(
-    messages,
-    systemPromptTokens,
-    newContentTokens
-  );
+  const compressor = getContextCompressor(contextSettings);
+  const analysis = compressor.analyzeContext(messages, systemPromptTokens, toolResultTokens);
 
-  if (!analysis.needsCompression || analysis.middleMessages.length === 0) {
+  if (!analysis.needsCompression) {
+    // No compression needed - return original messages
     return messages;
   }
 
-  const summaryResult = await compressor.requestSummary(analysis.middleMessages);
+  // Need at least some messages to compress
+  if (messages.length < 2) {
+    return messages;
+  }
+
+  console.log('[ToolExecution] Compression needed - summarizing entire conversation');
+
+  // Summarize the ENTIRE conversation
+  const summaryResult = await compressor.requestSummary(messages);
 
   if (!summaryResult.success || !summaryResult.summary) {
-    return messages;
+    console.error('[ToolExecution] Failed to generate summary:', summaryResult.error);
+    return messages; // Fall back to original
   }
 
-  // Helper to strip tool executions from a message
-  const stripToolExecutions = (msg: Message): Message => ({
-    ...msg,
-    toolExecutions: undefined,
-  });
+  // Return a single hidden summary message
+  // The continuation-builder will detect this and prepend it to user message
+  const compressedMessages: Message[] = [
+    {
+      id: `compressed-summary-${Date.now()}`,
+      role: 'user',
+      content: summaryResult.summary,
+      timestamp: new Date(),
+      hidden: true, // Hidden - will be prepended to user message
+    },
+  ];
 
-  const compressedMessages: Message[] = [];
-  compressedMessages.push(...analysis.firstMessages.map(stripToolExecutions));
-  compressedMessages.push({
-    id: `compressed-summary-${Date.now()}`,
-    role: 'assistant',
-    content: `[Context Summary]\n${summaryResult.summary}`,
-    timestamp: new Date(),
-  });
-  compressedMessages.push(...analysis.recentMessages.map(stripToolExecutions));
-
+  console.log('[ToolExecution] Compression complete - returning summary message');
   return compressedMessages;
 }
