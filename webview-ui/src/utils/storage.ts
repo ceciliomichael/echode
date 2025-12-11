@@ -253,13 +253,29 @@ export const storageService = {
   },
 
   getChatMode(): 'agent' | 'plan' | 'ask' | 'general' | 'chat' {
+    // Return cached value from settings (will be updated by backend)
     const settings = this.getSettings();
     return settings.chatMode || DEFAULT_CHAT_MODE;
   },
 
   setChatMode(mode: 'agent' | 'plan' | 'ask' | 'general' | 'chat'): void {
+    // Update local cache
     const settings = this.getSettings();
     settings.chatMode = mode;
-    this.saveSettings(settings);
+    
+    // Send to backend for workspace-specific storage
+    if (window.vscode) {
+      window.vscode.postMessage({ type: 'saveChatMode', mode });
+    }
+    
+    // Dispatch event for same-window listeners
+    window.dispatchEvent(new CustomEvent('chatModeUpdated', { detail: mode }));
+  },
+
+  requestChatMode(): void {
+    // Request workspace-specific chat mode from backend
+    if (window.vscode) {
+      window.vscode.postMessage({ type: 'getChatMode' });
+    }
   }
 };

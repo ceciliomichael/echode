@@ -2,9 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { parseGitignore, matchesGitignorePattern } from '../constants/excluded-patterns';
 
-import { EXCLUDED_DIRECTORIES as PATTERNS_EXCLUDED_DIRS, EXCLUDED_FILES as PATTERNS_EXCLUDED_FILES } from '../constants/excluded-patterns';
-
-const EXCLUDED_DIRECTORIES = PATTERNS_EXCLUDED_DIRS.map((dir) => dir.toLowerCase());
+import { EXCLUDED_FILES as PATTERNS_EXCLUDED_FILES } from '../constants/excluded-patterns';
 
 const EXCLUDED_FILES = PATTERNS_EXCLUDED_FILES
   .filter(f => !f.startsWith('*')) // Filter out glob patterns for exact matching
@@ -42,10 +40,6 @@ export function clearGitignoreCache(): void {
  */
 export function shouldExclude(name: string, isDirectory: boolean, workspacePath?: string, relativePath?: string): boolean {
   const normalizedName = name.toLowerCase();
-
-  if (isDirectory && EXCLUDED_DIRECTORIES.includes(normalizedName)) {
-    return true;
-  }
   if (!isDirectory && EXCLUDED_FILES.includes(normalizedName)) {
     return true;
   }
@@ -180,18 +174,15 @@ function countLinesIfLarge(filePath: string, minBytes: number, threshold: number
   }
 }
 
-// Pre-compute excluded directory set for O(1) lookup
-const EXCLUDED_DIR_SET = new Set(EXCLUDED_DIRECTORIES);
-
 // Cache for workspace-specific exclusion sets (includes gitignore)
 const workspaceExcludedDirs = new Map<string, Set<string>>();
 
 /**
- * Get excluded directories set for a workspace (includes gitignore)
+ * Get excluded directories set for a workspace (from gitignore)
  */
 function getExcludedDirsForWorkspace(workspacePath: string): Set<string> {
   if (!workspaceExcludedDirs.has(workspacePath)) {
-    const dirs = new Set(EXCLUDED_DIRECTORIES);
+    const dirs = new Set<string>();
 
     // Parse gitignore and add directory patterns
     const gitignorePatterns = getGitignorePatterns(workspacePath);

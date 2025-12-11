@@ -1,107 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-export const EXCLUDED_DIRECTORIES = [
-  // JavaScript/TypeScript/Node
-  'node_modules',
-  '.next',
-  '.nuxt',
-  '.output',
-  '.vercel',
-  '.netlify',
-
-  // Python
-  '__pycache__',
-  '.venv',
-  'venv',
-  'env',
-  '.env',
-  '.pytest_cache',
-  '.mypy_cache',
-  '.tox',
-  '.eggs',
-  'egg-info',
-  '.ipynb_checkpoints',
-
-  // Version Control
-  '.git',
-  '.svn',
-  '.hg',
-
-  // Build outputs
-  'dist',
-  'build',
-  'builds',
-  'out',
-  'output',
-  '_build',
-
-  // Rust
-  'target',
-
-  // Go
-  'vendor',
-
-  // Java/Kotlin/Scala
-  '.gradle',
-  '.mvn',
-  '.m2',
-
-  // .NET/C#
-  'bin',
-  'obj',
-  'packages',
-  '.nuget',
-
-  // C/C++
-  'cmake-build-debug',
-  'cmake-build-release',
-  'cmake-build-*',
-
-  // Ruby
-  '.bundle',
-
-  // Elixir/Erlang
-  'deps',
-  '_build',
-  '.elixir_ls',
-
-  // Dart/Flutter
-  '.dart_tool',
-  '.pub-cache',
-
-  // Swift/iOS
-  '.build',
-  'DerivedData',
-  'Pods',
-  '.swiftpm',
-
-  // IDE/Editor
-  '.idea',
-  '.vscode',
-  '.vs',
-  '.fleet',
-
-  // Testing/Coverage
-  'coverage',
-  '.nyc_output',
-  'htmlcov',
-
-  // Misc
-  '.cache',
-  '.temp',
-  '.tmp',
-  'tmp',
-  'temp',
-  'logs',
-  '.sass-cache',
-  '.parcel-cache',
-  '.turbo',
-  '.webpack',
-  '.docusaurus',
-  '.storybook-out',
-];
-
 export const EXCLUDED_FILES = [
   // OS files
   '.DS_Store',
@@ -168,9 +67,7 @@ export const EXCLUDED_FILES = [
 ];
 
 export function getDefaultGrepExcludes(): string[] {
-  const dirPatterns = EXCLUDED_DIRECTORIES.map(dir => `**/${dir}/**`);
-  const filePatterns = EXCLUDED_FILES;
-  return [...dirPatterns, ...filePatterns];
+  return [...EXCLUDED_FILES];
 }
 
 /**

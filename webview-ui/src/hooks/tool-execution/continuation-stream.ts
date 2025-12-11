@@ -81,7 +81,6 @@ export async function runContinuationStream(config: ContinuationStreamConfig): P
     setMessages,
     setIsExecutingTool,
     executeToolAndContinue,
-    logPrefix = '[ContinuationStream]',
     mode,
   } = config;
 
@@ -107,27 +106,14 @@ export async function runContinuationStream(config: ContinuationStreamConfig): P
       abortControllerRef.current = newAbortController;
 
       // Reset continuation content on retry (keep original assistant content)
-      if (retryCount > 0) {
-        console.log(`${logPrefix} Retry attempt ${retryCount}...`);
-        continuationContent = assistantContent;
+      if (retryCount > 0) {        continuationContent = assistantContent;
       }
-
-      console.log(`${logPrefix} Starting continuation stream...`);
-      let chunkCount = 0;
-
       for await (const chunk of chatApi.streamChat(
         continuationHistory,
         newAbortController.signal,
         mode
       )) {
-        chunkCount++;
-        if (chunkCount <= 3) {
-          console.log(`${logPrefix} Chunk #${chunkCount}:`, chunk.substring(0, 50));
-        }
-
-        if (newAbortController.signal.aborted || isStoppingRef.current) {
-          console.log(`${logPrefix} Stream aborted`);
-          streamSuccess = true; // User aborted, don't retry
+        if (newAbortController.signal.aborted || isStoppingRef.current) {          streamSuccess = true; // User aborted, don't retry
           break;
         }
 
@@ -162,23 +148,16 @@ export async function runContinuationStream(config: ContinuationStreamConfig): P
       }
 
       // Stream completed successfully
-      streamSuccess = true;
-      console.log(`${logPrefix} Stream completed, ${chunkCount} chunks received`);
-      console.log(`${logPrefix} Final content length: ${continuationContent.length}`);
-
+      streamSuccess = true;
       // Final update
       updateUI();
     } catch (streamError) {
       const errorMessage = streamError instanceof Error ? streamError.message : 'Unknown error';
 
       // Check if user manually aborted
-      if (abortControllerRef.current?.signal.aborted || isStoppingRef.current) {
-        console.log(`${logPrefix} User aborted, stopping retries`);
-        streamSuccess = true;
+      if (abortControllerRef.current?.signal.aborted || isStoppingRef.current) {        streamSuccess = true;
       } else if (isRetryableError(errorMessage)) {
-        retryCount++;
-        console.warn(`${logPrefix} Transient error, auto-retrying (attempt ${retryCount}):`, errorMessage);
-        await new Promise(resolve => setTimeout(resolve, calculateRetryDelay(retryCount)));
+        retryCount++;        await new Promise(resolve => setTimeout(resolve, calculateRetryDelay(retryCount)));
       } else {
         // Non-retryable error, rethrow
         throw streamError;

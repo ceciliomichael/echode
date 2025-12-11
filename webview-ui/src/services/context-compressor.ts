@@ -22,7 +22,7 @@ function estimateTokens(text: string): number {
  */
 function calculateMessageTokens(msg: Message): number {
   let tokens = estimateTokens(msg.content);
-  
+
   if (msg.toolExecutions && msg.toolExecutions.size > 0) {
     msg.toolExecutions.forEach((execution) => {
       tokens += estimateTokens(execution.toolName);
@@ -32,7 +32,7 @@ function calculateMessageTokens(msg: Message): number {
       }
     });
   }
-  
+
   return tokens;
 }
 
@@ -41,7 +41,7 @@ function calculateMessageTokens(msg: Message): number {
  */
 function formatMessageForSummary(msg: Message): string {
   let formatted = msg.content;
-  
+
   if (msg.toolExecutions && msg.toolExecutions.size > 0) {
     const toolSummaries: string[] = [];
     msg.toolExecutions.forEach((execution) => {
@@ -67,7 +67,7 @@ function formatMessageForSummary(msg: Message): string {
     });
     formatted += '\n' + toolSummaries.join('\n');
   }
-  
+
   return formatted;
 }
 
@@ -112,26 +112,15 @@ export class ContextCompressorService {
     newMessageTokens: number
   ): CompressionResult {
     const maxTokens = this.contextSettings.maxContextTokens;
-    
+
     // Calculate current context tokens
     let currentTokens = systemPromptTokens;
     messages.forEach((msg) => {
       currentTokens += calculateMessageTokens(msg);
     });
-    
+
     const totalAfterNewMessage = currentTokens + newMessageTokens;
-    
-    // Debug logging
-    console.log('[ContextCompressor] analyzeContext:', {
-      messageCount: messages.length,
-      systemPromptTokens,
-      currentTokens,
-      newMessageTokens,
-      totalAfterNewMessage,
-      maxTokens,
-      needsCompression: totalAfterNewMessage >= maxTokens,
-    });
-    
+
     // Check if compression is needed
     if (totalAfterNewMessage < maxTokens) {
       return {
@@ -148,13 +137,9 @@ export class ContextCompressorService {
     const firstMessages: Message[] = [];
     const middleMessages: Message[] = [];
     const recentMessages: Message[] = [];
-    
+
     // Need at least 4 messages: first user + first assistant + 1 middle + 1 recent
     if (messages.length < 4) {
-      console.log('[ContextCompressor] Not enough messages to compress:', {
-        messageCount: messages.length,
-        minRequired: 4,
-      });
       return {
         needsCompression: false,
         firstMessages: [],
@@ -169,7 +154,7 @@ export class ContextCompressorService {
     if (messages.length > 0 && messages[0].role === 'user') {
       firstMessages.push(messages[0]);
       firstBlockEnd = 1;
-      
+
       // Include assistant responses until next user message
       while (firstBlockEnd < messages.length && messages[firstBlockEnd].role === 'assistant') {
         firstMessages.push(messages[firstBlockEnd]);
@@ -179,12 +164,12 @@ export class ContextCompressorService {
 
     // Recent messages: last N messages
     const recentStart = Math.max(firstBlockEnd, messages.length - RECENT_MESSAGES_TO_KEEP);
-    
+
     // Everything in between is middle (to be compressed)
     for (let i = firstBlockEnd; i < recentStart; i++) {
       middleMessages.push(messages[i]);
     }
-    
+
     // Recent messages
     for (let i = recentStart; i < messages.length; i++) {
       recentMessages.push(messages[i]);
@@ -207,12 +192,6 @@ export class ContextCompressorService {
         }
 
         if (hardMiddle.length >= 1) {
-          console.log('[ContextCompressor] Using hard overflow compression mode:', {
-            messageCount: messages.length,
-            hardMiddleCount: hardMiddle.length,
-            hardRecentCount: hardRecent.length,
-          });
-
           return {
             needsCompression: true,
             firstMessages: [],
@@ -247,7 +226,7 @@ export class ContextCompressorService {
   async requestSummary(middleMessages: Message[]): Promise<SummaryResult> {
     return new Promise((resolve) => {
       const requestId = `summary-${Date.now()}`;
-      
+
       // Get summarizer settings
       const settings = storageService.getSettings();
       const contextSettings = settings.contextSettings || DEFAULT_CONTEXT_SETTINGS;
@@ -274,7 +253,7 @@ export class ContextCompressorService {
       // Listen for response
       const handleMessage = (event: MessageEvent) => {
         const message = event.data;
-        
+
         if (message.type === 'contextSummaryComplete' && message.requestId === requestId) {
           window.removeEventListener('message', handleMessage);
           resolve({
@@ -331,7 +310,7 @@ export class ContextCompressorService {
     provider: Provider
   ): { apiKey?: string; baseURL?: string; maxTokens?: number; temperature?: number } {
     const defaults = getProviderDefaults(provider);
-    
+
     switch (provider) {
       case 'anthropic':
         return {

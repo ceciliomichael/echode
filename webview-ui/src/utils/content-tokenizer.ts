@@ -573,7 +573,6 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
               // Allow all tool names - validation happens at execution time
               if (toolName && typeof toolName === 'string') {
                 const execId = `${messageId}-tool-${toolIndex++}`;
-                console.log(`[Tokenizer] Created tool token: toolIndex=${toolIndex-1}, execId=${execId}, toolName=${toolName}`);
                 tokens.push({
                   type: 'tool',
                   toolName,

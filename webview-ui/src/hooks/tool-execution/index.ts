@@ -82,9 +82,7 @@ export function useToolExecution({
       }
 
       // Check if user stopped before starting continuation
-      if (isStoppingRef.current) {
-        console.log('[ToolExecution] User stopped, aborting executeToolAndContinue');
-        setIsExecutingTool(false);
+      if (isStoppingRef.current) {        setIsExecutingTool(false);
         return;
       }
 
@@ -113,10 +111,7 @@ export function useToolExecution({
         diagnosticAttemptsRef,
       };
 
-      try {
-        console.log(`[ToolExecution] executeToolAndContinue called with toolIndex=${toolIndex}`);
-        console.log(`[ToolExecution] assistantContent length: ${assistantContent.length}`);
-
+      try {
         // If we have buffered results from incremental execution, skip to continuation
         if (bufferedToolResults && bufferedToolResults.length > 0) {
           await handleBufferedResults(
@@ -137,9 +132,7 @@ export function useToolExecution({
         setIsExecutingTool(true);
 
         // Extract all tool blocks and get the current one by index
-        const toolBlocks = extractToolBlocks(assistantContent);
-        console.log(`[ToolExecution] extractToolBlocks returned ${toolBlocks.length} blocks`);
-        const toolBlock = toolBlocks[toolIndex];
+        const toolBlocks = extractToolBlocks(assistantContent);        const toolBlock = toolBlocks[toolIndex];
 
         if (!toolBlock) {
           setIsExecutingTool(false);
@@ -148,10 +141,7 @@ export function useToolExecution({
 
         // Check if we can execute multiple tools in parallel
         const parallelizableBlocks = extractParallelizableToolBlocks(assistantContent, toolIndex);
-        const canExecuteInParallel = parallelizableBlocks.length > 1;
-
-        console.log(`[ToolExecution] toolIndex=${toolIndex}, toolBlocks.length=${toolBlocks.length}, parallelizableBlocks.length=${parallelizableBlocks.length}, canExecuteInParallel=${canExecuteInParallel}`);
-
+        const canExecuteInParallel = parallelizableBlocks.length > 1;
         if (canExecuteInParallel) {
           // Execute tools in parallel
           await executeToolsInParallel({
@@ -230,9 +220,7 @@ async function handleBufferedResults(
     userAttachments?: ImageAttachment[],
     bufferedToolResults?: string[]
   ) => Promise<void>
-): Promise<void> {
-  console.log(`[ToolExecution] Using ${bufferedToolResults.length} buffered tool results from incremental execution`);
-
+): Promise<void> {
   const toolResultText = bufferedToolResults.join('\n\n');
   const diagnosticsText = ''; // Diagnostics already handled during incremental execution
 
@@ -321,8 +309,6 @@ function handleExecutionError(
       updateToolExecution(assistantMessageId, toolExecutionId, errorState);
     } else {
       // Tool completed successfully but continuation failed
-      // Log warning but don't overwrite the successful tool result
-      console.warn('[ToolExecution] Continuation stream error after successful tool execution:', error);
-    }
+      // Log warning but don't overwrite the successful tool result    }
   }
 }

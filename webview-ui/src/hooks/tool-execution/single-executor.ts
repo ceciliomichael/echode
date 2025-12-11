@@ -157,9 +157,7 @@ export async function executeSingleTool(
   const diagnosticsText = getDiagnosticsFromToolResult(executedTool, diagnosticAttemptsRef);
 
   // Check if stopped during diagnostic processing
-  if (isStoppingRef.current) {
-    console.log('[SingleExecutor] User stopped during diagnostic processing');
-    setIsExecutingTool(false);
+  if (isStoppingRef.current) {    setIsExecutingTool(false);
     return { wasStopped: true, isPlanningTool: false, continueExecution: false };
   }
 

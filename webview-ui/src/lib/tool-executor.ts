@@ -38,11 +38,7 @@ export class ToolExecutor {
    * Get the current abort signal from the abort controller ref
    */
   private getAbortSignal(): AbortSignal | undefined {
-    const signal = this.abortControllerRef?.current?.signal;
-    if (!signal) {
-      console.warn('[ToolExecutor] No abort signal available - abortControllerRef:', !!this.abortControllerRef, 'current:', !!this.abortControllerRef?.current);
-    }
-    return signal;
+    return this.abortControllerRef?.current?.signal;
   }
 
   /**
@@ -241,8 +237,6 @@ export class ToolExecutor {
       };
     }
 
-    console.log(`[ToolExecutor] Executing ${toolBlocks.length} tools in parallel`);
-
     // Execute all tools in parallel
     const executionPromises = toolBlocks.map(async (block) => {
       try {
@@ -322,8 +316,6 @@ export class ToolExecutor {
         return `Tool: ${call.toolName}\nStatus: ${call.status}`;
       }
     });
-
-    console.log(`[ToolExecutor] Completed ${executedToolCalls.length} parallel executions`);
 
     return {
       executedToolCalls,

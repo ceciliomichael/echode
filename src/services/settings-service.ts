@@ -38,6 +38,7 @@ export interface ApiSettings {
   systemPrompt?: string;
   enabledTools?: unknown[];
   chatMode?: string;
+  workspaceModes?: Record<string, string>;
   indexingSettings?: unknown;
   autocompleteSettings?: unknown;
   contextSettings?: unknown;
@@ -142,6 +143,56 @@ export class SettingsService {
 
   getSettingsPath(): string {
     return this.settingsPath;
+  }
+
+  /**
+   * Generate a workspace ID from a workspace path
+   * Uses the same algorithm as ChatHistoryService for consistency
+   */
+  private generateWorkspaceId(workspacePath?: string): string {
+    if (!workspacePath) {
+      return 'global';
+    }
+    let hash = 0;
+    for (let i = 0; i < workspacePath.length; i++) {
+      const char = workspacePath.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return `ws_${Math.abs(hash).toString(36)}`;
+  }
+
+  /**
+   * Get chat mode for a specific workspace
+   * Falls back to global chatMode or 'agent' default
+   */
+  getChatMode(workspacePath?: string): string {
+    const settings = this.getSettings();
+    const workspaceId = this.generateWorkspaceId(workspacePath);
+    
+    // Check workspace-specific mode first
+    if (settings.workspaceModes && settings.workspaceModes[workspaceId]) {
+      return settings.workspaceModes[workspaceId];
+    }
+    
+    // Fall back to global chatMode or default
+    return settings.chatMode || 'agent';
+  }
+
+  /**
+   * Set chat mode for a specific workspace
+   */
+  setChatMode(workspacePath: string | undefined, mode: string): void {
+    const settings = this.getSettings();
+    const workspaceId = this.generateWorkspaceId(workspacePath);
+    
+    // Initialize workspaceModes if not exists
+    if (!settings.workspaceModes) {
+      settings.workspaceModes = {};
+    }
+    
+    settings.workspaceModes[workspaceId] = mode;
+    this.saveSettings(settings);
   }
 
   dispose(): void {

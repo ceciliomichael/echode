@@ -50,7 +50,6 @@ export function getDiagnosticsFromToolResultsParallel(
   executedTools: Array<{ toolName: string; result?: { success: boolean; data?: unknown }; state: ToolExecutionState }>,
   diagnosticAttemptsRef: React.MutableRefObject<Record<string, number>>
 ): string[] {
-  console.log(`[DiagnosticsHandler] Processing diagnostics for ${executedTools.length} files...`);
 
   const results = executedTools.map(({ toolName, result }) => {
     if (!result?.success || !('data' in result) || !result.data) {
@@ -78,8 +77,6 @@ export function getDiagnosticsFromToolResultsParallel(
       return '';
     }
   });
-
-  console.log(`[DiagnosticsHandler] Completed diagnostics processing for ${executedTools.length} files`);
   return results.filter((r): r is string => r.length > 0);
 }
 
@@ -114,7 +111,6 @@ function resetDiagnosticAttempts(
   diagnosticAttemptsRef: React.MutableRefObject<Record<string, number>>
 ): void {
   if (diagnosticAttemptsRef.current[filePath]) {
-    console.log(`[DiagnosticsHandler] No errors found for ${filePath} - resetting attempt counter`);
     delete diagnosticAttemptsRef.current[filePath];
   }
 }

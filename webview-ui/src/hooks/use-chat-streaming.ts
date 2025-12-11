@@ -68,15 +68,12 @@ export function useChatStreaming({
   const sendMessage = useCallback(async (content: string, attachments?: ImageAttachment[], overrideMessages?: Message[], isHidden: boolean = false, forceEchoSearch: boolean = false) => {
     // === GUARDS: Prevent concurrent operations ===
     if (isStreamingRef.current) {
-      console.warn('[Chat] Already streaming, ignoring new message request');
       return;
     }
     if (isExecutingToolRef.current) {
-      console.warn('[Chat] Tool execution in progress, ignoring new message request');
       return;
     }
     if (sendingMessageRef.current) {
-      console.warn('[Chat] Message already being sent, ignoring request');
       return;
     }
 
@@ -154,19 +151,14 @@ export function useChatStreaming({
       });
 
       if (compressionResult.wasAborted) {
-        console.log('[Chat] Compression was aborted, exiting early');
         return; // Compression was aborted, exit early
       }
 
       const contextMessages = compressionResult.contextMessages;
-      console.log('[Chat] After compression, contextMessages count:', contextMessages.length);
 
       // === MODEL CAPABILITIES ===
       const currentModel = getCurrentModel();
       const modelSupportsVision = isVisionCapableModel(currentModel);
-
-      console.log('[Chat] Model info:', { currentModel, modelSupportsVision });
-      console.log('[Chat] User message has attachments:', attachments?.length || 0);
 
       // === FORCED ECHO SEARCH (delegated to helper) ===
       if (forceEchoSearch && (mode === 'agent' || mode === 'plan' || mode === 'ask')) {
@@ -186,27 +178,16 @@ export function useChatStreaming({
       }
 
       // === BUILD CHAT HISTORY (delegated to helper) ===
-      console.log('[Chat] Building chat history with:', {
-        systemPromptLength: systemPrompt.length,
-        contextMessagesCount: contextMessages.length,
-        messagesToSendCount: messagesToSend.length,
-        contentLength: content.length,
-      });
-
       const finalChatHistory = buildChatHistoryWithToolResults({
         systemPrompt,
         contextMessages,
-        messagesToSend,
         content,
         attachments,
         modelSupportsVision,
         mode,
       });
 
-      console.log('[Chat] Final chat history built, message count:', finalChatHistory.length);
-
       // === STREAMING LOOP (delegated to helper) ===
-      console.log('[Chat] Starting streaming loop...');
       const streamResult = await runStreamingLoop({
         finalChatHistory,
         messagesToSend,

@@ -43,11 +43,9 @@ export function useRefactorScan(): RefactorScanResult {
 
     if (elapsed >= MIN_SCAN_DELAY) {
       const initial = window.refactorScanResults || [];
-      console.log('[Refactor] Initial state (delayed complete):', initial.length, 'files');
       return initial;
     }
 
-    console.log('[Refactor] Initial state (waiting for delay)');
     return [];
   });
   const [isScanning, setIsScanning] = useState(() => {
@@ -91,7 +89,6 @@ export function useRefactorScan(): RefactorScanResult {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
       if (message.type === 'refactorScanResults') {
-        console.log('[Refactor] Received scan results:', message.largeFiles?.length, 'files');
         window.refactorScanResults = message.largeFiles || [];
         window.refactorScanComplete = true;
         window.__echodeRefactorScanReceivedAt = Date.now();

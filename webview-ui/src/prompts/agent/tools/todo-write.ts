@@ -3,18 +3,23 @@
  */
 
 export function getTodoWriteInstructions(): string {
-    return `## todo_write
-Track task progress.
+   return `## todo_write
+Track task progress. Use ONE of the two parameter options:
 
-FORMATS:
-1. JSON: [{"id":"1","content":"Task","status":"pending"}]
-   Status: "pending" | "in_progress" | "completed"
+OPTION 1 - JSON (use 'tasks' parameter):
+<parameter name="tasks">[{"id":"1","content":"First task","status":"pending"},{"id":"2","content":"Second task","status":"in_progress"}]</parameter>
 
-2. Markdown:
-   - [ ] Pending
-   - [-] In progress
-   - [x] Completed
+OPTION 2 - Markdown (use 'todos' parameter):
+<parameter name="todos">
+- [ ] Pending task
+- [-] In progress task
+- [x] Completed task
+</parameter>
 
-WORKFLOW:
-Create tasks → Work through → Mark complete → Next task`;
+STATUS VALUES:
+- pending: Not started
+- in_progress: Currently working on
+- completed: Done
+
+IMPORTANT: Each task in JSON must have id, content, and status fields.`;
 }

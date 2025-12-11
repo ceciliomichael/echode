@@ -47,15 +47,6 @@ export async function prepareContextWithCompression(
     const projectedTokens = currentCompressedTokens + newMessageTokens;
     const needsRecompression = projectedTokens >= maxTokens;
 
-    console.log('[Chat] Already compressed, checking re-compression:', {
-      compressedContextTokens: currentCompressedTokens,
-      compressedMessagesCount: currentCompressedMessages.length,
-      newMessageTokens,
-      projectedTokens,
-      maxTokens,
-      needsRecompression,
-    });
-
     if (needsRecompression) {
       // Need to re-compress - analyze the COMPRESSED messages, not full history
       compressionAnalysis = compressor.analyzeContext(
@@ -83,27 +74,11 @@ export async function prepareContextWithCompression(
   }
 
   // Debug: Log compression analysis
-  console.log('[Chat] Compression analysis:', {
-    messageCount: messagesToSend.length,
-    needsCompression: compressionAnalysis.needsCompression,
-    estimatedTokens: compressionAnalysis.estimatedTokens,
-    maxTokens,
-    alreadyCompressed: currentCompressedTokens !== null,
-    firstMsgCount: compressionAnalysis.firstMessages.length,
-    middleMsgCount: compressionAnalysis.middleMessages.length,
-    recentMsgCount: compressionAnalysis.recentMessages.length,
-  });
 
   // Context messages - use compressed context if available, otherwise original
   let contextMessages = contextBase;
 
   if (compressionAnalysis.needsCompression && compressionAnalysis.middleMessages.length > 0) {
-    console.log('[Chat] Context compression triggered:', {
-      estimatedTokens: compressionAnalysis.estimatedTokens,
-      firstMessages: compressionAnalysis.firstMessages.length,
-      middleMessages: compressionAnalysis.middleMessages.length,
-      recentMessages: compressionAnalysis.recentMessages.length,
-    });
 
     // Show compressing state
     setIsCompressing(true);
@@ -118,7 +93,6 @@ export async function prepareContextWithCompression(
     try {
       // Check if aborted before starting compression
       if (abortControllerRef.current?.signal.aborted) {
-        console.log('[Chat] Compression aborted before start');
         setIsCompressing(false);
         return { contextMessages, wasAborted: true };
       }
@@ -128,20 +102,26 @@ export async function prepareContextWithCompression(
 
       // Check if aborted after compression completed
       if (abortControllerRef.current?.signal.aborted) {
-        console.log('[Chat] Compression aborted after completion');
         setIsCompressing(false);
         return { contextMessages, wasAborted: true };
       }
 
       if (summaryResult.success && summaryResult.summary) {
-        console.log('[Chat] Context compressed successfully');
 
         // Build compressed messages array for LLM context:
         // [first messages] + [summary as assistant message] + [recent messages]
+        // CRITICAL: Strip tool executions from all messages - they're summarized now
+        // and the token estimate only counts content, not tool executions
         const newCompressedMessages: Message[] = [];
 
-        // Add first messages (original user task + responses)
-        newCompressedMessages.push(...compressionAnalysis.firstMessages);
+        // Helper to strip tool executions from a message
+        const stripToolExecutions = (msg: Message): Message => ({
+          ...msg,
+          toolExecutions: undefined,
+        });
+
+        // Add first messages without tool executions
+        newCompressedMessages.push(...compressionAnalysis.firstMessages.map(stripToolExecutions));
 
         // Add summary as an assistant message
         if (summaryResult.summary) {
@@ -153,8 +133,8 @@ export async function prepareContextWithCompression(
           });
         }
 
-        // Add recent messages
-        newCompressedMessages.push(...compressionAnalysis.recentMessages);
+        // Add recent messages without tool executions
+        newCompressedMessages.push(...compressionAnalysis.recentMessages.map(stripToolExecutions));
 
         contextMessages = newCompressedMessages;
 
@@ -171,9 +151,7 @@ export async function prepareContextWithCompression(
         setCompressionAnchorId(userMessageId); // Mark this message as compression trigger
         compressedMessagesRef.current = newCompressedMessages;
         compressedContextTokensRef.current = compressedTokens;
-        console.log('[Chat] Compressed context, anchor:', userMessageId, 'tokens:', compressedTokens);
       } else {
-        console.warn('[Chat] Context compression failed:', summaryResult.error);
         // Fall back to original messages if compression fails
       }
     } catch (compressionError) {
@@ -182,7 +160,6 @@ export async function prepareContextWithCompression(
     }
 
     // Compression done - reset content and switch to streaming state
-    console.log('[Chat] Compression phase complete, resetting UI for streaming');
     setIsCompressing(false);
     setMessages((prev) =>
       prev.map((msg) =>
@@ -192,10 +169,5 @@ export async function prepareContextWithCompression(
       )
     );
   }
-
-  console.log('[Chat] prepareContextWithCompression returning:', {
-    contextMessagesCount: contextMessages.length,
-    wasAborted: false,
-  });
   return { contextMessages, wasAborted: false };
 }

@@ -4,23 +4,24 @@
  */
 
 export function getTodoWriteInstructions(): string {
-    return `## todo_write
-Document your implementation plan as tasks.
+   return `## todo_write
+Document your implementation plan as tasks. Use ONE of the two parameter options:
 
-FORMATS:
-1. JSON: [{"id":"1","content":"Task","status":"pending"}]
-   Status: "pending" | "in_progress" | "completed"
+OPTION 1 - JSON (use 'tasks' parameter):
+<parameter name="tasks">[{"id":"1","content":"Explore auth module","status":"pending"},{"id":"2","content":"Ask about API approach","status":"in_progress"}]</parameter>
 
-2. Markdown:
-   - [ ] Pending task
-   - [-] In progress
-   - [x] Completed
+OPTION 2 - Markdown (use 'todos' parameter):
+<parameter name="todos">
+- [ ] First task
+- [-] In progress task
+- [x] Completed task
+</parameter>
 
-PLANNING WORKFLOW:
-1. Explore codebase
-2. Ask questions (plan_navigator)
-3. Document plan (todo_write)
-4. Hand off (plan_handoff)
+STATUS VALUES:
+- pending: Not started
+- in_progress: Currently working on
+- completed: Done
 
-Keep tasks concise and actionable.`;
+Keep tasks concise and actionable.
+IMPORTANT: Each task in JSON must have id, content, and status fields.`;
 }

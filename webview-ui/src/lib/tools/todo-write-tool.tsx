@@ -21,7 +21,7 @@ registerToolPlugin({
     description: 'Write and manage todo list tasks',
     icon: ListChecks,
     usage: 'Write tasks to the todo list',
-    formatExample: '<function_calls>\n<invoke name="todo_write">\n<parameter name="tasks">[{"id":"1","content":"Task","status":"pending"}]</parameter>\n</invoke>\n</function_calls>',
+    formatExample: '<function_calls>\n<invoke name="todo_write">\n<parameter name="tasks">[{"id":"1","content":"First task","status":"pending"},{"id":"2","content":"Second task","status":"in_progress"}]</parameter>\n</invoke>\n</function_calls>',
   },
   handler: {
     execute: executeTodoWrite,

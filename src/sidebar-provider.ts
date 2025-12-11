@@ -563,6 +563,16 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
           getSettingsService().clearSettings();
           webviewView.webview.postMessage({ type: 'apiSettingsCleared' });
           break;
+        case 'getChatMode':
+          const chatModeWorkspacePath = this.getCurrentWorkspacePath();
+          const chatMode = getSettingsService().getChatMode(chatModeWorkspacePath);
+          webviewView.webview.postMessage({ type: 'chatModeLoaded', mode: chatMode });
+          break;
+        case 'saveChatMode':
+          const saveModeWorkspacePath = this.getCurrentWorkspacePath();
+          getSettingsService().setChatMode(saveModeWorkspacePath, data.mode);
+          webviewView.webview.postMessage({ type: 'chatModeSaved' });
+          break;
       }
     });
   }

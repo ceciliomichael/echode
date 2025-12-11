@@ -94,7 +94,6 @@ export function useSessionManagement({
   const loadSession = useCallback((sessionId: string) => {
     // If currently streaming or executing tools, abort and save first
     if (isStreamingRef.current || isExecutingToolRef.current) {
-      console.log('[Session] Aborting active stream before switching session');
       
       // Save current session state before aborting
       const currentMessages = messagesRef.current;
@@ -193,11 +192,6 @@ export function useSessionManagement({
           setCompressionAnchorId(session.compressedContext.anchorId);
           compressedMessagesRef.current = restoredCompressed;
           compressedContextTokensRef.current = session.compressedContext.tokenCount;
-          console.log('[Session] Restored compression state:', {
-            messageCount: restoredCompressed.length,
-            tokenCount: session.compressedContext.tokenCount,
-            anchorId: session.compressedContext.anchorId,
-          });
         } else {
           // Clear compression state if session has none
           setCompressedMessages(null);

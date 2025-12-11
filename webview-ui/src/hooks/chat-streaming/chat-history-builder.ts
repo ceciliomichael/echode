@@ -13,7 +13,7 @@ import { stripUnavailableToolCalls } from '../../utils/tool-history-filter';
  */
 function extractFilesRead(messages: Message[]): string[] {
   const filesRead: string[] = [];
-  
+
   for (const msg of messages) {
     if (msg.toolExecutions) {
       msg.toolExecutions.forEach((execution: ToolExecutionState) => {
@@ -29,7 +29,7 @@ function extractFilesRead(messages: Message[]): string[] {
       });
     }
   }
-  
+
   return filesRead;
 }
 
@@ -41,7 +41,6 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
   const {
     systemPrompt,
     contextMessages,
-    messagesToSend,
     content,
     attachments,
     modelSupportsVision,
@@ -62,7 +61,7 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
   for (const msg of contextMessages) {
     // Strip <think> and <thinking> blocks from message content before adding to chat history
     let processedContent = removeThinkBlocks(msg.content);
-    
+
     // For assistant messages, also strip tool call XML for tools not available in current mode
     // This prevents Plan/Ask mode from seeing <invoke name="write_to_file"> in history
     if (msg.role === 'assistant') {
@@ -97,12 +96,12 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
   const trimmedHistory = trimHistory(chatHistory);
 
   // Add current user message with attachments
-  const hasToolResults = messagesToSend.some(msg => msg.toolExecutions && msg.toolExecutions.size > 0);
+  const hasToolResults = contextMessages.some(msg => msg.toolExecutions && msg.toolExecutions.size > 0);
   const filesRead = extractFilesRead(contextMessages);
 
   // Build instruction based on context - concise and actionable
   let instruction = '';
-  
+
   if (filesRead.length > 0) {
     instruction += `\n\n<session_state>\nFiles read: ${filesRead.slice(-10).join(', ')}${filesRead.length > 10 ? ` (+${filesRead.length - 10} more)` : ''}`;
 
@@ -113,7 +112,7 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
 
     instruction += `\n</session_state>`;
   }
-  
+
   if (hasToolResults) {
     instruction += '\n[Use <tool_results> for exact content. Stay focused.]';
   }
@@ -147,12 +146,12 @@ export function buildMinimalChatHistory(
   // Add previous messages
   for (const msg of messagesToSend) {
     let processedContent = removeThinkBlocks(msg.content);
-    
+
     // For assistant messages, strip tool call XML for tools not available in current mode
     if (msg.role === 'assistant') {
       processedContent = stripUnavailableToolCalls(processedContent, mode);
     }
-    
+
     const chatMessage = buildChatMessage(
       msg.role,
       processedContent,

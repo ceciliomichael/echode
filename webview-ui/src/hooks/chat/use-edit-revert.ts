@@ -103,19 +103,7 @@ export function useEditRevert({
       
       // If editing AFTER the anchor → keep compression (edit is post-compression)
       // If editing AT or BEFORE the anchor → clear compression and re-analyze
-      if (anchorIndex !== -1 && messageIndex > anchorIndex) {
-        console.log('[Edit] Keeping compression (editing after anchor)', {
-          anchorIndex,
-          messageIndex,
-          anchorId: compressionAnchorId,
-        });
-      } else {
-        console.log('[Edit] Clearing compression (editing at/before anchor)', {
-          anchorIndex,
-          messageIndex,
-          anchorId: compressionAnchorId,
-        });
-        clearCompression();
+      if (anchorIndex !== -1 && messageIndex > anchorIndex) {      } else {        clearCompression();
       }
     }
 
@@ -140,9 +128,7 @@ export function useEditRevert({
 
   const handleRevertPreview = useCallback(async (messageId: string) => {
     const messageIndex = messages.findIndex(msg => msg.id === messageId);
-    if (messageIndex === -1) {
-      console.warn('[Chat] Message not found', messageId);
-      return;
+    if (messageIndex === -1) {      return;
     }
 
     // Save compression state before revert (for restore on cancel)
@@ -150,17 +136,13 @@ export function useEditRevert({
       messages: compressedMessagesRef.current,
       tokens: compressedContextTokensRef.current,
       anchorId: compressionAnchorId,
-    };
-    console.log('[Revert] Saved compression state:', savedCompressionRef.current);
-
+    };
     // Only clear compression if reverting to a message BEFORE the compression anchor
     // If reverting to a message after compression, the compression is still valid
     if (compressionAnchorId) {
       const anchorIndex = messages.findIndex(msg => msg.id === compressionAnchorId);
       // If revert target is at or before the anchor, clear compression
-      if (anchorIndex === -1 || messageIndex <= anchorIndex) {
-        console.log('[Revert] Reverting past compression anchor, clearing compression');
-        clearCompression();
+      if (anchorIndex === -1 || messageIndex <= anchorIndex) {        clearCompression();
       }
     }
 
@@ -172,9 +154,7 @@ export function useEditRevert({
     }
 
     try {
-      const messagesToRevert = messages.slice(messageIndex).reverse();
-      console.log(`[Revert] Reverting ${messagesToRevert.length} messages`);
-
+      const messagesToRevert = messages.slice(messageIndex).reverse();
       for (const msg of messagesToRevert) {
         if (msg.toolExecutions && msg.toolExecutions.size > 0) {
           await toolHistoryApi.undoToolExecutions(msg.toolExecutions);
@@ -224,9 +204,7 @@ export function useEditRevert({
     try {
       const messageIndex = messages.findIndex(msg => msg.id === revertPreviewMessageId);
       if (messageIndex !== -1) {
-        const messagesToReapply = messages.slice(messageIndex);
-        console.log(`[CancelRevert] Re-applying ${messagesToReapply.length} messages`);
-
+        const messagesToReapply = messages.slice(messageIndex);
         for (const msg of messagesToReapply) {
           if (msg.toolExecutions && msg.toolExecutions.size > 0) {
             await toolHistoryApi.redoToolExecutions(msg.toolExecutions);
@@ -237,9 +215,7 @@ export function useEditRevert({
       // Restore saved compression state
       if (savedCompressionRef.current) {
         const { messages: savedMessages, tokens, anchorId } = savedCompressionRef.current;
-        restoreCompression(savedMessages, tokens, anchorId);
-        console.log('[CancelRevert] Restored compression state:', savedCompressionRef.current);
-        savedCompressionRef.current = null;
+        restoreCompression(savedMessages, tokens, anchorId);        savedCompressionRef.current = null;
       }
 
       setRevertPreviewMessageId(null);

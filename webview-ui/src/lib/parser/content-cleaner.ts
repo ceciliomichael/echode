@@ -13,17 +13,13 @@ export function cleanToolCallContent(content: string): string {
 
   // Remove duplicate opening <function_calls> tags
   const duplicateOpenings = cleaned.match(/<function_calls>\s*<function_calls>/g);
-  if (duplicateOpenings) {
-    console.log(`[ContentCleaner] Fixed ${duplicateOpenings.length} duplicate opening tag(s)`);
-    hadErrors = true;
+  if (duplicateOpenings) {    hadErrors = true;
     cleaned = cleaned.replace(/<function_calls>\s*<function_calls>/g, '<function_calls>');
   }
 
   // Remove duplicate closing </function_calls> tags
   const duplicateClosings = cleaned.match(/<\/function_calls>\s*<\/function_calls>/g);
-  if (duplicateClosings) {
-    console.log(`[ContentCleaner] Fixed ${duplicateClosings.length} duplicate closing tag(s)`);
-    hadErrors = true;
+  if (duplicateClosings) {    hadErrors = true;
     cleaned = cleaned.replace(/<\/function_calls>\s*<\/function_calls>/g, '</function_calls>');
   }
 
@@ -40,31 +36,21 @@ export function cleanToolCallContent(content: string): string {
     }
   );
 
-  if (unclosedFixed > 0) {
-    console.log(`[ContentCleaner] Fixed ${unclosedFixed} unclosed tag(s) before new opening`);
-    hadErrors = true;
+  if (unclosedFixed > 0) {    hadErrors = true;
   }
 
   // Fix malformed closing tags with backslashes: <\param> -> </param>
   const backslashClosings = cleaned.match(/<\\[\w_-]+>/g);
-  if (backslashClosings) {
-    console.log(
-      `[ContentCleaner] Fixed ${backslashClosings.length} backslash closing tag(s)`
-    );
-    hadErrors = true;
+  if (backslashClosings) {    hadErrors = true;
     cleaned = cleaned.replace(/<\\([\w_-]+)>/g, '</$1>');
   }
 
   // Fix malformed invoke tags
   const malformedInvokes = cleaned.match(/<invoke\s+name=["'][^"']+["']\s*[^>]*(?!>)/g);
-  if (malformedInvokes) {
-    console.log(`[ContentCleaner] Fixed ${malformedInvokes.length} malformed invoke tag(s)`);
-    hadErrors = true;
+  if (malformedInvokes) {    hadErrors = true;
   }
 
-  if (hadErrors) {
-    console.log('[ContentCleaner] AI generated malformed XML - automatically corrected');
-  }
+  if (hadErrors) {  }
 
   return cleaned;
 }

@@ -38,16 +38,12 @@ export function extractFunctionCallsBlocks(content: string): FunctionCallsBlock[
     if (openPos === -1) break;
 
     // Skip if preceded by backtick (inside code block or inline code)
-    if (openPos > 0 && content[openPos - 1] === '`') {
-      console.log(`[BlockExtractor] Skipping function_calls at ${openPos} - preceded by backtick`);
-      searchPos = openPos + openTag.length;
+    if (openPos > 0 && content[openPos - 1] === '`') {      searchPos = openPos + openTag.length;
       continue;
     }
 
     const openTagEnd = openPos + openTag.length;
-    const closePos = findMatchingClosingTag(content, openTagEnd, openTag, closeTag);
-    console.log(`[BlockExtractor] Found function_calls at ${openPos}, closePos=${closePos}`);
-
+    const closePos = findMatchingClosingTag(content, openTagEnd, openTag, closeTag);
     if (closePos === -1) {
       break;
     }

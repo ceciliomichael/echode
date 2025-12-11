@@ -18,10 +18,7 @@ export async function handleForcedEchoSearch(ctx: ForcedEchoSearchContext): Prom
     setMessages,
     setIsExecutingTool,
     executeToolAndContinue,
-  } = ctx;
-
-  console.log('[Chat] Forced echo_search triggered - executing directly without LLM');
-
+  } = ctx;
   // Create synthetic assistant content with echo_search tool block
   // Must match the expected format: <function_calls><invoke name="tool">...
   // Escape XML special characters to prevent breaking the tool block structure

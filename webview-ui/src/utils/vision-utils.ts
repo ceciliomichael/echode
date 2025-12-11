@@ -7,7 +7,7 @@ import { storageService } from './storage';
  * Note: Always returns true to allow vision on all models
  * If a model doesn't support vision, the API will handle it gracefully
  */
- 
+
 export function isVisionCapableModel(_modelName: string): boolean {
   // Enable vision for all models - let the API handle unsupported models
   return true;
@@ -23,18 +23,8 @@ export function buildChatMessage(
   attachments?: ImageAttachment[],
   modelSupportsVision: boolean = true
 ): ChatMessage {
-  console.log('[Vision] Building message:', {
-    role,
-    hasAttachments: !!attachments && attachments.length > 0,
-    attachmentCount: attachments?.length || 0,
-    modelSupportsVision
-  });
-
   // If no attachments or model doesn't support vision, return simple text message
   if (!attachments || attachments.length === 0 || !modelSupportsVision) {
-    if (attachments && attachments.length > 0 && !modelSupportsVision) {
-      console.warn('[Vision] Model does not support vision - images will not be sent');
-    }
     return {
       role,
       content,
@@ -51,11 +41,6 @@ export function buildChatMessage(
 
   // Add image attachments
   for (const attachment of attachments) {
-    console.log('[Vision] Adding image:', {
-      mimeType: attachment.mimeType,
-      size: attachment.size,
-      dataLength: attachment.data.length
-    });
     contentArray.push({
       type: 'image_url',
       image_url: {
@@ -64,7 +49,6 @@ export function buildChatMessage(
     });
   }
 
-  console.log('[Vision] Built multimodal message with', contentArray.length, 'parts');
   return {
     role,
     content: contentArray,
@@ -76,7 +60,7 @@ export function buildChatMessage(
  */
 export function getCurrentModel(): string {
   const settings = storageService.getSettings();
-  
+
   // Return provider-specific model
   if (settings.provider === 'anthropic') {
     return settings.anthropicModel || settings.model || 'claude-3-5-sonnet-20241022';
@@ -89,6 +73,6 @@ export function getCurrentModel(): string {
   } else if (settings.provider === 'qwen-code') {
     return settings.qwenCodeModel || settings.model || 'qwen3-coder-plus';
   }
-  
+
   return settings.model || 'gpt-4o';
 }

@@ -16,6 +16,30 @@ export function useChatMode(): ChatModeState {
     storageService.setChatMode(newMode);
   }, []);
 
+  // Request workspace-specific chat mode from backend on mount
+  useEffect(() => {
+    const handleChatModeLoaded = (event: MessageEvent) => {
+      const message = event.data;
+      if (message.type === 'chatModeLoaded' && message.mode) {
+        const loadedMode = message.mode as ChatMode;
+        // Validate the mode is a valid ChatMode
+        if (CHAT_MODE_OPTIONS.some(opt => opt.value === loadedMode)) {
+          setMode(loadedMode);
+          // Update local cache
+          const settings = storageService.getSettings();
+          settings.chatMode = loadedMode;
+        }
+      }
+    };
+
+    window.addEventListener('message', handleChatModeLoaded);
+    
+    // Request workspace-specific mode from backend
+    storageService.requestChatMode();
+
+    return () => window.removeEventListener('message', handleChatModeLoaded);
+  }, []);
+
   // Ctrl+. hotkey to cycle through modes
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

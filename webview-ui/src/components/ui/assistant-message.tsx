@@ -213,9 +213,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
             const toolMarginTop = isConnectedTop ? 0 : marginTop;
 
             // Merge token data with execution state if available
-            const executionState = toolExecutions?.get(token.toolExecutionId);
-            console.log(`[AssistantMessage] Looking up execution for token: toolExecutionId=${token.toolExecutionId}, toolName=${token.toolName}, found=${!!executionState}`);
-
+            const executionState = toolExecutions?.get(token.toolExecutionId);
             // Special handling: Split multi-file read_file results into separate tool blocks
             if (token.toolName === 'read_file' && executionState?.result?.success && executionState.result.data) {
               const resultData = executionState.result.data as Record<string, unknown>;

@@ -193,7 +193,7 @@ export function trimToFirstCompleteToolBlock(content: string): string {
       // Find where this block's closing tag appears in original content
       // We need to find it AFTER any thinking blocks
       const closingTag = '</function_calls>';
-      
+
       // Find the end of the last thinking block in original content
       let searchStart = 0;
       const thinkEndMatch = content.match(/<\/thinking>|<\/think>/g);
@@ -210,7 +210,7 @@ export function trimToFirstCompleteToolBlock(content: string): string {
           searchStart = lastThinkEnd;
         }
       }
-      
+
       // Find the closing tag of the first real function_calls after thinking
       const openTagAfterThink = content.indexOf('<function_calls>', searchStart);
       if (openTagAfterThink !== -1) {
@@ -239,18 +239,14 @@ export function extractToolBlocks(content: string): ParsedToolBlock[] {
 
   // Use balanced tag extraction instead of regex for proper nested content handling
   const functionCallsBlocks = extractFunctionCallsBlocks(preprocessed);
-  console.log(`[ToolParser] extractToolBlocks: found ${functionCallsBlocks.length} function_calls blocks`);
 
   for (const block of functionCallsBlocks) {
-    console.log(`[ToolParser] Processing block at ${block.startIndex}-${block.endIndex}, innerContent length: ${block.innerContent.length}`);
     const parsedBlocks = parseFunctionCallsBlock(block.innerContent, block.fullMatch);
-    console.log(`[ToolParser] Parsed ${parsedBlocks.length} invoke blocks from this function_calls`);
 
     // Add all parsed invoke blocks
     toolBlocks.push(...parsedBlocks);
   }
 
-  console.log(`[ToolParser] extractToolBlocks returning ${toolBlocks.length} total blocks`);
   return toolBlocks;
 }
 
@@ -296,33 +292,22 @@ export function extractCompleteInvokeBlocksIncremental(content: string): {
 } {
   const fenceMatches = content.match(/```/g);
   const fenceCount = fenceMatches ? fenceMatches.length : 0;
-  const shouldLog = content.includes('<function_calls>');
-
-  if (shouldLog) {
-    console.log('[extractCompleteInvokeBlocksIncremental] RAW content snippet:', JSON.stringify(content.slice(0, 400)));
-    console.log('[extractCompleteInvokeBlocksIncremental] RAW fenceCount:', fenceCount);
-  }
 
   // If there is an unmatched markdown code fence (odd number of ```),
   // we must NOT execute tools yet. This covers streaming cases where
   // ```xml has been opened but the closing ``` has not arrived.
   if (fenceCount % 2 === 1) {
-    console.log('[extractCompleteInvokeBlocksIncremental] Unmatched code fence detected, skipping tool extraction');
     return { blocks: [], pendingBlocks: [], hasFunctionCallsClose: false };
   }
 
   const preprocessed = preprocessContent(content);
-
-  if (shouldLog) {
-    console.log('[extractCompleteInvokeBlocksIncremental] PREPROCESSED snippet:', JSON.stringify(preprocessed.slice(0, 400)));
-  }
   const blocks: ParsedToolBlock[] = [];
   const pendingBlocks: PendingInvokeBlock[] = [];
-  
+
   // Check if we have a function_calls opening
   const openTag = '<function_calls>';
   const closeTag = '</function_calls>';
-  
+
   // Find the end of the last thinking block
   let searchStart = 0;
   for (const tag of ['</thinking>', '</think>']) {
@@ -331,7 +316,7 @@ export function extractCompleteInvokeBlocksIncremental(content: string): {
       searchStart = idx + tag.length;
     }
   }
-  
+
   // Find a function_calls opening that is not inside a code block
   let openPos = searchStart;
   while (openPos < preprocessed.length) {
@@ -342,50 +327,42 @@ export function extractCompleteInvokeBlocksIncremental(content: string): {
 
     // Skip if preceded by backtick (inside code block or inline code)
     if (openPos > 0 && preprocessed[openPos - 1] === '`') {
-      console.log(`[extractCompleteInvokeBlocksIncremental] Skipping function_calls at ${openPos} - preceded by backtick`);
       openPos += openTag.length;
       continue;
     }
 
     break;
   }
-  
+
   const openTagEnd = openPos + openTag.length;
-  
+
   // Check if function_calls is closed
   const closePos = findMatchingClosingTag(preprocessed, openTagEnd, openTag, closeTag);
   const hasFunctionCallsClose = closePos !== -1;
-  
+
   // Extract the content inside function_calls (complete or partial)
-  const innerContent = hasFunctionCallsClose 
+  const innerContent = hasFunctionCallsClose
     ? preprocessed.slice(openTagEnd, closePos)
     : preprocessed.slice(openTagEnd);
-  
+
   // Extract all complete invoke blocks from this content
   const invokeBlocks = extractInvokeBlocks(innerContent);
-  
-  console.log(`[extractCompleteInvokeBlocksIncremental] hasFunctionCallsClose=${hasFunctionCallsClose}, invokeBlocks.length=${invokeBlocks.length}`);
 
-  if (shouldLog) {
-    console.log('[extractCompleteInvokeBlocksIncremental] INNER content snippet:', JSON.stringify(innerContent.slice(0, 400)));
-  }
-  
   for (const block of invokeBlocks) {
     if (block.toolName && typeof block.toolName === 'string') {
       const parsed = parseInvokeBlockInternal(block.innerContent, block.toolName, block.fullMatch);
       if (parsed) {
-        console.log(`[extractCompleteInvokeBlocksIncremental] Found complete invoke: ${block.toolName}`);
         blocks.push(parsed);
       }
     }
   }
-  
+
   // Find pending (partial) invoke blocks - where <invoke> opened but </invoke> hasn't arrived
   // Search for invoke opening tags that don't have a matching close
   const invokeOpenRegex = /<invoke\s+name=["']([^"']+)["']>/g;
   let match: RegExpExecArray | null;
   let lastCompleteInvokeEnd = 0;
-  
+
   // Find where the last complete invoke ends
   if (invokeBlocks.length > 0) {
     const lastBlock = invokeBlocks[invokeBlocks.length - 1];
@@ -394,7 +371,7 @@ export function extractCompleteInvokeBlocksIncremental(content: string): {
       lastCompleteInvokeEnd = lastBlockPos + lastBlock.fullMatch.length;
     }
   }
-  
+
   // Search for invoke openings after the last complete block
   invokeOpenRegex.lastIndex = lastCompleteInvokeEnd;
   while ((match = invokeOpenRegex.exec(innerContent)) !== null) {
@@ -402,25 +379,25 @@ export function extractCompleteInvokeBlocksIncremental(content: string): {
     if (isInsideInvokeParameterValue(innerContent, match.index)) {
       continue;
     }
-    
+
     const toolName = match[1];
     const openTagEndPos = match.index + match[0].length;
-    
+
     // Check if this invoke has a closing tag
     const invokeClosePos = findMatchingInvokeClosingTag(innerContent, openTagEndPos);
-    
+
     if (invokeClosePos === -1) {
       // This is a pending invoke - no closing tag yet
       const partialContent = innerContent.slice(openTagEndPos);
       const parameters = parseXMLParameters(partialContent);
-      
+
       pendingBlocks.push({
         toolName,
         parameters,
       });
     }
   }
-  
+
   return { blocks, pendingBlocks, hasFunctionCallsClose };
 }
 
@@ -452,11 +429,10 @@ function parseInvokeBlockInternal(
  */
 export function extractParallelizableToolBlocks(content: string, startingToolIndex: number = 0): ParsedToolBlock[] {
   const preprocessed = preprocessContent(content);
-  
+
   // Get all function_calls blocks
   const functionCallsBlocks = extractFunctionCallsBlocks(preprocessed);
-  console.log(`[ToolParser] extractParallelizableToolBlocks: found ${functionCallsBlocks.length} function_calls blocks, startingToolIndex=${startingToolIndex}`);
-  
+
   if (functionCallsBlocks.length === 0) {
     return [];
   }
@@ -465,30 +441,26 @@ export function extractParallelizableToolBlocks(content: string, startingToolInd
   let currentToolIndex = 0;
   let targetBlock: typeof functionCallsBlocks[0] | null = null;
   let blockStartIndex = 0;
-  
+
   for (const block of functionCallsBlocks) {
     const parsedBlocks = parseFunctionCallsBlock(block.innerContent, block.fullMatch);
     const blockEndIndex = currentToolIndex + parsedBlocks.length;
-    
+
     if (startingToolIndex >= currentToolIndex && startingToolIndex < blockEndIndex) {
       targetBlock = block;
       blockStartIndex = currentToolIndex;
       break;
     }
-    
+
     currentToolIndex = blockEndIndex;
   }
-  
+
   if (!targetBlock) {
-    console.log(`[ToolParser] No block found containing toolIndex ${startingToolIndex}`);
     return [];
   }
 
-  console.log(`[ToolParser] Found block at index ${blockStartIndex} containing toolIndex ${startingToolIndex}`);
-  
   const parsedBlocks = parseFunctionCallsBlock(targetBlock.innerContent, targetBlock.fullMatch);
-  console.log(`[ToolParser] Parsed ${parsedBlocks.length} invoke blocks from function_calls`);
-  
+
   if (parsedBlocks.length === 0) {
     return [];
   }
@@ -496,26 +468,19 @@ export function extractParallelizableToolBlocks(content: string, startingToolInd
   // Get only the blocks starting from the relative position within this function_calls block
   const relativeStartIndex = startingToolIndex - blockStartIndex;
   const blocksFromStart = parsedBlocks.slice(relativeStartIndex);
-  
+
   if (blocksFromStart.length === 0) {
     return [];
   }
 
-  // Log each parsed block
-  blocksFromStart.forEach((block, idx) => {
-    console.log(`[ToolParser] Block ${idx}: ${block.toolName}, parallelizable: ${isParallelizableTool(block.toolName)}`);
-  });
-
   // Check if ALL remaining tools in this function_calls block are parallelizable
   const allParallelizable = blocksFromStart.every(block => isParallelizableTool(block.toolName));
-  
+
   if (!allParallelizable) {
     // If any tool is not parallelizable, only return the first tool for sequential execution
-    console.log(`[ToolParser] Not all tools parallelizable, returning only first`);
     return [blocksFromStart[0]];
   }
 
   // All tools are parallelizable - return all for parallel execution
-  console.log(`[ToolParser] All ${blocksFromStart.length} tools are parallelizable, returning all for parallel execution`);
   return blocksFromStart;
 }

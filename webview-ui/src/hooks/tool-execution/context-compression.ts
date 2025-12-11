@@ -60,17 +60,9 @@ export async function buildCompressedContextIfNeeded(
     return messages;
   }
 
-  console.log('[ContextCompression] Context compression triggered for continuation:', {
-    estimatedTokens: analysis.estimatedTokens,
-    firstMessages: analysis.firstMessages.length,
-    middleMessages: analysis.middleMessages.length,
-    recentMessages: analysis.recentMessages.length,
-  });
-
   const summaryResult = await compressor.requestSummary(analysis.middleMessages);
 
   if (!summaryResult.success || !summaryResult.summary) {
-    console.warn('[ContextCompression] Continuation context compression failed:', summaryResult.error);
     return messages;
   }
 
@@ -83,10 +75,6 @@ export async function buildCompressedContextIfNeeded(
     timestamp: new Date(),
   });
   compressedMessages.push(...analysis.recentMessages);
-
-  console.log('[ContextCompression] Continuation context compressed:', {
-    compressedCount: compressedMessages.length,
-  });
 
   return compressedMessages;
 }

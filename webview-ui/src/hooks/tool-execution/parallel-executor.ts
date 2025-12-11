@@ -68,17 +68,11 @@ export async function executeToolsInParallel(
     mode,
     diagnosticAttemptsRef,
     workspace,
-  } = context;
-
-  console.log(`[ParallelExecutor] Executing ${parallelizableBlocks.length} tools in parallel...`);
-  console.log(`[ParallelExecutor] Tools:`, parallelizableBlocks.map(b => b.toolName));
-
+  } = context;
   // RUNTIME GUARD: Verify ALL tools are in the parallel allow-list
   // If any tool is not allowed, fall back to serial execution
   const toolNames = parallelizableBlocks.map(b => b.toolName);
   if (!areAllToolsParallelAllowed(toolNames)) {
-    const disallowed = toolNames.filter(name => !areAllToolsParallelAllowed([name]));
-    console.warn(`[ParallelExecutor] BLOCKED: Tools not in parallel allow-list: ${disallowed.join(', ')}. Falling back to serial execution.`);
     
     // Execute tools serially instead of in parallel
     return executeToolsSerially(params);
@@ -87,9 +81,7 @@ export async function executeToolsInParallel(
   // Create execution states for all parallel tools
   const executionStates = parallelizableBlocks.map((block, idx) => {
     const globalIdx = toolIndex + idx;
-    const execId = generateToolExecutionId(assistantMessageId, globalIdx);
-    console.log(`[ParallelExecutor] Creating execution state: idx=${idx}, globalIdx=${globalIdx}, execId=${execId}, toolName=${block.toolName}`);
-    
+    const execId = generateToolExecutionId(assistantMessageId, globalIdx);    
     const state = createToolExecutionState(
       execId,
       block.toolName,
@@ -130,12 +122,7 @@ export async function executeToolsInParallel(
             state: abortedState,
             formattedText: `Tool: ${block.toolName}\nStatus: aborted`,
           };
-        }
-
-        console.log(
-          `[ParallelExecutor] Starting execution: idx=${idx}, execId=${execId}, toolName=${block.toolName}`,
-        );
-
+        }
         const result = await toolExecutor.execute(
           {
             toolName: block.toolName,
@@ -163,12 +150,7 @@ export async function executeToolsInParallel(
 
         const status = result.success ? 'completed' as const : 'error' as const;
         const completedState = updateToolExecutionStatus(state, status, result);
-        updateToolExecution(assistantMessageId, execId, completedState);
-
-        console.log(
-          `[ParallelExecutor] Completed execution: idx=${idx}, execId=${execId}, toolName=${block.toolName}, status=${status}`,
-        );
-
+        updateToolExecution(assistantMessageId, execId, completedState);
         // Format result text for AI context
         let formattedText: string;
         if (result.success && 'data' in result && result.data !== undefined) {
@@ -212,9 +194,7 @@ export async function executeToolsInParallel(
   const parallelResults = await Promise.all(executionPromises);
 
   // If user stopped while tools were executing, respect the stop signal
-  if (isStoppingRef.current) {
-    console.log('[ParallelExecutor] User stopped during parallel tool execution');
-    setIsExecutingTool(false);
+  if (isStoppingRef.current) {    setIsExecutingTool(false);
     return { wasStopped: true, continueExecution: false };
   }
 
@@ -232,9 +212,7 @@ export async function executeToolsInParallel(
   );
 
   // Check if stopped during diagnostic processing
-  if (isStoppingRef.current) {
-    console.log('[ParallelExecutor] User stopped during diagnostic processing');
-    setIsExecutingTool(false);
+  if (isStoppingRef.current) {    setIsExecutingTool(false);
     return { wasStopped: true, continueExecution: false };
   }
 
@@ -299,10 +277,7 @@ function markAllAsAborted(
 
 async function executeToolsSerially(params: ParallelExecutionParams): Promise<ParallelExecutionResult> {
   const { parallelizableBlocks, assistantContent, assistantMessageId, toolIndex, messagesToSend, userContent, userAttachments, toolExecutor, context, executeToolAndContinue } = params;
-  const { isStoppingRef, abortControllerRef, setIsExecutingTool, updateToolExecution, messagesRef, currentTodos, mode, diagnosticAttemptsRef, workspace } = context;
-
-  console.log(`[ParallelExecutor] Executing ${parallelizableBlocks.length} tools SERIALLY...`);
-  const allResults: Array<{ toolName: string; result: { success: boolean; error?: string; data?: unknown }; state: ToolExecutionState; formattedText: string }> = [];
+  const { isStoppingRef, abortControllerRef, setIsExecutingTool, updateToolExecution, messagesRef, currentTodos, mode, diagnosticAttemptsRef, workspace } = context;  const allResults: Array<{ toolName: string; result: { success: boolean; error?: string; data?: unknown }; state: ToolExecutionState; formattedText: string }> = [];
 
   for (let idx = 0; idx < parallelizableBlocks.length; idx++) {
     const block = parallelizableBlocks[idx];

@@ -75,7 +75,6 @@ export interface CompressionResult {
 export interface ChatHistoryContext {
   systemPrompt: string;
   contextMessages: Message[];
-  messagesToSend: Message[];
   content: string;
   attachments: ImageAttachment[] | undefined;
   modelSupportsVision: boolean;

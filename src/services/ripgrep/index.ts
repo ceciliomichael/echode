@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as readline from 'readline';
 import * as vscode from 'vscode';
 import * as fs from 'fs/promises';
-import { EXCLUDED_DIRECTORIES, EXCLUDED_FILES } from '../../constants/excluded-patterns';
+import { EXCLUDED_FILES } from '../../constants/excluded-patterns';
 
 /**
  * Ripgrep service for Echode
@@ -13,8 +13,8 @@ import { EXCLUDED_DIRECTORIES, EXCLUDED_FILES } from '../../constants/excluded-p
  * - Uses VSCode's bundled ripgrep binary
  * - JSON output parsing for structured results
  * - Context lines support
- * - Gitignore-aware by default
- * - Uses excluded-patterns.ts for comprehensive exclusion list
+ * - Gitignore-aware by default (handles directory exclusions)
+ * - Uses excluded-patterns.ts for file exclusion list
  */
 
 const isWindows = process.platform.startsWith('win');
@@ -171,10 +171,7 @@ export async function regexSearchFiles(
 
     const args = ['--json', '-e', regex];
 
-    // Add default directory excludes from excluded-patterns.ts
-    for (const dir of EXCLUDED_DIRECTORIES) {
-        args.push('-g', `!**/${dir}/**`);
-    }
+    // Directory excludes handled by ripgrep's native .gitignore support
 
     // Add default file excludes from excluded-patterns.ts
     for (const file of EXCLUDED_FILES) {
@@ -365,10 +362,7 @@ export async function regexSearchFilesStructured(
 
     const args = ['--json', '-e', regex];
 
-    // Add default directory excludes from excluded-patterns.ts
-    for (const dir of EXCLUDED_DIRECTORIES) {
-        args.push('-g', `!**/${dir}/**`);
-    }
+    // Directory excludes handled by ripgrep's native .gitignore support
 
     // Add default file excludes from excluded-patterns.ts
     for (const file of EXCLUDED_FILES) {
@@ -479,10 +473,7 @@ export async function listFilesWithRipgrep(
         '--hidden',
     ];
 
-    // Add default directory excludes from excluded-patterns.ts
-    for (const dir of EXCLUDED_DIRECTORIES) {
-        args.push('-g', `!**/${dir}/**`);
-    }
+    // Directory excludes handled by ripgrep's native .gitignore support
 
     // Add default file excludes from excluded-patterns.ts
     for (const file of EXCLUDED_FILES) {
