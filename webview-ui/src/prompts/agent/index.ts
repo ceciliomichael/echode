@@ -5,7 +5,7 @@
 
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
-import { getIdentity, getFocusInstruction, getUserRules, getSystemInfo } from '../shared';
+import { getUserRules, getSystemInfo } from '../shared';
 import { getAgentModeSection } from './mode-section';
 import { getAgentRules } from './rules';
 import { getAgentCognitiveWorkflow } from './cognitive-workflow';
@@ -16,18 +16,14 @@ import { getToolSystemPrompt } from '../../lib/tool-config';
 export interface AgentPromptOptions {
     workspace: WorkspaceContext | null;
     enabledTools: Tool[];
-    name?: string;
-    purpose?: string;
 }
 
 /**
  * Build the complete Agent mode system prompt
  */
 export function buildAgentPrompt(options: AgentPromptOptions): string {
-    const { workspace, enabledTools, name, purpose } = options;
+    const { workspace, enabledTools } = options;
 
-    const identity = getIdentity('agent', { name, purpose });
-    const focus = getFocusInstruction();
     const cognitiveWorkflow = getAgentCognitiveWorkflow();
 
     // Tool format section (generic XML format)
@@ -48,8 +44,6 @@ No tools are currently enabled.
 
     // Assemble in priority order
     const sections = [
-        identity,
-        focus,
         cognitiveWorkflow,
         toolsSection,
         toolInstructions,

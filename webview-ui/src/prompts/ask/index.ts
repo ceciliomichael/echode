@@ -4,7 +4,7 @@
 
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
-import { getIdentity, getFocusInstruction, getUserRules, getSystemInfo } from '../shared';
+import { getUserRules, getSystemInfo } from '../shared';
 import { getAskModeSection } from './mode-section';
 import { getAskRules } from './rules';
 import { getAskToolInstructions } from './tools';
@@ -13,18 +13,13 @@ import { getToolSystemPrompt } from '../../lib/tool-config';
 export interface AskPromptOptions {
     workspace: WorkspaceContext | null;
     enabledTools: Tool[];
-    name?: string;
-    purpose?: string;
 }
 
 /**
  * Build the complete Ask mode system prompt
  */
 export function buildAskPrompt(options: AskPromptOptions): string {
-    const { workspace, enabledTools, name, purpose } = options;
-
-    const identity = getIdentity('ask', { name, purpose });
-    const focus = getFocusInstruction();
+    const { workspace, enabledTools } = options;
 
     // Tool format section
     const toolsSection = enabledTools.length > 0
@@ -43,8 +38,6 @@ No tools are currently enabled.
 
     // Assemble
     const sections = [
-        identity,
-        focus,
         toolsSection,
         toolInstructions,
         rules,

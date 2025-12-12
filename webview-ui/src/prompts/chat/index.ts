@@ -4,13 +4,12 @@
  */
 
 import type { WorkspaceContext } from '../../types/workspace';
-import { getIdentity, getFocusInstruction, getUserRules, getMinimalSystemInfo } from '../shared';
+import { getUserRules, getMinimalSystemInfo } from '../shared';
 import { getChatModeSection } from './mode-section';
 import { getChatRules } from './rules';
 
 export interface ChatPromptOptions {
     workspace: WorkspaceContext | null;
-    name?: string;
 }
 
 /**
@@ -18,10 +17,8 @@ export interface ChatPromptOptions {
  * Note: NO tools, NO workspace file list
  */
 export function buildChatPrompt(options: ChatPromptOptions): string {
-    const { workspace, name } = options;
+    const { workspace } = options;
 
-    const identity = getIdentity('chat', { name });
-    const focus = getFocusInstruction();
     const rules = getChatRules();
     const modeSection = getChatModeSection();
     const userRules = getUserRules(workspace);
@@ -31,8 +28,6 @@ export function buildChatPrompt(options: ChatPromptOptions): string {
 
     // Assemble - Note: NO tools section, NO tool chains
     const sections = [
-        identity,
-        focus,
         rules,
         modeSection,
         userRules,

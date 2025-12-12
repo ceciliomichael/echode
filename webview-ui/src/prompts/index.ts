@@ -16,19 +16,6 @@ import { buildChatPrompt } from './chat';
 import { storageService } from '../utils/storage';
 import { getAllTools, getToolsForMode, PLAN_ONLY_TOOL_IDS } from '../lib/tool-config';
 
-export interface PromptConfig {
-    name: string;
-    purpose: string;
-    userSpecificRules: string | null;
-}
-
-export function getPromptConfig(workspace: WorkspaceContext | null): PromptConfig {
-    return {
-        name: 'Echo',
-        purpose: 'AI coding assistant for Visual Studio Code',
-        userSpecificRules: workspace?.agentsConfig || null
-    };
-}
 
 /**
  * Get the enabled tools for a specific mode, applying user preferences
@@ -74,47 +61,24 @@ function getEnabledToolsForMode(mode: ChatMode): Tool[] {
  * This is the main entry point for prompt generation
  */
 export function getSystemPrompt(workspace: WorkspaceContext | null, mode: ChatMode = 'agent'): string {
-    const config = getPromptConfig(workspace);
     const enabledTools = getEnabledToolsForMode(mode);
 
     switch (mode) {
         case 'chat':
-            return buildChatPrompt({
-                workspace,
-                name: config.name,
-            });
+            return buildChatPrompt({ workspace });
 
         case 'general':
-            return buildGeneralPrompt({
-                workspace,
-                enabledTools,
-                name: config.name,
-            });
+            return buildGeneralPrompt({ workspace, enabledTools });
 
         case 'ask':
-            return buildAskPrompt({
-                workspace,
-                enabledTools,
-                name: config.name,
-                purpose: config.purpose,
-            });
+            return buildAskPrompt({ workspace, enabledTools });
 
         case 'plan':
-            return buildPlanPrompt({
-                workspace,
-                enabledTools,
-                name: config.name,
-                purpose: config.purpose,
-            });
+            return buildPlanPrompt({ workspace, enabledTools });
 
         case 'agent':
         default:
-            return buildAgentPrompt({
-                workspace,
-                enabledTools,
-                name: config.name,
-                purpose: config.purpose,
-            });
+            return buildAgentPrompt({ workspace, enabledTools });
     }
 }
 

@@ -5,7 +5,7 @@
 
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
-import { getIdentity, getFocusInstruction, getUserRules, getSystemInfo } from '../shared';
+import { getUserRules, getSystemInfo } from '../shared';
 import { getPlanModeSection } from './mode-section';
 import { getPlanRules } from './rules';
 import { getPlanCognitiveWorkflow } from './cognitive-workflow';
@@ -16,18 +16,14 @@ import { getToolSystemPrompt } from '../../lib/tool-config';
 export interface PlanPromptOptions {
     workspace: WorkspaceContext | null;
     enabledTools: Tool[];
-    name?: string;
-    purpose?: string;
 }
 
 /**
  * Build the complete Plan mode system prompt
  */
 export function buildPlanPrompt(options: PlanPromptOptions): string {
-    const { workspace, enabledTools, name, purpose } = options;
+    const { workspace, enabledTools } = options;
 
-    const identity = getIdentity('plan', { name, purpose });
-    const focus = getFocusInstruction();
     const cognitiveWorkflow = getPlanCognitiveWorkflow();
 
     // Tool format section (generic XML format)
@@ -48,8 +44,6 @@ No tools are currently enabled.
 
     // Assemble in priority order
     const sections = [
-        identity,
-        focus,
         cognitiveWorkflow,
         toolsSection,
         toolInstructions,

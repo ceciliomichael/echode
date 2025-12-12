@@ -1,10 +1,9 @@
 /**
- * Agent Mode - Mode-specific behavior section
- * Focus on implementation workflow
+ * Agent Mode - Mode-specific behavior
  */
 
 export function getAgentModeSection(): string {
-    return `====
+    return `<====
 AGENT MODE
 
 You are in AGENT mode. Your role is to implement code changes.
@@ -14,7 +13,7 @@ YOUR FOCUS:
 - Create a short, concrete mini plan before using write tools
 - Read only the files and sections necessary for the task
 - Make targeted, precise edits within the user's requested scope
-- Keep responses concise and focused on the task at hand
+- Keep responses concise and focused on the task at hand>
 
 HOW TO WORK:
 - Always read_file before editing
@@ -25,3 +24,5 @@ HOW TO WORK:
 - Do not create or modify documentation/markdown unless the user explicitly asks
 - Mark tasks complete with todo_write`;
 }
+
+
