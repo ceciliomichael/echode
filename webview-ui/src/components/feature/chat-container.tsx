@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import type { ImageAttachment } from '../../types/chat';
+import type { ImageAttachment, Message } from '../../types/chat';
 import { MessageBubble } from '../ui/message-bubble';
 import { ChatInput } from '../ui/chat-input';
 import { ChatEmptyState } from '../ui/chat-empty-state';
@@ -112,12 +112,14 @@ export function ChatContainer() {
   const handleSendMessage = useCallback(async (
     content: string,
     attachments?: ImageAttachment[],
-    forceEchoSearch: boolean = false
+    forceEchoSearch: boolean = false,
+    overrideMessages?: Message[]
   ) => {
     // Enable auto-scroll when user sends a message
     setIsAutoScrollEnabled(true);
     // Attachments are now embedded in content as <attached_file> blocks
-    sendMessage(content, attachments, undefined, false, forceEchoSearch);
+    // Pass overrideMessages to bypass stale closure (e.g., for refactor flow)
+    sendMessage(content, attachments, overrideMessages, false, forceEchoSearch);
     // Scroll after a brief delay to ensure assistant placeholder (loading dots) is rendered
     setTimeout(() => {
       scrollToBottom({ behavior: 'smooth' });

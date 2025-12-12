@@ -17,11 +17,11 @@ import type { TodoTask } from '../../types/todo';
 import type { ChatMode } from '../../types/chat-mode';
 import { processDocumentFiles, buildAllAttachedFileBlocks, validateDocumentFile, fileToDocumentAttachment, type DocumentAttachment } from '../../utils/document-utils';
 import { validateImageFile, fileToImageAttachment, processImageFiles } from '../../utils/image-utils';
-import type { ImageAttachment } from '../../types/chat';
+import type { ImageAttachment, Message } from '../../types/chat';
 import type { Provider } from '../../types/api-settings';
 
 interface ChatInputProps {
-  onSendMessage: (message: string, attachments?: ImageAttachment[], forceEchoSearch?: boolean) => void;
+  onSendMessage: (message: string, attachments?: ImageAttachment[], forceEchoSearch?: boolean, overrideMessages?: Message[]) => void;
   onNewChat?: () => void;
 
   disabled?: boolean;
@@ -271,12 +271,13 @@ export function ChatInput({ onSendMessage, onNewChat, disabled = false, isStream
       onModeChange('plan');
     }
 
-    // Small delay to ensure new chat is created before sending message
+    // Delay needed: onNewChat() calls abortAndReset() which sets isStoppingRef=true
+    // The flag resets after 100ms, so we must wait before sending
+    // Pass empty array as overrideMessages to ensure fresh chat (bypasses stale closure)
     setTimeout(() => {
-      // Build and send refactor message with full path
       const message = buildRefactorMessage(filePath);
-      onSendMessage(message, undefined, false);
-    }, 100);
+      onSendMessage(message, undefined, false, []);
+    }, 150);
   };
 
   return (
