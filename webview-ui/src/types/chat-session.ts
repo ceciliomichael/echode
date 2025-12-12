@@ -26,11 +26,6 @@ export interface ChatSession {
     editingMessageId: string | null;
     revertPreviewMessageId: string | null;
   };
-  compressedContext?: {
-    messages: ChatSessionMessage[];
-    tokenCount: number;
-    anchorId: string; // ID of message that triggered compression
-  };
 }
 
 export interface ChatSessionSummary {

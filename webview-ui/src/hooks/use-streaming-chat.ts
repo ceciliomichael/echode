@@ -32,9 +32,6 @@ export function useStreamingChat(
   } = useSessionManagement({
     messagesRef: state.messagesRef,
     currentSessionIdRef: state.currentSessionIdRef,
-    compressedMessagesRef: state.compressedMessagesRef,
-    compressedContextTokensRef: state.compressedContextTokensRef,
-    compressionAnchorId: state.compressionAnchorId,
     isStreamingRef: state.isStreamingRef,
     isExecutingToolRef: state.isExecutingToolRef,
     abortAndReset: state.abortAndReset,
@@ -42,9 +39,6 @@ export function useStreamingChat(
     setCurrentSessionId: state.setCurrentSessionId,
     setEditingMessageId: state.setEditingMessageId,
     setRevertPreviewMessageId: state.setRevertPreviewMessageId,
-    setCompressedMessages: state.setCompressedMessages,
-    setCompressedContextTokens: state.setCompressedContextTokens,
-    setCompressionAnchorId: state.setCompressionAnchorId,
   });
 
   // Auto-load last session on mount using stored session ID only
@@ -54,7 +48,7 @@ export function useStreamingChat(
     if (hasLoadedInitialSession.current) {
       return; // Already loaded, don't reload
     }
-    
+
     const storedSessionId = storageService.getCurrentSessionId();
 
     if (storedSessionId) {
@@ -94,12 +88,6 @@ export function useStreamingChat(
     setMessages: state.setMessages,
     setIsStreaming: state.setIsStreaming,
     setIsExecutingTool: state.setIsExecutingTool,
-    setIsCompressing: state.setIsCompressing,
-    setCompressedContextTokens: state.setCompressedContextTokens,
-    setCompressedMessages: state.setCompressedMessages,
-    setCompressionAnchorId: state.setCompressionAnchorId,
-    compressedMessagesRef: state.compressedMessagesRef,
-    compressedContextTokensRef: state.compressedContextTokensRef,
     isStreamingRef: state.isStreamingRef,
     isExecutingToolRef: state.isExecutingToolRef,
     sendingMessageRef: state.sendingMessageRef,
@@ -128,21 +116,15 @@ export function useStreamingChat(
     setRevertPreviewMessageId: state.setRevertPreviewMessageId,
     setEditingMessageId: state.setEditingMessageId,
     currentSessionIdRef: state.currentSessionIdRef,
-    compressedMessagesRef: state.compressedMessagesRef,
-    compressedContextTokensRef: state.compressedContextTokensRef,
     revertPreviewMessageId: state.revertPreviewMessageId,
-    compressionAnchorId: state.compressionAnchorId,
     ensureSessionId,
     sendMessage,
-    clearCompression: state.clearCompression,
-    restoreCompression: state.restoreCompression,
     abortAndReset: state.abortAndReset,
   });
 
   // Clear chat
   const clearChat = useCallback(() => {
     state.setMessages([]);
-    state.clearCompression();
     state.clearSessionRef();
     state.setCurrentSessionId(null);
     storageService.clearCurrentSessionId();
@@ -156,7 +138,7 @@ export function useStreamingChat(
   // Abort stream and tool execution
   const abortStream = useCallback(() => {
     // Use refs for synchronous checks - React state may not have updated yet when user clicks Stop fast
-    const isActive = state.isStreamingRef.current || state.isExecutingToolRef.current || state.isCompressing;
+    const isActive = state.isStreamingRef.current || state.isExecutingToolRef.current;
     if (isActive && !state.hasStreamedContentRef.current) {
       // Prefer the most up-to-date message source in case the ref hasn't synced yet
       const currentMessages =
@@ -189,10 +171,6 @@ export function useStreamingChat(
     messages: state.messages,
     isStreaming: state.isStreaming,
     isExecutingTool: state.isExecutingTool,
-    isCompressing: state.isCompressing,
-    compressedContextTokens: state.compressedContextTokens,
-    compressedMessages: state.compressedMessages,
-    compressionAnchorId: state.compressionAnchorId,
     revertPreviewMessageId: state.revertPreviewMessageId,
     editingMessageId: state.editingMessageId,
     currentSessionId: state.currentSessionId,
@@ -214,3 +192,4 @@ export function useStreamingChat(
     saveCurrentSession,
   };
 }
+

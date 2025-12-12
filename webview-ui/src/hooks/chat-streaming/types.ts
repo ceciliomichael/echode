@@ -11,12 +11,6 @@ export interface ChatStreamingProps {
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   setIsStreaming: React.Dispatch<React.SetStateAction<boolean>>;
   setIsExecutingTool: React.Dispatch<React.SetStateAction<boolean>>;
-  setIsCompressing: React.Dispatch<React.SetStateAction<boolean>>;
-  setCompressedContextTokens: React.Dispatch<React.SetStateAction<number | null>>;
-  setCompressedMessages: React.Dispatch<React.SetStateAction<Message[] | null>>;
-  setCompressionAnchorId: React.Dispatch<React.SetStateAction<string | null>>;
-  compressedMessagesRef: React.MutableRefObject<Message[] | null>;
-  compressedContextTokensRef: React.MutableRefObject<number | null>;
   isStreamingRef: React.MutableRefObject<boolean>;
   isExecutingToolRef: React.MutableRefObject<boolean>;
   sendingMessageRef: React.MutableRefObject<boolean>;
@@ -37,36 +31,6 @@ export interface ChatStreamingProps {
   isStoppingRef: React.MutableRefObject<boolean>;
   saveSession: (overrideMessages?: Message[]) => void;
   mode: ChatMode;
-}
-
-/**
- * Context for compression operations
- */
-export interface CompressionContext {
-  messagesToSend: Message[];
-  systemPromptTokens: number;
-  newMessageTokens: number;
-  maxTokens: number;
-  currentCompressedMessages: Message[] | null;
-  currentCompressedTokens: number | null;
-  userMessageId: string;
-  assistantMessageId: string;
-  abortControllerRef: React.MutableRefObject<AbortController | null>;
-  setIsCompressing: React.Dispatch<React.SetStateAction<boolean>>;
-  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
-  setCompressedMessages: React.Dispatch<React.SetStateAction<Message[] | null>>;
-  setCompressedContextTokens: React.Dispatch<React.SetStateAction<number | null>>;
-  setCompressionAnchorId: React.Dispatch<React.SetStateAction<string | null>>;
-  compressedMessagesRef: React.MutableRefObject<Message[] | null>;
-  compressedContextTokensRef: React.MutableRefObject<number | null>;
-}
-
-/**
- * Result of compression preparation
- */
-export interface CompressionResult {
-  contextMessages: Message[];
-  wasAborted: boolean;
 }
 
 /**

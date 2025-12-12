@@ -16,7 +16,6 @@ interface MessageBubbleProps {
   onEditCancel?: () => void;
   onRevert?: (messageId: string) => void;
   isStreaming?: boolean;
-  isCompressing?: boolean;
   mode?: ChatMode;
   onModeChange?: (mode: ChatMode) => void;
   provider: Provider;
@@ -29,18 +28,18 @@ interface MessageBubbleProps {
   };
 }
 
-function MessageBubbleComponent({ message, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, isStreaming, isCompressing, mode, onModeChange, provider, model, onModelChange, contextUsage, planChainPosition }: MessageBubbleProps) {
+function MessageBubbleComponent({ message, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, isStreaming, mode, onModeChange, provider, model, onModelChange, contextUsage, planChainPosition }: MessageBubbleProps) {
 
   if (message.role === 'user') {
     return (
       <UserMessage
         content={message.content}
         messageId={message.id}
-        onEdit={onEdit || (() => {})}
-        onUpdate={onUpdate || (() => {})}
+        onEdit={onEdit || (() => { })}
+        onUpdate={onUpdate || (() => { })}
         isEditing={isEditing || false}
-        onEditStart={onEditStart || (() => {})}
-        onEditCancel={onEditCancel || (() => {})}
+        onEditStart={onEditStart || (() => { })}
+        onEditCancel={onEditCancel || (() => { })}
         onRevert={onRevert}
         mode={mode}
         onModeChange={onModeChange}
@@ -55,11 +54,10 @@ function MessageBubbleComponent({ message, onEdit, onUpdate, isEditing, onEditSt
   return (
     <div className="flex w-full">
       <div className="w-full">
-        <AssistantMessage 
-          content={message.content} 
+        <AssistantMessage
+          content={message.content}
           messageId={message.id}
           isStreaming={isStreaming}
-          isCompressing={isCompressing}
           toolExecutions={message.toolExecutions}
           planChainPosition={planChainPosition}
         />

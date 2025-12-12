@@ -16,35 +16,35 @@ function DashedProgressCircle({ percent, color, size = 16 }: DashedProgressCircl
   const radius = (size - strokeWidth) / 2;
   const cx = size / 2;
   const cy = size / 2;
-  
+
   // 8 dashes around the circle
   const dashCount = 8;
   const anglePerDash = 360 / dashCount;
   const dashArcAngle = anglePerDash * 0.6; // 60% of segment is dash
-  
+
   // Generate dash arcs
   const dashes = [];
   for (let i = 0; i < dashCount; i++) {
     const startAngle = i * anglePerDash - 90; // Start from top
     const endAngle = startAngle + dashArcAngle;
-    
+
     // Calculate if this dash should be filled based on percentage
     const dashMidpoint = (i + 0.5) / dashCount * 100;
     const isFilled = dashMidpoint <= percent;
-    
+
     // Convert angles to radians
     const startRad = (startAngle * Math.PI) / 180;
     const endRad = (endAngle * Math.PI) / 180;
-    
+
     // Calculate arc points
     const x1 = cx + radius * Math.cos(startRad);
     const y1 = cy + radius * Math.sin(startRad);
     const x2 = cx + radius * Math.cos(endRad);
     const y2 = cy + radius * Math.sin(endRad);
-    
+
     // Create arc path
     const path = `M ${x1} ${y1} A ${radius} ${radius} 0 0 1 ${x2} ${y2}`;
-    
+
     dashes.push(
       <path
         key={i}
@@ -57,7 +57,7 @@ function DashedProgressCircle({ percent, color, size = 16 }: DashedProgressCircl
       />
     );
   }
-  
+
   return (
     <svg
       width={size}
@@ -73,7 +73,6 @@ interface ContextUsage {
   systemPromptTokens: number;
   historyTokens: number;
   toolResultsTokens: number;
-  compressedHistoryTokens: number;
   totalTokens: number;
   maxTokens: number;
 }
@@ -82,7 +81,6 @@ interface ContextIndicatorProps {
   usage: ContextUsage;
   disabled?: boolean;
   mode?: ChatMode;
-  isCompressing?: boolean;
 }
 
 /**
@@ -121,17 +119,17 @@ function formatTokens(tokens: number): string {
   return tokens.toString();
 }
 
-export function ContextIndicator({ usage, disabled = false, mode, isCompressing = false }: ContextIndicatorProps) {
+export function ContextIndicator({ usage, disabled = false, mode }: ContextIndicatorProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const [isTopTooltip, setIsTopTooltip] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState<'above' | 'below'>('above');
   const buttonRef = useRef<HTMLButtonElement>(null);
   const hideTimeoutRef = useRef<number | null>(null);
 
-  const usagePercent = usage.maxTokens > 0 
-    ? (usage.totalTokens / usage.maxTokens) * 100 
+  const usagePercent = usage.maxTokens > 0
+    ? (usage.totalTokens / usage.maxTokens) * 100
     : 0;
-  
+
   const color = getUsageColor(usagePercent, mode);
 
   useEffect(() => {
@@ -179,7 +177,7 @@ export function ContextIndicator({ usage, disabled = false, mode, isCompressing 
   };
 
   return (
-    <div 
+    <div
       className="relative"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -194,16 +192,13 @@ export function ContextIndicator({ usage, disabled = false, mode, isCompressing 
         style={{ color }}
         aria-label={`Context usage: ${usagePercent.toFixed(0)}%`}
       >
-        <div className={isCompressing ? 'animate-spin' : ''}>
-          <DashedProgressCircle percent={usagePercent} color={color} size={16} />
-        </div>
+        <DashedProgressCircle percent={usagePercent} color={color} size={16} />
       </button>
 
       {showTooltip && (
         <div
-          className={`absolute w-64 p-3 rounded-xl border shadow-lg ${
-            tooltipPosition === 'above' ? 'bottom-full mb-2' : 'top-full mt-2'
-          }`}
+          className={`absolute w-64 p-3 rounded-xl border shadow-lg ${tooltipPosition === 'above' ? 'bottom-full mb-2' : 'top-full mt-2'
+            }`}
           style={{
             zIndex: isTopTooltip ? 60 : 40,
             right: 0,
@@ -254,48 +249,23 @@ export function ContextIndicator({ usage, disabled = false, mode, isCompressing 
                 {formatTokens(usage.systemPromptTokens)}
               </span>
             </div>
-            {usage.compressedHistoryTokens > 0 ? (
-              <>
-                <div className="flex justify-between text-xs">
-                  <span style={{ color: 'var(--vscode-descriptionForeground)' }}>
-                    Compressed History
-                  </span>
-                  <span style={{ color: 'var(--vscode-foreground)' }}>
-                    {formatTokens(usage.compressedHistoryTokens)}
-                  </span>
-                </div>
-                {(usage.historyTokens > 0 || usage.toolResultsTokens > 0) && (
-                  <div className="flex justify-between text-xs">
-                    <span style={{ color: 'var(--vscode-descriptionForeground)' }}>
-                      New Messages
-                    </span>
-                    <span style={{ color: 'var(--vscode-foreground)' }}>
-                      {formatTokens(usage.historyTokens + usage.toolResultsTokens)}
-                    </span>
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                <div className="flex justify-between text-xs">
-                  <span style={{ color: 'var(--vscode-descriptionForeground)' }}>
-                    Chat History
-                  </span>
-                  <span style={{ color: 'var(--vscode-foreground)' }}>
-                    {formatTokens(usage.historyTokens)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span style={{ color: 'var(--vscode-descriptionForeground)' }}>
-                    Tool Results
-                  </span>
-                  <span style={{ color: 'var(--vscode-foreground)' }}>
-                    {formatTokens(usage.toolResultsTokens)}
-                  </span>
-                </div>
-              </>
-            )}
-            
+            <div className="flex justify-between text-xs">
+              <span style={{ color: 'var(--vscode-descriptionForeground)' }}>
+                Chat History
+              </span>
+              <span style={{ color: 'var(--vscode-foreground)' }}>
+                {formatTokens(usage.historyTokens)}
+              </span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span style={{ color: 'var(--vscode-descriptionForeground)' }}>
+                Tool Results
+              </span>
+              <span style={{ color: 'var(--vscode-foreground)' }}>
+                {formatTokens(usage.toolResultsTokens)}
+              </span>
+            </div>
+
             <div
               className="border-t pt-1.5 mt-1.5 flex justify-between text-xs"
               style={{ borderColor: 'var(--vscode-input-border)' }}
@@ -319,3 +289,4 @@ export function ContextIndicator({ usage, disabled = false, mode, isCompressing 
     </div>
   );
 }
+

@@ -8,9 +8,6 @@ import { loadSessionUiState } from '../../utils/session-ui-state';
 interface SessionManagementProps {
   messagesRef: React.MutableRefObject<Message[]>;
   currentSessionIdRef: React.MutableRefObject<string | null>;
-  compressedMessagesRef: React.MutableRefObject<Message[] | null>;
-  compressedContextTokensRef: React.MutableRefObject<number | null>;
-  compressionAnchorId: string | null;
   isStreamingRef: React.MutableRefObject<boolean>;
   isExecutingToolRef: React.MutableRefObject<boolean>;
   abortAndReset: () => boolean;
@@ -18,9 +15,6 @@ interface SessionManagementProps {
   setCurrentSessionId: React.Dispatch<React.SetStateAction<string | null>>;
   setEditingMessageId: React.Dispatch<React.SetStateAction<string | null>>;
   setRevertPreviewMessageId: React.Dispatch<React.SetStateAction<string | null>>;
-  setCompressedMessages: React.Dispatch<React.SetStateAction<Message[] | null>>;
-  setCompressedContextTokens: React.Dispatch<React.SetStateAction<number | null>>;
-  setCompressionAnchorId: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 /**
@@ -29,9 +23,6 @@ interface SessionManagementProps {
 export function useSessionManagement({
   messagesRef,
   currentSessionIdRef,
-  compressedMessagesRef,
-  compressedContextTokensRef,
-  compressionAnchorId,
   isStreamingRef,
   isExecutingToolRef,
   abortAndReset,
@@ -39,9 +30,6 @@ export function useSessionManagement({
   setCurrentSessionId,
   setEditingMessageId,
   setRevertPreviewMessageId,
-  setCompressedMessages,
-  setCompressedContextTokens,
-  setCompressionAnchorId,
 }: SessionManagementProps) {
   const ensureSessionId = useCallback(() => {
     if (!currentSessionIdRef.current) {
@@ -58,19 +46,6 @@ export function useSessionManagement({
 
     const sessionId = ensureSessionId();
 
-    // Build compression context if it exists
-    const compressedContext = compressedMessagesRef.current && compressionAnchorId
-      ? {
-        messages: compressedMessagesRef.current.map(msg => ({
-          ...msg,
-          timestamp: msg.timestamp instanceof Date ? msg.timestamp.toISOString() : msg.timestamp,
-          toolExecutions: msg.toolExecutions ? Array.from(msg.toolExecutions.entries()) : undefined,
-        })),
-        tokenCount: compressedContextTokensRef.current ?? 0,
-        anchorId: compressionAnchorId,
-      }
-      : undefined;
-
     const session: ChatSession = {
       id: sessionId,
       title: storageService.generateTitle(currentMessages),
@@ -85,11 +60,10 @@ export function useSessionManagement({
         messageCount: currentMessages.length,
         preview: storageService.getPreview(currentMessages),
       },
-      compressedContext,
     };
 
     storageService.saveSession(session);
-  }, [ensureSessionId, messagesRef, compressedMessagesRef, compressedContextTokensRef, compressionAnchorId]);
+  }, [ensureSessionId, messagesRef]);
 
   const loadSession = useCallback((sessionId: string) => {
     // If currently streaming or executing tools, abort and save first
@@ -125,11 +99,6 @@ export function useSessionManagement({
           setMessages([]);
           setEditingMessageId(null);
           setRevertPreviewMessageId(null);
-          setCompressedMessages(null);
-          setCompressedContextTokens(null);
-          setCompressionAnchorId(null);
-          compressedMessagesRef.current = null;
-          compressedContextTokensRef.current = null;
           return;
         }
 
@@ -183,23 +152,6 @@ export function useSessionManagement({
         }));
 
         setMessages(convertMessages(session.messages));
-
-        // Restore compression state if it exists
-        if (session.compressedContext) {
-          const restoredCompressed = convertMessages(session.compressedContext.messages);
-          setCompressedMessages(restoredCompressed);
-          setCompressedContextTokens(session.compressedContext.tokenCount);
-          setCompressionAnchorId(session.compressedContext.anchorId);
-          compressedMessagesRef.current = restoredCompressed;
-          compressedContextTokensRef.current = session.compressedContext.tokenCount;
-        } else {
-          // Clear compression state if session has none
-          setCompressedMessages(null);
-          setCompressedContextTokens(null);
-          setCompressionAnchorId(null);
-          compressedMessagesRef.current = null;
-          compressedContextTokensRef.current = null;
-        }
       } else if (message.type === 'sessionDeleted' && message.sessionId) {
         if (currentSessionIdRef.current === message.sessionId) {
           setMessages([]);
@@ -208,19 +160,13 @@ export function useSessionManagement({
           storageService.clearCurrentSessionId();
           setEditingMessageId(null);
           setRevertPreviewMessageId(null);
-          // Clear compression state when session is deleted
-          setCompressedMessages(null);
-          setCompressedContextTokens(null);
-          setCompressionAnchorId(null);
-          compressedMessagesRef.current = null;
-          compressedContextTokensRef.current = null;
         }
       }
     };
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [currentSessionIdRef, setMessages, setCurrentSessionId, setEditingMessageId, setRevertPreviewMessageId, compressedMessagesRef, compressedContextTokensRef, setCompressedMessages, setCompressedContextTokens, setCompressionAnchorId]);
+  }, [currentSessionIdRef, setMessages, setCurrentSessionId, setEditingMessageId, setRevertPreviewMessageId]);
 
   return {
     ensureSessionId,
@@ -228,3 +174,4 @@ export function useSessionManagement({
     loadSession,
   };
 }
+

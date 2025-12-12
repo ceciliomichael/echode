@@ -2,20 +2,13 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import type { Message } from '../../types/chat';
 
 /**
- * Hook for managing core chat state (messages, streaming, compression)
+ * Hook for managing core chat state (messages, streaming)
  */
 export function useChatState() {
   // Core message state
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isExecutingTool, setIsExecutingTool] = useState(false);
-  const [isCompressing, setIsCompressing] = useState(false);
-
-  // Compression state
-  const [compressedContextTokens, setCompressedContextTokens] = useState<number | null>(null);
-  const [compressedMessages, setCompressedMessages] = useState<Message[] | null>(null);
-  // ID of the message that triggered compression (anchor point)
-  const [compressionAnchorId, setCompressionAnchorId] = useState<string | null>(null);
 
   // Edit/revert state
   const [revertPreviewMessageId, setRevertPreviewMessageId] = useState<string | null>(null);
@@ -35,8 +28,6 @@ export function useChatState() {
   const isStoppingRef = useRef(false);
   const isExecutingToolRef = useRef(false);
   const messagesRef = useRef<Message[]>(messages);
-  const compressedMessagesRef = useRef<Message[] | null>(null);
-  const compressedContextTokensRef = useRef<number | null>(null);
   const hasStreamedContentRef = useRef(false);
 
   // Keep refs in sync with state
@@ -48,33 +39,6 @@ export function useChatState() {
     isExecutingToolRef.current = isExecutingTool;
   }, [isExecutingTool]);
 
-  useEffect(() => {
-    compressedMessagesRef.current = compressedMessages;
-    compressedContextTokensRef.current = compressedContextTokens;
-  }, [compressedMessages, compressedContextTokens]);
-
-  // Helper functions to modify refs (React Compiler compatible)
-  const clearCompression = useCallback(() => {
-    compressedMessagesRef.current = null;
-    compressedContextTokensRef.current = null;
-    setCompressedMessages(null);
-    setCompressedContextTokens(null);
-    setCompressionAnchorId(null);
-  }, []);
-
-  const updateCompressedRefs = useCallback((msgs: Message[] | null, tokens: number | null) => {
-    compressedMessagesRef.current = msgs;
-    compressedContextTokensRef.current = tokens;
-  }, []);
-
-  const restoreCompression = useCallback((msgs: Message[] | null, tokens: number | null, anchorId: string | null) => {
-    compressedMessagesRef.current = msgs;
-    compressedContextTokensRef.current = tokens;
-    setCompressedMessages(msgs);
-    setCompressedContextTokens(tokens);
-    setCompressionAnchorId(anchorId);
-  }, []);
-
   const clearSessionRef = useCallback(() => {
     currentSessionIdRef.current = null;
   }, []);
@@ -83,35 +47,34 @@ export function useChatState() {
     // Set stopping flag FIRST - this will be checked by async tool execution
     // Do NOT reset isStoppingRef here - let tool execution code reset it after handling
     isStoppingRef.current = true;
-    
+
     // Abort any pending HTTP request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-    
+
     // Abort any running tools (especially sub-agents like echo_search)
     // Then create a fresh controller for future tool executions
     toolAbortControllerRef.current.abort();
     toolAbortControllerRef.current = new AbortController();
-    
+
     // Reset all streaming/execution states
     isStreamingRef.current = false;
     isExecutingToolRef.current = false;
     sendingMessageRef.current = false;
     hasStreamedContentRef.current = false;
-    setIsCompressing(false);
     setIsExecutingTool(false);
     setIsStreaming(false);
-    
+
     // Schedule reset of stopping flag after current execution cycle
     // This ensures async code has time to check the flag
     setTimeout(() => {
       isStoppingRef.current = false;
     }, 100);
-    
+
     return true;
-  }, [setIsCompressing, setIsExecutingTool, setIsStreaming]);
+  }, [setIsExecutingTool, setIsStreaming]);
 
   return {
     // State
@@ -121,14 +84,6 @@ export function useChatState() {
     setIsStreaming,
     isExecutingTool,
     setIsExecutingTool,
-    isCompressing,
-    setIsCompressing,
-    compressedContextTokens,
-    setCompressedContextTokens,
-    compressedMessages,
-    setCompressedMessages,
-    compressionAnchorId,
-    setCompressionAnchorId,
     revertPreviewMessageId,
     setRevertPreviewMessageId,
     editingMessageId,
@@ -145,12 +100,7 @@ export function useChatState() {
     isExecutingToolRef,
     hasStreamedContentRef,
     messagesRef,
-    compressedMessagesRef,
-    compressedContextTokensRef,
     // Helper functions for ref mutations
-    clearCompression,
-    updateCompressedRefs,
-    restoreCompression,
     clearSessionRef,
     abortAndReset,
   };

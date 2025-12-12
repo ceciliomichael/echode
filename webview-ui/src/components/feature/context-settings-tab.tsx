@@ -1,10 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Cpu } from 'lucide-react';
-import type {
-  ContextSettings,
-  Provider,
-} from '../../types/api-settings';
-import { SettingsModelSelector } from '../ui/settings-model-selector';
+import type { ContextSettings } from '../../types/api-settings';
 
 interface ContextSettingsTabProps {
   contextSettings: ContextSettings;
@@ -15,23 +10,19 @@ export function ContextSettingsTab({ contextSettings, onChange }: ContextSetting
   const [isEditing, setIsEditing] = useState(false);
   const [inputValue, setInputValue] = useState('');
 
-  const handleSummarizerModelChange = (provider: Provider, model: string) => {
-    onChange({ ...contextSettings, summarizerProvider: provider, summarizerModel: model });
-  };
-
   const displayValue = useMemo(() => {
-    return isEditing ? inputValue : 
-           (contextSettings.maxContextTokens === undefined || 
-            Number.isNaN(contextSettings.maxContextTokens) || 
-            contextSettings.maxContextTokens === 128000 ? '' : String(contextSettings.maxContextTokens));
+    return isEditing ? inputValue :
+      (contextSettings.maxContextTokens === undefined ||
+        Number.isNaN(contextSettings.maxContextTokens) ||
+        contextSettings.maxContextTokens === 128000 ? '' : String(contextSettings.maxContextTokens));
   }, [contextSettings.maxContextTokens, isEditing, inputValue]);
 
   const handleFocus = () => {
     setIsEditing(true);
     setInputValue(
-      contextSettings.maxContextTokens === undefined || 
-      Number.isNaN(contextSettings.maxContextTokens) || 
-      contextSettings.maxContextTokens === 128000 ? '' : String(contextSettings.maxContextTokens)
+      contextSettings.maxContextTokens === undefined ||
+        Number.isNaN(contextSettings.maxContextTokens) ||
+        contextSettings.maxContextTokens === 128000 ? '' : String(contextSettings.maxContextTokens)
     );
   };
 
@@ -57,9 +48,9 @@ export function ContextSettingsTab({ contextSettings, onChange }: ContextSetting
   return (
     <div className="max-w-2xl space-y-6">
       <div className="space-y-4">
-        <h2 
+        <h2
           className="text-sm font-bold pb-2 border-b"
-          style={{ 
+          style={{
             color: 'var(--vscode-foreground)',
             borderColor: 'var(--vscode-panel-border)'
           }}
@@ -99,34 +90,7 @@ export function ContextSettingsTab({ contextSettings, onChange }: ContextSetting
           </p>
         </div>
       </div>
-
-      {/* Context Summarizer Model */}
-      <div className="space-y-4">
-        <h2
-          className="text-sm font-bold pb-2 border-b"
-          style={{
-            color: 'var(--vscode-foreground)',
-            borderColor: 'var(--vscode-panel-border)',
-          }}
-        >
-          Context Summarizer
-        </h2>
-        <p
-          className="text-xs"
-          style={{ color: 'var(--vscode-descriptionForeground)' }}
-        >
-          When context exceeds the limit, this model compresses older conversation 
-          history into a summary while preserving key context for the AI.
-        </p>
-
-        <SettingsModelSelector
-          provider={contextSettings.summarizerProvider}
-          model={contextSettings.summarizerModel}
-          onChange={handleSummarizerModelChange}
-          icon={<Cpu size={14} className="flex-shrink-0" />}
-          label="Summarizer Model"
-        />
-      </div>
     </div>
   );
 }
+

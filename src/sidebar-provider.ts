@@ -5,7 +5,6 @@ import { handleApiRequest } from './handlers/api-handler';
 import { handleChatStream } from './handlers/chat-streaming-handler';
 import { handleModelFetch } from './handlers/model-fetching-handler';
 import { handleToolExecution, setFileModificationCallback } from './handlers/tool-execution-handler';
-import { handleContextSummarizer } from './handlers/context-summarizer-handler';
 import { getMainWebviewHtml, getSettingsHtml, getMermaidPreviewHtml } from './utils/html-generator';
 import { getWorkspaceFiles, getAgentsConfig } from './utils/workspace-scanner';
 import { ChatHistoryService } from './services/chat-history-service';
@@ -557,9 +556,7 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
         case 'openMermaidPreview':
           this.openMermaidPreviewPanel(data.text, data.id);
           break;
-        case 'summarizeContext':
-          await handleContextSummarizer(data, webviewView);
-          break;
+
         case 'getApiSettings':
           const apiSettings = getSettingsService().getSettings();
           webviewView.webview.postMessage({ type: 'apiSettingsLoaded', settings: apiSettings });

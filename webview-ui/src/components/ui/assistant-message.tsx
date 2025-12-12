@@ -11,7 +11,6 @@ interface AssistantMessageProps {
   content: string;
   messageId?: string;
   isStreaming?: boolean;
-  isCompressing?: boolean;
   toolExecutions?: Map<string, ToolExecutionState>;
   planChainPosition?: {
     connectTop: boolean;
@@ -86,7 +85,7 @@ function sanitizeAssistantText(content: string): string {
   return result;
 }
 
-function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming = false, isCompressing = false, toolExecutions, planChainPosition }: AssistantMessageProps) {
+function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming = false, toolExecutions, planChainPosition }: AssistantMessageProps) {
   // Allow text/think to span wider while staying slightly inset
   const contentMaxWidth = 'min(110ch, 100%)';
 
@@ -132,17 +131,6 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
       return true;
     });
   }, [tokens]);
-
-  // Handle compression state - show "Compressing" loading indicator
-  if (isCompressing && (content === '...' || !content)) {
-    return (
-      <div style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
-        <div className="max-w-none">
-          <LoadingDots label="Compressing" />
-        </div>
-      </div>
-    );
-  }
 
   if (!content) {
     // Show loading dots when message is empty and pipeline is active
@@ -213,7 +201,8 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
             const toolMarginTop = isConnectedTop ? 0 : marginTop;
 
             // Merge token data with execution state if available
-            const executionState = toolExecutions?.get(token.toolExecutionId);
+            const executionState = toolExecutions?.get(token.toolExecutionId);
+
             // Special handling: Split multi-file read_file results into separate tool blocks
             if (token.toolName === 'read_file' && executionState?.result?.success && executionState.result.data) {
               const resultData = executionState.result.data as Record<string, unknown>;
@@ -469,6 +458,5 @@ export const AssistantMessage = memo(AssistantMessageComponent, (prev, next) => 
   return prev.content === next.content &&
     prev.messageId === next.messageId &&
     prev.isStreaming === next.isStreaming &&
-    prev.isCompressing === next.isCompressing &&
     toolExecutionsEqual;
 });

@@ -16,7 +16,6 @@ import type { ToolExecutionState } from '../../types/tool';
 import { buildContinuationHistory } from '../../utils/continuation-builder';
 
 import type { ToolExecutionHookProps, ToolExecutionContext } from './types';
-import { buildCompressedContextIfNeeded } from './context-compression';
 import { executeToolsInParallel } from './parallel-executor';
 import { executeSingleTool } from './single-executor';
 import { runContinuationStream } from './continuation-stream';
@@ -82,7 +81,8 @@ export function useToolExecution({
       }
 
       // Check if user stopped before starting continuation
-      if (isStoppingRef.current) {        setIsExecutingTool(false);
+      if (isStoppingRef.current) {
+        setIsExecutingTool(false);
         return;
       }
 
@@ -111,7 +111,8 @@ export function useToolExecution({
         diagnosticAttemptsRef,
       };
 
-      try {
+      try {
+
         // If we have buffered results from incremental execution, skip to continuation
         if (bufferedToolResults && bufferedToolResults.length > 0) {
           await handleBufferedResults(
@@ -132,7 +133,8 @@ export function useToolExecution({
         setIsExecutingTool(true);
 
         // Extract all tool blocks and get the current one by index
-        const toolBlocks = extractToolBlocks(assistantContent);        const toolBlock = toolBlocks[toolIndex];
+        const toolBlocks = extractToolBlocks(assistantContent);
+        const toolBlock = toolBlocks[toolIndex];
 
         if (!toolBlock) {
           setIsExecutingTool(false);
@@ -141,7 +143,8 @@ export function useToolExecution({
 
         // Check if we can execute multiple tools in parallel
         const parallelizableBlocks = extractParallelizableToolBlocks(assistantContent, toolIndex);
-        const canExecuteInParallel = parallelizableBlocks.length > 1;
+        const canExecuteInParallel = parallelizableBlocks.length > 1;
+
         if (canExecuteInParallel) {
           // Execute tools in parallel
           await executeToolsInParallel({
@@ -220,23 +223,17 @@ async function handleBufferedResults(
     userAttachments?: ImageAttachment[],
     bufferedToolResults?: string[]
   ) => Promise<void>
-): Promise<void> {
+): Promise<void> {
+
   const toolResultText = bufferedToolResults.join('\n\n');
   const diagnosticsText = ''; // Diagnostics already handled during incremental execution
 
   // Build continuation history for chat
   const latestWorkspace = (window.workspaceContext || context.workspace)!;
-  const contextMessages = await buildCompressedContextIfNeeded(
-    latestWorkspace,
-    context.messagesRef.current,
-    toolResultText,
-    diagnosticsText,
-    context.mode
-  );
 
   const continuationHistory = buildContinuationHistory(
     latestWorkspace,
-    contextMessages,
+    context.messagesRef.current,
     userContent,
     assistantContent,
     toolResultText,
@@ -309,6 +306,7 @@ function handleExecutionError(
       updateToolExecution(assistantMessageId, toolExecutionId, errorState);
     } else {
       // Tool completed successfully but continuation failed
-      // Log warning but don't overwrite the successful tool result    }
+      // Log warning but don't overwrite the successful tool result
+    }
   }
 }

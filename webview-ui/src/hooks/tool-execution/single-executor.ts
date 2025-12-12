@@ -11,7 +11,6 @@ import { createToolExecutionState, updateToolExecutionStatus, updateToolExecutio
 import { buildContinuationHistory } from '../../utils/continuation-builder';
 import { executeToolWithStopCheck, type ToolProgressCallback } from '../../utils/tool-execution-helpers';
 import { getDiagnosticsFromToolResult } from './diagnostics-handler';
-import { buildCompressedContextIfNeeded } from './context-compression';
 import { runContinuationStream } from './continuation-stream';
 
 /**
@@ -157,23 +156,17 @@ export async function executeSingleTool(
   const diagnosticsText = getDiagnosticsFromToolResult(executedTool, diagnosticAttemptsRef);
 
   // Check if stopped during diagnostic processing
-  if (isStoppingRef.current) {    setIsExecutingTool(false);
+  if (isStoppingRef.current) {
+    setIsExecutingTool(false);
     return { wasStopped: true, isPlanningTool: false, continueExecution: false };
   }
 
-  // Build continuation history with optional compression
+  // Build continuation history
   const latestWorkspace = (window.workspaceContext || workspace)!;
-  const contextMessages = await buildCompressedContextIfNeeded(
-    latestWorkspace,
-    messagesRef.current,
-    toolResultText,
-    diagnosticsText,
-    mode
-  );
 
   const continuationHistory = buildContinuationHistory(
     latestWorkspace,
-    contextMessages,
+    messagesRef.current,
     userContent,
     assistantContent,
     toolResultText,

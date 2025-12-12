@@ -30,7 +30,6 @@ export function ChatContainer() {
     messages,
     isStreaming,
     isExecutingTool,
-    isCompressing,
     revertPreviewMessageId,
     editingMessageId,
     sendMessage,
@@ -48,8 +47,6 @@ export function ChatContainer() {
     abortedUserInput,
     abortedAttachments,
     abortedImageAttachments,
-    compressedContextTokens,
-    compressionAnchorId,
   } = useStreamingChat(tasks, mode);
 
   // Context usage tracking
@@ -60,8 +57,6 @@ export function ChatContainer() {
     systemPrompt,
     messages,
     contextSettings: settings.contextSettings,
-    compressedContextTokens,
-    compressionAnchorId,
   });
 
   const visibleMessages = messages.filter(msg => !msg.hidden);
@@ -112,7 +107,7 @@ export function ChatContainer() {
     handleScroll,
     scrollToBottom,
     setIsAutoScrollEnabled,
-  } = useChatScroll(visibleMessages.length, lastMessageKey, isStreaming, isExecutingTool || isCompressing);
+  } = useChatScroll(visibleMessages.length, lastMessageKey, isStreaming, isExecutingTool);
 
   const handleSendMessage = useCallback(async (
     content: string,
@@ -257,8 +252,7 @@ export function ChatContainer() {
                       onEditStart={handleEditStart}
                       onEditCancel={handleCancel}
                       onRevert={handleRevert}
-                      isStreaming={(isStreaming || isExecutingTool || isCompressing) && isLastAssistantMessage}
-                      isCompressing={isCompressing && isLastAssistantMessage}
+                      isStreaming={(isStreaming || isExecutingTool) && isLastAssistantMessage}
                       mode={mode}
                       onModeChange={handleModeChange}
                       provider={provider}
@@ -288,7 +282,6 @@ export function ChatContainer() {
               onNewChat={onNewChat}
               isStreaming={isStreaming}
               isExecutingTool={isExecutingTool}
-              isCompressing={isCompressing}
               onStop={abortStream}
               todos={tasks}
               mode={mode}

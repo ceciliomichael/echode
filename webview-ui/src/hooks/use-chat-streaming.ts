@@ -7,13 +7,10 @@ import type { Message, ImageAttachment } from '../types/chat';
 import { ToolExecutor } from '../lib/tool-executor';
 import { getToolsForMode } from '../lib/tool-config';
 import { getCurrentModel, isVisionCapableModel } from '../utils/vision-utils';
-import { storageService } from '../utils/storage';
 import { supersedePlanningToolsInMessages } from '../utils/planning-utils';
 
 // Import modular helpers
 import type { ChatStreamingProps } from './chat-streaming/types';
-import { estimateTokens } from './chat-streaming/helpers';
-import { prepareContextWithCompression } from './chat-streaming/context-compression';
 import { buildChatHistoryWithToolResults } from './chat-streaming/chat-history-builder';
 import { handleForcedEchoSearch } from './chat-streaming/forced-echo-search';
 import { runStreamingLoop } from './chat-streaming/streaming-loop';
@@ -26,12 +23,6 @@ export function useChatStreaming({
   setMessages,
   setIsStreaming,
   setIsExecutingTool,
-  setIsCompressing,
-  setCompressedContextTokens,
-  setCompressedMessages,
-  setCompressionAnchorId,
-  compressedMessagesRef,
-  compressedContextTokensRef,
   isStreamingRef,
   isExecutingToolRef,
   sendingMessageRef,
@@ -126,41 +117,6 @@ export function useChatStreaming({
       const systemPrompt = getSystemPrompt(latestWorkspace, mode);
       const messagesToSend = overrideMessages !== undefined ? overrideMessages : supersededMessages;
 
-      // Get context settings
-      const settings = storageService.getSettings();
-      const contextSettings = settings.contextSettings;
-      const maxTokens = contextSettings?.maxContextTokens || 128000;
-
-      // Estimate tokens
-      const newMessageTokens = estimateTokens(content);
-      const systemPromptTokens = estimateTokens(systemPrompt);
-
-      // === CONTEXT COMPRESSION (delegated to helper) ===
-      const compressionResult = await prepareContextWithCompression({
-        messagesToSend,
-        systemPromptTokens,
-        newMessageTokens,
-        maxTokens,
-        currentCompressedMessages: compressedMessagesRef.current,
-        currentCompressedTokens: compressedContextTokensRef.current,
-        userMessageId: userMessage.id,
-        assistantMessageId,
-        abortControllerRef,
-        setIsCompressing,
-        setMessages,
-        setCompressedMessages,
-        setCompressedContextTokens,
-        setCompressionAnchorId,
-        compressedMessagesRef,
-        compressedContextTokensRef,
-      });
-
-      if (compressionResult.wasAborted) {
-        return; // Compression was aborted, exit early
-      }
-
-      const contextMessages = compressionResult.contextMessages;
-
       // === MODEL CAPABILITIES ===
       const currentModel = getCurrentModel();
       const modelSupportsVision = isVisionCapableModel(currentModel);
@@ -185,7 +141,7 @@ export function useChatStreaming({
       // === BUILD CHAT HISTORY (delegated to helper) ===
       const finalChatHistory = buildChatHistoryWithToolResults({
         systemPrompt,
-        contextMessages,
+        contextMessages: messagesToSend,
         content,
         attachments,
         modelSupportsVision,
@@ -241,7 +197,8 @@ export function useChatStreaming({
       saveSession();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, workspace, executeToolAndContinue, setMessages, setIsStreaming, setIsExecutingTool, setIsCompressing, setCompressedContextTokens, setCompressedMessages, setCompressionAnchorId, compressedMessagesRef, compressedContextTokensRef, isStreamingRef, isExecutingToolRef, sendingMessageRef, abortControllerRef, hasStreamedContentRef, saveSession, mode, updateToolExecution]);
+  }, [messages, workspace, executeToolAndContinue, setMessages, setIsStreaming, setIsExecutingTool, isStreamingRef, isExecutingToolRef, sendingMessageRef, abortControllerRef, hasStreamedContentRef, saveSession, mode, updateToolExecution]);
 
   return { sendMessage };
 }
+

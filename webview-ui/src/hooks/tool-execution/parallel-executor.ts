@@ -11,7 +11,6 @@ import { ToolExecutor } from '../../lib/tool-executor';
 import { createToolExecutionState, updateToolExecutionStatus, generateToolExecutionId } from '../../lib/tool-execution-tracker';
 import { buildContinuationHistory } from '../../utils/continuation-builder';
 import { getDiagnosticsFromToolResultsParallel } from './diagnostics-handler';
-import { buildCompressedContextIfNeeded } from './context-compression';
 import { runContinuationStream } from './continuation-stream';
 import { areAllToolsParallelAllowed } from '../../lib/tool-parallel-config';
 
@@ -68,12 +67,13 @@ export async function executeToolsInParallel(
     mode,
     diagnosticAttemptsRef,
     workspace,
-  } = context;
+  } = context;
+
   // RUNTIME GUARD: Verify ALL tools are in the parallel allow-list
   // If any tool is not allowed, fall back to serial execution
   const toolNames = parallelizableBlocks.map(b => b.toolName);
   if (!areAllToolsParallelAllowed(toolNames)) {
-    
+
     // Execute tools serially instead of in parallel
     return executeToolsSerially(params);
   }
@@ -81,7 +81,8 @@ export async function executeToolsInParallel(
   // Create execution states for all parallel tools
   const executionStates = parallelizableBlocks.map((block, idx) => {
     const globalIdx = toolIndex + idx;
-    const execId = generateToolExecutionId(assistantMessageId, globalIdx);    
+    const execId = generateToolExecutionId(assistantMessageId, globalIdx);
+
     const state = createToolExecutionState(
       execId,
       block.toolName,
@@ -122,7 +123,8 @@ export async function executeToolsInParallel(
             state: abortedState,
             formattedText: `Tool: ${block.toolName}\nStatus: aborted`,
           };
-        }
+        }
+
         const result = await toolExecutor.execute(
           {
             toolName: block.toolName,
@@ -150,7 +152,8 @@ export async function executeToolsInParallel(
 
         const status = result.success ? 'completed' as const : 'error' as const;
         const completedState = updateToolExecutionStatus(state, status, result);
-        updateToolExecution(assistantMessageId, execId, completedState);
+        updateToolExecution(assistantMessageId, execId, completedState);
+
         // Format result text for AI context
         let formattedText: string;
         if (result.success && 'data' in result && result.data !== undefined) {
@@ -194,7 +197,8 @@ export async function executeToolsInParallel(
   const parallelResults = await Promise.all(executionPromises);
 
   // If user stopped while tools were executing, respect the stop signal
-  if (isStoppingRef.current) {    setIsExecutingTool(false);
+  if (isStoppingRef.current) {
+    setIsExecutingTool(false);
     return { wasStopped: true, continueExecution: false };
   }
 
@@ -212,7 +216,8 @@ export async function executeToolsInParallel(
   );
 
   // Check if stopped during diagnostic processing
-  if (isStoppingRef.current) {    setIsExecutingTool(false);
+  if (isStoppingRef.current) {
+    setIsExecutingTool(false);
     return { wasStopped: true, continueExecution: false };
   }
 
@@ -220,19 +225,12 @@ export async function executeToolsInParallel(
   const toolResultText = parallelResults.map(result => result.formattedText).join('\n\n');
   const diagnosticsText = diagnosticsTexts.join('\n\n');
 
-  // Build continuation history with optional compression
+  // Build continuation history
   const latestWorkspace = (window.workspaceContext || workspace)!;
-  const contextMessages = await buildCompressedContextIfNeeded(
-    latestWorkspace,
-    messagesRef.current,
-    toolResultText,
-    diagnosticsText,
-    mode
-  );
 
   const continuationHistory = buildContinuationHistory(
     latestWorkspace,
-    contextMessages,
+    messagesRef.current,
     userContent,
     assistantContent,
     toolResultText,
@@ -277,7 +275,8 @@ function markAllAsAborted(
 
 async function executeToolsSerially(params: ParallelExecutionParams): Promise<ParallelExecutionResult> {
   const { parallelizableBlocks, assistantContent, assistantMessageId, toolIndex, messagesToSend, userContent, userAttachments, toolExecutor, context, executeToolAndContinue } = params;
-  const { isStoppingRef, abortControllerRef, setIsExecutingTool, updateToolExecution, messagesRef, currentTodos, mode, diagnosticAttemptsRef, workspace } = context;  const allResults: Array<{ toolName: string; result: { success: boolean; error?: string; data?: unknown }; state: ToolExecutionState; formattedText: string }> = [];
+  const { isStoppingRef, abortControllerRef, setIsExecutingTool, updateToolExecution, messagesRef, currentTodos, mode, diagnosticAttemptsRef, workspace } = context;
+  const allResults: Array<{ toolName: string; result: { success: boolean; error?: string; data?: unknown }; state: ToolExecutionState; formattedText: string }> = [];
 
   for (let idx = 0; idx < parallelizableBlocks.length; idx++) {
     const block = parallelizableBlocks[idx];
@@ -311,8 +310,7 @@ async function executeToolsSerially(params: ParallelExecutionParams): Promise<Pa
   const toolResultText = allResults.map(r => r.formattedText).join('\n\n');
   const diagnosticsText = diagnosticsTexts.join('\n\n');
   const latestWorkspace = (window.workspaceContext || workspace)!;
-  const contextMessages = await buildCompressedContextIfNeeded(latestWorkspace, messagesRef.current, toolResultText, diagnosticsText, mode);
-  const continuationHistory = buildContinuationHistory(latestWorkspace, contextMessages, userContent, assistantContent, toolResultText, diagnosticsText, currentTodos, mode, userAttachments);
+  const continuationHistory = buildContinuationHistory(latestWorkspace, messagesRef.current, userContent, assistantContent, toolResultText, diagnosticsText, currentTodos, mode, userAttachments);
 
   setIsExecutingTool(false);
   await runContinuationStream({ continuationHistory, assistantContent, assistantMessageId, messagesToSend, userContent, nextToolIndex: toolIndex + parallelizableBlocks.length, userAttachments, abortControllerRef, isStoppingRef, setMessages: context.setMessages, setIsExecutingTool, executeToolAndContinue, logPrefix: '[ParallelExecutor:Serial]', mode });
