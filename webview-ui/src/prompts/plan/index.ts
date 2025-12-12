@@ -6,10 +6,7 @@
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
 import { getUserRules, getSystemInfo } from '../shared';
-import { getPlanModeSection } from './mode-section';
-import { getPlanRules } from './rules';
-import { getPlanCognitiveWorkflow } from './cognitive-workflow';
-import { getPlanToolChains } from './tool-chains';
+import { getPlanPrompt } from './prompt';
 import { getPlanToolInstructions } from './tools';
 import { getToolSystemPrompt } from '../../lib/tool-config';
 
@@ -24,8 +21,6 @@ export interface PlanPromptOptions {
 export function buildPlanPrompt(options: PlanPromptOptions): string {
     const { workspace, enabledTools } = options;
 
-    const cognitiveWorkflow = getPlanCognitiveWorkflow();
-
     // Tool format section (generic XML format)
     const toolsSection = enabledTools.length > 0
         ? getToolSystemPrompt(enabledTools)
@@ -36,20 +31,17 @@ No tools are currently enabled.
     // Mode-specific tool instructions (Plan-specific, no editing tool mentions)
     const toolInstructions = getPlanToolInstructions(enabledTools);
 
-    const toolChains = getPlanToolChains(enabledTools);
-    const rules = getPlanRules(workspace);
-    const modeSection = getPlanModeSection();
+    // Monolithic prompt (cognitive workflow + rules + mode description)
+    const prompt = getPlanPrompt(workspace);
+
     const userRules = getUserRules(workspace);
     const systemInfo = getSystemInfo(workspace);
 
     // Assemble in priority order
     const sections = [
-        cognitiveWorkflow,
+        prompt,
         toolsSection,
         toolInstructions,
-        toolChains,
-        rules,
-        modeSection,
         userRules,
         systemInfo,
     ].filter(Boolean);
@@ -58,9 +50,4 @@ No tools are currently enabled.
 }
 
 // Re-export components
-export { getPlanModeSection } from './mode-section';
-export { getPlanRules } from './rules';
-export { getPlanCognitiveWorkflow } from './cognitive-workflow';
-export { getPlanToolChains } from './tool-chains';
 export { getPlanToolInstructions } from './tools';
-export { getPlanSystemReminder, getPlanTodoReminder } from './reminders';

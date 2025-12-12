@@ -5,8 +5,7 @@
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
 import { getUserRules, getSystemInfo } from '../shared';
-import { getAskModeSection } from './mode-section';
-import { getAskRules } from './rules';
+import { getAskPrompt } from './prompt';
 import { getAskToolInstructions } from './tools';
 import { getToolSystemPrompt } from '../../lib/tool-config';
 
@@ -31,17 +30,17 @@ No tools are currently enabled.
     // Mode-specific tool instructions (Ask-specific, no editing mentions)
     const toolInstructions = getAskToolInstructions(enabledTools);
 
-    const rules = getAskRules(workspace);
-    const modeSection = getAskModeSection();
+    // Monolithic prompt (rules + mode description)
+    const prompt = getAskPrompt(workspace);
+
     const userRules = getUserRules(workspace);
     const systemInfo = getSystemInfo(workspace);
 
     // Assemble
     const sections = [
+        prompt,
         toolsSection,
         toolInstructions,
-        rules,
-        modeSection,
         userRules,
         systemInfo,
     ].filter(Boolean);
@@ -50,7 +49,4 @@ No tools are currently enabled.
 }
 
 // Re-export components
-export { getAskModeSection } from './mode-section';
-export { getAskRules } from './rules';
 export { getAskToolInstructions } from './tools';
-export { getAskSystemReminder, getAskTodoReminder } from './reminders';

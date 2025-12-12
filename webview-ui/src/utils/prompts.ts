@@ -18,21 +18,10 @@
 // Re-export everything from the new organized prompts folder
 export {
   getSystemPrompt,
-  getPromptConfig,
-  type PromptConfig,
   // Mode-specific builders
   buildAgentPrompt,
   buildPlanPrompt,
   buildAskPrompt,
   buildGeneralPrompt,
   buildChatPrompt,
-  // Mode-specific reminders (for streaming handlers)
-  getAgentSystemReminder,
-  getAgentTodoReminder,
-  getPlanSystemReminder,
-  getPlanTodoReminder,
-  getAskSystemReminder,
-  getAskTodoReminder,
-  getGeneralSystemReminder,
-  getGeneralTodoReminder,
 } from '../prompts';

@@ -5,8 +5,7 @@
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
 import { getUserRules, getSystemInfo } from '../shared';
-import { getGeneralModeSection } from './mode-section';
-import { getGeneralRules } from './rules';
+import { getGeneralPrompt } from './prompt';
 import { getGeneralToolInstructions } from './tools';
 import { getToolSystemPrompt } from '../../lib/tool-config';
 
@@ -31,17 +30,17 @@ No tools are currently enabled.
     // Mode-specific tool instructions
     const toolInstructions = getGeneralToolInstructions(enabledTools);
 
-    const rules = getGeneralRules(workspace);
-    const modeSection = getGeneralModeSection();
+    // Monolithic prompt (rules + mode description)
+    const prompt = getGeneralPrompt(workspace);
+
     const userRules = getUserRules(workspace);
     const systemInfo = getSystemInfo(workspace);
 
     // Assemble
     const sections = [
+        prompt,
         toolsSection,
         toolInstructions,
-        rules,
-        modeSection,
         userRules,
         systemInfo,
     ].filter(Boolean);
@@ -50,7 +49,4 @@ No tools are currently enabled.
 }
 
 // Re-export components
-export { getGeneralModeSection } from './mode-section';
-export { getGeneralRules } from './rules';
 export { getGeneralToolInstructions } from './tools';
-export { getGeneralSystemReminder, getGeneralTodoReminder } from './reminders';

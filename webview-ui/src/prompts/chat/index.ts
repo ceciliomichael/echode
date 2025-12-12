@@ -5,8 +5,7 @@
 
 import type { WorkspaceContext } from '../../types/workspace';
 import { getUserRules, getMinimalSystemInfo } from '../shared';
-import { getChatModeSection } from './mode-section';
-import { getChatRules } from './rules';
+import { getChatPrompt } from './prompt';
 
 export interface ChatPromptOptions {
     workspace: WorkspaceContext | null;
@@ -19,29 +18,20 @@ export interface ChatPromptOptions {
 export function buildChatPrompt(options: ChatPromptOptions): string {
     const { workspace } = options;
 
-    const rules = getChatRules();
-    const modeSection = getChatModeSection();
+    // Monolithic prompt (rules + mode description)
+    const prompt = getChatPrompt();
+
     const userRules = getUserRules(workspace);
 
     // Chat mode gets minimal system info (no file list)
     const systemInfo = getMinimalSystemInfo();
 
-    // Assemble - Note: NO tools section, NO tool chains
+    // Assemble - Note: NO tools section
     const sections = [
-        rules,
-        modeSection,
+        prompt,
         userRules,
         systemInfo,
     ].filter(Boolean);
 
     return sections.join('\n\n').trim();
 }
-
-// Re-export components
-export { getChatModeSection } from './mode-section';
-export { getChatRules } from './rules';
-
-/**
- * Chat mode has NO reminders since it has NO tools
- * This is intentionally NOT exported to prevent accidental use
- */

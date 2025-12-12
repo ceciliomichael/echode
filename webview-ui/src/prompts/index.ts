@@ -88,9 +88,3 @@ export { buildPlanPrompt } from './plan';
 export { buildAskPrompt } from './ask';
 export { buildGeneralPrompt } from './general';
 export { buildChatPrompt } from './chat';
-
-// Re-export reminders for use in streaming handlers
-export { getAgentSystemReminder, getAgentTodoReminder } from './agent';
-export { getPlanSystemReminder, getPlanTodoReminder } from './plan';
-export { getAskSystemReminder, getAskTodoReminder } from './ask';
-export { getGeneralSystemReminder, getGeneralTodoReminder } from './general';

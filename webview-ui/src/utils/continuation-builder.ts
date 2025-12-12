@@ -7,12 +7,6 @@ import { formatToolResultsForHistory } from './tool-result-formatter';
 import { buildChatMessage, getCurrentModel, isVisionCapableModel } from './vision-utils';
 import { summarizeToolSections } from './tool-context-cleaner';
 import { stripUnavailableToolCalls } from './tool-history-filter';
-import {
-  getAgentTodoReminder,
-  getPlanTodoReminder,
-  getAskTodoReminder,
-  getGeneralTodoReminder,
-} from '../prompts';
 
 /**
  * Context Management Constants
@@ -39,7 +33,7 @@ interface TodoItem {
  * Build todo context for AI
  * Mode-aware: Plan mode gets planning-focused instructions, Agent mode gets implementation instructions
  */
-export function buildTodoContext(todos: TodoItem[], mode: ChatMode = 'agent'): string {
+export function buildTodoContext(todos: TodoItem[], _mode: ChatMode = 'agent'): string {
   if (todos.length === 0) { return ''; }
 
   const pendingTasks = todos
@@ -59,42 +53,11 @@ export function buildTodoContext(todos: TodoItem[], mode: ChatMode = 'agent'): s
   if (pendingTasks) { todoContext += `Pending:\n${pendingTasks}\n\n`; }
   if (inProgressTasks) { todoContext += `In Progress:\n${inProgressTasks}\n\n`; }
   if (completedTasks) { todoContext += `Completed:\n${completedTasks}\n`; }
-  todoContext += '</current_todo_list>\n\n';
-
-  // Mode-specific reminders from prompts folder
-  const hasIncompleteTasks = !!(pendingTasks || inProgressTasks);
-
-  switch (mode) {
-    case 'plan':
-      todoContext += getPlanTodoReminder();
-      break;
-    case 'ask':
-      todoContext += getAskTodoReminder();
-      break;
-    case 'general':
-      todoContext += getGeneralTodoReminder(hasIncompleteTasks);
-      break;
-    case 'chat':
-      // Chat mode has no todo reminders
-      break;
-    case 'agent':
-    default:
-      todoContext += getAgentTodoReminder(hasIncompleteTasks);
-      break;
-  }
+  todoContext += '</current_todo_list>';
 
   return todoContext;
 }
 
-/**
- * Build continuation history for chat continuation after tool execution.
- * 
- * Context Management Strategy (based on KiloCode patterns):
- * 1. Always keep the first message (original user task for context)
- * 2. If truncation needed, insert a notice explaining history was removed
- * 3. Always keep the last N messages for continuity
- * 4. Tool results are formatted concisely to avoid context bloat
- */
 export function buildContinuationHistory(
   workspace: WorkspaceContext,
   currentMessages: Message[],

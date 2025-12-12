@@ -6,10 +6,7 @@
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
 import { getUserRules, getSystemInfo } from '../shared';
-import { getAgentModeSection } from './mode-section';
-import { getAgentRules } from './rules';
-import { getAgentCognitiveWorkflow } from './cognitive-workflow';
-import { getAgentToolChains } from './tool-chains';
+import { getAgentPrompt } from './prompt';
 import { getAgentToolInstructions } from './tools';
 import { getToolSystemPrompt } from '../../lib/tool-config';
 
@@ -24,8 +21,6 @@ export interface AgentPromptOptions {
 export function buildAgentPrompt(options: AgentPromptOptions): string {
     const { workspace, enabledTools } = options;
 
-    const cognitiveWorkflow = getAgentCognitiveWorkflow();
-
     // Tool format section (generic XML format)
     const toolsSection = enabledTools.length > 0
         ? getToolSystemPrompt(enabledTools)
@@ -36,20 +31,17 @@ No tools are currently enabled.
     // Mode-specific tool instructions
     const toolInstructions = getAgentToolInstructions(enabledTools);
 
-    const toolChains = getAgentToolChains(enabledTools);
-    const rules = getAgentRules(workspace, enabledTools);
-    const modeSection = getAgentModeSection();
+    // Monolithic prompt (cognitive workflow + rules + mode description)
+    const prompt = getAgentPrompt(workspace, enabledTools);
+
     const userRules = getUserRules(workspace);
     const systemInfo = getSystemInfo(workspace);
 
     // Assemble in priority order
     const sections = [
-        cognitiveWorkflow,
+        prompt,
         toolsSection,
         toolInstructions,
-        toolChains,
-        rules,
-        modeSection,
         userRules,
         systemInfo,
     ].filter(Boolean);
@@ -58,9 +50,4 @@ No tools are currently enabled.
 }
 
 // Re-export components
-export { getAgentModeSection } from './mode-section';
-export { getAgentRules } from './rules';
-export { getAgentCognitiveWorkflow } from './cognitive-workflow';
-export { getAgentToolChains } from './tool-chains';
 export { getAgentToolInstructions } from './tools';
-export { getAgentSystemReminder, getAgentTodoReminder } from './reminders';
