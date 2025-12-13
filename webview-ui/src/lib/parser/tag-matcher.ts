@@ -17,7 +17,7 @@ export function isInsideParameterValue(content: string, position: number): boole
   let openCount = 0;
   let closeCount = 0;
   let searchPos = 0;
-  const paramOpenRegex = /<parameter\s+name\s*=\s*["'][^"']+["']\s*>/g;
+  const paramOpenRegex = /<parameter(?:\s+[^>]+)?\s+name\s*=\s*["'][^"']+["'][^>]*>/g;
   const paramClose = '</parameter>';
 
   while (searchPos < beforePos.length) {
@@ -66,7 +66,7 @@ export function isInsideInvokeParameterValue(content: string, position: number):
   let openCount = 0;
   let closeCount = 0;
   let searchPos = 0;
-  const paramOpenRegex = /<parameter\s+name\s*=\s*["'][^"']+["']\s*>/g;
+  const paramOpenRegex = /<parameter(?:\s+[^>]+)?\s+name\s*=\s*["'][^"']+["'][^>]*>/g;
   const paramClose = '</parameter>';
 
   while (searchPos < beforePos.length) {
@@ -203,7 +203,7 @@ export function findMatchingParameterClose(content: string, openTagEnd: number):
   let openCount = 0;  // Nested opening tags seen
   let closeCount = 0; // Closing tags seen
   let pos = openTagEnd;
-  const openPattern = /<parameter\s+name\s*=\s*["'][^"']+["']\s*>/g;
+  const openPattern = /<parameter(?:\s+[^>]+)?\s+name\s*=\s*["'][^"']+["'][^>]*>/g;
   const closeTag = '</parameter>';
 
   while (pos < content.length) {

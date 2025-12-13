@@ -14,7 +14,7 @@ function truncateContent(content: string, maxChars: number): string {
  * Format a single tool execution result into a concise, structured string.
  * Follows the pattern: Tool → Status → Key info only.
  */
-function formatSingleToolResult(execution: ToolExecutionState): string {
+function formatSingleToolResult(execution: ToolExecutionState, mode: ChatMode): string {
   const data = execution.result?.data as Record<string, unknown> | undefined;
 
   if (!execution.result?.success) {
@@ -36,10 +36,13 @@ function formatSingleToolResult(execution: ToolExecutionState): string {
       const rangeInfo = (startLine !== 1 || endLine !== totalLines)
         ? ` [lines ${startLine}-${endLine}]`
         : '';
-      
-      // Format with clear markers for apply_diff SEARCH block copying
+
+      // Only include apply_diff hints in modes where apply_diff is available
+      const canUseDiff = mode === 'agent' || mode === 'general';
+      const headerHint = canUseDiff ? ' (use for apply_diff SEARCH blocks)' : '';
+
       return `[read_file] ${path} (${totalLines} lines)${rangeInfo}
-┌─ FILE CONTENT (use for apply_diff SEARCH blocks) ─┐
+┌─ FILE CONTENT${headerHint} ─┐
 ${content}
 └─ END ${path} ─┘`;
     }
@@ -155,7 +158,7 @@ export function formatToolResultsForHistory(
     }
 
     if (execution.status === 'completed' && execution.result) {
-      toolResults.push(formatSingleToolResult(execution));
+      toolResults.push(formatSingleToolResult(execution, mode));
     }
   });
 

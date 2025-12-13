@@ -26,7 +26,7 @@ export function parseXMLParameters(content: string): Record<string, unknown> {
   const parameters: Record<string, unknown> = {};
   const processedParams = new Set<string>();
 
-  const openingParamRegex = /<parameter\s+name\s*=\s*["']([^"']+)["']\s*>/g;
+  const openingParamRegex = /<parameter(?:\s+[^>]+)?\s+name\s*=\s*["']([^"']+)["'][^>]*>/g;
   let match: RegExpExecArray | null;
 
   while ((match = openingParamRegex.exec(content)) !== null) {

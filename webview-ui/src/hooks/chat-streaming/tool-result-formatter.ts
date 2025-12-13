@@ -27,18 +27,22 @@ export function formatToolExecutionResults(
         let formattedResult = '';
 
         if (execution.toolName === 'read_file') {
-          // For read_file, format with clear markers for apply_diff SEARCH copying
+          // For read_file, format with clear markers
+          // Only include apply_diff hints in modes where apply_diff is available
+          const canUseDiff = mode === 'agent' || mode === 'general';
+          const searchHint = canUseDiff ? ' (copy for SEARCH blocks)' : '';
+
           if ('files' in data && Array.isArray(data.files)) {
             // Multiple files case
             const files = data.files as Array<{ path: string; content: string }>;
             formattedResult = files
-              .map(f => `┌─ ${f.path} (copy for SEARCH blocks) ─┐\n${truncateContent(f.content, MAX_FILE_CONTENT_CHARS)}\n└─ END ${f.path} ─┘`)
+              .map(f => `┌─ ${f.path}${searchHint} ─┐\n${truncateContent(f.content, MAX_FILE_CONTENT_CHARS)}\n└─ END ${f.path} ─┘`)
               .join('\n\n');
           } else if ('content' in data && 'path' in data) {
             // Single file case
             const filePath = data.path as string;
             const content = truncateContent(String(data.content), MAX_FILE_CONTENT_CHARS);
-            formattedResult = `┌─ ${filePath} (copy for SEARCH blocks) ─┐\n${content}\n└─ END ${filePath} ─┘`;
+            formattedResult = `┌─ ${filePath}${searchHint} ─┐\n${content}\n└─ END ${filePath} ─┘`;
           } else {
             formattedResult = JSON.stringify(data);
           }
