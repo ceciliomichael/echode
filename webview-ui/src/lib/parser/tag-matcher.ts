@@ -6,70 +6,100 @@
 /**
  * Check if a position is inside a parameter value (between <parameter...> and </parameter>)
  * This helps avoid counting tags mentioned in text content as real tags
- * Uses depth counting to handle nested parameters correctly
+ * 
+ * IMPORTANT: Uses open/close counting to properly handle raw </parameter> text in content.
  */
 export function isInsideParameterValue(content: string, position: number): boolean {
   const beforePos = content.slice(0, position);
 
-  let depth = 0;
+  // Track open and close counts separately
+  // A position is "inside" a parameter if openCount > closeCount
+  let openCount = 0;
+  let closeCount = 0;
   let searchPos = 0;
-  const paramOpenRegex = /<parameter\s+name=["'][^"']+["']>/g;
+  const paramOpenRegex = /<parameter\s+name\s*=\s*["'][^"']+["']\s*>/g;
   const paramClose = '</parameter>';
 
   while (searchPos < beforePos.length) {
     paramOpenRegex.lastIndex = searchPos;
     const openMatch = paramOpenRegex.exec(beforePos);
     const nextOpen = openMatch ? openMatch.index : -1;
-    const nextCloseIdx = beforePos.indexOf(paramClose, searchPos);
+    const nextClosePos = beforePos.indexOf(paramClose, searchPos);
 
-    if (nextOpen === -1 && nextCloseIdx === -1) break;
+    if (nextOpen === -1 && nextClosePos === -1) break;
 
-    if (nextOpen !== -1 && (nextCloseIdx === -1 || nextOpen < nextCloseIdx)) {
-      depth++;
+    if (nextOpen !== -1 && (nextClosePos === -1 || nextOpen < nextClosePos)) {
+      // Found opening tag
+      openCount++;
       searchPos = nextOpen + openMatch![0].length;
-    } else if (nextCloseIdx !== -1) {
-      depth = Math.max(0, depth - 1);
-      searchPos = nextCloseIdx + paramClose.length;
+    } else if (nextClosePos !== -1) {
+      // Found closing tag - VALIDATE ALWAYS
+      const closeTagEnd = nextClosePos + paramClose.length;
+      const lookahead = content.slice(closeTagEnd);
+      // Valid followers: <parameter, </parameter, </invoke, or End of String
+      const isValidClose = /^\s*($|<parameter|<\/parameter|<\/invoke)/.test(lookahead);
+
+      if (isValidClose) {
+        closeCount++;
+      }
+      // Either way, move past this closing tag
+      searchPos = nextClosePos + paramClose.length;
     } else {
       break;
     }
   }
 
-  return depth > 0;
+  // We're inside a parameter if there are more opens than closes
+  return openCount > closeCount;
 }
 
 /**
  * Check if a position is inside a parameter value for invoke blocks
- * Uses depth counting to handle nested parameter tags
+ * 
+ * IMPORTANT: Uses open/close counting to properly handle raw </parameter> text in content.
  */
 export function isInsideInvokeParameterValue(content: string, position: number): boolean {
   const beforePos = content.slice(0, position);
 
-  let depth = 0;
+  // Track open and close counts separately
+  // A position is "inside" a parameter if openCount > closeCount
+  let openCount = 0;
+  let closeCount = 0;
   let searchPos = 0;
-  const paramOpenRegex = /<parameter\s+name=["'][^"']+["']>/g;
+  const paramOpenRegex = /<parameter\s+name\s*=\s*["'][^"']+["']\s*>/g;
   const paramClose = '</parameter>';
 
   while (searchPos < beforePos.length) {
     paramOpenRegex.lastIndex = searchPos;
     const openMatch = paramOpenRegex.exec(beforePos);
     const nextOpen = openMatch ? openMatch.index : -1;
-    const nextClose = beforePos.indexOf(paramClose, searchPos);
+    const nextClosePos = beforePos.indexOf(paramClose, searchPos);
 
-    if (nextOpen === -1 && nextClose === -1) break;
+    if (nextOpen === -1 && nextClosePos === -1) break;
 
-    if (nextOpen !== -1 && (nextClose === -1 || nextOpen < nextClose)) {
-      depth++;
+    if (nextOpen !== -1 && (nextClosePos === -1 || nextOpen < nextClosePos)) {
+      // Found opening tag
+      openCount++;
       searchPos = nextOpen + openMatch![0].length;
-    } else if (nextClose !== -1) {
-      depth = Math.max(0, depth - 1);
-      searchPos = nextClose + paramClose.length;
+    } else if (nextClosePos !== -1) {
+      // Found closing tag - VALIDATE ALWAYS
+      const closeTagEnd = nextClosePos + paramClose.length;
+      const lookahead = content.slice(closeTagEnd);
+      // Valid followers: <parameter, </parameter, </invoke, or End of String
+      const isValidClose = /^\s*($|<parameter|<\/parameter|<\/invoke)/.test(lookahead);
+
+      if (isValidClose) {
+        closeCount++;
+      }
+      // Either way, move past this closing tag
+      searchPos = nextClosePos + paramClose.length;
     } else {
       break;
     }
   }
 
-  return depth > 0;
+  // We're inside a parameter if there are more opens than closes
+  return openCount > closeCount;
 }
 
 /**
@@ -154,33 +184,67 @@ export function findMatchingInvokeClosingTag(content: string, openTagEnd: number
 /**
  * Find the matching closing tag for a parameter using balanced tag counting
  * Handles nested <parameter>...</parameter> tags inside content values
+ * 
+ * IMPORTANT: This function handles the case where content contains raw </parameter>
+ * text that is NOT a real closing tag (e.g., when AI writes tool XML inside a file).
+ * We only match closing tags that have a corresponding opening tag at the same nesting level.
  */
 export function findMatchingParameterClose(content: string, openTagEnd: number): number {
-  let depth = 1;
+  // Strategy: We need to distinguish between:
+  // 1. Real nested <parameter name="...">...</parameter> pairs (should be balanced)
+  // 2. Raw </parameter> text in content without a matching opening tag (should be IGNORED)
+  //
+  // To do this, we scan forward and track:
+  // - openCount: number of <parameter name="..."> tags seen
+  // - closeCount: number of </parameter> tags seen
+  // The FIRST </parameter> that makes closeCount > openCount is our real closing tag
+  // (since we started with depth=1 for the outer parameter)
+
+  let openCount = 0;  // Nested opening tags seen
+  let closeCount = 0; // Closing tags seen
   let pos = openTagEnd;
-  const openPattern = /<parameter\s+name=["'][^"']+["']>/;
+  const openPattern = /<parameter\s+name\s*=\s*["'][^"']+["']\s*>/g;
   const closeTag = '</parameter>';
 
-  while (pos < content.length && depth > 0) {
-    const remaining = content.slice(pos);
-    const openMatch = remaining.match(openPattern);
-    const closePos = remaining.indexOf(closeTag);
+  while (pos < content.length) {
+    // Find next opening and closing tags from current position
+    openPattern.lastIndex = pos;
+    const openMatch = openPattern.exec(content);
+    const nextOpenPos = openMatch ? openMatch.index : -1;
+    const nextClosePos = content.indexOf(closeTag, pos);
 
-    if (closePos === -1) {
+    // No more closing tags found
+    if (nextClosePos === -1) {
       return -1;
     }
 
-    const nextOpenPos = openMatch ? openMatch.index! : -1;
-
-    if (nextOpenPos !== -1 && nextOpenPos < closePos) {
-      depth++;
-      pos += nextOpenPos + openMatch![0].length;
+    // Check which comes first
+    if (nextOpenPos !== -1 && nextOpenPos < nextClosePos) {
+      // Found nested opening tag first - track it
+      openCount++;
+      pos = nextOpenPos + openMatch![0].length;
     } else {
-      depth--;
-      if (depth === 0) {
-        return pos + closePos;
+      // Found closing tag - VALIDATE ALWAYS with lookahead
+      const closeTagEnd = nextClosePos + closeTag.length;
+      const lookahead = content.slice(closeTagEnd);
+
+      // VALIDATE ALWAYS: <parameter (sibling), </parameter (parent), </invoke, or End of String
+      const isValidClose = /^\s*($|<parameter|<\/parameter|<\/invoke)/.test(lookahead);
+
+      if (isValidClose) {
+        if (closeCount < openCount) {
+          // Matches a nested opening tag we've seen
+          closeCount++;
+          pos = closeTagEnd;
+        } else {
+          // closeCount >= openCount means all nested pairs are closed
+          // This is the real closing tag for our outer parameter
+          return nextClosePos;
+        }
+      } else {
+        // Fake closing tag (text content) - ignore it
+        pos = closeTagEnd;
       }
-      pos += closePos + closeTag.length;
     }
   }
 

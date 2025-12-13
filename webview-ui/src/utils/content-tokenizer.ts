@@ -11,33 +11,51 @@ export type ContentToken =
 /**
  * Check if a position is inside a <parameter> value for function_calls matching
  * Used to skip tags that appear as examples inside parameter content
+ * 
+ * IMPORTANT: Uses open/close counting to properly handle raw </parameter> text in content.
  */
 function isInsideFunctionCallsParameterValue(content: string, position: number): boolean {
   const beforePos = content.slice(0, position);
-  let depth = 0;
+
+  // Track open and close counts separately
+  // A position is "inside" a parameter if openCount > closeCount
+  let openCount = 0;
+  let closeCount = 0;
   let searchPos = 0;
-  const paramOpenRegex = /<parameter\s+name=["'][^"']+["']>/g;
+  const paramOpenRegex = /<parameter\s+name\s*=\s*["'][^"']+["']\s*>/g;
   const paramClose = '</parameter>';
 
   while (searchPos < beforePos.length) {
     paramOpenRegex.lastIndex = searchPos;
     const openMatch = paramOpenRegex.exec(beforePos);
     const nextOpen = openMatch ? openMatch.index : -1;
-    const nextClose = beforePos.indexOf(paramClose, searchPos);
+    const nextClosePos = beforePos.indexOf(paramClose, searchPos);
 
-    if (nextOpen === -1 && nextClose === -1) break;
+    if (nextOpen === -1 && nextClosePos === -1) break;
 
-    if (nextOpen !== -1 && (nextClose === -1 || nextOpen < nextClose)) {
-      depth++;
+    if (nextOpen !== -1 && (nextClosePos === -1 || nextOpen < nextClosePos)) {
+      // Found opening tag
+      openCount++;
       searchPos = nextOpen + openMatch![0].length;
-    } else if (nextClose !== -1) {
-      depth = Math.max(0, depth - 1);
-      searchPos = nextClose + paramClose.length;
+    } else if (nextClosePos !== -1) {
+      // Found closing tag - VALIDATE ALWAYS
+      const closeTagEnd = nextClosePos + paramClose.length;
+      const lookahead = content.slice(closeTagEnd);
+      // Valid followers: <parameter, </parameter, </invoke, or End of String
+      const isValidClose = /^\s*($|<parameter|<\/parameter|<\/invoke)/.test(lookahead);
+
+      if (isValidClose) {
+        closeCount++;
+      }
+      // Either way, move past this closing tag
+      searchPos = nextClosePos + paramClose.length;
     } else {
       break;
     }
   }
-  return depth > 0;
+
+  // We're inside a parameter if there are more opens than closes
+  return openCount > closeCount;
 }
 
 /**
@@ -90,38 +108,60 @@ function findMatchingClosingTag(
  * This handles nested <parameter>...</parameter> tags inside content values.
  * Uses regex to properly match <parameter name="..."> opening tags.
  * Returns the position of the closing </parameter> tag, or -1 if not found.
+ * 
+ * IMPORTANT: This function handles the case where content contains raw </parameter>
+ * text that is NOT a real closing tag (e.g., when AI writes tool XML inside a file).
+ * We only match closing tags that have a corresponding opening tag at the same nesting level.
+ * 
+ * HEURISTIC: To disambiguate raw </parameter> text from the real closing tag,
+ * we check if the candidate closing tag is followed by <parameter or </invoke>.
  */
 function findMatchingParameterClose(content: string, openTagEnd: number): number {
-  let depth = 1;
+  let openCount = 0;  // Nested opening tags seen
+  let closeCount = 0; // Closing tags seen
   let pos = openTagEnd;
-  const openPattern = /<parameter\s+name=["'][^"']+["']>/;
+  const openPattern = /<parameter\s+name\s*=\s*["'][^"']+["']\s*>/g;
   const closeTag = '</parameter>';
 
-  while (pos < content.length && depth > 0) {
+  while (pos < content.length) {
     // Find next opening and closing tags from current position
-    const remaining = content.slice(pos);
-    const openMatch = remaining.match(openPattern);
-    const closePos = remaining.indexOf(closeTag);
+    openPattern.lastIndex = pos;
+    const openMatch = openPattern.exec(content);
+    const nextOpenPos = openMatch ? openMatch.index : -1;
+    const nextClosePos = content.indexOf(closeTag, pos);
 
     // No more closing tags found
-    if (closePos === -1) {
+    if (nextClosePos === -1) {
       return -1;
     }
 
-    const nextOpenPos = openMatch ? openMatch.index! : -1;
-
     // Check which comes first
-    if (nextOpenPos !== -1 && nextOpenPos < closePos) {
-      // Found another opening tag first - increase depth
-      depth++;
-      pos += nextOpenPos + openMatch![0].length;
+    if (nextOpenPos !== -1 && nextOpenPos < nextClosePos) {
+      // Found nested opening tag first - track it
+      openCount++;
+      pos = nextOpenPos + openMatch![0].length;
     } else {
-      // Found closing tag first - decrease depth
-      depth--;
-      if (depth === 0) {
-        return pos + closePos;
+      // Found closing tag
+      const closeTagEnd = nextClosePos + closeTag.length;
+      const lookahead = content.slice(closeTagEnd);
+
+      // Valid followers: <parameter, </parameter, </invoke, or End of String
+      const isValidClose = /^\s*($|<parameter|<\/parameter|<\/invoke)/.test(lookahead);
+
+      if (isValidClose) {
+        if (closeCount < openCount) {
+          // Matches a nested opening tag we've seen
+          closeCount++;
+          pos = closeTagEnd;
+        } else {
+          // closeCount >= openCount means all nested pairs are closed
+          // This is the real closing tag for our outer parameter
+          return nextClosePos;
+        }
+      } else {
+        // Fake closing tag (text content) - ignore it
+        pos = closeTagEnd;
       }
-      pos += closePos + closeTag.length;
     }
   }
 
@@ -139,7 +179,7 @@ function parseXMLParameters(content: string): Record<string, unknown> {
   const processedParams = new Set<string>();
 
   // Find all parameter opening tags
-  const openingParamRegex = /<parameter\s+name=["']([^"']+)["']>/g;
+  const openingParamRegex = /<parameter\s+name\s*=\s*["']([^"']+)["']\s*>/g;
   let match: RegExpExecArray | null;
 
   while ((match = openingParamRegex.exec(content)) !== null) {
@@ -254,33 +294,52 @@ function extractCompleteJsonObjects(partialArray: string): unknown[] {
 /**
  * Check if a position is inside a <parameter> value
  * Used to skip invoke tags that appear as examples inside parameter content
+ * 
+ * IMPORTANT: Uses the same counting strategy as findMatchingParameterClose to handle
+ * raw </parameter> text in content that is NOT a real closing tag.
  */
 function isInsideInvokeParameterValue(content: string, position: number): boolean {
   const beforePos = content.slice(0, position);
-  let depth = 0;
+
+  // Track open and close counts separately
+  // A position is "inside" a parameter if openCount > closeCount
+  let openCount = 0;
+  let closeCount = 0;
   let searchPos = 0;
-  const paramOpenRegex = /<parameter\s+name=["'][^"']+["']>/g;
+  const paramOpenRegex = /<parameter\s+name\s*=\s*["'][^"']+["']\s*>/g;
   const paramClose = '</parameter>';
 
   while (searchPos < beforePos.length) {
     paramOpenRegex.lastIndex = searchPos;
     const openMatch = paramOpenRegex.exec(beforePos);
     const nextOpen = openMatch ? openMatch.index : -1;
-    const nextClose = beforePos.indexOf(paramClose, searchPos);
+    const nextClosePos = beforePos.indexOf(paramClose, searchPos);
 
-    if (nextOpen === -1 && nextClose === -1) break;
+    if (nextOpen === -1 && nextClosePos === -1) break;
 
-    if (nextOpen !== -1 && (nextClose === -1 || nextOpen < nextClose)) {
-      depth++;
+    if (nextOpen !== -1 && (nextClosePos === -1 || nextOpen < nextClosePos)) {
+      // Found opening tag
+      openCount++;
       searchPos = nextOpen + openMatch![0].length;
-    } else if (nextClose !== -1) {
-      depth = Math.max(0, depth - 1);
-      searchPos = nextClose + paramClose.length;
+    } else if (nextClosePos !== -1) {
+      // Found closing tag - VALIDATE ALWAYS
+      const closeTagEnd = nextClosePos + paramClose.length;
+      const lookahead = content.slice(closeTagEnd);
+      // Valid followers: <parameter, </parameter, </invoke, or End of String
+      const isValidClose = /^\s*($|<parameter|<\/parameter|<\/invoke)/.test(lookahead);
+
+      if (isValidClose) {
+        closeCount++;
+      }
+      // Either way, move past this closing tag
+      searchPos = nextClosePos + paramClose.length;
     } else {
       break;
     }
   }
-  return depth > 0;
+
+  // We're inside a parameter if there are more opens than closes
+  return openCount > closeCount;
 }
 
 /**
@@ -305,7 +364,7 @@ function extractAllInvokeBlocks(content: string): Array<{ toolName: string; inne
     if (isInsideInvokeParameterValue(content, match.index)) {
       continue;
     }
-    
+
     const toolName = match[1];
     const openTagEnd = match.index + match[0].length;
 
@@ -317,7 +376,7 @@ function extractAllInvokeBlocks(content: string): Array<{ toolName: string; inne
       const innerContent = content.slice(openTagEnd, closePos);
       const fullMatch = content.slice(match.index, closePos + closeTag.length);
       blocks.push({ toolName, innerContent, fullMatch, isClosed: true });
-      
+
       // CRITICAL: Skip past this entire invoke block to avoid finding nested invokes
       // inside parameter values (e.g., tool syntax inside write_to_file content)
       invokeOpenRegex.lastIndex = closePos + closeTag.length;
@@ -395,7 +454,7 @@ function findNextToolStart(content: string, fromPosition: number): number {
   const tag = '<function_calls>';
   let inFence = false;
 
-  for (let i = 0; i < content.length; ) {
+  for (let i = 0; i < content.length;) {
     if (content.startsWith('```', i)) {
       inFence = !inFence;
       i += 3;
@@ -563,7 +622,7 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
         try {
           // Extract ALL invoke blocks using balanced matching
           const invokeBlocks = extractAllInvokeBlocks(innerContent);
-          
+
           if (invokeBlocks.length > 0) {
             // Create a token for each invoke block
             for (const invokeBlock of invokeBlocks) {
@@ -620,7 +679,7 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
         try {
           // Extract all invoke blocks (complete ones + partial last one)
           const invokeBlocks = extractAllInvokeBlocks(innerContent);
-          
+
           if (invokeBlocks.length > 0) {
             // Create tokens for all invoke blocks found
             for (const invokeBlock of invokeBlocks) {

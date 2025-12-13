@@ -15,7 +15,6 @@ export const PARALLEL_ALLOWED_TOOLS = new Set<string>([
   'grep_search',
   'glob_search',
   'list_files',
-  'echo_search',
 ]);
 
 /**
