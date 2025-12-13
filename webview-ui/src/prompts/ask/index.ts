@@ -31,7 +31,7 @@ No tools are currently enabled.
     const toolInstructions = getAskToolInstructions(enabledTools);
 
     // Monolithic prompt (rules + mode description)
-    const prompt = getAskPrompt(workspace);
+    const prompt = getAskPrompt(workspace, enabledTools);
 
     const userRules = getUserRules(workspace);
     const systemInfo = getSystemInfo(workspace);

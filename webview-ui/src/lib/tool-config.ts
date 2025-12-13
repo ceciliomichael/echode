@@ -11,6 +11,7 @@
 import type { Tool } from '../types/tool';
 import { getAllToolMetadata, getAllTools as getToolsFromRegistry } from './tool-registry';
 import type { ChatMode } from '../types/chat-mode';
+import { PARALLEL_ALLOWED_TOOLS } from './tool-parallel-config';
 
 // ============================================================================
 // MODE-SPECIFIC TOOL SETS
@@ -115,6 +116,21 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
     .filter(Boolean)
     .join('\n');
 
+  // Generate explicit parallel/sequential tool lists from single source of truth
+  const enabledIds = new Set(enabledTools.map(t => t.id));
+  const parallelTools = [...PARALLEL_ALLOWED_TOOLS].filter(id => enabledIds.has(id));
+  const sequentialTools = enabledTools
+    .filter(t => !PARALLEL_ALLOWED_TOOLS.has(t.id))
+    .map(t => t.id);
+
+  // Build execution rules section
+  const parallelList = parallelTools.length > 0
+    ? `Parallel OK: ${parallelTools.join(', ')}`
+    : '';
+  const sequentialList = sequentialTools.length > 0
+    ? `Sequential only: ${sequentialTools.join(', ')}`
+    : '';
+
   return `<tools>
 <tool_format>
 XML FORMAT (follow exactly):
@@ -130,8 +146,8 @@ RULES:
 1. Complete each </parameter> before starting the next
 2. Complete each </invoke> before starting the next
 3. Never nest invoke blocks inside parameter values
-4. Read operations can be batched together
-5. Write operations must be sequential (one at a time)
+${parallelList ? `4. ${parallelList}` : ''}
+${sequentialList ? `5. ${sequentialList}` : ''}
 </tool_format>
 
 <available_tools>

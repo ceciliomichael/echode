@@ -6,7 +6,7 @@ export function getTodoReadInstructions(): string {
     return `## todo_read
 Review current task list.
 
-Use to check what tasks are pending, in progress, or completed.
+No parameters required.
 
-Focus on tasks connected to the current mini plan and user request.`;
+Returns tasks with their status (pending, in_progress, completed).`;
 }

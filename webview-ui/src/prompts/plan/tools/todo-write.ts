@@ -1,32 +1,26 @@
 /**
  * Plan Mode - todo_write Instructions
- * Used to document implementation plans
  */
 
 export function getTodoWriteInstructions(): string {
-   return `## todo_write
-Capture a compact, high-level task list that corresponds to the plan you described in chat. Use ONE of the two parameter options:
+    return `## todo_write
+Track task progress.
 
-OPTION 1 - JSON (use 'tasks' parameter):
-<parameter name="tasks">[{"id":"1","content":"Explore auth module","status":"pending"},{"id":"2","content":"Ask about API approach","status":"in_progress"}]</parameter>
+Parameters (use ONE option):
 
-OPTION 2 - Markdown (use 'todos' parameter):
+Option 1 - JSON:
+<parameter name="tasks">[{"id":"1","content":"Task","status":"pending"}]</parameter>
+
+Option 2 - Markdown:
 <parameter name="todos">
-- [ ] First task
+- [ ] Pending task
 - [-] In progress task
 - [x] Completed task
 </parameter>
 
-STATUS VALUES:
-- pending: Not started
-- in_progress: Currently working on
-- completed: Done
+Status values: pending, in_progress, completed
 
-Keep tasks concise and actionable.
-IMPORTANT: Each task in JSON must have id, content, and status fields.
-
-GUIDELINES:
-- Use todo_write only for a short, high-level task list that mirrors the chat plan.
-- Do NOT paste the full natural-language plan, explanations, or mermaid diagrams here.
-- The primary source of truth for the plan is the structured chat response.`;
+Tips:
+- Keep task descriptions short and action-focused
+- Use for compact task summary only (not full plan)`;
 }

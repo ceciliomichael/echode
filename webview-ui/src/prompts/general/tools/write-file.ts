@@ -4,19 +4,21 @@
 
 export function getWriteFileInstructions(): string {
     return `## write_to_file
-Create NEW files or complete file rewrites.
-
-⚠️ CRITICAL: ONE write_to_file PER RESPONSE. Never batch multiple write_to_file or apply_diff calls in parallel.
-
-WHEN TO USE:
-- Creating NEW, small files (docs, helpers, config stubs)
-- Small-scope complete rewrites (>50% changed in a single file)
-- After 2 failed apply_diff attempts, when the change is still limited in scope
+Create new files or complete rewrites.
 
 Parameters:
-- path: File path (relative to workspace)
-- content: COMPLETE file content
+- path: File path (required)
+- content: Complete file content (required)
 
-Content must be COMPLETE - no placeholders or truncation.
-For large or multi-file rewrites, recommend switching to Agent mode instead of using write_to_file here.`;
+When to use:
+- Creating NEW files
+- Complete rewrites (>50% changed)
+- After 2 failed apply_diff attempts
+
+Requirements:
+- Content must be COMPLETE (no placeholders)
+- No truncation
+- No line numbers in content
+
+For larger changes, recommend Agent mode.`;
 }

@@ -7,8 +7,11 @@ export function getGlobSearchInstructions(): string {
 Find files by name pattern.
 
 Parameters:
-- pattern: Glob pattern (e.g., "**/*.tsx")
+- pattern: Glob pattern (required)
 - path: Starting directory (optional)
 
-Prefer specific patterns related to the current question; avoid broad discovery scans.`;
+Common patterns:
+- "**/*.test.ts" → all test files
+- "**/components/*.tsx" → component files
+- "**/*auth*" → files with "auth" in name`;
 }

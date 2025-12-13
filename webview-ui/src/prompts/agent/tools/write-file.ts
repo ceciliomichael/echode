@@ -4,31 +4,22 @@
 
 export function getWriteFileInstructions(): string {
     return `## write_to_file
-Create NEW files or complete file rewrites.
-
-⚠️ CRITICAL: ONE write_to_file PER RESPONSE. Never batch multiple write_to_file or apply_diff calls in parallel.
-
-WHEN TO USE:
-- Creating NEW files (path doesn't exist)
-- Complete rewrites (>50% changed)
-- After 2 failed apply_diff attempts
-- File is now SHORTER after refactor
+Create new files or complete rewrites.
 
 Parameters:
-- path: File path (relative to workspace)
-- content: COMPLETE file content
+- path: File path (required)
+- content: Complete file content (required)
 
-REQUIREMENTS:
-- Content must be COMPLETE - include ALL parts
-- No placeholders like "// ... rest of code"
+When to use:
+- Creating NEW files
+- Complete rewrites (>50% changed)
+- After 2 failed apply_diff attempts
+- File becomes shorter after refactor
+
+Requirements:
+- Content must be COMPLETE (no placeholders like "// rest of code")
 - No truncation
 - No line numbers in content
 
-PLANNING & SCOPE:
-- Ensure the new or rewritten file is part of your current mini plan.
-- Prefer write_to_file for code/config/tests; only create or overwrite documentation/markdown when the user explicitly asks.
-
-USE apply_diff INSTEAD when:
-- Making small, targeted edits
-- Changing <30 lines in existing file`;
+Use apply_diff instead for small, targeted edits.`;
 }

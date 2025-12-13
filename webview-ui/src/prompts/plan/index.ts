@@ -32,7 +32,7 @@ No tools are currently enabled.
     const toolInstructions = getPlanToolInstructions(enabledTools);
 
     // Monolithic prompt (cognitive workflow + rules + mode description)
-    const prompt = getPlanPrompt(workspace);
+    const prompt = getPlanPrompt(workspace, enabledTools);
 
     const userRules = getUserRules(workspace);
     const systemInfo = getSystemInfo(workspace);

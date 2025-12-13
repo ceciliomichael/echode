@@ -1,35 +1,24 @@
 /**
  * Plan Mode - echo_search Instructions
- * Focus on exploration and understanding, NOT editing
  */
 
 export function getEchoSearchInstructions(): string {
     return `## echo_search
 Intelligent code exploration sub-agent.
 
-WHEN TO USE:
-- Need to understand how something works
-- Exploring unfamiliar codebase areas
-- Don't know exact names/paths
-- Looking for patterns or architecture
-
 Parameters:
-- query: Natural language description (be specific!)
-- path: Starting directory (recommended for speed)
+- query: Natural language description (required)
+- path: Starting directory (recommended)
 - hints: Keywords to help locate code (optional)
 
-WORKFLOW:
-echo_search (understand) → grep_search (pinpoint) → read_file (details) → document plan
+When to use:
+- Need to understand how something works
+- Exploring unfamiliar code
+- Don't know exact names/paths
 
-DON'T USE when:
-- You know EXACT function/variable name → grep_search
-- You know exact file path → read_file
-
-BE SPECIFIC:
+Be specific:
 - ❌ "find auth" (too vague)
 - ✓ "how is user authentication token validated"
 
-DON'T OVER-RELY:
-- Use echo_search to START exploration
-- Switch to grep_search once you know identifiers`;
+Use grep_search instead when you know the exact identifier.`;
 }

@@ -1,49 +1,32 @@
 /**
  * Agent Mode - apply_diff Instructions
- * THE GOLDEN RULE: Copy from read_file, never type from memory
  */
 
 export function getApplyDiffInstructions(): string {
     return `## apply_diff
 Targeted edits to existing files.
 
-⚠️ CRITICAL: ONE apply_diff PER RESPONSE. Never batch multiple write_to_file or apply_diff calls in parallel.
+Parameters:
+- path: File path (required)
+- diff: The diff content (required)
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-THE GOLDEN RULE: COPY content from read_file output. NEVER type from memory.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-MANDATORY WORKFLOW:
-1. read_file → get FRESH content
-2. COPY exact lines from output (character-for-character)
-3. PASTE into SEARCH block
-4. Write your REPLACE content
-
-FORMAT:
+Format:
 <<<<<<< SEARCH
 :start_line:N
 -------
-[PASTE exact content from read_file]
+[exact content from read_file]
 =======
-[your replacement]
+[replacement content]
 >>>>>>> REPLACE
 
-FAILURE PREVENTION:
-- COPY content from read_file, don't retype
-- Include 2-3 context lines
-- Preserve EXACT indentation
+Multiple edits: Use multiple SEARCH/REPLACE blocks in one call.
 
-PLANNING & SCOPE:
-- Have a short mini plan for the edits you are about to apply.
-- Use apply_diff primarily for code/config/tests within the current task scope.
-- Do not use apply_diff to edit documentation/markdown files unless the user explicitly asks.
+When to use:
+- Small, targeted changes
+- Editing <50% of file
 
-IF FAILS:
-1. read_file AGAIN
-2. COPY FRESH content
-3. Retry apply_diff
-4. Fails TWICE → use write_to_file instead
-
-MULTIPLE EDITS:
-Use multiple SEARCH/REPLACE blocks in ONE call.`;
+Tips:
+- Include 2-3 context lines around changes
+- Preserve exact indentation
+- :start_line helps locate the section`;
 }

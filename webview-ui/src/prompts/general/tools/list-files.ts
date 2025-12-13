@@ -4,13 +4,15 @@
 
 export function getListFilesInstructions(): string {
     return `## list_files
-Explore directory structure (small, relevant areas only).
+Explore directory structure.
 
 Parameters:
 - path: Directory to list (required)
 - recursive: Include subdirectories (default: false)
 - ignoreGitignore: Include gitignored files (default: false)
 
-NOTE: Prefer listing specific directories related to the current request. Avoid listing very large or top-level directories unless strictly necessary.
-Ignored paths are auto-accessible when explicitly requested.`;
+When to use:
+- See what's in a directory
+- Understand project structure
+- Verify paths exist`;
 }

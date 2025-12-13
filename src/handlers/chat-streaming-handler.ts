@@ -3,6 +3,7 @@ import { LLMFactory } from '../services/llm/llm-factory';
 import { ChatMessage, ChatMessageContent, ChatStreamSettings } from '../services/llm/llm-provider.interface';
 import { expandMentions, getWorkspaceRoot } from '../services/mention-service';
 import { mergeSameRoleChatMessages } from '../utils/message-merger';
+import { processTodoReminders } from '../utils/todo-reminder';
 
 interface ChatStreamRequest {
   requestId: number;
@@ -65,11 +66,17 @@ export async function handleChatStream(
       })
     );
 
-    if (processedMessages.length > 0) {
-      const lastMessage = processedMessages[processedMessages.length - 1];
+    // Get chat mode from settings
+    const chatMode = settings.chatMode || 'agent';
+
+    // Process todo reminders: strip old ones, inject fresh (skip for chat mode)
+    const messagesWithTodos = chatMode !== 'chat'
+      ? processTodoReminders(processedMessages)
+      : processedMessages;
+
+    if (messagesWithTodos.length > 0) {
+      const lastMessage = messagesWithTodos[messagesWithTodos.length - 1];
       if (lastMessage.role === 'user') {
-        // Get chat mode from settings - skip reminders for Chat mode
-        const chatMode = settings.chatMode || 'agent';
 
         // Chat mode: NO tools, NO system reminder about tools
         if (chatMode !== 'chat') {
@@ -119,7 +126,7 @@ export async function handleChatStream(
     }
 
     // Merge consecutive same-role messages for cleaner context (KiloCode pattern)
-    const mergedMessages = mergeSameRoleChatMessages(processedMessages);
+    const mergedMessages = mergeSameRoleChatMessages(messagesWithTodos);
 
     const provider = LLMFactory.getProvider(settings.provider);
     await provider.streamChat(requestId, mergedMessages, settings, webview, abortController.signal);

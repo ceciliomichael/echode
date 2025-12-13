@@ -4,26 +4,22 @@
 
 export function getGrepSearchInstructions(): string {
     return `## grep_search
-Fast text search for KNOWN identifiers.
+Fast text search for exact identifiers.
 
-WHEN TO USE:
-- You know the EXACT name (function, variable, class)
+Parameters:
+- query: Text to find (required)
+- path: Directory to search (recommended)
+- isRegex: Enable regex patterns (optional)
+- includes: Glob filters like "*.ts,*.tsx" (optional)
+
+When to use:
+- You know the EXACT function/variable/class name
 - Finding all usages/references
 - Simple pattern matching
 
-Parameters:
-- query: Exact text to find (required)
-- path: Directory to search (ALWAYS specify to narrow scope)
-- isRegex: true for regex patterns
-- includes: Glob filters (e.g., "*.ts,*.tsx")
-
-BEST PRACTICES:
+Tips:
 - Always narrow path (e.g., "src/components" not ".")
-- Parallel searches for a small number of independent identifiers is fine
-- After grep_search → read_file for full context on only the relevant matches
-- Use grep_search to support your current mini plan steps; avoid broad, repo-wide scans
+- Parallel searches for independent identifiers is fine
 
-USE echo_search INSTEAD when:
-- Don't know exact identifier
-- Need semantic understanding`;
+Use echo_search instead when you need semantic understanding.`;
 }

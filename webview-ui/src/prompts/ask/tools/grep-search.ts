@@ -4,16 +4,19 @@
 
 export function getGrepSearchInstructions(): string {
     return `## grep_search
-Fast text search for KNOWN identifiers.
+Fast text search for exact identifiers.
 
-WHEN TO USE:
-- You know EXACT name to find
+Parameters:
+- query: Text to find (required)
+- path: Directory to search (recommended)
+- isRegex: Enable regex patterns (optional)
+- includes: Glob filters like "*.ts,*.tsx" (optional)
+
+When to use:
+- You know the EXACT function/variable/class name
 - Finding all usages/references
 
-PARAMETERS:
-- query: Exact text to find (required)
-- path: Directory to search (always as narrow as possible)
-- isRegex: true for regex patterns
-
-After finding matches → read_file for just enough context to answer the question.`;
+Tips:
+- Always narrow path (e.g., "src/components" not ".")
+- After finding matches → read_file for context`;
 }

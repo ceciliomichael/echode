@@ -3,30 +3,24 @@
  */
 
 export function getTodoWriteInstructions(): string {
-   return `## todo_write
-Track task progress. Use ONE of the two parameter options:
+    return `## todo_write
+Track task progress.
 
-OPTION 1 - JSON (use 'tasks' parameter):
-<parameter name="tasks">[{"id":"1","content":"First task","status":"pending"},{"id":"2","content":"Second task","status":"in_progress"}]</parameter>
+Parameters (use ONE option):
 
-OPTION 2 - Markdown (use 'todos' parameter):
+Option 1 - JSON:
+<parameter name="tasks">[{"id":"1","content":"Task","status":"pending"}]</parameter>
+
+Option 2 - Markdown:
 <parameter name="todos">
 - [ ] Pending task
 - [-] In progress task
 - [x] Completed task
 </parameter>
 
-STATUS VALUES:
-- pending: Not started
-- in_progress: Currently working on
-- completed: Done
+Status values: pending, in_progress, completed
 
-IMPORTANT: Each task in JSON must have id, content, and status fields.
-
-GUIDELINES:
-- Map tasks directly to concrete steps in your mini plan.
-- Keep the list focused on the current request; avoid unrelated tasks.
-- Use short, action-focused descriptions; do NOT paste the full plan or conversation into todo_write.
-- Do not add testing or test-running tasks unless the user explicitly asks.
-- Update statuses as you complete each mini plan step.`;
+Tips:
+- Keep task descriptions short and action-focused
+- Update status as you complete steps`;
 }

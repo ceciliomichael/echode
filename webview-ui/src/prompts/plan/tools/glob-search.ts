@@ -6,17 +6,12 @@ export function getGlobSearchInstructions(): string {
     return `## glob_search
 Find files by name pattern.
 
-WHEN TO USE:
-- Find files by extension (*.test.ts)
-- Find files by name pattern
-- Discover file structure
-
 Parameters:
-- pattern: Glob pattern (e.g., "**/*.tsx")
+- pattern: Glob pattern (required)
 - path: Starting directory (optional)
 
-COMMON PATTERNS:
+Common patterns:
 - "**/*.test.ts" → all test files
-- "**/components/*.tsx" → all component files
+- "**/components/*.tsx" → component files
 - "**/*auth*" → files with "auth" in name`;
 }
