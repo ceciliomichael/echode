@@ -54,8 +54,12 @@ export function useToolExecution({
   // Initialize tool executor with mode-aware enabled tools
   const toolExecutorRef = useRef<ToolExecutor | null>(null);
 
+  // Use ref to track current mode to avoid stale closures in async callbacks
+  const modeRef = useRef(mode);
+
   // Recreate tool executor when mode changes to refresh enabled tools
   useEffect(() => {
+    modeRef.current = mode;
     const enabledTools = getToolsForMode(mode, false).map(t => t.id);
     toolExecutorRef.current = new ToolExecutor({
       enabledTools,
@@ -107,7 +111,7 @@ export function useToolExecution({
         messagesRef,
         currentTodos,
         saveSession,
-        mode,
+        mode: modeRef.current,
         diagnosticAttemptsRef,
       };
 
@@ -195,7 +199,7 @@ export function useToolExecution({
         saveSession();
       }
     },
-    [workspace, updateToolExecution, setMessages, setIsExecutingTool, setIsStreaming, isStreamingRef, isStoppingRef, abortControllerRef, sendingMessageRef, currentTodos, messagesRef, saveSession, mode]
+    [workspace, updateToolExecution, setMessages, setIsExecutingTool, setIsStreaming, isStreamingRef, isStoppingRef, abortControllerRef, sendingMessageRef, currentTodos, messagesRef, saveSession]
   );
 
   return { executeToolAndContinue };

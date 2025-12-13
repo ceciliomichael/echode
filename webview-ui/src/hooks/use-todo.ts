@@ -39,9 +39,9 @@ export function useTodo() {
       tasks: prev.tasks.map(task =>
         task.id === taskId
           ? {
-              ...task,
-              status: task.status === 'completed' ? 'pending' : 'completed',
-            }
+            ...task,
+            status: task.status === 'completed' ? 'pending' : 'completed',
+          }
           : task
       ),
       lastUpdated: Date.now(),

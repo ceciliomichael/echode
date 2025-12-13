@@ -143,6 +143,9 @@ export function ChatContainer() {
     abortStream();
     clearChat();
     clearTodos();
+
+    // Also clear backend todos (they are stored separately in the extension)
+    window.vscode.postMessage({ type: 'clearTodos' });
   }, [abortStream, clearChat, clearTodos, messages, saveCurrentSession]);
 
   const {

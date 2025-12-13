@@ -193,6 +193,13 @@ export function createMessageRouter(): MessageRouter {
     ctx.workspaceManager.sendWorkspaceInfo(ctx.webview.webview);
   });
 
+  // Todo handlers
+  router.register('clearTodos', () => {
+    // Import inline to avoid circular dependency
+    const { TodoWriteTool } = require('../services/tools/todo-write-tool');
+    TodoWriteTool.clearTodos();
+  });
+
   // Panel handlers
   router.register('openDiff', async (data, ctx) => {
     await ctx.panelManager.openDiffEditor(

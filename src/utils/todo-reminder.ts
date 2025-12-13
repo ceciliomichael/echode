@@ -15,10 +15,12 @@ function stripTodoRemindersFromMessages(messages: ChatMessage[]): ChatMessage[] 
   return messages.map(msg => {
     if (typeof msg.content === 'string') {
       const stripped = stripTodoReminders(msg.content);
-      if (stripped === msg.content) return msg;
+      if (stripped === msg.content) {
+        return msg;
+      }
       return { ...msg, content: stripped };
     }
-    
+
     if (Array.isArray(msg.content)) {
       let changed = false;
       const newContent = msg.content.map(c => {
@@ -31,11 +33,13 @@ function stripTodoRemindersFromMessages(messages: ChatMessage[]): ChatMessage[] 
         }
         return c;
       }) as ChatMessageContent[];
-      
-      if (!changed) return msg;
+
+      if (!changed) {
+        return msg;
+      }
       return { ...msg, content: newContent };
     }
-    
+
     return msg;
   });
 }
@@ -46,23 +50,33 @@ function stripTodoRemindersFromMessages(messages: ChatMessage[]): ChatMessage[] 
  */
 function buildTodoReminder(): string | null {
   const tasks = TodoWriteTool.getTodos();
-  if (tasks.length === 0) return null;
+  if (tasks.length === 0) {
+    return null;
+  }
 
   const completed = tasks.filter(t => t.status === 'completed').length;
-  
+
   // Skip reminder if all tasks are completed
-  if (completed === tasks.length) return null;
+  if (completed === tasks.length) {
+    return null;
+  }
   const inProgress = tasks.filter(t => t.status === 'in_progress').length;
   const pending = tasks.filter(t => t.status === 'pending').length;
 
   const statusParts: string[] = [];
-  if (completed > 0) statusParts.push(`${completed} done`);
-  if (inProgress > 0) statusParts.push(`${inProgress} in progress`);
-  if (pending > 0) statusParts.push(`${pending} pending`);
+  if (completed > 0) {
+    statusParts.push(`${completed} done`);
+  }
+  if (inProgress > 0) {
+    statusParts.push(`${inProgress} in progress`);
+  }
+  if (pending > 0) {
+    statusParts.push(`${pending} pending`);
+  }
 
   const lines = tasks.map((t: TodoTask) => {
     const marker = t.status === 'completed' ? 'x'
-                 : t.status === 'in_progress' ? '-' : ' ';
+      : t.status === 'in_progress' ? '-' : ' ';
     return `- [${marker}] ${t.content}`;
   });
 
@@ -79,7 +93,9 @@ function injectReminderIntoLastUserMessage(messages: ChatMessage[], reminder: st
   // Find last user message
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
-    if (msg.role !== 'user') continue;
+    if (msg.role !== 'user') {
+      continue;
+    }
 
     if (Array.isArray(msg.content)) {
       // Multimodal: find text content and prepend reminder
@@ -105,7 +121,9 @@ export function processTodoReminders(messages: ChatMessage[]): ChatMessage[] {
 
   // Build fresh reminder
   const reminder = buildTodoReminder();
-  if (!reminder) return cleaned;
+  if (!reminder) {
+    return cleaned;
+  }
 
   // Inject into last user message
   injectReminderIntoLastUserMessage(cleaned, reminder);

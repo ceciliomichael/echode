@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { getSystemPrompt } from '../utils/prompts';
 import { requestWorkspaceInfo } from '../utils/workspace-info';
@@ -38,7 +38,18 @@ export function useChatStreaming({
   const workspace = useWorkspaceContext();
 
   // Create tool executor for incremental execution
-  const toolExecutorRef = { current: null as ToolExecutor | null };
+  const toolExecutorRef = useRef<ToolExecutor | null>(null);
+
+  // Use ref to track current mode to avoid stale closures in async callbacks
+  const modeRef = useRef(mode);
+
+  // Update ref when mode changes
+  useEffect(() => {
+    modeRef.current = mode;
+    // Also reset tool executor when mode changes to ensure we get fresh tools
+    toolExecutorRef.current = null;
+  }, [mode]);
+
   const getToolExecutor = () => {
     if (!toolExecutorRef.current) {
       const enabledTools = getToolsForMode(mode, false).map(t => t.id);
@@ -50,7 +61,7 @@ export function useChatStreaming({
         enabledTools,
         isStoppingRef,
         abortControllerRef: toolAbortControllerRef,
-        mode,
+        mode: modeRef.current,
       });
     }
     return toolExecutorRef.current;
@@ -114,7 +125,9 @@ export function useChatStreaming({
     try {
       // === CONTEXT PREPARATION ===
       const latestWorkspace = window.workspaceContext || workspace;
-      const systemPrompt = getSystemPrompt(latestWorkspace, mode);
+      // Use ref to get the freshest mode (handles race condition where mode updates during async flow)
+      const currentMode = modeRef.current;
+      const systemPrompt = getSystemPrompt(latestWorkspace, currentMode);
       const messagesToSend = overrideMessages !== undefined ? overrideMessages : supersededMessages;
 
       // === MODEL CAPABILITIES ===
@@ -122,7 +135,7 @@ export function useChatStreaming({
       const modelSupportsVision = isVisionCapableModel(currentModel);
 
       // === FORCED ECHO SEARCH (delegated to helper) ===
-      if (forceEchoSearch && (mode === 'agent' || mode === 'plan' || mode === 'ask')) {
+      if (forceEchoSearch && (currentMode === 'agent' || currentMode === 'plan' || currentMode === 'ask')) {
         await handleForcedEchoSearch({
           content,
           attachments,
@@ -130,7 +143,7 @@ export function useChatStreaming({
           messagesToSend,
           assistantMessageId,
           modelSupportsVision,
-          mode,
+          mode: currentMode,
           setMessages,
           setIsExecutingTool,
           executeToolAndContinue,
@@ -145,7 +158,7 @@ export function useChatStreaming({
         content,
         attachments,
         modelSupportsVision,
-        mode,
+        mode: currentMode,
       });
 
       // === STREAMING LOOP (delegated to helper) ===
@@ -155,7 +168,7 @@ export function useChatStreaming({
         content,
         attachments,
         assistantMessageId,
-        mode,
+        mode: currentMode,
         isStoppingRef,
         abortControllerRef,
         hasStreamedContentRef,
