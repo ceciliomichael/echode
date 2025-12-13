@@ -81,16 +81,17 @@ SEARCH (pick the right tool):
 - Find files by pattern → glob_search
 - See directory contents → list_files
 
-EDIT (always this order):
-1. read_file → get fresh content
-2. COPY exact lines from output
-3. apply_diff → paste copied content in SEARCH block
-4. If fails: read_file again, retry
-5. If fails twice: use write_to_file instead
+EDIT:
+1. Check if file content is ALREADY in context (from recent read_file, echo_search, or tool results)
+2. If YES: use that content directly for apply_diff (skip redundant read_file)
+3. If NO or STALE: read_file first, then apply_diff
+4. COPY exact lines for SEARCH blocks (never type from memory)
+5. If diff fails: read_file to get fresh content, retry
+6. If fails twice: use write_to_file instead
 
-CRITICAL RULES:
-- ALWAYS read_file before editing (never type from memory)
-- COPY content from read_file output for SEARCH blocks
+CONTEXT AWARENESS:
+- SKIP read_file when file content is already visible in recent context
+- DO read_file when: file not in context, content may be stale, or after failed diff
 - ONE write operation per response (apply_diff or write_to_file)
 - Multiple SEARCH/REPLACE blocks in one apply_diff is fine
 </workflow>

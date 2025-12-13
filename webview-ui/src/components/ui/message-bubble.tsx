@@ -16,6 +16,7 @@ interface MessageBubbleProps {
   onEditCancel?: () => void;
   onRevert?: (messageId: string) => void;
   isStreaming?: boolean;
+  isCompressing?: boolean;
   mode?: ChatMode;
   onModeChange?: (mode: ChatMode) => void;
   provider: Provider;
@@ -28,7 +29,7 @@ interface MessageBubbleProps {
   };
 }
 
-function MessageBubbleComponent({ message, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, isStreaming, mode, onModeChange, provider, model, onModelChange, contextUsage, planChainPosition }: MessageBubbleProps) {
+function MessageBubbleComponent({ message, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, isStreaming, isCompressing, mode, onModeChange, provider, model, onModelChange, contextUsage, planChainPosition }: MessageBubbleProps) {
 
   if (message.role === 'user') {
     return (
@@ -58,6 +59,7 @@ function MessageBubbleComponent({ message, onEdit, onUpdate, isEditing, onEditSt
           content={message.content}
           messageId={message.id}
           isStreaming={isStreaming}
+          isCompressing={isCompressing}
           toolExecutions={message.toolExecutions}
           planChainPosition={planChainPosition}
         />

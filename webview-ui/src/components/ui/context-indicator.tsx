@@ -75,12 +75,16 @@ interface ContextUsage {
   toolResultsTokens: number;
   totalTokens: number;
   maxTokens: number;
+  isCompressed?: boolean;
+  compressionCount?: number;
+  totalMessagesSummarized?: number;
 }
 
 interface ContextIndicatorProps {
   usage: ContextUsage;
   disabled?: boolean;
   mode?: ChatMode;
+  isCompressing?: boolean;
 }
 
 /**
@@ -119,7 +123,7 @@ function formatTokens(tokens: number): string {
   return tokens.toString();
 }
 
-export function ContextIndicator({ usage, disabled = false, mode }: ContextIndicatorProps) {
+export function ContextIndicator({ usage, disabled = false, mode, isCompressing = false }: ContextIndicatorProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const [isTopTooltip, setIsTopTooltip] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState<'above' | 'below'>('above');
@@ -182,6 +186,16 @@ export function ContextIndicator({ usage, disabled = false, mode }: ContextIndic
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
+      {isCompressing && (
+        <style>
+          {`
+            @keyframes context-spin {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
+            }
+          `}
+        </style>
+      )}
       <button
         ref={buttonRef}
         type="button"
@@ -189,7 +203,10 @@ export function ContextIndicator({ usage, disabled = false, mode }: ContextIndic
         onFocus={() => setShowTooltip(true)}
         onBlur={() => setShowTooltip(false)}
         className="p-1 rounded-md transition-opacity hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
-        style={{ color }}
+        style={{
+          color,
+          animation: isCompressing ? 'context-spin 1s linear infinite' : undefined,
+        }}
         aria-label={`Context usage: ${usagePercent.toFixed(0)}%`}
       >
         <DashedProgressCircle percent={usagePercent} color={color} size={16} />
@@ -251,7 +268,7 @@ export function ContextIndicator({ usage, disabled = false, mode }: ContextIndic
             </div>
             <div className="flex justify-between text-xs">
               <span style={{ color: 'var(--vscode-descriptionForeground)' }}>
-                Chat History
+                {usage.isCompressed ? 'Compressed Chat History' : 'Chat History'}
               </span>
               <span style={{ color: 'var(--vscode-foreground)' }}>
                 {formatTokens(usage.historyTokens)}

@@ -83,7 +83,7 @@ export function useStreamingChat(
   });
 
   // Chat streaming hook
-  const { sendMessage } = useChatStreaming({
+  const { sendMessage, isCompressing } = useChatStreaming({
     messages: state.messages,
     setMessages: state.setMessages,
     setIsStreaming: state.setIsStreaming,
@@ -171,6 +171,7 @@ export function useStreamingChat(
     messages: state.messages,
     isStreaming: state.isStreaming,
     isExecutingTool: state.isExecutingTool,
+    isCompressing,
     revertPreviewMessageId: state.revertPreviewMessageId,
     editingMessageId: state.editingMessageId,
     currentSessionId: state.currentSessionId,

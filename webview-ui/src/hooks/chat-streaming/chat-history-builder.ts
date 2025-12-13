@@ -54,8 +54,8 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
   const summaryMessage = contextMessages.find(msg => msg.hidden && msg.id?.startsWith('compressed-summary-'));
 
   if (summaryMessage) {
-    // COMPRESSED CONTEXT: Start fresh with summary prepended to user message
-    console.log('[ChatHistory] Using compressed summary - starting fresh');
+    // COMPRESSED CONTEXT: Include summary + recent messages that were preserved
+    console.log('[ChatHistory] Using compressed summary with recent context');
 
     const chatHistory: ChatMessage[] = [
       {
@@ -64,11 +64,95 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
       },
     ];
 
-    // Build user message with summary prepended
-    const summaryPrefix = `<previous_session_summary>\n${summaryMessage.content}\n</previous_session_summary>\n\n`;
+    // Find the index of the summary message
+    const summaryIndex = contextMessages.findIndex(msg => msg.id === summaryMessage.id);
+    
+    // Get the first message (original context) if it exists before the summary
+    const firstMessage = contextMessages.find((msg, idx) =>
+      idx < summaryIndex && msg.role === 'user' && !msg.hidden
+    );
+    
+    // FIXED: Combine first message + summary into a single user message to avoid consecutive user messages
+    let combinedUserContent = '';
+    
+    if (firstMessage) {
+      combinedUserContent = firstMessage.content;
+    }
+    
+    // Add the summary as part of the combined message
+    const summaryBlock = `<previous_session_summary>\n${summaryMessage.content}\n</previous_session_summary>`;
+    combinedUserContent = combinedUserContent
+      ? `${combinedUserContent}\n\n${summaryBlock}`
+      : summaryBlock;
+
+    // Build combined user message with first message's attachments if any
+    const combinedUserMessage = buildChatMessage(
+      'user',
+      combinedUserContent,
+      firstMessage?.attachments,
+      modelSupportsVision
+    );
+    chatHistory.push(combinedUserMessage);
+
+    // FIXED: Add assistant acknowledgment to maintain proper role alternation (user → assistant)
+    chatHistory.push({
+      role: 'assistant',
+      content: 'I understand the context from the previous session. I\'ll continue from where we left off.',
+    });
+
+    // Add recent messages that come after the summary (preserved during compression)
+    const recentMessages = contextMessages.slice(summaryIndex + 1).filter(msg => !msg.hidden);
+    
+    // Track last role to avoid consecutive same-role messages
+    let lastRole: 'user' | 'assistant' = 'assistant';
+    
+    for (const msg of recentMessages) {
+      // Skip system messages (shouldn't be in recentMessages, but guard anyway)
+      if (msg.role === 'system') continue;
+      
+      let processedContent = removeThinkBlocks(msg.content);
+
+      if (msg.role === 'assistant') {
+        processedContent = stripUnavailableToolCalls(processedContent, mode);
+      }
+
+      const chatMessage = buildChatMessage(
+        msg.role,
+        processedContent,
+        msg.attachments,
+        modelSupportsVision
+      );
+      chatHistory.push(chatMessage);
+      lastRole = msg.role as 'user' | 'assistant';
+
+      // Include tool results for recent messages
+      if (msg.toolExecutions && msg.toolExecutions.size > 0) {
+        const { toolResults } = formatToolExecutionResults(msg.toolExecutions, mode);
+
+        if (toolResults.length > 0) {
+          const toolResultsContent = `<tool_results>\n${toolResults.join('\n\n---\n\n')}\n</tool_results>`;
+          chatHistory.push({
+            role: 'user',
+            content: toolResultsContent,
+          });
+          lastRole = 'user';
+        }
+      }
+    }
+
+    // FIXED: Ensure proper alternation before final user message
+    // If last message was user (from tool results), add assistant acknowledgment
+    if (lastRole === 'user') {
+      chatHistory.push({
+        role: 'assistant',
+        content: 'Understood. Processing the tool results.',
+      });
+    }
+
+    // Add current user message
     const finalUserMessage = buildChatMessage(
       'user',
-      summaryPrefix + content,
+      content,
       attachments,
       modelSupportsVision
     );

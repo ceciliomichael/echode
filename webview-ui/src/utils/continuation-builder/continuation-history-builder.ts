@@ -17,17 +17,22 @@ import { truncateMessageHistory, processFirstMessage, processRemainingMessages }
 
 /**
  * Build compressed history when a summary message exists
- * Starts fresh with summary prepended to tool results
+ * Includes summary as context + recent messages + current conversation
  */
 function buildCompressedHistory(
   systemPrompt: string,
   summaryMessage: Message,
+  currentMessages: Message[],
+  userContent: string,
+  assistantContent: string,
   toolResultText: string,
   diagnosticsText: string,
   currentTodos: TodoItem[],
-  mode: ChatMode
+  mode: ChatMode,
+  userAttachments: ImageAttachment[] | undefined,
+  modelSupportsVision: boolean
 ): ChatMessage[] {
-  console.log('[ContinuationHistory] Using compressed summary - starting fresh');
+  console.log('[ContinuationHistory] Using compressed summary with recent context');
 
   const continuationHistory: ChatMessage[] = [
     {
@@ -36,15 +41,85 @@ function buildCompressedHistory(
     },
   ];
 
-  // Build user message with summary prepended and tool results
-  const summaryPrefix = `<previous_session_summary>\n${summaryMessage.content}\n</previous_session_summary>\n\n`;
-  const todoContext = buildTodoContext(currentTodos, mode);
+  // Find the summary message index to get messages after it
+  const summaryIndex = currentMessages.findIndex(msg => msg.id === summaryMessage.id);
+  
+  // Get the first message (original task) if it exists before the summary
+  const firstMessage = currentMessages.find((msg, idx) =>
+    idx < summaryIndex && msg.role === 'user' && !msg.hidden
+  );
 
+  // Build combined first message with summary context
+  let combinedContent = '';
+  if (firstMessage) {
+    combinedContent = firstMessage.content;
+  }
+  
+  // Add summary as context block
+  const summaryBlock = `<previous_session_summary>\n${summaryMessage.content}\n</previous_session_summary>`;
+  combinedContent = combinedContent
+    ? `${combinedContent}\n\n${summaryBlock}`
+    : summaryBlock;
+
+  continuationHistory.push({
+    role: 'user',
+    content: combinedContent,
+  });
+
+  // Add assistant acknowledgment
+  continuationHistory.push({
+    role: 'assistant',
+    content: 'Understood. Continuing from the previous session.',
+  });
+
+  // Add recent messages that come after the summary (preserved during compression)
+  const recentMessages = currentMessages
+    .slice(summaryIndex + 1)
+    .filter(msg => !msg.hidden);
+
+  for (const msg of recentMessages) {
+    // Skip if same role as last message (shouldn't happen, but guard)
+    const lastMsg = continuationHistory[continuationHistory.length - 1];
+    if (lastMsg && lastMsg.role === msg.role) continue;
+
+    const chatMessage = buildChatMessage(
+      msg.role,
+      msg.content,
+      msg.attachments,
+      modelSupportsVision
+    );
+    continuationHistory.push(chatMessage);
+  }
+
+  // Add current user message and assistant response
+  const lastMsg = continuationHistory[continuationHistory.length - 1];
+  
+  // Ensure proper alternation before adding user message
+  if (lastMsg?.role === 'user') {
+    continuationHistory.push({
+      role: 'assistant',
+      content: 'Continuing...',
+    });
+  }
+
+  const currentUserMessage = buildChatMessage(
+    'user',
+    userContent,
+    userAttachments,
+    modelSupportsVision
+  );
+  continuationHistory.push(currentUserMessage);
+  continuationHistory.push({
+    role: 'assistant',
+    content: assistantContent,
+  });
+
+  // Build the tool result message
+  const todoContext = buildTodoContext(currentTodos, mode);
   const toolResultMessageContent = buildToolResultMessage({
     toolResultText,
     diagnosticsText,
     todoContext,
-    summaryPrefix,
   });
 
   continuationHistory.push({
@@ -163,14 +238,19 @@ export function buildContinuationHistory(
   );
 
   if (summaryMessage) {
-    // COMPRESSED CONTEXT: Start fresh with summary prepended to tool results
+    // COMPRESSED CONTEXT: Include summary + recent messages + current conversation
     return buildCompressedHistory(
       systemPrompt,
       summaryMessage,
+      currentMessages,
+      userContent,
+      assistantContent,
       toolResultText,
       diagnosticsText,
       currentTodos,
-      mode
+      mode,
+      userAttachments,
+      modelSupportsVision
     );
   }
 

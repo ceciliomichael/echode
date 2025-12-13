@@ -11,6 +11,7 @@ interface AssistantMessageProps {
   content: string;
   messageId?: string;
   isStreaming?: boolean;
+  isCompressing?: boolean;
   toolExecutions?: Map<string, ToolExecutionState>;
   planChainPosition?: {
     connectTop: boolean;
@@ -85,7 +86,7 @@ function sanitizeAssistantText(content: string): string {
   return result;
 }
 
-function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming = false, toolExecutions, planChainPosition }: AssistantMessageProps) {
+function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming = false, isCompressing = false, toolExecutions, planChainPosition }: AssistantMessageProps) {
   // Allow text/think to span wider while staying slightly inset
   const contentMaxWidth = 'min(110ch, 100%)';
 
@@ -139,7 +140,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
       return (
         <div style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
           <div className="max-w-none">
-            <LoadingDots />
+            <LoadingDots label={isCompressing ? 'Compressing' : 'Executing'} />
           </div>
         </div>
       );
@@ -379,7 +380,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                     if (allFilesCompleted) {
                       return (
                         <div className="mt-2" style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
-                          <LoadingDots />
+                          <LoadingDots label={isCompressing ? 'Compressing' : 'Executing'} />
                         </div>
                       );
                     }
@@ -392,7 +393,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                 if (status === 'completed' || status === 'error' || status === 'aborted') {
                   return (
                     <div className="mt-2" style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
-                      <LoadingDots />
+                      <LoadingDots label={isCompressing ? 'Compressing' : 'Executing'} />
                     </div>
                   );
                 }
@@ -404,7 +405,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
               if (lastToken.type === 'think' && lastToken.isClosed && !hasVisibleToolToken) {
                 return (
                   <div className="mt-2" style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
-                    <LoadingDots />
+                    <LoadingDots label={isCompressing ? 'Compressing' : 'Executing'} />
                   </div>
                 );
               }
@@ -413,7 +414,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
               if (hasFilteredToolBlocks) {
                 return (
                   <div className="mt-2" style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
-                    <LoadingDots />
+                    <LoadingDots label={isCompressing ? 'Compressing' : 'Executing'} />
                   </div>
                 );
               }
@@ -421,7 +422,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
               // Case 4: Have tokens but all filtered (incomplete tool blocks or empty think) - show loading dots
               return (
                 <div style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
-                  <LoadingDots />
+                  <LoadingDots label={isCompressing ? 'Compressing' : 'Executing'} />
                 </div>
               );
             }
@@ -458,5 +459,6 @@ export const AssistantMessage = memo(AssistantMessageComponent, (prev, next) => 
   return prev.content === next.content &&
     prev.messageId === next.messageId &&
     prev.isStreaming === next.isStreaming &&
+    prev.isCompressing === next.isCompressing &&
     toolExecutionsEqual;
 });

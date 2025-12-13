@@ -74,8 +74,11 @@ export function useEditRevert({
     setSessionRevertPreview(sessionId, null);
     setEditingMessageId(null);
 
-    // Step 4: Get truncated history
-    const truncatedMessages = messages.slice(0, messageIndex);
+    // Step 4: Get truncated history and remove compression summaries
+    // When reverting, we also revert compression state
+    const truncatedMessages = messages
+      .slice(0, messageIndex)
+      .filter(msg => !msg.id?.startsWith('compressed-summary-'));
 
     // Step 5: Update messages
     setMessages(truncatedMessages);
