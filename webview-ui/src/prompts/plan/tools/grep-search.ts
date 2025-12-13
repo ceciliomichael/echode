@@ -1,22 +1,14 @@
-/**
- * Plan Mode - grep_search Instructions
- */
-
 export function getGrepSearchInstructions(): string {
-    return `## grep_search
-Fast text search for exact identifiers.
-
-Parameters:
-- query: Text to find (required)
-- path: Directory to search (recommended)
-- isRegex: Enable regex patterns (optional)
-- includes: Glob filters like "*.ts,*.tsx" (optional)
-
-When to use:
-- You know the EXACT function/variable/class name
-- Finding all usages/references
-
-Tips:
-- Always narrow path (e.g., "src/components" not ".")
-- After finding matches → read_file for context`;
+    return `<tool_usage tool="grep_search">
+<summary>Fast exact text search.</summary>
+<params>
+*   query: Search term (required)
+*   path: Directory (recommended)
+*   includes: File patterns (e.g. "*.ts")
+</params>
+<notes>
+*   Use to find exact identifiers (functions, classes).
+*   Follow up with \`read_file\` to see context.
+</notes>
+</tool_usage>`;
 }

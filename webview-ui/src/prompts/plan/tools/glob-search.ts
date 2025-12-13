@@ -1,17 +1,12 @@
-/**
- * Plan Mode - glob_search Instructions
- */
-
 export function getGlobSearchInstructions(): string {
-    return `## glob_search
-Find files by name pattern.
-
-Parameters:
-- pattern: Glob pattern (required)
-- path: Starting directory (optional)
-
-Common patterns:
-- "**/*.test.ts" → all test files
-- "**/components/*.tsx" → component files
-- "**/*auth*" → files with "auth" in name`;
+    return `<tool_usage tool="glob_search">
+<summary>Find files by pattern.</summary>
+<params>
+*   pattern: Glob string (e.g. "**/*.test.ts")
+*   path: Directory (optional)
+</params>
+<notes>
+*   Find files by extension or name pattern.
+</notes>
+</tool_usage>`;
 }

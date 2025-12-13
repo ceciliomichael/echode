@@ -1,17 +1,11 @@
-/**
- * Agent Mode - delete_file Instructions
- */
-
 export function getDeleteFileInstructions(): string {
-    return `## delete_file
-Remove files from workspace.
-
-Parameters:
-- path: File path to delete (required)
-
-When to use:
-- User explicitly requests file deletion
-- Removing deprecated/unused files
-
-Caution: Cannot be undone (except via version control).`;
+    return `<tool_usage tool="delete_file">
+<summary>Delete a file.</summary>
+<params>
+*   path: File path (required)
+</params>
+<notes>
+*   Use only when requested or safe to remove.
+</notes>
+</tool_usage>`;
 }

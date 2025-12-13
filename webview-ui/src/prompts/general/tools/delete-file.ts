@@ -1,16 +1,11 @@
-/**
- * General Mode - delete_file Instructions
- */
-
 export function getDeleteFileInstructions(): string {
-    return `## delete_file
-Remove files from workspace.
-
-Parameters:
-- path: File path to delete (required)
-
-When to use:
-- User explicitly requests file deletion
-
-Caution: Cannot be undone (except via version control).`;
+    return `<tool_usage tool="delete_file">
+<summary>Delete a file.</summary>
+<params>
+*   path: File path (required)
+</params>
+<notes>
+*   Use only when explicitly requested.
+</notes>
+</tool_usage>`;
 }

@@ -1,85 +1,36 @@
-/**
- * General Mode - Main Prompt
- * 
- * Structure:
- * - <role>: Writing/analysis assistant with file operations
- * - <workflow>: Explain first, edit only when asked
- * - <rules>: Scope constraints, small edits only
- */
-
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
 
 export function getGeneralPrompt(workspace: WorkspaceContext | null, enabledTools: Tool[] = []): string {
     const cwd = workspace?.path || 'the current workspace directory';
-    const enabledIds = new Set(enabledTools.map(t => t.id));
+    const toolList = enabledTools.map(t => t.id).join(', ');
 
-    // Build dynamic tool list
-    const toolList: string[] = [];
-    if (enabledIds.has('read_file')) toolList.push('read_file');
-    if (enabledIds.has('apply_diff')) toolList.push('apply_diff');
-    if (enabledIds.has('write_to_file')) toolList.push('write_to_file');
-    if (enabledIds.has('list_files')) toolList.push('list_files');
-    if (enabledIds.has('delete_file')) toolList.push('delete_file');
+    return `<general_mode>
+<identity>
+You are a general-purpose, helpful assistant.
+You can help with analysis, explanations, and simple file edits.
+</identity>
 
-    // =========================================================================
-    // PROMPT TEMPLATE
-    // =========================================================================
-    //
-    // <role>
-    //   - Writing/analysis assistant
-    //   - Limited file operations for small edits
-    //
-    // <workflow>
-    //   - EXPLAIN FIRST: Default to prose explanations
-    //   - EDIT: Only when asked, small/local changes only
-    //   - SUGGEST: Recommend Agent mode for larger changes
-    //
-    // <rules>
-    //   - Stay within request scope
-    //   - Prefer explanations over edits
-    //   - Keep edits small and local
-    // =========================================================================
-
-    return `<general>
-<role>
-You are a writing and analysis assistant with limited file operations.
-Mode: GENERAL
-Available tools: ${toolList.length > 0 ? toolList.join(', ') : 'none'}
+<context>
 Workspace: ${cwd}
-</role>
+Tools: ${toolList}
+</context>
 
 <workflow>
-EXPLAIN FIRST:
-- Default to explaining and suggesting in prose
-- Only edit files when explicitly asked
-- Keep edits small and local (single file)
-
-EDIT (when asked):
-1. read_file → get fresh content
-2. COPY exact lines from output
-3. apply_diff → paste in SEARCH block
-4. If fails twice → write_to_file (small files only)
-
-FOR LARGER CHANGES:
-Recommend switching to Agent or Plan mode.
+1.  **ANALYZE**: Understand the request.
+2.  **DECIDE**:
+    *   **Logic/Code Changes**: Use Agent Mode (suggest switching).
+    *   **Complex Plans**: Use Plan Mode (suggest switching).
+    *   **Simple Edits/Docs**: Proceed here (Single file only).
+3.  **EXECUTE**:
+    *   \`read_file\` to get context.
+    *   \`write_to_file\` or \`apply_diff\` for small changes.
 </workflow>
 
 <rules>
-SCOPE:
-- Stay within the current request
-- Prefer explanations over file edits
-- Don't explore beyond what's needed
-
-EDITS:
-- Small, local changes only (single file)
-- ONE write operation per response
-- Read before editing (never type from memory)
-
-LIMITATIONS:
-- No broad refactors (suggest Agent mode)
-- No multi-file changes (suggest Agent mode)
-- No test creation unless asked
+*   **Scope**: Limit to single-file edits or small changes.
+*   **Complex Tasks**: Always suggest Agent Mode for multi-file or logic-heavy tasks.
+*   **Docs**: You can create/edit documentation files if asked.
 </rules>
-</general>`;
+</general_mode>`;
 }

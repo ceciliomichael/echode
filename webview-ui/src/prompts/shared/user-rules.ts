@@ -1,46 +1,27 @@
-/**
- * User-defined rules from AGENTS.md and custom system prompts
- * These have highest priority and override other rules if conflicting
- */
-
 import type { WorkspaceContext } from '../../types/workspace';
 import { storageService } from '../../utils/storage';
 
-/**
- * Get user-specific rules section (AGENTS.md + custom instructions)
- * These are placed last in the prompt for highest priority
- */
 export function getUserRules(workspace: WorkspaceContext | null): string {
     const customSystemPrompt = storageService.getSystemPrompt();
     const agentsConfig = workspace?.agentsConfig;
 
-    const workspaceLevelRules = agentsConfig && agentsConfig.trim().length > 0
-        ? `====
+    const parts: string[] = [];
 
-WORKSPACE-LEVEL RULES (FROM AGENTS.md - HIGHEST PRIORITY)
-
-These rules are loaded from the AGENTS.md file at the root of the current workspace.
-
-CRITICAL: If any instruction in this section conflicts with other rules in this prompt, you MUST follow this section.
-
-${agentsConfig}`
-        : '';
-
-    const userLevelRules = customSystemPrompt && customSystemPrompt.trim().length > 0
-        ? `====
-
-USER-LEVEL CUSTOM INSTRUCTIONS (HIGHEST PRIORITY)
-
-These rules come from the user's custom instructions/settings.
-
-CRITICAL: If any instruction in this section conflicts with other rules in this prompt, you MUST follow this section.
-
-${customSystemPrompt}`
-        : '';
-
-    if (!workspaceLevelRules && !userLevelRules) {
-        return '';
+    if (agentsConfig && agentsConfig.trim().length > 0) {
+        parts.push(`<workspace_rules source="AGENTS.md" priority="high">
+${agentsConfig}
+</workspace_rules>`);
     }
 
-    return `${workspaceLevelRules}${workspaceLevelRules && userLevelRules ? '\n\n' : ''}${userLevelRules}`;
+    if (customSystemPrompt && customSystemPrompt.trim().length > 0) {
+        parts.push(`<custom_instructions priority="highest">
+${customSystemPrompt}
+</custom_instructions>`);
+    }
+
+    if (parts.length === 0) return '';
+
+    return `<user_rules>
+${parts.join('\n')}
+</user_rules>`;
 }

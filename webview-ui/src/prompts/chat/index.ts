@@ -19,7 +19,7 @@ export function buildChatPrompt(options: ChatPromptOptions): string {
     const { workspace } = options;
 
     // Monolithic prompt (rules + mode description)
-    const prompt = getChatPrompt();
+    const prompt = getChatPrompt(workspace);
 
     const userRules = getUserRules(workspace);
 

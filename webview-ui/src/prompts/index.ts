@@ -14,11 +14,12 @@ import { buildAskPrompt } from './ask';
 import { buildGeneralPrompt } from './general';
 import { buildChatPrompt } from './chat';
 import { storageService } from '../utils/storage';
-import { getAllTools, getToolsForMode, PLAN_ONLY_TOOL_IDS } from '../lib/tool-config';
+import { getToolsForMode } from '../lib/tool-config';
 
 
 /**
  * Get the enabled tools for a specific mode, applying user preferences
+ * and strictly enforcing mode restrictions.
  */
 function getEnabledToolsForMode(mode: ChatMode): Tool[] {
     if (mode === 'chat') {
@@ -29,31 +30,38 @@ function getEnabledToolsForMode(mode: ChatMode): Tool[] {
     const settings = storageService.getSettings();
     const echoSearchEnabled = settings.indexingSettings?.enabled ?? true;
 
-    // Get tools allowed for the current mode
-    const modeTools = mode === 'plan'
-        ? getToolsForMode('plan', true)
-        : mode === 'ask'
-            ? getToolsForMode('ask', true)
-            : mode === 'general'
-                ? getToolsForMode('general', true)
-                : getAllTools(true).filter(tool => !PLAN_ONLY_TOOL_IDS.has(tool.id));
+    // 1. Get tools allowed for the current mode (Source of Truth)
+    const modeTools = getToolsForMode(mode, true);
 
-    // Apply user preferences
+    // Create a set of allowed IDs for this mode for O(1) verification
+    const allowedIds = new Set(modeTools.map(t => t.id));
+
+    // 2. Apply user preferences
     const userEnabledMap = new Map(savedTools?.map(t => [t.id, t.enabled]));
 
     let baseTools = modeTools.map(tool => {
         if (userEnabledMap.has(tool.id)) {
+            // Respect user preference ONLY if it's an allowed tool
             return { ...tool, enabled: userEnabledMap.get(tool.id)! };
         }
         return tool;
     });
 
-    // Filter out echo_search if indexing is disabled
+    // 3. Filter out echo_search if indexing is disabled
     if (!echoSearchEnabled) {
         baseTools = baseTools.filter(tool => tool.id !== 'echo_search');
     }
 
-    return baseTools.filter(tool => tool.enabled);
+    // 4. FINAL SAFETY CHECKS
+    return baseTools.filter(tool => {
+        // Must be enabled
+        if (!tool.enabled) return false;
+
+        // Must be in the allowed ID set for this mode (Redundant but safe)
+        if (!allowedIds.has(tool.id)) return false;
+
+        return true;
+    });
 }
 
 /**

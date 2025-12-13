@@ -100,6 +100,7 @@ export function getToolsForMode(mode: ChatMode, defaultEnabled = true): Tool[] {
  * Generate the tool system prompt with format instructions and available tools
  * NOTE: This is GENERIC - mode-specific instructions are in prompts/[mode]/tools/
  */
+
 export function getToolSystemPrompt(enabledTools: Tool[]): string {
   if (enabledTools.length === 0) return '';
 
@@ -123,32 +124,41 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
     .filter(t => !PARALLEL_ALLOWED_TOOLS.has(t.id))
     .map(t => t.id);
 
-  // Build execution rules section
-  const parallelList = parallelTools.length > 0
-    ? `Parallel OK: ${parallelTools.join(', ')}`
-    : '';
-  const sequentialList = sequentialTools.length > 0
-    ? `Sequential only: ${sequentialTools.join(', ')}`
-    : '';
+  // Build strict lists
+  const parallelStr = parallelTools.length > 0 ? `[${parallelTools.join(', ')}]` : 'NONE';
+  const sequentialStr = sequentialTools.length > 0 ? `[${sequentialTools.join(', ')}]` : 'NONE';
 
   return `<tools>
 <tool_format>
-XML FORMAT (follow exactly):
+CRITICAL: You must strictly follow this XML structure. Valid XML is required.
 
 <function_calls>
-<invoke name="TOOL_NAME">
-<parameter name="param1">value1</parameter>
-<parameter name="param2">value2</parameter>
-</invoke>
+    <invoke name="TOOL_NAME">
+        <parameter name="param1">value1</parameter>
+        <parameter name="param2">value2</parameter>
+    </invoke>
 </function_calls>
 
-RULES:
-1. Complete each </parameter> before starting the next
-2. Complete each </invoke> before starting the next
-3. Never nest invoke blocks inside parameter values
-${parallelList ? `4. ${parallelList}` : ''}
-${sequentialList ? `5. ${sequentialList}` : ''}
+FORMAT RULES:
+1. The root element must be <function_calls>.
+2. Each tool call must be inside an <invoke> tag.
+3. Parameters must be strictly inside <parameter> tags.
+4. XML tags must be properly closed.
 </tool_format>
+
+<execution_policy>
+You must swear by these concurrency rules. Do NOT violate them.
+
+PARALLEL_TOOLS: ${parallelStr}
+- These tools CAN be executed simultaneously in a single <function_calls> block.
+- Group independent reads/searches together for efficiency.
+
+SEQUENTIAL_TOOLS: ${sequentialStr}
+- These tools MUST be executed one at a time.
+- Do NOT group them with other tools.
+- Do NOT output multiple sequential tools in one response.
+- Wait for the result before proceeding.
+</execution_policy>
 
 <available_tools>
 Available: ${toolIdsList}
