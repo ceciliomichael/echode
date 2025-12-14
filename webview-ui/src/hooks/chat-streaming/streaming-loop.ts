@@ -64,14 +64,14 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
         // Update UI to clear error message
         updateUI();
       }
-      let chunkCount = 0;
+
 
       // Track which tool indices have been shown in UI
       const scheduledToolIndices = new Set<number>();
 
       console.log('[StreamingLoop] STARTING chatApi.streamChat call');
       for await (const chunk of chatApi.streamChat(finalChatHistory, abortController.signal, mode)) {
-        chunkCount++;
+
 
         if (isStoppingRef.current) {
           streamSuccess = true;
