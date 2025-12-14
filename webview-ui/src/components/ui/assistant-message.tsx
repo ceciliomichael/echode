@@ -309,8 +309,18 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
             if (visibleTokens.length > 0) {
               const lastToken = visibleTokens[visibleTokens.length - 1];
 
-              // If the last visible content is text, rely on the streaming text itself
-              // as the progress indicator and do not show extra bottom LoadingDots.
+              // PRIORITY: If there are filtered tool blocks (streaming but not yet closed),
+              // show loading dots regardless of what the last visible token is
+              if (hasFilteredToolBlocks) {
+                return (
+                  <div className="mt-2" style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
+                    <LoadingDots label={isCompressing ? 'Compressing' : 'Executing'} />
+                  </div>
+                );
+              }
+
+              // If the last visible content is text and no tools are streaming,
+              // rely on the streaming text itself as the progress indicator
               if (lastToken.type === 'text') {
                 return null;
               }
@@ -358,15 +368,6 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
               // and no tools are yet visible. While the think block itself is streaming,
               // it already acts as the primary progress indicator so we avoid extra dots.
               if (lastToken.type === 'think' && lastToken.isClosed && !hasVisibleToolToken) {
-                return (
-                  <div className="mt-2" style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
-                    <LoadingDots label={isCompressing ? 'Compressing' : 'Executing'} />
-                  </div>
-                );
-              }
-
-              // Case 3: Has filtered tool blocks after visible non-text content - show loading dots
-              if (hasFilteredToolBlocks) {
                 return (
                   <div className="mt-2" style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
                     <LoadingDots label={isCompressing ? 'Compressing' : 'Executing'} />
