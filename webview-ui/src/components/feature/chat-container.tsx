@@ -65,44 +65,6 @@ export function ChatContainer() {
   const lastVisibleMessage = visibleMessages[visibleMessages.length - 1];
   const lastMessageKey = lastVisibleMessage ? `${lastVisibleMessage.id}:${lastVisibleMessage.content.length}` : '';
 
-  const hasPlanningTool = (message: typeof messages[number]): boolean => {
-    if (message.role !== 'assistant' || !message.toolExecutions) {
-      return false;
-    }
-
-    for (const execution of message.toolExecutions.values()) {
-      if (execution.toolName === 'plan_navigator' || execution.toolName === 'plan_handoff') {
-        return true;
-      }
-    }
-
-    return false;
-  };
-
-  const startsWithPlanningTool = (message: typeof messages[number]): boolean => {
-    if (!hasPlanningTool(message)) return false;
-    // Check if content starts with a planning tool (ignoring leading whitespace)
-    // We look for <function_calls> or <invoke name="plan_navigator"/"plan_handoff">
-    // Note: This matches the tokenizer logic
-    const content = message.content.trimStart();
-
-    // Check for function_calls block or direct invoke
-    if (content.startsWith('<function_calls>') || content.startsWith('<invoke')) {
-      // We need to verify if the first tool is actually a planning tool
-      // This is a simplified check - we assume if it starts with a tool block and contains a planning tool, 
-      // the planning tool is likely first or part of the first block. 
-      // For exact precision we'd need to parse, but this is a purely visual heuristic.
-      return true;
-    }
-    return false;
-  };
-
-  const endsWithPlanningTool = (message: typeof messages[number]): boolean => {
-    if (!hasPlanningTool(message)) return false;
-    // Check if content ends with a planning tool (ignoring trailing whitespace)
-    const content = message.content.trimEnd();
-    return content.endsWith('</function_calls>') || content.endsWith('</invoke>');
-  };
 
   const {
     scrollContainerRef,
@@ -226,29 +188,6 @@ export function ChatContainer() {
                 {visibleMessages.map((message, index) => {
                   const isLastAssistantMessage = index === visibleMessages.length - 1 && message.role === 'assistant';
 
-                  // Determine if this assistant message participates in a planning tool chain
-                  let planChainPosition: { connectTop: boolean; connectBottom: boolean } | undefined;
-                  if (hasPlanningTool(message)) {
-                    const prevMsg = index > 0 ? visibleMessages[index - 1] : undefined;
-                    const nextMsg = index < visibleMessages.length - 1 ? visibleMessages[index + 1] : undefined;
-
-                    // Only connect TOP if:
-                    // 1. A previous message exists
-                    // 2. Previous message ENDS with a planning tool
-                    // 3. Current message STARTS with a planning tool
-                    const connectTop = !!(prevMsg && endsWithPlanningTool(prevMsg) && startsWithPlanningTool(message));
-
-                    // Only connect BOTTOM if:
-                    // 1. A next message exists
-                    // 2. Next message STARTS with a planning tool
-                    // 3. Current message ENDS with a planning tool
-                    const connectBottom = !!(nextMsg && startsWithPlanningTool(nextMsg) && endsWithPlanningTool(message));
-
-                    if (connectTop || connectBottom) {
-                      planChainPosition = { connectTop, connectBottom };
-                    }
-                  }
-
                   return (
                     <MessageBubble
                       key={message.id}
@@ -267,7 +206,6 @@ export function ChatContainer() {
                       model={model}
                       onModelChange={setActiveProviderAndModel}
                       contextUsage={contextUsage}
-                      planChainPosition={planChainPosition}
                     />
                   );
                 })}

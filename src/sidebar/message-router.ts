@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { ChatHistoryService } from '../services/chat-history-service';
-import type { ToolHistoryService } from '../services/tool-history-service';
+import type { ToolHistoryService } from '../services/tool-history';
 import type { WorkspaceManager } from './workspace-manager';
 import type { PanelManager } from './panel-manager';
 

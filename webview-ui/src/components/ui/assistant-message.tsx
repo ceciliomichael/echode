@@ -13,10 +13,6 @@ interface AssistantMessageProps {
   isStreaming?: boolean;
   isCompressing?: boolean;
   toolExecutions?: Map<string, ToolExecutionState>;
-  planChainPosition?: {
-    connectTop: boolean;
-    connectBottom: boolean;
-  };
 }
 
 function sanitizeAssistantText(content: string): string {
@@ -86,7 +82,7 @@ function sanitizeAssistantText(content: string): string {
   return result;
 }
 
-function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming = false, isCompressing = false, toolExecutions, planChainPosition }: AssistantMessageProps) {
+function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming = false, isCompressing = false, toolExecutions }: AssistantMessageProps) {
   // Allow text/think to span wider while staying slightly inset
   const contentMaxWidth = 'min(110ch, 100%)';
 
@@ -157,7 +153,6 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
       >
         {visibleTokens.map((token, index) => {
           const prevToken = index > 0 ? visibleTokens[index - 1] : null;
-          const nextToken = index < visibleTokens.length - 1 ? visibleTokens[index + 1] : null;
 
           // Margin logic: consistent spacing for all content types
           const marginTop = index === 0 ? '0' : '0.75rem';
@@ -180,26 +175,6 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
 
           // Tool block
           if (token.type === 'tool') {
-            // Check adjacent tools in VISIBLE tokens list for sequential grouping
-            const isPlanningTool = token.toolName === 'plan_navigator' || token.toolName === 'plan_handoff';
-
-            // Allow external plan-chain hints so planning tools in consecutive assistant messages can connect
-            // External connect should ONLY be used when this tool is at the edge of the message:
-            // - Top: only when this is the first visible token (index === 0)
-            // - Bottom: only when this is the last visible token (no nextToken)
-            // If there's any adjacent non-tool token, we don't use external connect
-            const isFirstVisibleToken = index === 0;
-            const isLastVisibleToken = nextToken === null || nextToken === undefined;
-            const prevIsToolToken = prevToken?.type === 'tool';
-            const nextIsToolToken = nextToken?.type === 'tool';
-            const externalConnectTop = isPlanningTool && isFirstVisibleToken ? planChainPosition?.connectTop === true : false;
-            const externalConnectBottom = isPlanningTool && isLastVisibleToken ? planChainPosition?.connectBottom === true : false;
-
-            const isConnectedTop = prevIsToolToken || externalConnectTop;
-            const isConnectedBottom = nextIsToolToken || externalConnectBottom;
-
-            // Override margin if connected to top tool (collapse spacing)
-            const toolMarginTop = isConnectedTop ? 0 : marginTop;
 
             // Merge token data with execution state if available
             const executionState = toolExecutions?.get(token.toolExecutionId);
@@ -230,17 +205,10 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                         toolExecutionId: fileToolExecutionId,
                       };
 
-                      const isLastFile = fileIdx === files.length - 1;
-                      const fileMarginTop = fileIdx === 0 ? toolMarginTop : 0;
-                      const fileIsConnectedTop = fileIdx > 0 || isConnectedTop;
-                      const fileIsConnectedBottom = !isLastFile || isConnectedBottom;
-
                       return (
-                        <div key={`tool-${messageId}-${token.index}-file-${fileIdx}`} style={{ marginTop: fileMarginTop }}>
+                        <div key={`tool-${messageId}-${token.index}-file-${fileIdx}`}>
                           <ToolBlock
                             toolCall={fileToolCall}
-                            isConnectedTop={fileIsConnectedTop}
-                            isConnectedBottom={fileIsConnectedBottom}
                             isStreaming={false}
                           />
                         </div>
@@ -268,11 +236,9 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
             };
 
             return (
-              <div key={`tool-${messageId}-${token.index}`} style={{ marginTop: toolMarginTop }}>
+              <div key={`tool-${messageId}-${token.index}`}>
                 <ToolBlock
                   toolCall={toolCall}
-                  isConnectedTop={isConnectedTop}
-                  isConnectedBottom={isConnectedBottom}
                   isStreaming={isStreaming && !token.isClosed}
                 />
               </div>

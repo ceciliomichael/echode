@@ -5,7 +5,7 @@ import { handleModelFetch } from './handlers/model-fetching-handler';
 import { handleToolExecution, setFileModificationCallback } from './handlers/tool-execution-handler';
 import { getMainWebviewHtml } from './utils/html-generator';
 import { ChatHistoryService } from './services/chat-history-service';
-import { ToolHistoryService } from './services/tool-history-service';
+import { ToolHistoryService } from './services/tool-history';
 import { AutocompleteService } from './autocomplete';
 import { WorkspaceManager, PanelManager, createMessageRouter } from './sidebar';
 import type { HandlerContext } from './sidebar';

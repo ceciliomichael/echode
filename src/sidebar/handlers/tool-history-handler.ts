@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { ToolHistoryService } from '../../services/tool-history-service';
+import type { ToolHistoryService } from '../../services/tool-history';
 import type { ToolExecutionState } from '../../types/tool-execution';
 
 /**

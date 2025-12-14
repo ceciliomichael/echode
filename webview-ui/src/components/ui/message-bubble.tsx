@@ -23,13 +23,9 @@ interface MessageBubbleProps {
   model: string;
   onModelChange: (provider: Provider, model: string) => void;
   contextUsage?: ContextUsageResult;
-  planChainPosition?: {
-    connectTop: boolean;
-    connectBottom: boolean;
-  };
 }
 
-function MessageBubbleComponent({ message, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, isStreaming, isCompressing, mode, onModeChange, provider, model, onModelChange, contextUsage, planChainPosition }: MessageBubbleProps) {
+function MessageBubbleComponent({ message, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, isStreaming, isCompressing, mode, onModeChange, provider, model, onModelChange, contextUsage }: MessageBubbleProps) {
 
   if (message.role === 'user') {
     return (
@@ -61,7 +57,6 @@ function MessageBubbleComponent({ message, onEdit, onUpdate, isEditing, onEditSt
           isStreaming={isStreaming}
           isCompressing={isCompressing}
           toolExecutions={message.toolExecutions}
-          planChainPosition={planChainPosition}
         />
       </div>
     </div>

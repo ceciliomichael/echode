@@ -7,15 +7,11 @@ import { ToolBlockContent } from './tool-block-content';
 
 interface ToolBlockProps {
   toolCall: ToolCall;
-  isConnectedTop?: boolean;
-  isConnectedBottom?: boolean;
   isStreaming?: boolean;
 }
 
 const ToolBlockComponent = ({
   toolCall,
-  isConnectedTop = false,
-  isConnectedBottom = false,
   isStreaming = false,
 }: ToolBlockProps) => {
   const isEchoSearch = toolCall.toolName === 'echo_search';
@@ -74,7 +70,7 @@ const ToolBlockComponent = ({
       // For write_to_file and apply_diff, keep spinning only if we don't have diff data yet
       const isWriteOrApply = toolCall.toolName === 'write_to_file' || toolCall.toolName === 'apply_diff';
       const hasResultData = toolCall.result.success && toolCall.result.data != null;
-      
+
       if (isWriteOrApply && !hasResultData) {
         return true; // Still waiting for diff data
       }
@@ -97,7 +93,7 @@ const ToolBlockComponent = ({
     [toolCall, isIconExecuting]
   );
 
-  const hasResultContent = toolCall.toolName === 'echo_search' 
+  const hasResultContent = toolCall.toolName === 'echo_search'
     ? (toolCall.status === 'executing' || toolCall.status === 'pending' || toolCall.status === 'aborted' || !!toolCall.result)
     : (!!toolCall.result && toolCall.status !== 'aborted');
   const hasStreamingContent =
@@ -108,17 +104,13 @@ const ToolBlockComponent = ({
 
   return (
     <div
-      className={`overflow-hidden w-full ${isConnectedTop ? 'mt-0' : 'mt-2'}`}
+      className="overflow-hidden w-full mt-2"
       style={{
         borderColor: 'var(--vscode-input-border)',
         backgroundColor: 'var(--vscode-editor-background)',
         borderWidth: '1px',
         borderStyle: 'solid',
-        borderTopWidth: isConnectedTop ? 0 : '1px',
-        borderTopLeftRadius: isConnectedTop ? 0 : '0.75rem',
-        borderTopRightRadius: isConnectedTop ? 0 : '0.75rem',
-        borderBottomLeftRadius: isConnectedBottom ? 0 : '0.75rem',
-        borderBottomRightRadius: isConnectedBottom ? 0 : '0.75rem',
+        borderRadius: '0.75rem',
       }}
     >
       <ToolBlockHeader
@@ -131,7 +123,7 @@ const ToolBlockComponent = ({
         hasResultContent={hasResultContent}
         canToggle={canToggle}
       />
-      
+
       <ToolBlockContent
         toolCall={toolCall}
         fileInfo={fileInfo}
@@ -145,17 +137,15 @@ export const ToolBlock = memo(ToolBlockComponent, (prevProps, nextProps) => {
   // Compare tools arrays by content, not just length
   const prevTools = prevProps.toolCall.progress?.tools || [];
   const nextTools = nextProps.toolCall.progress?.tools || [];
-  const toolsEqual = prevTools.length === nextTools.length && 
+  const toolsEqual = prevTools.length === nextTools.length &&
     prevTools.every((tool, i) => tool === nextTools[i]);
 
   return (
     prevProps.toolCall.status === nextProps.toolCall.status &&
     prevProps.toolCall.toolName === nextProps.toolCall.toolName &&
-    prevProps.isConnectedTop === nextProps.isConnectedTop &&
-    prevProps.isConnectedBottom === nextProps.isConnectedBottom &&
     prevProps.isStreaming === nextProps.isStreaming &&
     JSON.stringify(prevProps.toolCall.parameters) ===
-      JSON.stringify(nextProps.toolCall.parameters) &&
+    JSON.stringify(nextProps.toolCall.parameters) &&
     JSON.stringify(prevProps.toolCall.result) === JSON.stringify(nextProps.toolCall.result) &&
     prevProps.toolCall.progress?.iteration === nextProps.toolCall.progress?.iteration &&
     prevProps.toolCall.progress?.phase === nextProps.toolCall.progress?.phase &&
