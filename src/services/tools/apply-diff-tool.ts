@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 import { ITool, ToolExecutionResult, ChatMode } from './tool.interface';
 import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
 import { unescapeHtmlEntities } from '../../utils/text-normalization';
-import { capturePreDiagnostics, detectNewProblemsAfterEdit } from '../diagnostics';
+import { getFileDiagnosticsAfterEdit } from '../diagnostics';
 import { MultiSearchReplaceDiffStrategy } from './apply-diff';
 
 /**
@@ -70,10 +70,6 @@ export class ApplyDiffTool implements ITool {
             const fileContent = await vscode.workspace.fs.readFile(uri);
             const originalContent = Buffer.from(fileContent).toString('utf8');
 
-            // Capture pre-diagnostics BEFORE applying diff
-            const preDiagnostics = capturePreDiagnostics();
-            console.log('[APPLY_DIFF] Captured pre-diagnostics');
-
             // Apply diff
             const diffResult = await this.diffStrategy.applyDiff(
                 originalContent,
@@ -136,10 +132,10 @@ export class ApplyDiffTool implements ITool {
                 console.warn('[APPLY_DIFF] Could not open file in tab:', openError);
             }
 
-            // Detect new problems after the edit
-            const newProblemsMessage = await detectNewProblemsAfterEdit(preDiagnostics, workspaceRoot);
-            if (newProblemsMessage) {
-                console.log('[APPLY_DIFF] New problems detected after edit');
+            // Get file diagnostics after the edit (errors/warnings for this file)
+            const fileDiagnostics = await getFileDiagnosticsAfterEdit(absolutePath, workspaceRoot);
+            if (fileDiagnostics) {
+                console.log('[APPLY_DIFF] File diagnostics found after edit');
             }
 
             let partFailHint = "";
@@ -175,7 +171,7 @@ export class ApplyDiffTool implements ITool {
                     lineCount,
                     largeFileReminder,
                     refactorNotice,
-                    newProblemsMessage: newProblemsMessage || undefined,
+                    fileDiagnostics: fileDiagnostics || undefined,
                 },
             };
 

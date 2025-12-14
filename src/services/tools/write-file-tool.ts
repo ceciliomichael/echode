@@ -4,7 +4,7 @@ import type { ITool, ToolExecutionResult, ChatMode } from './tool.interface';
 import { unescapeHtmlEntities } from '../../utils/text-normalization';
 import { detectCodeOmission } from '../../utils/detect-code-omission';
 import { getWorkspaceRoot, resolveAbsolutePath, getCreatedDirectories } from './utils/workspace-utils';
-import { capturePreDiagnostics, detectNewProblemsAfterEdit } from '../diagnostics';
+import { getFileDiagnosticsAfterEdit } from '../diagnostics';
 
 export class WriteFileTool implements ITool {
   name = 'write_to_file';
@@ -191,10 +191,6 @@ export class WriteFileTool implements ITool {
         fileExisted = false;
       }
 
-      // Capture pre-diagnostics BEFORE writing (Roo Code approach)
-      const preDiagnostics = capturePreDiagnostics();
-      console.log('[WRITE_FILE] Captured pre-diagnostics');
-
       // Track which directories will be created
       const createdDirectories = await getCreatedDirectories(filePath, workspaceRoot);
 
@@ -238,10 +234,10 @@ export class WriteFileTool implements ITool {
         console.log('[WRITE_FILE] WARNING: Could not verify written file:', verifyError);
       }
 
-      // Detect new problems after the edit (Roo Code approach)
-      const newProblemsMessage = await detectNewProblemsAfterEdit(preDiagnostics, workspaceRoot);
-      if (newProblemsMessage) {
-        console.log('[WRITE_FILE] New problems detected after edit');
+      // Get file diagnostics after the edit (errors/warnings for this file)
+      const fileDiagnostics = await getFileDiagnosticsAfterEdit(absolutePath, workspaceRoot);
+      if (fileDiagnostics) {
+        console.log('[WRITE_FILE] File diagnostics found after edit');
       }
 
       console.log('[WRITE_FILE] ==================== SUCCESS ====================');
@@ -275,7 +271,7 @@ export class WriteFileTool implements ITool {
           lineCount,
           largeFileReminder,
           refactorNotice,
-          newProblemsMessage: newProblemsMessage || undefined,
+          fileDiagnostics: fileDiagnostics || undefined,
         },
       };
     } catch (error) {

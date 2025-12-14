@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, type KeyboardEvent, type FormEvent, type ChangeEvent, type ClipboardEvent } from 'react';
+import { useState, useRef, useEffect, type KeyboardEvent, type FormEvent, type ChangeEvent } from 'react';
+import { usePasteHandler } from '../../hooks/use-paste-handler';
 import { ArrowUp, Paperclip } from 'lucide-react';
 import { AttachmentPreview } from './attachment-preview';
 import { ImageAttachmentPreview } from './image-attachment-preview';
@@ -10,7 +11,7 @@ import { useDropdownDirection } from '../../hooks/use-dropdown-direction';
 import type { ChatMode } from '../../types/chat-mode';
 import type { ContextUsageResult } from '../../hooks/use-context-usage';
 
-import { processDocumentFiles, buildAllAttachedFileBlocks, extractTextAndAttachmentsFromContent, validateDocumentFile, fileToDocumentAttachment, type DocumentAttachment } from '../../utils/document-utils';
+import { processDocumentFiles, buildAllAttachedFileBlocks, extractTextAndAttachmentsFromContent, validateDocumentFile, type DocumentAttachment } from '../../utils/document-utils';
 import { validateImageFile, processImageFiles } from '../../utils/image-utils';
 import type { ImageAttachment } from '../../types/chat';
 import type { Provider } from '../../types/api-settings';
@@ -40,6 +41,14 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropdownDirection = useDropdownDirection(containerRef);
+
+  const { handlePaste } = usePasteHandler({
+    attachments: editAttachments,
+    setAttachments: setEditAttachments,
+    imageAttachments: editImageAttachments,
+    setImageAttachments: setEditImageAttachments,
+    disabled: false
+  });
 
   useEffect(() => {
     // Use requestAnimationFrame to ensure DOM is ready before focusing
@@ -194,43 +203,7 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
     setEditImageAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handlePaste = async (e: ClipboardEvent<HTMLTextAreaElement>) => {
-    const clipboard = e.clipboardData;
-    if (!clipboard) {
-      return;
-    }
 
-    const files = clipboard.files;
-    if (!files || files.length === 0) {
-      return;
-    }
-
-    const remainingSlots = 3 - editAttachments.length;
-    if (remainingSlots <= 0) {
-      return;
-    }
-
-    const filesArray = Array.from(files).slice(0, remainingSlots);
-    const newAttachments: DocumentAttachment[] = [];
-
-    for (const file of filesArray) {
-      const validation = validateDocumentFile(file);
-      if (!validation.valid) {
-        console.error('Document processing error for pasted file:', `${file.name}: ${validation.error}`);
-        continue;
-      }
-      try {
-        const attachment = await fileToDocumentAttachment(file);
-        newAttachments.push(attachment);
-      } catch {
-        console.error('Document processing error for pasted file:', `${file.name}: Failed to read file`);
-      }
-    }
-
-    if (newAttachments.length > 0) {
-      setEditAttachments(prev => [...prev, ...newAttachments]);
-    }
-  };
 
   return (
     <div ref={containerRef} className="relative z-[60]">

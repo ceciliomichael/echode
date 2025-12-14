@@ -4,7 +4,7 @@
 
 export function getApplyDiffInstructions(): string {
     return `## apply_diff
-Targeted edits to existing files.
+Targeted edits to existing files. PREFERRED tool for edits.
 
 Parameters:
 - path: File path (required)

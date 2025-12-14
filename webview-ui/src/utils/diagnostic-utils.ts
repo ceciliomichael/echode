@@ -6,8 +6,8 @@ export function isFileModificationTool(toolName: string): boolean {
 }
 
 /**
- * Extract diagnostics message from tool result (Roo Code approach)
- * File modification tools include newProblemsMessage in their result data
+ * Extract diagnostics message from tool result
+ * File modification tools include fileDiagnostics in their result data
  */
 export function extractDiagnosticsFromResult(
   toolName: string,
@@ -17,13 +17,13 @@ export function extractDiagnosticsFromResult(
     return '';
   }
 
-  // Only file modification tools include newProblemsMessage
+  // Only file modification tools include fileDiagnostics
   if (!isFileModificationTool(toolName)) {
     return '';
   }
 
   const data = result.data as Record<string, unknown>;
-  const newProblemsMessage = data.newProblemsMessage as string | undefined;
+  const fileDiagnostics = data.fileDiagnostics as string | undefined;
 
-  return newProblemsMessage || '';
+  return fileDiagnostics || '';
 }

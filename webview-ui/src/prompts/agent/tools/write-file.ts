@@ -21,5 +21,6 @@ Requirements:
 - No truncation
 - No line numbers in content
 
-Use apply_diff instead for small, targeted edits.`;
+WARNING: This tool is token expensive. Use apply_diff for any edits smaller than the full file.
+Use apply_diff instead for targeted edits. Only use write_to_file if you are rewriting the MAJORITY of the file.`;
 }

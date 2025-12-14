@@ -1,6 +1,6 @@
 export function getApplyDiffInstructions(): string {
     return `<tool_usage tool="apply_diff">
-<summary>Small, local edits to a file.</summary>
+<summary>Preferred for editing files. Small, local edits.</summary>
 <format>
 <<<<<<< SEARCH
 [exact content from read_file]

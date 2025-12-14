@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, type KeyboardEvent, type FormEvent, type ChangeEvent, type ClipboardEvent } from 'react';
+import { useState, useRef, useEffect, type KeyboardEvent, type FormEvent, type ChangeEvent } from 'react';
+import { usePasteHandler } from '../../hooks/use-paste-handler';
 import { ArrowUp, Paperclip, Square } from 'lucide-react';
 
 import { TodoBlock } from './todo-block';
@@ -15,8 +16,8 @@ import type { ContextUsageResult } from '../../hooks/use-context-usage';
 import { buildRefactorMessage } from '../../utils/message-builders';
 import type { TodoTask } from '../../types/todo';
 import type { ChatMode } from '../../types/chat-mode';
-import { processDocumentFiles, buildAllAttachedFileBlocks, validateDocumentFile, fileToDocumentAttachment, type DocumentAttachment } from '../../utils/document-utils';
-import { validateImageFile, fileToImageAttachment, processImageFiles } from '../../utils/image-utils';
+import { processDocumentFiles, buildAllAttachedFileBlocks, validateDocumentFile, type DocumentAttachment } from '../../utils/document-utils';
+import { validateImageFile, processImageFiles } from '../../utils/image-utils';
 import type { ImageAttachment, Message } from '../../types/chat';
 import type { Provider } from '../../types/api-settings';
 
@@ -54,6 +55,14 @@ export function ChatInput({ onSendMessage, onNewChat, disabled = false, isStream
 
   // Get refactor scan results
   const { largeFiles, isScanning: isRefactorScanning } = useRefactorScan();
+
+  const { handlePaste } = usePasteHandler({
+    attachments,
+    setAttachments,
+    imageAttachments,
+    setImageAttachments,
+    disabled: disabled || isStreaming
+  });
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -177,89 +186,7 @@ export function ChatInput({ onSendMessage, onNewChat, disabled = false, isStream
     setImageAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handlePaste = async (e: ClipboardEvent<HTMLTextAreaElement>) => {
-    if (disabled || isStreaming) {
-      return;
-    }
 
-    const clipboard = e.clipboardData;
-    if (!clipboard) {
-      return;
-    }
-
-    const files = clipboard.files;
-    if (!files || files.length === 0) {
-      return;
-    }
-
-    const currentTotal = attachments.length + imageAttachments.length;
-    const maxTotal = 3;
-
-    if (currentTotal >= maxTotal) {
-      return;
-    }
-
-    const remainingSlots = maxTotal - currentTotal;
-    const filesArray = Array.from(files);
-
-    const docFiles: File[] = [];
-    const imgFiles: File[] = [];
-
-    for (const file of filesArray) {
-      if (validateDocumentFile(file).valid) {
-        docFiles.push(file);
-      } else if (validateImageFile(file).valid) {
-        imgFiles.push(file);
-      }
-    }
-
-    if (docFiles.length === 0 && imgFiles.length === 0) {
-      return;
-    }
-
-    const limitedDocFiles = docFiles.slice(0, remainingSlots);
-    const remainingAfterDocs = remainingSlots - limitedDocFiles.length;
-    const limitedImgFiles = remainingAfterDocs > 0 ? imgFiles.slice(0, remainingAfterDocs) : [];
-
-    const newDocAttachments: DocumentAttachment[] = [];
-    const newImageAttachments: ImageAttachment[] = [];
-
-    for (const file of limitedDocFiles) {
-      const validation = validateDocumentFile(file);
-      if (!validation.valid) {
-        console.error('Document processing error for pasted file:', `${file.name}: ${validation.error}`);
-        continue;
-      }
-      try {
-        const attachment = await fileToDocumentAttachment(file);
-        newDocAttachments.push(attachment);
-      } catch {
-        console.error('Document processing error for pasted file:', `${file.name}: Failed to read file`);
-      }
-    }
-
-    for (const file of limitedImgFiles) {
-      const validation = validateImageFile(file);
-      if (!validation.valid) {
-        console.error('Image processing error for pasted file:', `${file.name}: ${validation.error}`);
-        continue;
-      }
-      try {
-        const attachment = await fileToImageAttachment(file);
-        newImageAttachments.push(attachment);
-      } catch {
-        console.error('Image processing error for pasted file:', `${file.name}: Failed to process`);
-      }
-    }
-
-    if (newDocAttachments.length > 0) {
-      setAttachments(prev => [...prev, ...newDocAttachments]);
-    }
-
-    if (newImageAttachments.length > 0) {
-      setImageAttachments(prev => [...prev, ...newImageAttachments]);
-    }
-  };
 
   const handleRefactorRequest = (filePath: string) => {
     // Create a new chat session for the refactor task

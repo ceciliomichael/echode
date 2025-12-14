@@ -6,7 +6,8 @@ export function getWriteFileInstructions(): string {
 *   content: Full file content (required)
 </params>
 <notes>
-*   Use for new files or when apply_diff fails.
+*   Use for new files only.
+*   Token expensive! Use apply_diff for edits.
 *   Suggest Agent Mode for large rewrites.
 </notes>
 </tool_usage>`;

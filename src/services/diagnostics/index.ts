@@ -243,3 +243,52 @@ export async function detectNewProblemsAfterEdit(
 
     return '';
 }
+
+/**
+ * Get ALL diagnostics for a specific file after a file operation.
+ * Waits for linters to process, then returns all errors/warnings for the file.
+ * Unlike detectNewProblemsAfterEdit, this returns ALL diagnostics, not just new ones.
+ */
+export async function getFileDiagnosticsAfterEdit(
+    filePath: string,
+    cwd: string,
+    delayMs: number = DEFAULT_WRITE_DELAY_MS,
+    maxMessages: number = 50
+): Promise<string> {
+    // Wait for linters to process the changes
+    const safeDelayMs = Math.max(0, delayMs);
+    await new Promise((resolve) => setTimeout(resolve, safeDelayMs));
+
+    // Get all diagnostics
+    const allDiagnostics = vscode.languages.getDiagnostics();
+
+    // Filter to only the specific file
+    const normalizedFilePath = path.normalize(filePath).toLowerCase();
+    const fileDiagnostics: [vscode.Uri, vscode.Diagnostic[]][] = [];
+
+    for (const [uri, diagnostics] of allDiagnostics) {
+        const normalizedUri = path.normalize(uri.fsPath).toLowerCase();
+        if (normalizedUri === normalizedFilePath && diagnostics.length > 0) {
+            fileDiagnostics.push([uri, diagnostics]);
+            break;
+        }
+    }
+
+    // Format to string - include errors and warnings
+    const problemsString = await diagnosticsToProblemsString(
+        fileDiagnostics,
+        [
+            vscode.DiagnosticSeverity.Error,
+            vscode.DiagnosticSeverity.Warning,
+        ],
+        cwd,
+        true,
+        maxMessages
+    );
+
+    if (problemsString.length > 0) {
+        return `\n\nFile diagnostics after edit:\n${problemsString}`;
+    }
+
+    return '';
+}

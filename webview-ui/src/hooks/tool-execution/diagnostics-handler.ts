@@ -28,11 +28,11 @@ export function getDiagnosticsFromToolResult(
     return '';
   }
 
-  const newProblemsMessage = extractDiagnosticsFromResult(executedTool.toolName, executedTool.result);
+  const fileDiagnostics = extractDiagnosticsFromResult(executedTool.toolName, executedTool.result);
   
-  if (newProblemsMessage) {
+  if (fileDiagnostics) {
     return buildDiagnosticsWithInstruction(
-      newProblemsMessage,
+      fileDiagnostics,
       filePath,
       diagnosticAttemptsRef
     );
@@ -46,7 +46,7 @@ export function getDiagnosticsFromToolResult(
  * Build diagnostics message with attempt tracking instruction
  */
 function buildDiagnosticsWithInstruction(
-  newProblemsMessage: string,
+  fileDiagnostics: string,
   filePath: string,
   diagnosticAttemptsRef: React.MutableRefObject<Record<string, number>>
 ): string {
@@ -62,7 +62,7 @@ function buildDiagnosticsWithInstruction(
     instruction = `\n\n[NOTE: Maximum fix attempts (${MAX_DIAGNOSTIC_ITERATIONS}) reached for this file. Diagnostics are shown for your reference, but you should acknowledge and move forward unless the user requests further fixes.]`;
   }
 
-  return newProblemsMessage + instruction;
+  return fileDiagnostics + instruction;
 }
 
 /**
