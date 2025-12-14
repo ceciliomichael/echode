@@ -8,7 +8,6 @@ import {
   findMatchingInvokeClosingTag,
   isInsideInvokeParameterValue,
 } from './parser';
-import { isParallelAllowed } from './tool-parallel-config';
 
 // Legacy regex pattern kept for parseToolBlock backward compatibility
 const TOOL_BLOCK_REGEX = /<function_calls>([\s\S]*?)<\/function_calls>/;
@@ -259,15 +258,6 @@ export function extractFirstToolBlock(content: string): ParsedToolBlock | null {
 }
 
 /**
- * Check if a tool is parallelizable.
- * Uses a strict ALLOW-LIST approach - only tools explicitly listed in
- * PARALLEL_ALLOWED_TOOLS can ever be parallelized. All other tools are serial-only.
- */
-export function isParallelizableTool(toolName: string): boolean {
-  return isParallelAllowed(toolName);
-}
-
-/**
  * Represents a pending (partial) invoke block where <invoke> opened but </invoke> hasn't arrived
  */
 export interface PendingInvokeBlock {
@@ -420,67 +410,4 @@ function parseInvokeBlockInternal(
   } catch {
     return null;
   }
-}
-
-/**
- * Extract parallelizable tool blocks starting from a given tool index
- * Finds the function_calls block that contains the tool at startingToolIndex
- * and returns all parallelizable tools from that block.
- */
-export function extractParallelizableToolBlocks(content: string, startingToolIndex: number = 0): ParsedToolBlock[] {
-  const preprocessed = preprocessContent(content);
-
-  // Get all function_calls blocks
-  const functionCallsBlocks = extractFunctionCallsBlocks(preprocessed);
-
-  if (functionCallsBlocks.length === 0) {
-    return [];
-  }
-
-  // Find the function_calls block that contains the tool at startingToolIndex
-  let currentToolIndex = 0;
-  let targetBlock: typeof functionCallsBlocks[0] | null = null;
-  let blockStartIndex = 0;
-
-  for (const block of functionCallsBlocks) {
-    const parsedBlocks = parseFunctionCallsBlock(block.innerContent, block.fullMatch);
-    const blockEndIndex = currentToolIndex + parsedBlocks.length;
-
-    if (startingToolIndex >= currentToolIndex && startingToolIndex < blockEndIndex) {
-      targetBlock = block;
-      blockStartIndex = currentToolIndex;
-      break;
-    }
-
-    currentToolIndex = blockEndIndex;
-  }
-
-  if (!targetBlock) {
-    return [];
-  }
-
-  const parsedBlocks = parseFunctionCallsBlock(targetBlock.innerContent, targetBlock.fullMatch);
-
-  if (parsedBlocks.length === 0) {
-    return [];
-  }
-
-  // Get only the blocks starting from the relative position within this function_calls block
-  const relativeStartIndex = startingToolIndex - blockStartIndex;
-  const blocksFromStart = parsedBlocks.slice(relativeStartIndex);
-
-  if (blocksFromStart.length === 0) {
-    return [];
-  }
-
-  // Check if ALL remaining tools in this function_calls block are parallelizable
-  const allParallelizable = blocksFromStart.every(block => isParallelizableTool(block.toolName));
-
-  if (!allParallelizable) {
-    // If any tool is not parallelizable, only return the first tool for sequential execution
-    return [blocksFromStart[0]];
-  }
-
-  // All tools are parallelizable - return all for parallel execution
-  return blocksFromStart;
 }

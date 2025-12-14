@@ -112,16 +112,8 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
           // Hide if path is missing or empty
           return false;
         }
-
-        // For planning tools (plan_navigator, plan_handoff, todo_write), show even if not fully closed
-        // This ensures they appear immediately and can be visually connected to adjacent tools
-        const isPlanningTool = token.toolName === 'plan_navigator' || token.toolName === 'plan_handoff' || token.toolName === 'todo_write';
-        if (isPlanningTool && !token.isClosed) {
-          // Show planning tools as soon as tool_name is present
-          return true;
-        }
       }
-      // Filter incomplete tool blocks for non-file-modification and non-planning tools
+      // Filter incomplete tool blocks for non-file-modification tools
       if (token.type === 'tool' && !token.isClosed) {
         return false;
       }
@@ -295,10 +287,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                 const path = token.parameters.path as string | undefined;
                 return !path || path.trim() === '';
               }
-              // Planning tools are shown even when not closed, so don't count them as filtered
-              const isPlanningTool = token.toolName === 'plan_navigator' || token.toolName === 'plan_handoff' || token.toolName === 'todo_write';
-              if (isPlanningTool) return false;
-              // Check if non-file-modification tool was filtered out
+              // Check if tool was filtered out (not closed)
               if (!token.isClosed) return true;
               return false;
             });

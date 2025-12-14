@@ -38,9 +38,8 @@ export function getToolStatusDisplay(
   }
 
   // IMPORTANT: If the tool has completed with results, show the completed state
-  // even if isStreaming is still true (other tools may still be streaming).
-  // This allows individual tools in a parallel batch to show their results immediately.
-  const isCompletedWithResult = toolCall.status === 'completed' && toolCall.result;  
+  // even if isStreaming is still true.
+  const isCompletedWithResult = toolCall.status === 'completed' && toolCall.result;
   if (!isCompletedWithResult && (isStreaming || toolCall.status === 'pending' || toolCall.status === 'executing')) {
     const toolName = toolCall.toolName;
     let executingText = 'Executing';

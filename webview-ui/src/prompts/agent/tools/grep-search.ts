@@ -19,7 +19,6 @@ When to use:
 
 Tips:
 - Always narrow path (e.g., "src/components" not ".")
-- Parallel searches for independent identifiers is fine
 
 Use echo_search instead when you need semantic understanding.`;
 }

@@ -1,11 +1,10 @@
 /**
  * Diagnostics Handler Module
- * 
+ *
  * Responsible for extracting and processing diagnostics from tool execution results.
  * Implements attempt tracking to prevent infinite fix loops.
  */
 import { isFileModificationTool, extractDiagnosticsFromResult } from '../../utils/diagnostic-utils';
-import type { ToolExecutionState } from '../../types/tool';
 
 const MAX_DIAGNOSTIC_ITERATIONS = 3;
 
@@ -41,43 +40,6 @@ export function getDiagnosticsFromToolResult(
     resetDiagnosticAttempts(filePath, diagnosticAttemptsRef);
     return '';
   }
-}
-
-/**
- * Extract diagnostics from multiple tool results (parallel execution)
- */
-export function getDiagnosticsFromToolResultsParallel(
-  executedTools: Array<{ toolName: string; result?: { success: boolean; data?: unknown }; state: ToolExecutionState }>,
-  diagnosticAttemptsRef: React.MutableRefObject<Record<string, number>>
-): string[] {
-
-  const results = executedTools.map(({ toolName, result }) => {
-    if (!result?.success || !('data' in result) || !result.data) {
-      return '';
-    }
-
-    const data = result.data as Record<string, unknown>;
-    const filePath = (data.path as string) || 'unknown';
-    const isModificationTool = isFileModificationTool(toolName);
-
-    if (!isModificationTool) {
-      return '';
-    }
-
-    const newProblemsMessage = extractDiagnosticsFromResult(toolName, result);
-    
-    if (newProblemsMessage) {
-      return buildDiagnosticsWithInstruction(
-        newProblemsMessage,
-        filePath,
-        diagnosticAttemptsRef
-      );
-    } else {
-      resetDiagnosticAttempts(filePath, diagnosticAttemptsRef);
-      return '';
-    }
-  });
-  return results.filter((r): r is string => r.length > 0);
 }
 
 /**

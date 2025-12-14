@@ -143,7 +143,7 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
           // Abort stream
           abortController.abort();
 
-          // Now execute all tools (will be handled by executeToolAndContinue which respects parallel allow-list)
+          // Execute tools sequentially
           setIsExecutingTool(true);
 
           // Check if user stopped before executing
@@ -152,8 +152,7 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
             return { success: false, assistantContent, handledByToolExecution: true };
           }
 
-          // Delegate to executeToolAndContinue which handles parallel vs serial execution
-          // based on the allow-list
+          // Execute tools sequentially
           await executeToolAndContinue(
             assistantContent,
             assistantMessageId,

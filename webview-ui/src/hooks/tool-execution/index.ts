@@ -1,6 +1,6 @@
 /**
  * Tool Execution Module
- * 
+ *
  * Main entry point for tool execution functionality.
  * Composes all sub-modules into a cohesive hook.
  */
@@ -8,7 +8,7 @@ import { useCallback, useRef, useEffect } from 'react';
 import { useWorkspaceContext } from '../use-workspace-context';
 import type { Message, ImageAttachment } from '../../types/chat';
 import type { ChatMessage } from '../../types/chat-api';
-import { extractToolBlocks, extractParallelizableToolBlocks } from '../../lib/tool-parser';
+import { extractToolBlocks } from '../../lib/tool-parser';
 import { ToolExecutor } from '../../lib/tool-executor';
 import { getToolsForMode } from '../../lib/tool-config';
 import { generateToolExecutionId } from '../../lib/tool-execution-tracker';
@@ -16,7 +16,6 @@ import type { ToolExecutionState } from '../../types/tool';
 import { buildContinuationHistory } from '../../utils/continuation-builder';
 
 import type { ToolExecutionHookProps, ToolExecutionContext } from './types';
-import { executeToolsInParallel } from './parallel-executor';
 import { executeSingleTool } from './single-executor';
 import { runContinuationStream } from './continuation-stream';
 
@@ -25,10 +24,10 @@ export type { ToolExecutionHookProps, ToolExecutionContext, TodoItem } from './t
 
 /**
  * Hook for executing tools and managing continuation streams
- * 
+ *
  * This hook orchestrates tool execution by:
  * 1. Detecting tool blocks in assistant responses
- * 2. Executing tools (single or parallel)
+ * 2. Executing tools sequentially
  * 3. Managing continuation streams with retry logic
  * 4. Handling diagnostics and context compression
  */
@@ -145,39 +144,19 @@ export function useToolExecution({
           return;
         }
 
-        // Check if we can execute multiple tools in parallel
-        const parallelizableBlocks = extractParallelizableToolBlocks(assistantContent, toolIndex);
-        const canExecuteInParallel = parallelizableBlocks.length > 1;
-
-        if (canExecuteInParallel) {
-          // Execute tools in parallel
-          await executeToolsInParallel({
-            parallelizableBlocks,
-            assistantContent,
-            assistantMessageId,
-            toolIndex,
-            messagesToSend,
-            userContent,
-            userAttachments: effectiveUserAttachments,
-            toolExecutor: toolExecutorRef.current,
-            context,
-            executeToolAndContinue,
-          });
-        } else {
-          // Execute single tool
-          await executeSingleTool({
-            toolBlock,
-            assistantContent,
-            assistantMessageId,
-            toolIndex,
-            messagesToSend,
-            userContent,
-            userAttachments: effectiveUserAttachments,
-            toolExecutor: toolExecutorRef.current,
-            context,
-            executeToolAndContinue,
-          });
-        }
+        // Execute single tool
+        await executeSingleTool({
+          toolBlock,
+          assistantContent,
+          assistantMessageId,
+          toolIndex,
+          messagesToSend,
+          userContent,
+          userAttachments: effectiveUserAttachments,
+          toolExecutor: toolExecutorRef.current,
+          context,
+          executeToolAndContinue,
+        });
       } catch (error) {
         console.error('[ToolExecution] Execution error:', error);
         handleExecutionError(

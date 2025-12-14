@@ -1,9 +1,9 @@
 /**
  * Tool Configuration
- * 
+ *
  * Defines which tools are available for each chat mode and generates
  * the tool system prompt with available tools and format instructions.
- * 
+ *
  * NOTE: Mode-specific tool instructions are in prompts/[mode]/tools/
  * This file only handles generic XML format and tool filtering.
  */
@@ -11,7 +11,6 @@
 import type { Tool } from '../types/tool';
 import { getAllToolMetadata, getAllTools as getToolsFromRegistry } from './tool-registry';
 import type { ChatMode } from '../types/chat-mode';
-import { PARALLEL_ALLOWED_TOOLS } from './tool-parallel-config';
 
 // ============================================================================
 // MODE-SPECIFIC TOOL SETS
@@ -117,17 +116,6 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
     .filter(Boolean)
     .join('\n');
 
-  // Generate explicit parallel/sequential tool lists from single source of truth
-  const enabledIds = new Set(enabledTools.map(t => t.id));
-  const parallelTools = [...PARALLEL_ALLOWED_TOOLS].filter(id => enabledIds.has(id));
-  const sequentialTools = enabledTools
-    .filter(t => !PARALLEL_ALLOWED_TOOLS.has(t.id))
-    .map(t => t.id);
-
-  // Build strict lists
-  const parallelStr = parallelTools.length > 0 ? `[${parallelTools.join(', ')}]` : 'NONE';
-  const sequentialStr = sequentialTools.length > 0 ? `[${sequentialTools.join(', ')}]` : 'NONE';
-
   return `<tools>
 <tool_format>
 CRITICAL: You must strictly follow this XML structure. Valid XML is required.
@@ -145,20 +133,6 @@ FORMAT RULES:
 3. Parameters must be strictly inside <parameter> tags.
 4. XML tags must be properly closed.
 </tool_format>
-
-<execution_policy>
-You must swear by these concurrency rules. Do NOT violate them.
-
-PARALLEL_TOOLS: ${parallelStr}
-- These tools CAN be executed simultaneously in a single <function_calls> block.
-- Group independent reads/searches together for efficiency.
-
-SEQUENTIAL_TOOLS: ${sequentialStr}
-- These tools MUST be executed one at a time.
-- Do NOT group them with other tools.
-- Do NOT output multiple sequential tools in one response.
-- Wait for the result before proceeding.
-</execution_policy>
 
 <available_tools>
 Available: ${toolIdsList}

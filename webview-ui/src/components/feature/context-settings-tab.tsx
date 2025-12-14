@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react';
 import type { ContextSettings, Provider } from '../../types/api-settings';
 import { ToggleSwitch } from '../ui/toggle-switch';
 import { SettingsModelSelector } from '../ui/settings-model-selector';
-import { Sparkles } from 'lucide-react';
 
 interface ContextSettingsTabProps {
   contextSettings: ContextSettings;
@@ -145,13 +144,12 @@ export function ContextSettingsTab({ contextSettings, onChange }: ContextSetting
       {/* Auto-Summarization Section */}
       <div className="space-y-4">
         <h2
-          className="text-sm font-bold pb-2 border-b flex items-center gap-2"
+          className="text-sm font-bold pb-2 border-b"
           style={{
             color: 'var(--vscode-foreground)',
             borderColor: 'var(--vscode-panel-border)'
           }}
         >
-          <Sparkles size={14} />
           Auto-Summarization
         </h2>
 

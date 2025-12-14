@@ -65,7 +65,6 @@ const ToolBlockComponent = ({
   // Determine whether the icon should appear in an executing/spinning state
   const isIconExecuting = useMemo(() => {
     // If the tool has completed with results, it's NOT executing anymore
-    // This allows individual tools in a parallel batch to stop spinning when done
     if (toolCall.status === 'completed' && toolCall.result) {
       // For write_to_file and apply_diff, keep spinning only if we don't have diff data yet
       const isWriteOrApply = toolCall.toolName === 'write_to_file' || toolCall.toolName === 'apply_diff';
