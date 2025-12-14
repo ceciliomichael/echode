@@ -173,7 +173,8 @@ export async function executeSingleTool(
     diagnosticsText,
     currentTodos,
     mode,
-    userAttachments
+    userAttachments,
+    toolIndex === 0  // isFirstIteration: only add user message on first tool
   );
 
   // Continue streaming - clear executing tool state

@@ -223,7 +223,8 @@ async function handleBufferedResults(
     diagnosticsText,
     context.currentTodos,
     context.mode,
-    userAttachments
+    userAttachments,
+    toolIndex === 0  // isFirstIteration: only add user message on first tool
   );
 
   // Continue streaming with buffered results

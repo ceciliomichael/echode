@@ -30,7 +30,8 @@ function buildCompressedHistory(
   currentTodos: TodoItem[],
   mode: ChatMode,
   userAttachments: ImageAttachment[] | undefined,
-  modelSupportsVision: boolean
+  modelSupportsVision: boolean,
+  isFirstIteration: boolean
 ): ChatMessage[] {
   console.log('[ContinuationHistory] Using compressed summary with recent context');
 
@@ -43,7 +44,7 @@ function buildCompressedHistory(
 
   // Find the summary message index to get messages after it
   const summaryIndex = currentMessages.findIndex(msg => msg.id === summaryMessage.id);
-  
+
   // Get the first message (original task) if it exists before the summary
   const firstMessage = currentMessages.find((msg, idx) =>
     idx < summaryIndex && msg.role === 'user' && !msg.hidden
@@ -54,7 +55,7 @@ function buildCompressedHistory(
   if (firstMessage) {
     combinedContent = firstMessage.content;
   }
-  
+
   // Add summary as context block
   const summaryBlock = `<previous_session_summary>\n${summaryMessage.content}\n</previous_session_summary>`;
   combinedContent = combinedContent
@@ -91,24 +92,28 @@ function buildCompressedHistory(
     continuationHistory.push(chatMessage);
   }
 
-  // Add current user message and assistant response
-  const lastMsg = continuationHistory[continuationHistory.length - 1];
-  
-  // Ensure proper alternation before adding user message
-  if (lastMsg?.role === 'user') {
-    continuationHistory.push({
-      role: 'assistant',
-      content: 'Continuing...',
-    });
+  // Only add user message on first iteration - subsequent iterations have it in currentMessages
+  if (isFirstIteration) {
+    const lastMsg = continuationHistory[continuationHistory.length - 1];
+
+    // Ensure proper alternation before adding user message
+    if (lastMsg?.role === 'user') {
+      continuationHistory.push({
+        role: 'assistant',
+        content: 'Continuing...',
+      });
+    }
+
+    const currentUserMessage = buildChatMessage(
+      'user',
+      userContent,
+      userAttachments,
+      modelSupportsVision
+    );
+    continuationHistory.push(currentUserMessage);
   }
 
-  const currentUserMessage = buildChatMessage(
-    'user',
-    userContent,
-    userAttachments,
-    modelSupportsVision
-  );
-  continuationHistory.push(currentUserMessage);
+  // Always add assistant response (contains tool calls)
   continuationHistory.push({
     role: 'assistant',
     content: assistantContent,
@@ -144,7 +149,8 @@ function buildNormalHistory(
   currentTodos: TodoItem[],
   mode: ChatMode,
   userAttachments: ImageAttachment[] | undefined,
-  modelSupportsVision: boolean
+  modelSupportsVision: boolean,
+  isFirstIteration: boolean
 ): ChatMessage[] {
   const continuationHistory: ChatMessage[] = [
     {
@@ -183,14 +189,18 @@ function buildNormalHistory(
   );
   continuationHistory.push(...remainingMsgResults);
 
-  // Add current user message with attachments and assistant response
-  const currentUserMessage = buildChatMessage(
-    'user',
-    userContent,
-    userAttachments,
-    modelSupportsVision
-  );
-  continuationHistory.push(currentUserMessage);
+  // Only add user message on first iteration - subsequent iterations have it in currentMessages
+  if (isFirstIteration) {
+    const currentUserMessage = buildChatMessage(
+      'user',
+      userContent,
+      userAttachments,
+      modelSupportsVision
+    );
+    continuationHistory.push(currentUserMessage);
+  }
+
+  // Always add assistant response (contains tool calls)
   continuationHistory.push({
     role: 'assistant',
     content: assistantContent,
@@ -225,7 +235,8 @@ export function buildContinuationHistory(
   diagnosticsText: string,
   currentTodos: TodoItem[],
   mode: ChatMode = 'agent',
-  userAttachments?: ImageAttachment[]
+  userAttachments?: ImageAttachment[],
+  isFirstIteration: boolean = true
 ): ChatMessage[] {
   // Check if current model supports vision for image attachments
   const currentModel = getCurrentModel();
@@ -250,7 +261,8 @@ export function buildContinuationHistory(
       currentTodos,
       mode,
       userAttachments,
-      modelSupportsVision
+      modelSupportsVision,
+      isFirstIteration
     );
   }
 
@@ -265,6 +277,7 @@ export function buildContinuationHistory(
     currentTodos,
     mode,
     userAttachments,
-    modelSupportsVision
+    modelSupportsVision,
+    isFirstIteration
   );
 }
