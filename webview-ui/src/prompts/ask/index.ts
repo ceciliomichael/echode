@@ -4,7 +4,7 @@
 
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
-import { getUserRules, getSystemInfo, getThinkingProcess } from '../shared';
+import { getUserRules, getSystemInfo, getThinkingRules } from '../shared';
 import { getAskPrompt } from './prompt';
 import { getAskToolInstructions } from './tools';
 import { getToolSystemPrompt } from '../../lib/tool-config';
@@ -35,7 +35,7 @@ No tools are currently enabled.
 
     const userRules = getUserRules(workspace);
     const systemInfo = getSystemInfo(workspace);
-    const thinkingProcess = getThinkingProcess();
+    const thinkingRules = getThinkingRules();
 
     // Assemble
     const sections = [
@@ -44,7 +44,7 @@ No tools are currently enabled.
         toolInstructions,
         userRules,
         systemInfo,
-        thinkingProcess,
+        thinkingRules,
     ].filter(Boolean);
 
     return sections.join('\n\n').trim();

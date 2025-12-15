@@ -274,12 +274,14 @@ export async function getFileDiagnosticsAfterEdit(
         }
     }
 
-    // Format to string - include errors and warnings
+    // Format to string - include all severity levels (errors, warnings, info, hints)
     const problemsString = await diagnosticsToProblemsString(
         fileDiagnostics,
         [
             vscode.DiagnosticSeverity.Error,
             vscode.DiagnosticSeverity.Warning,
+            vscode.DiagnosticSeverity.Information,
+            vscode.DiagnosticSeverity.Hint,
         ],
         cwd,
         true,

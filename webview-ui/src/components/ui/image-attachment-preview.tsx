@@ -32,7 +32,7 @@ export function ImageAttachmentPreview({ attachments, onRemove, disabled = false
               borderColor: 'var(--vscode-input-border)',
               backgroundColor: 'transparent',
               color: 'var(--vscode-descriptionForeground)',
-              width: '114px'
+              maxWidth: '200px'
             }}
             aria-label={`Remove ${attachment.name || 'image'}`}
           >

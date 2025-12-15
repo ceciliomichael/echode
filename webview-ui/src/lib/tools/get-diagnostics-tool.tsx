@@ -59,6 +59,8 @@ function DiagnosticFileItem({ file, isExpanded, onToggle }: DiagnosticFileItemPr
 
   const errorCount = file.diagnostics.filter(d => d.severity === 'Error').length;
   const warningCount = file.diagnostics.filter(d => d.severity === 'Warning').length;
+  const infoCount = file.diagnostics.filter(d => d.severity === 'Information').length;
+  const hintCount = file.diagnostics.filter(d => d.severity === 'Hint').length;
 
   return (
     <div className="border-b border-[var(--vscode-input-border)] last:border-b-0">
@@ -81,15 +83,25 @@ function DiagnosticFileItem({ file, isExpanded, onToggle }: DiagnosticFileItemPr
         >
           {file.filePath}
         </span>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           {errorCount > 0 && (
             <span className="text-xs px-1.5 py-0.5 rounded-full bg-[var(--vscode-inputValidation-errorBackground)] text-[var(--vscode-errorForeground)]">
-              {errorCount} error{errorCount > 1 ? 's' : ''}
+              {errorCount}
             </span>
           )}
           {warningCount > 0 && (
             <span className="text-xs px-1.5 py-0.5 rounded-full bg-[var(--vscode-inputValidation-warningBackground)] text-[var(--vscode-editorWarning-foreground)]">
-              {warningCount} warning{warningCount > 1 ? 's' : ''}
+              {warningCount}
+            </span>
+          )}
+          {infoCount > 0 && (
+            <span className="text-xs px-1.5 py-0.5 rounded-full bg-[var(--vscode-inputValidation-infoBackground)] text-[var(--vscode-editorInfo-foreground)]">
+              {infoCount}
+            </span>
+          )}
+          {hintCount > 0 && (
+            <span className="text-xs px-1.5 py-0.5 rounded-full opacity-60" style={{ background: 'var(--vscode-editor-background)' }}>
+              {hintCount}
             </span>
           )}
         </div>

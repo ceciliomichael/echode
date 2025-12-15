@@ -5,4 +5,4 @@
 
 export { getUserRules } from './user-rules';
 export { getSystemInfo, getMinimalSystemInfo } from './system-info';
-export { getThinkingProcess } from './thinking-process';
+export { getThinkingRules } from './thinking-rules';

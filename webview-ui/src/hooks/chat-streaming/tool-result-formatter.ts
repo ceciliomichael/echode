@@ -59,6 +59,29 @@ export function formatToolExecutionResults(
           const directories = data.directories as Array<{ name: string }> | undefined;
           const files = data.files as Array<{ name: string }> | undefined;
           formattedResult = `Directory: ${data.path as string}\nDirectories: ${directories?.map(d => d.name).join(', ') || 'none'}\nFiles: ${files?.map(f => f.name).join(', ') || 'none'}`;
+        } else if (execution.toolName === 'apply_diff' || execution.toolName === 'write_to_file') {
+          // For file modification tools, only send minimal info to AI
+          // The AI already knows what it wrote - no need to echo full content back
+          const message = (data.message as string) || `File ${execution.toolName === 'apply_diff' ? 'edited' : 'written'} successfully`;
+          const lineCount = data.lineCount as number | undefined;
+          const action = data.action as string | undefined;
+          const diagnostics = data.fileDiagnostics as string | undefined;
+          const largeFileReminder = data.largeFileReminder as string | undefined;
+
+          // Build concise result for AI
+          formattedResult = `${message}`;
+          if (action) {
+            formattedResult += ` (${action})`;
+          }
+          if (lineCount) {
+            formattedResult += `\nLines: ${lineCount}`;
+          }
+          if (largeFileReminder) {
+            formattedResult += `\n${largeFileReminder}`;
+          }
+          if (diagnostics) {
+            formattedResult += `\nDiagnostics:\n${diagnostics}`;
+          }
         } else {
           // For other tools, stringify the data
           formattedResult = JSON.stringify(data);

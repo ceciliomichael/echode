@@ -4,7 +4,7 @@
  */
 
 import type { WorkspaceContext } from '../../types/workspace';
-import { getUserRules, getMinimalSystemInfo, getThinkingProcess } from '../shared';
+import { getUserRules, getMinimalSystemInfo, getThinkingRules } from '../shared';
 import { getChatPrompt } from './prompt';
 
 export interface ChatPromptOptions {
@@ -25,14 +25,14 @@ export function buildChatPrompt(options: ChatPromptOptions): string {
 
     // Chat mode gets minimal system info (no file list)
     const systemInfo = getMinimalSystemInfo();
-    const thinkingProcess = getThinkingProcess();
+    const thinkingRules = getThinkingRules();
 
     // Assemble - Note: NO tools section
     const sections = [
         prompt,
         userRules,
         systemInfo,
-        thinkingProcess,
+        thinkingRules,
     ].filter(Boolean);
 
     return sections.join('\n\n').trim();

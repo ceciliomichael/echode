@@ -262,6 +262,7 @@ export class WriteFileTool implements ITool {
       return {
         success: true,
         data: {
+          message: `Successfully ${fileExisted ? 'modified' : 'created'} ${filePath}`,
           path: filePath,
           absolutePath,
           action: fileExisted ? 'modified' : 'created',
