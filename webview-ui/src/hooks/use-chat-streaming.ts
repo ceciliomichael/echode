@@ -36,6 +36,7 @@ export function useChatStreaming({
   isStoppingRef,
   saveSession,
   mode,
+  preCompressionMessagesRef,
 }: ChatStreamingProps) {
   const workspace = useWorkspaceContext();
 
@@ -145,10 +146,10 @@ export function useChatStreaming({
       // Use ref to get the freshest mode (handles race condition where mode updates during async flow)
       const currentMode = modeRef.current;
       const systemPrompt = getSystemPrompt(latestWorkspace, currentMode);
-      
+
       // Update system prompt ref for summarization hook
       systemPromptRef.current = systemPrompt;
-      
+
       let messagesToSend = overrideMessages !== undefined ? overrideMessages : supersededMessages;
 
       // === CONTEXT SUMMARIZATION ===
@@ -156,6 +157,10 @@ export function useChatStreaming({
       const summarizationResult = await checkAndSummarize(messagesToSend, content);
       if (summarizationResult.wasCompressed) {
         console.log(`[sendMessage] Context compressed: ${summarizationResult.originalTokens} → ${summarizationResult.compressedTokens} tokens`);
+        // Store original messages for potential revert
+        if (summarizationResult.preCompressionMessages) {
+          preCompressionMessagesRef.current = summarizationResult.preCompressionMessages;
+        }
         messagesToSend = summarizationResult.messages;
         // Update the messages state with compressed version
         setMessages((prev) => {

@@ -68,6 +68,8 @@ export interface SummarizationResult {
   compressionCount: number;
   originalTokens: number;
   compressedTokens: number;
+  /** Original messages before compression, for revert support */
+  preCompressionMessages?: Message[];
 }
 
 export interface UseContextSummarizationOptions {
@@ -158,11 +160,11 @@ export function useContextSummarization({ systemPrompt, contextSettings }: UseCo
       const keepRecentCount = Math.min(4, Math.max(2, Math.floor(messages.length * 0.2)));
       const firstMessage = messages[firstMessageIndex];
       const recentMessages = messages.slice(-keepRecentCount);
-      
+
       // Messages to summarize: everything between first and recent, excluding summary messages
       const middleStartIndex = firstMessageIndex + 1;
       const middleEndIndex = messages.length - keepRecentCount;
-      
+
       if (middleEndIndex <= middleStartIndex) {
         console.log('[Summarization] Not enough middle messages to summarize');
         return result;
@@ -235,6 +237,8 @@ export function useContextSummarization({ systemPrompt, contextSettings }: UseCo
         compressionCount: countCompressions(compressedMessages),
         originalTokens: totalTokens,
         compressedTokens,
+        // Store original messages for potential revert
+        preCompressionMessages: messages,
       };
     } catch (error) {
       console.error('[Summarization] Error:', error);

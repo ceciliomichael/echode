@@ -29,6 +29,8 @@ export function useChatState() {
   const isExecutingToolRef = useRef(false);
   const messagesRef = useRef<Message[]>(messages);
   const hasStreamedContentRef = useRef(false);
+  // Track original messages before compression for revert support
+  const preCompressionMessagesRef = useRef<Message[] | null>(null);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -100,6 +102,7 @@ export function useChatState() {
     isExecutingToolRef,
     hasStreamedContentRef,
     messagesRef,
+    preCompressionMessagesRef,
     // Helper functions for ref mutations
     clearSessionRef,
     abortAndReset,

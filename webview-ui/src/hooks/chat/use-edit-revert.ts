@@ -21,6 +21,8 @@ interface EditRevertProps {
     forceEchoSearch?: boolean
   ) => Promise<void>;
   abortAndReset: () => boolean;
+  /** Ref to original messages before compression (for revert support) */
+  preCompressionMessagesRef: React.MutableRefObject<Message[] | null>;
 }
 
 /**
@@ -38,6 +40,7 @@ export function useEditRevert({
   ensureSessionId,
   sendMessage,
   abortAndReset,
+  preCompressionMessagesRef,
 }: EditRevertProps) {
   const editMessage = useCallback(async (
     messageId: string,
@@ -74,11 +77,43 @@ export function useEditRevert({
     setSessionRevertPreview(sessionId, null);
     setEditingMessageId(null);
 
-    // Step 4: Get truncated history and remove compression summaries
-    // When reverting, we also revert compression state
-    const truncatedMessages = messages
-      .slice(0, messageIndex)
-      .filter(msg => !msg.id?.startsWith('compressed-summary-'));
+    // Step 4: Get truncated history and handle compression restoration
+    // When reverting, check if we need to restore pre-compression messages
+    let truncatedMessages: Message[];
+    const revertIndex = messageIndex;
+    const hasCompressedSummary = messages.some(msg => msg.id?.startsWith('compressed-summary-'));
+
+    if (hasCompressedSummary && preCompressionMessagesRef.current) {
+      // Find the index of the compression summary in current messages
+      const compressionSummaryIndex = messages.findIndex(msg => msg.id?.startsWith('compressed-summary-'));
+
+      // If reverting to a point before or at the compression summary, restore original messages
+      if (revertIndex <= compressionSummaryIndex) {
+        // Restore from pre-compression messages, truncate at the equivalent position
+        // Find the message ID we're reverting to and locate it in the original messages
+        const revertMessage = messages[revertIndex];
+        const originalIndex = preCompressionMessagesRef.current.findIndex(msg => msg.id === revertMessage.id);
+
+        if (originalIndex !== -1) {
+          truncatedMessages = preCompressionMessagesRef.current.slice(0, originalIndex);
+        } else {
+          // Fallback: just use the first few messages from original
+          truncatedMessages = preCompressionMessagesRef.current.slice(0, revertIndex);
+        }
+        // Clear the pre-compression backup since we've restored
+        preCompressionMessagesRef.current = null;
+      } else {
+        // Reverting to a point after compression, just filter summary messages
+        truncatedMessages = messages
+          .slice(0, revertIndex)
+          .filter(msg => !msg.id?.startsWith('compressed-summary-'));
+      }
+    } else {
+      // No compression occurred, simple truncation
+      truncatedMessages = messages
+        .slice(0, revertIndex)
+        .filter(msg => !msg.id?.startsWith('compressed-summary-'));
+    }
 
     // Step 5: Update messages
     setMessages(truncatedMessages);
@@ -95,6 +130,7 @@ export function useEditRevert({
     setEditingMessageId,
     setMessages,
     abortAndReset,
+    preCompressionMessagesRef,
   ]);
 
   const handleRevertPreview = useCallback(async (messageId: string) => {

@@ -29,10 +29,8 @@ interface ChatSession {
     editingMessageId: string | null;
     revertPreviewMessageId: string | null;
   };
-  compressedContext?: {
-    messages: ChatMessage[];
-    tokenCount: number;
-  };
+  /** Original messages before compression, used for revert functionality */
+  preCompressionMessages?: ChatMessage[];
 }
 
 interface ChatSessionSummary {

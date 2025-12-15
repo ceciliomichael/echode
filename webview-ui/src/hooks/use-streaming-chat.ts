@@ -99,6 +99,7 @@ export function useStreamingChat(
     isStoppingRef: state.isStoppingRef,
     saveSession: saveCurrentSession,
     mode,
+    preCompressionMessagesRef: state.preCompressionMessagesRef,
   });
 
   // Edit and revert operations
@@ -120,6 +121,7 @@ export function useStreamingChat(
     ensureSessionId,
     sendMessage,
     abortAndReset: state.abortAndReset,
+    preCompressionMessagesRef: state.preCompressionMessagesRef,
   });
 
   // Clear chat
