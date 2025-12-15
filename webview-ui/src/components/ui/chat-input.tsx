@@ -1,13 +1,10 @@
 import { useState, useRef, useEffect, type KeyboardEvent, type FormEvent, type ChangeEvent } from 'react';
 import { usePasteHandler } from '../../hooks/use-paste-handler';
-import { useFileMention } from '../../hooks/use-file-mention';
-import { useWorkspaceContext } from '../../hooks/use-workspace-context';
 import { ArrowUp, Paperclip, Square } from 'lucide-react';
 
 import { TodoBlock } from './todo-block';
 import { AttachmentPreview } from './attachment-preview';
 import { ImageAttachmentPreview } from './image-attachment-preview';
-import { FileMentionMenu } from './file-mention-menu';
 
 import { ModeDropdown } from './mode-dropdown';
 import { ChatModelSelector } from './chat-model-selector';
@@ -17,7 +14,6 @@ import { useRefactorScan } from '../../hooks/use-refactor-scan';
 import type { ContextUsageResult } from '../../hooks/use-context-usage';
 
 import { buildRefactorMessage } from '../../utils/message-builders';
-import { buildHighlightedSegments, MENTION_HIGHLIGHT_STYLE } from '../../utils/mention-highlighter';
 import type { TodoTask } from '../../types/todo';
 import type { ChatMode } from '../../types/chat-mode';
 import { processDocumentFiles, buildAllAttachedFileBlocks, validateDocumentFile, type DocumentAttachment } from '../../utils/document-utils';
@@ -60,27 +56,6 @@ export function ChatInput({ onSendMessage, onNewChat, disabled = false, isStream
   // Get refactor scan results
   const { largeFiles, isScanning: isRefactorScanning } = useRefactorScan();
 
-  // Get workspace context for file list
-  const workspace = useWorkspaceContext();
-  const workspaceFiles = workspace?.files ?? [];
-
-  // File mention autocomplete
-  const {
-    suggestionState,
-    filteredFiles,
-    mentions,
-    handleKeyDown: handleMentionKeyDown,
-    handleChange: handleMentionChange,
-    selectFile,
-    closeSuggestions,
-    setTextareaRef: setMentionTextareaRef,
-  } = useFileMention({
-    value: input,
-    onChange: setInput,
-    files: workspaceFiles,
-    disabled: disabled || isStreaming,
-  });
-
   const { handlePaste } = usePasteHandler({
     attachments,
     setAttachments,
@@ -121,15 +96,10 @@ export function ChatInput({ onSendMessage, onNewChat, disabled = false, isStream
   };
 
   const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
-    handleMentionChange(e);
+    setInput(e.target.value);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    // Let file mention handle keyboard navigation first
-    if (handleMentionKeyDown(e)) {
-      return;
-    }
-
     if (e.key === 'Enter' && !e.shiftKey) {
       // Ctrl+Enter: force echo_search for Agent, Plan, and Ask modes
       if (e.ctrlKey || e.metaKey) {
@@ -345,26 +315,8 @@ export function ChatInput({ onSendMessage, onNewChat, disabled = false, isStream
           </div>
 
           <div className="w-full relative rounded-xl">
-            {/* Highlight overlay for menu-selected mentions */}
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 px-1.5 py-1 text-sm leading-normal pointer-events-none whitespace-pre-wrap break-words overflow-hidden"
-              style={{ color: 'transparent' }}
-            >
-              {buildHighlightedSegments(input, mentions).map(segment => (
-                <span
-                  key={segment.key}
-                  style={segment.isHighlighted ? MENTION_HIGHLIGHT_STYLE : undefined}
-                >
-                  {segment.text}
-                </span>
-              ))}
-            </div>
             <textarea
-              ref={(el) => {
-                (textareaRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = el;
-                setMentionTextareaRef(el);
-              }}
+              ref={textareaRef}
               value={input}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
@@ -379,15 +331,6 @@ export function ChatInput({ onSendMessage, onNewChat, disabled = false, isStream
                 caretColor: 'var(--vscode-input-foreground)',
               }}
             />
-            {/* File mention autocomplete menu */}
-            {suggestionState.isOpen && (
-              <FileMentionMenu
-                files={filteredFiles}
-                selectedIndex={suggestionState.selectedIndex}
-                onSelect={selectFile}
-                onClose={closeSuggestions}
-              />
-            )}
           </div>
 
           <div className="flex justify-between items-center gap-1 px-1.5 pb-1.5">

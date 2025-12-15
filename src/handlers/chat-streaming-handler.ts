@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import { LLMFactory } from '../services/llm/llm-factory';
-import { ChatMessage, ChatMessageContent, ChatStreamSettings } from '../services/llm/llm-provider.interface';
-import { expandMentions, getWorkspaceRoot } from '../services/mention-service';
+import { ChatMessage, ChatStreamSettings } from '../services/llm/llm-provider.interface';
 import { mergeSameRoleChatMessages } from '../utils/message-merger';
 import { processTodoReminders } from '../utils/todo-reminder';
 
@@ -39,32 +38,8 @@ export async function handleChatStream(
   activeStreams.set(requestId, abortController);
 
   try {
-    // Clone messages and expand mentions in user messages
-    const workspaceRoot = getWorkspaceRoot();
-    const processedMessages = await Promise.all(
-      messages.map(async (m) => {
-        const cloned = { ...m };
-
-        // Expand @file mentions in user messages
-        if (cloned.role === 'user' && workspaceRoot) {
-          if (Array.isArray(cloned.content)) {
-            // Handle multimodal content
-            cloned.content = await Promise.all(
-              cloned.content.map(async (c) => {
-                if (c.type === 'text' && c.text) {
-                  return { ...c, text: await expandMentions(c.text, workspaceRoot) };
-                }
-                return c;
-              })
-            ) as ChatMessageContent[];
-          } else if (typeof cloned.content === 'string') {
-            cloned.content = await expandMentions(cloned.content, workspaceRoot);
-          }
-        }
-
-        return cloned;
-      })
-    );
+    // Clone messages for processing
+    const processedMessages = messages.map(m => ({ ...m }));
 
     // Get chat mode from settings
     const chatMode = settings.chatMode || 'agent';

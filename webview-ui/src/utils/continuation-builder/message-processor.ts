@@ -8,7 +8,7 @@ import type { ChatMode } from '../../types/chat-mode';
 import type { TruncationResult } from './types';
 import { MAX_HISTORY_MESSAGES, N_MESSAGES_TO_ALWAYS_KEEP } from './constants';
 import { buildChatMessage } from '../vision-utils';
-import { summarizeToolSections } from '../tool-context-cleaner';
+import { summarizeToolSections, stripDiagnosticsSections } from '../tool-context-cleaner';
 import { stripUnavailableToolCalls } from '../tool-history-filter';
 import { formatToolResultsForHistory } from '../tool-result-formatter';
 
@@ -115,10 +115,16 @@ export function processRemainingMessages(
   for (let i = 1; i < messages.length; i++) {
     const msg = messages[i];
 
-    // For assistant messages, strip tool call XML for tools not available in current mode
-    const processedContent = msg.role === 'assistant'
-      ? stripUnavailableToolCalls(msg.content, mode)
+    // For user messages, strip old <diagnostics> blocks to avoid stale diagnostic data
+    // Fresh diagnostics for the current iteration are added separately
+    let processedContent = msg.role === 'user'
+      ? stripDiagnosticsSections(msg.content)
       : msg.content;
+
+    // For assistant messages, strip tool call XML for tools not available in current mode
+    if (msg.role === 'assistant') {
+      processedContent = stripUnavailableToolCalls(processedContent, mode);
+    }
 
     // Build message with vision support if available
     const chatMessage = buildChatMessage(

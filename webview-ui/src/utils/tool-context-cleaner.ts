@@ -21,15 +21,15 @@ const TOOL_SECTION_PATTERNS = [
  */
 function extractToolSummary(content: string): string {
   const toolCalls: string[] = [];
-  
+
   // Match [tool_name] patterns
   const toolPattern = /\[([a-z_]+)\]\s*([^\n[]+)?/gi;
   let match;
-  
+
   while ((match = toolPattern.exec(content)) !== null) {
     const toolName = match[1];
     const detail = match[2]?.trim();
-    
+
     if (toolName === 'read_file' && detail) {
       // Extract just the path
       const pathMatch = detail.match(/^([^\s(]+)/);
@@ -51,7 +51,7 @@ function extractToolSummary(content: string): string {
       toolCalls.push(toolName);
     }
   }
-  
+
   // Deduplicate and limit
   const unique = [...new Set(toolCalls)].slice(0, 5);
   return unique.length > 0 ? unique.join(', ') : '';
@@ -62,14 +62,14 @@ function extractToolSummary(content: string): string {
  */
 export function stripToolSections(content: string): string {
   let cleaned = content;
-  
+
   for (const pattern of TOOL_SECTION_PATTERNS) {
     cleaned = cleaned.replace(pattern, '');
   }
-  
+
   // Clean up excessive whitespace left behind
   cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
-  
+
   return cleaned;
 }
 
@@ -79,7 +79,7 @@ export function stripToolSections(content: string): string {
 export function summarizeToolSections(content: string): string {
   let cleaned = content;
   let summaryAdded = false;
-  
+
   for (const pattern of TOOL_SECTION_PATTERNS) {
     const matches = content.match(pattern);
     if (matches && matches.length > 0) {
@@ -98,10 +98,10 @@ export function summarizeToolSections(content: string): string {
       }
     }
   }
-  
+
   // Clean up excessive whitespace
   cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
-  
+
   return cleaned;
 }
 
@@ -110,4 +110,15 @@ export function summarizeToolSections(content: string): string {
  */
 export function hasToolSections(content: string): boolean {
   return TOOL_SECTION_PATTERNS.some(pattern => pattern.test(content));
+}
+
+/**
+ * Strip only <diagnostics> sections from content
+ * Used to remove stale diagnostic data from historical messages
+ */
+export function stripDiagnosticsSections(content: string): string {
+  return content
+    .replace(/<diagnostics>[\s\S]*?<\/diagnostics>/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
