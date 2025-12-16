@@ -1,4 +1,4 @@
-import { Check, Copy, FileDown, WrapText } from "lucide-react";
+import { Check, Copy, WrapText } from "lucide-react";
 import { memo, useMemo, useState } from "react";
 import { useClipboard } from "../../hooks/use-clipboard";
 import { getLanguageIcon } from "../../utils/file-icon-mapper";
@@ -56,9 +56,6 @@ const CodeBlockComponent = ({ children, className }: CodeBlockProps) => {
 
   const handleCopy = () => copy(codeContent);
   const handleWordWrap = () => setWordWrap(!wordWrap);
-  const handleApply = () => {
-    // Placeholder for future functionality
-  };
 
   return (
     <div
@@ -86,15 +83,6 @@ const CodeBlockComponent = ({ children, className }: CodeBlockProps) => {
           </span>
         </div>
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={handleApply}
-            className="flex items-center py-1 rounded transition-colors hover:scale-110"
-            style={{ color: 'var(--vscode-foreground)' }}
-            title="Apply code"
-          >
-            <FileDown className="w-3.5 h-3.5 hover:scale-110 transition-transform" />
-          </button>
           <button
             type="button"
             onClick={handleWordWrap}

@@ -193,9 +193,25 @@ function getSeverityLabel(severity: vscode.DiagnosticSeverity): string {
 }
 
 /**
- * Default delay in ms to wait for linters to process changes
+ * Configuration for dynamic diagnostic waiting
  */
-export const DEFAULT_WRITE_DELAY_MS = 300;
+interface DiagnosticWaitConfig {
+    /** Minimum time to wait before checking diagnostics (ms) */
+    minWaitMs: number;
+    /** Maximum time to wait for diagnostics to stabilize (ms) */
+    maxWaitMs: number;
+    /** Time of no changes before considering diagnostics stable (ms) */
+    stabilityThresholdMs: number;
+    /** Interval for polling diagnostic changes (ms) */
+    pollIntervalMs: number;
+}
+
+const DEFAULT_WAIT_CONFIG: DiagnosticWaitConfig = {
+    minWaitMs: 100,
+    maxWaitMs: 10000, // 10 seconds max - enough for slow language servers
+    stabilityThresholdMs: 500, // Consider stable after 500ms of no changes
+    pollIntervalMs: 50, // Check every 50ms
+};
 
 /**
  * Capture pre-diagnostics before a file operation
@@ -205,19 +221,122 @@ export function capturePreDiagnostics(): [vscode.Uri, vscode.Diagnostic[]][] {
 }
 
 /**
+ * Wait for diagnostics to stabilize for a specific file.
+ * Uses dynamic waiting: monitors for changes and waits until diagnostics
+ * haven't changed for a stability threshold period.
+ */
+async function waitForDiagnosticsToStabilize(
+    filePath: string,
+    config: DiagnosticWaitConfig = DEFAULT_WAIT_CONFIG
+): Promise<void> {
+    const normalizedFilePath = path.normalize(filePath).toLowerCase();
+    const startTime = Date.now();
+    
+    return new Promise<void>((resolve) => {
+        let lastChangeTime = startTime;
+        let lastDiagnosticHash = '';
+        let resolved = false;
+        let checkIntervalId: NodeJS.Timeout;
+        let maxTimeoutId: NodeJS.Timeout;
+
+        const cleanup = () => {
+            if (resolved) {
+                return;
+            }
+            resolved = true;
+            disposable.dispose();
+            clearInterval(checkIntervalId);
+            clearTimeout(maxTimeoutId);
+            resolve();
+        };
+
+        // Get a simple hash of diagnostics for comparison
+        const getDiagnosticHash = (): string => {
+            const allDiagnostics = vscode.languages.getDiagnostics();
+            for (const [uri, diagnostics] of allDiagnostics) {
+                const normalizedUri = path.normalize(uri.fsPath).toLowerCase();
+                if (normalizedUri === normalizedFilePath) {
+                    // Create a hash from diagnostic count and first few messages
+                    const messages = diagnostics
+                        .slice(0, 5)
+                        .map(d => `${d.range.start.line}:${d.message.substring(0, 50)}`)
+                        .join('|');
+                    return `${diagnostics.length}:${messages}`;
+                }
+            }
+            return '0:';
+        };
+
+        // Listen for diagnostic change events
+        const disposable = vscode.languages.onDidChangeDiagnostics((e) => {
+            for (const uri of e.uris) {
+                const normalizedUri = path.normalize(uri.fsPath).toLowerCase();
+                if (normalizedUri === normalizedFilePath) {
+                    lastChangeTime = Date.now();
+                    return;
+                }
+            }
+        });
+
+        // Periodically check if diagnostics have stabilized
+        checkIntervalId = setInterval(() => {
+            const now = Date.now();
+            const elapsed = now - startTime;
+            const timeSinceLastChange = now - lastChangeTime;
+
+            // Check if we've passed minimum wait time
+            if (elapsed < config.minWaitMs) {
+                return;
+            }
+
+            // Get current diagnostic state
+            const currentHash = getDiagnosticHash();
+
+            // Track if diagnostics changed
+            if (currentHash !== lastDiagnosticHash) {
+                lastDiagnosticHash = currentHash;
+                lastChangeTime = now;
+                return;
+            }
+
+            // Check if diagnostics have been stable long enough
+            if (timeSinceLastChange >= config.stabilityThresholdMs) {
+                // Diagnostics are stable - we can proceed
+                const diagnosticCount = parseInt(currentHash.split(':')[0], 10);
+                console.log(`[DIAGNOSTICS] Stabilized after ${elapsed}ms (${diagnosticCount} diagnostics)`);
+                cleanup();
+            }
+        }, config.pollIntervalMs);
+
+        // Maximum timeout to prevent hanging
+        maxTimeoutId = setTimeout(() => {
+            const elapsed = Date.now() - startTime;
+            console.log(`[DIAGNOSTICS] Max wait reached after ${elapsed}ms`);
+            cleanup();
+        }, config.maxWaitMs);
+    });
+}
+
+/**
  * Detect new problems after a file operation.
- * Waits for linters to process, then compares pre/post diagnostics.
- * Returns only errors (not warnings) to avoid distracting the AI.
+ * Uses dynamic waiting for diagnostics to stabilize.
+ * Returns only errors and warnings.
  */
 export async function detectNewProblemsAfterEdit(
     preDiagnostics: [vscode.Uri, vscode.Diagnostic[]][],
     cwd: string,
-    delayMs: number = DEFAULT_WRITE_DELAY_MS,
+    _delayMs: number = 0, // Kept for backwards compatibility, but ignored
     maxMessages: number = 50
 ): Promise<string> {
-    // Wait for linters to process the changes
-    const safeDelayMs = Math.max(0, delayMs);
-    await new Promise((resolve) => setTimeout(resolve, safeDelayMs));
+    // Wait for diagnostics to stabilize (uses dynamic waiting)
+    // We need at least one file path to monitor - extract from pre-diagnostics
+    if (preDiagnostics.length > 0) {
+        const firstFilePath = preDiagnostics[0][0].fsPath;
+        await waitForDiagnosticsToStabilize(firstFilePath);
+    } else {
+        // Fallback: just wait a bit if no pre-diagnostics
+        await new Promise(resolve => setTimeout(resolve, 200));
+    }
 
     // Capture post-diagnostics
     const postDiagnostics = vscode.languages.getDiagnostics();
@@ -246,63 +365,20 @@ export async function detectNewProblemsAfterEdit(
 
 /**
  * Get ALL diagnostics for a specific file after a file operation.
- * Uses smart waiting: listens for diagnostic change events for the specific file,
- * with a minimum delay and maximum timeout to ensure accuracy without hanging.
+ * Uses dynamic waiting: monitors diagnostic change events and waits
+ * until diagnostics stabilize (no changes for a threshold period).
+ * This ensures we catch all diagnostics from slow language servers.
  */
 export async function getFileDiagnosticsAfterEdit(
     filePath: string,
     cwd: string,
-    delayMs: number = DEFAULT_WRITE_DELAY_MS,
+    _delayMs: number = 0, // Kept for backwards compatibility, but ignored
     maxMessages: number = 50
 ): Promise<string> {
     const normalizedFilePath = path.normalize(filePath).toLowerCase();
-    const MAX_WAIT_MS = 1500; // Maximum time to wait for diagnostics update
-    const MIN_WAIT_MS = Math.max(100, delayMs); // Minimum delay for linter to start
 
-    // Wait for diagnostics to update for this specific file
-    await new Promise<void>((resolve) => {
-        let resolved = false;
-        let timeoutId: NodeJS.Timeout;
-        let minDelayTimeoutId: NodeJS.Timeout;
-        let minDelayPassed = false;
-
-        const cleanup = () => {
-            if (resolved) {
-                return;
-            }
-            resolved = true;
-            disposable.dispose();
-            clearTimeout(timeoutId);
-            clearTimeout(minDelayTimeoutId);
-            resolve();
-        };
-
-        // Listen for diagnostic changes on this file
-        const disposable = vscode.languages.onDidChangeDiagnostics((e) => {
-            if (!minDelayPassed) {
-                return; // Don't resolve before minimum delay
-            }
-
-            // Check if our file's diagnostics changed
-            for (const uri of e.uris) {
-                const normalizedUri = path.normalize(uri.fsPath).toLowerCase();
-                if (normalizedUri === normalizedFilePath) {
-                    // Give a longer grace period for language servers to stabilize
-                    // TypeScript/ESLint often emit multiple updates in quick succession
-                    setTimeout(cleanup, 300);
-                    return;
-                }
-            }
-        });
-
-        // Minimum delay before we start accepting diagnostic updates
-        minDelayTimeoutId = setTimeout(() => {
-            minDelayPassed = true;
-        }, MIN_WAIT_MS);
-
-        // Maximum timeout - don't wait forever
-        timeoutId = setTimeout(cleanup, MAX_WAIT_MS);
-    });
+    // Wait for diagnostics to stabilize using dynamic waiting
+    await waitForDiagnosticsToStabilize(filePath);
 
     // Get all diagnostics
     const allDiagnostics = vscode.languages.getDiagnostics();
