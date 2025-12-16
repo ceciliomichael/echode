@@ -7,17 +7,19 @@ import type { ChatMode } from '../../types/chat-mode';
 import type { Provider } from '../../types/api-settings';
 import type { ContextUsageResult } from '../../hooks/use-context-usage';
 import { stripAttachedFileBlocks, type DocumentAttachment } from '../../utils/document-utils';
+import type { ImageAttachment } from '../../types/chat';
 
 interface UserMessageProps {
   content: string;
   messageId: string;
-  onEdit: (messageId: string, newContent: string, attachments?: undefined, forceEchoSearch?: boolean) => void;
+  onEdit: (messageId: string, newContent: string, imageAttachments?: ImageAttachment[], forceEchoSearch?: boolean) => void;
   onUpdate: (messageId: string, newContent: string) => void;
   isEditing: boolean;
   onEditStart: (messageId: string) => void;
   onEditCancel: () => void;
   onRevert?: (messageId: string) => void;
   attachments?: DocumentAttachment[];
+  imageAttachments?: ImageAttachment[];
   mode?: ChatMode;
   onModeChange?: (mode: ChatMode) => void;
   provider: Provider;
@@ -26,7 +28,7 @@ interface UserMessageProps {
   contextUsage?: ContextUsageResult;
 }
 
-export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, attachments, mode, onModeChange, provider, model, onModelChange, contextUsage }: UserMessageProps) {
+export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, attachments, imageAttachments, mode, onModeChange, provider, model, onModelChange, contextUsage }: UserMessageProps) {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -86,9 +88,9 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
     }
   };
 
-  const handleSubmit = (newContent: string, _attachments?: undefined, forceEchoSearch?: boolean) => {
-    // Attachments are now embedded in content as <attached_file> blocks
-    onEdit(messageId, newContent, undefined, forceEchoSearch);
+  const handleSubmit = (newContent: string, editedImageAttachments?: ImageAttachment[], forceEchoSearch?: boolean) => {
+    // Pass image attachments from the edit form to the edit handler
+    onEdit(messageId, newContent, editedImageAttachments, forceEchoSearch);
   };
 
   const handleSave = (newContent: string) => {
@@ -104,6 +106,7 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
           onCancel={onEditCancel}
           onSave={handleSave}
           attachments={attachments}
+          imageAttachments={imageAttachments}
           mode={mode}
           onModeChange={onModeChange}
           provider={provider}

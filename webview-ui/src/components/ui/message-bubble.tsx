@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import type { Message } from '../../types/chat';
+import type { Message, ImageAttachment } from '../../types/chat';
 import type { ChatMode } from '../../types/chat-mode';
 import type { Provider } from '../../types/api-settings';
 import type { ContextUsageResult } from '../../hooks/use-context-usage';
@@ -9,7 +9,7 @@ import { AssistantMessage } from './assistant-message';
 
 interface MessageBubbleProps {
   message: Message;
-  onEdit?: (messageId: string, newContent: string, attachments?: undefined, forceEchoSearch?: boolean) => void;
+  onEdit?: (messageId: string, newContent: string, imageAttachments?: ImageAttachment[], forceEchoSearch?: boolean) => void;
   onUpdate?: (messageId: string, newContent: string) => void;
   isEditing?: boolean;
   onEditStart?: (messageId: string) => void;
@@ -37,6 +37,7 @@ function MessageBubbleComponent({ message, onEdit, onUpdate, isEditing, onEditSt
         onEditStart={onEditStart || (() => { })}
         onEditCancel={onEditCancel || (() => { })}
         onRevert={onRevert}
+        imageAttachments={message.attachments}
         mode={mode}
         onModeChange={onModeChange}
         provider={provider}

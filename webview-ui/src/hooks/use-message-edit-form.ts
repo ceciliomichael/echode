@@ -7,11 +7,13 @@ import { mentionRegex } from '../utils/context-mentions';
 import { buildAllAttachedFileBlocks, extractTextAndAttachmentsFromContent, type DocumentAttachment } from '../utils/document-utils';
 import type { ChatMode } from '../types/chat-mode';
 import type { InputWithHighlightsRef } from '../components/ui/input-with-highlights';
+import type { ImageAttachment } from '../types/chat';
 
 interface UseMessageEditFormOptions {
   initialContent: string;
   initialAttachments?: DocumentAttachment[];
-  onSubmit: (content: string, attachments?: undefined, forceEchoSearch?: boolean) => void;
+  initialImageAttachments?: ImageAttachment[];
+  onSubmit: (content: string, imageAttachments?: ImageAttachment[], forceEchoSearch?: boolean) => void;
   onCancel: () => void;
   onSave?: (content: string) => void;
   mode?: ChatMode;
@@ -67,6 +69,7 @@ function parseInitialMentions(
 export function useMessageEditForm({
   initialContent,
   initialAttachments,
+  initialImageAttachments,
   onSubmit,
   onCancel,
   onSave,
@@ -83,7 +86,7 @@ export function useMessageEditForm({
   // Initialize attachment handler with parsed or provided attachments
   const attachmentHandler = useAttachmentHandler({
     initialAttachments: initialAttachments || parsed.attachments,
-    initialImageAttachments: [],
+    initialImageAttachments: initialImageAttachments ?? [],
     disabled: false
   });
 
@@ -96,9 +99,9 @@ export function useMessageEditForm({
 
   // Initialize paste handler
   const { handlePaste } = usePasteHandler({
-    attachments: attachmentHandler.attachments,
+    attachmentsRef: attachmentHandler.attachmentsRef,
     setAttachments: attachmentHandler.setAttachments,
-    imageAttachments: attachmentHandler.imageAttachments,
+    imageAttachmentsRef: attachmentHandler.imageAttachmentsRef,
     setImageAttachments: attachmentHandler.setImageAttachments,
     disabled: false
   });
@@ -162,8 +165,12 @@ export function useMessageEditForm({
   const handleSubmit = useCallback((e: FormEvent, forceEchoSearch: boolean = false) => {
     e.preventDefault();
     if (editContent.trim()) {
+      // Use ref to get current attachment state (avoids stale closure)
+      const currentAttachments = attachmentHandler.attachmentsRef.current;
+      const currentImageAttachments = attachmentHandler.imageAttachmentsRef.current;
+      
       // Build <attached_file> blocks
-      const attachmentBlocks = buildAllAttachedFileBlocks(attachmentHandler.attachments);
+      const attachmentBlocks = buildAllAttachedFileBlocks(currentAttachments);
 
       // Expand mentions to full format: @[label](path)
       let expandedContent = editContent.trim();
@@ -174,14 +181,14 @@ export function useMessageEditForm({
       });
 
       const newContent = expandedContent + attachmentBlocks;
-      onSubmit(newContent, undefined, forceEchoSearch);
+      onSubmit(newContent, currentImageAttachments, forceEchoSearch);
       if (onSave) {
         onSave(newContent);
       }
     } else {
       onCancel();
     }
-  }, [editContent, attachmentHandler.attachments, contextMenu.mentionPathMap, onSubmit, onSave, onCancel]);
+  }, [editContent, attachmentHandler.attachmentsRef, attachmentHandler.imageAttachmentsRef, contextMenu.mentionPathMap, onSubmit, onSave, onCancel]);
 
   const handleChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;

@@ -4,18 +4,18 @@ import { validateImageFile, fileToImageAttachment } from '../utils/image-utils';
 import type { ImageAttachment } from '../types/chat';
 
 interface UsePasteHandlerProps {
-    attachments: DocumentAttachment[];
+    attachmentsRef: React.RefObject<DocumentAttachment[]>;
     setAttachments: (value: React.SetStateAction<DocumentAttachment[]>) => void;
-    imageAttachments: ImageAttachment[];
+    imageAttachmentsRef: React.RefObject<ImageAttachment[]>;
     setImageAttachments: (value: React.SetStateAction<ImageAttachment[]>) => void;
     disabled?: boolean;
     maxAttachments?: number;
 }
 
 export function usePasteHandler({
-    attachments,
+    attachmentsRef,
     setAttachments,
-    imageAttachments,
+    imageAttachmentsRef,
     setImageAttachments,
     disabled = false,
     maxAttachments = 3
@@ -36,7 +36,8 @@ export function usePasteHandler({
             return;
         }
 
-        const currentTotal = attachments.length + imageAttachments.length;
+        // Use refs to get current counts (avoids stale closure)
+        const currentTotal = attachmentsRef.current.length + imageAttachmentsRef.current.length;
 
         if (currentTotal >= maxAttachments) {
             return;
@@ -104,7 +105,7 @@ export function usePasteHandler({
         if (newImageAttachments.length > 0) {
             setImageAttachments(prev => [...prev, ...newImageAttachments]);
         }
-    }, [attachments, imageAttachments, disabled, maxAttachments, setAttachments, setImageAttachments]);
+    }, [attachmentsRef, imageAttachmentsRef, disabled, maxAttachments, setAttachments, setImageAttachments]);
 
     return { handlePaste };
 }

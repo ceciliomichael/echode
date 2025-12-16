@@ -4,7 +4,10 @@ import type { ChatMode } from '../types/chat-mode';
 export const CODE_QUALITY_REMINDER = `
 
 <code_standards priority="high">
-INTERNALIZE these principles before writing any code:
+**Planning & Communication**
+- When given a development task, ALWAYS mention the files you will create/modify upfront
+- List the file paths and their purpose before implementation
+- This ensures clarity and proper file organization from the start
 
 **DRY (Don't Repeat Yourself)**
 - If you write similar code twice, extract it into a reusable function/component

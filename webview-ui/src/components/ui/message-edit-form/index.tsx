@@ -9,16 +9,18 @@ import type { ChatMode } from '../../../types/chat-mode';
 import type { ContextUsageResult } from '../../../hooks/use-context-usage';
 import type { DocumentAttachment } from '../../../utils/document-utils';
 import type { Provider } from '../../../types/api-settings';
+import type { ImageAttachment } from '../../../types/chat';
 
 // File accept string for attachment input
 const FILE_ACCEPT = '.sh,.bash,.zsh,.txt,.md,.markdown,.ts,.tsx,.js,.jsx,.mjs,.cjs,.json,.jsonc,.py,.pyw,.java,.kt,.kts,.cs,.fs,.go,.rs,.cpp,.c,.cc,.cxx,.h,.hpp,.hxx,.rb,.php,.swift,.yaml,.yml,.toml,.ini,.cfg,.conf,.xml,.html,.htm,.css,.scss,.sass,.less,.sql,.r,.lua,.pl,.pm,.env,.gitignore,.dockerignore,.dockerfile,.makefile,.cmake,.gradle,.properties,.log,.csv,text/*,application/json,.jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp';
 
 interface MessageEditFormProps {
   initialContent: string;
-  onSubmit: (content: string, attachments?: undefined, forceEchoSearch?: boolean) => void;
+  onSubmit: (content: string, imageAttachments?: ImageAttachment[], forceEchoSearch?: boolean) => void;
   onCancel: () => void;
   onSave?: (content: string) => void;
   attachments?: DocumentAttachment[];
+  imageAttachments?: ImageAttachment[];
   mode?: ChatMode;
   onModeChange?: (mode: ChatMode) => void;
   provider: Provider;
@@ -33,6 +35,7 @@ export function MessageEditForm({
   onCancel,
   onSave,
   attachments,
+  imageAttachments,
   mode,
   onModeChange,
   provider,
@@ -55,6 +58,7 @@ export function MessageEditForm({
   } = useMessageEditForm({
     initialContent,
     initialAttachments: attachments,
+    initialImageAttachments: imageAttachments,
     onSubmit,
     onCancel,
     onSave,

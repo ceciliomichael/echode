@@ -68,9 +68,9 @@ export function useChatInput({
 
   // Initialize paste handler
   const { handlePaste } = usePasteHandler({
-    attachments: attachmentHandler.attachments,
+    attachmentsRef: attachmentHandler.attachmentsRef,
     setAttachments: attachmentHandler.setAttachments,
-    imageAttachments: attachmentHandler.imageAttachments,
+    imageAttachmentsRef: attachmentHandler.imageAttachmentsRef,
     setImageAttachments: attachmentHandler.setImageAttachments,
     disabled: disabled || isStreaming
   });
@@ -102,13 +102,17 @@ export function useChatInput({
         return match;
       });
 
+      // Use refs to get current attachment state (avoids stale closure)
+      const currentAttachments = attachmentHandler.attachmentsRef.current;
+      const currentImageAttachments = attachmentHandler.imageAttachmentsRef.current;
+
       // Build <attached_file> blocks and append to message content
-      const attachmentBlocks = buildAllAttachedFileBlocks(attachmentHandler.attachments);
+      const attachmentBlocks = buildAllAttachedFileBlocks(currentAttachments);
       const contentWithAttachments = expandedContent + attachmentBlocks;
 
       onSendMessage(
         contentWithAttachments,
-        attachmentHandler.imageAttachments,
+        currentImageAttachments,
         forceEchoSearch
       );
 
@@ -116,7 +120,7 @@ export function useChatInput({
       attachmentHandler.clearAttachments();
       contextMenu.mentionPathMap.current.clear();
     }
-  }, [input, disabled, contextMenu.mentionPathMap, attachmentHandler, onSendMessage]);
+  }, [input, disabled, contextMenu.mentionPathMap, attachmentHandler.attachmentsRef, attachmentHandler.imageAttachmentsRef, attachmentHandler.clearAttachments, onSendMessage]);
 
   const handleChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;

@@ -1,8 +1,8 @@
 import { useState, useRef, useCallback, type ChangeEvent } from 'react';
-import { 
-  processDocumentFiles, 
-  validateDocumentFile, 
-  type DocumentAttachment 
+import {
+  processDocumentFiles,
+  validateDocumentFile,
+  type DocumentAttachment
 } from '../utils/document-utils';
 import { validateImageFile, processImageFiles } from '../utils/image-utils';
 import type { ImageAttachment } from '../types/chat';
@@ -33,6 +33,10 @@ export interface UseAttachmentHandlerReturn extends AttachmentState, AttachmentH
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   totalAttachments: number;
   canAddMore: boolean;
+  /** Ref that always holds current attachments - use in callbacks to avoid stale closures */
+  attachmentsRef: React.RefObject<DocumentAttachment[]>;
+  /** Ref that always holds current image attachments - use in callbacks to avoid stale closures */
+  imageAttachmentsRef: React.RefObject<ImageAttachment[]>;
 }
 
 /**
@@ -50,9 +54,31 @@ export function useAttachmentHandler({
   maxAttachments = 3,
   disabled = false
 }: UseAttachmentHandlerOptions = {}): UseAttachmentHandlerReturn {
-  const [attachments, setAttachments] = useState<DocumentAttachment[]>(initialAttachments);
-  const [imageAttachments, setImageAttachments] = useState<ImageAttachment[]>(initialImageAttachments);
+  // Refs that always hold current state - synced immediately on set
+  const attachmentsRef = useRef<DocumentAttachment[]>(initialAttachments);
+  const imageAttachmentsRef = useRef<ImageAttachment[]>(initialImageAttachments);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Custom state with immediate ref sync to avoid stale closures
+  const [attachments, setAttachmentsState] = useState<DocumentAttachment[]>(initialAttachments);
+  const [imageAttachments, setImageAttachmentsState] = useState<ImageAttachment[]>(initialImageAttachments);
+  
+  // Wrapper setters that sync ref immediately (before React batches state updates)
+  const setAttachments: React.Dispatch<React.SetStateAction<DocumentAttachment[]>> = useCallback((action) => {
+    setAttachmentsState(prev => {
+      const next = typeof action === 'function' ? action(prev) : action;
+      attachmentsRef.current = next; // Sync ref immediately
+      return next;
+    });
+  }, []);
+  
+  const setImageAttachments: React.Dispatch<React.SetStateAction<ImageAttachment[]>> = useCallback((action) => {
+    setImageAttachmentsState(prev => {
+      const next = typeof action === 'function' ? action(prev) : action;
+      imageAttachmentsRef.current = next; // Sync ref immediately
+      return next;
+    });
+  }, []);
 
   const totalAttachments = attachments.length + imageAttachments.length;
   const canAddMore = totalAttachments < maxAttachments;
@@ -67,7 +93,8 @@ export function useAttachmentHandler({
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const currentTotal = attachments.length + imageAttachments.length;
+    // Use refs to get current counts (avoids stale closure)
+    const currentTotal = attachmentsRef.current.length + imageAttachmentsRef.current.length;
     const remainingSlots = maxAttachments - currentTotal;
     if (remainingSlots <= 0) return;
 
@@ -115,7 +142,7 @@ export function useAttachmentHandler({
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  }, [attachments.length, imageAttachments.length, maxAttachments]);
+  }, [maxAttachments, setAttachments, setImageAttachments]);
 
   const handleRemoveAttachment = useCallback((index: number) => {
     setAttachments(prev => prev.filter((_, i) => i !== index));
@@ -128,7 +155,10 @@ export function useAttachmentHandler({
   const clearAttachments = useCallback(() => {
     setAttachments([]);
     setImageAttachments([]);
-  }, []);
+    // Also clear refs immediately
+    attachmentsRef.current = [];
+    imageAttachmentsRef.current = [];
+  }, [setAttachments, setImageAttachments]);
 
   return {
     // State
@@ -138,6 +168,8 @@ export function useAttachmentHandler({
     canAddMore,
     // Refs
     fileInputRef,
+    attachmentsRef,
+    imageAttachmentsRef,
     // Handlers
     handleFileChange,
     handleRemoveAttachment,

@@ -58,7 +58,7 @@ export function ImageAttachmentPreview({ attachments, onRemove, disabled = false
           {/* Hover preview */}
           {hoveredIndex === index && (
             <div
-              className="absolute bottom-full left-0 mb-2 z-50 rounded-lg border shadow-lg overflow-hidden"
+              className="absolute top-full left-0 mt-2 z-50 rounded-lg border shadow-lg overflow-hidden"
               style={{
                 backgroundColor: 'var(--vscode-editor-background)',
                 borderColor: 'var(--vscode-input-border)'

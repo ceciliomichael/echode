@@ -145,9 +145,9 @@ export function ChatContainer() {
     await handleRevertPreview(messageId);
   };
 
-  const handleEdit = async (messageId: string, newContent: string, _attachments?: undefined, forceEchoSearch?: boolean) => {
-    // Attachments are now embedded in content as <attached_file> blocks
-    await editMessage(messageId, newContent, undefined, forceEchoSearch);
+  const handleEdit = async (messageId: string, newContent: string, imageAttachments?: ImageAttachment[], forceEchoSearch?: boolean) => {
+    // Pass image attachments to editMessage for the AI request
+    await editMessage(messageId, newContent, imageAttachments, forceEchoSearch);
   };
 
   const handleUpdate = (messageId: string, newContent: string) => {
