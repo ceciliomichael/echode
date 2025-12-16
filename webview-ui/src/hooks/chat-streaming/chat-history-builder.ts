@@ -1,5 +1,6 @@
 import type { Message } from '../../types/chat';
 import type { ChatMessage } from '../../types/chat-api';
+import { injectCodeQualityReminder } from '../../utils/code-quality-reminder';
 import type { ChatHistoryContext } from './types';
 import type { ToolExecutionState } from '../../types/tool';
 import { removeThinkBlocks } from '../../utils/think-block-parser';
@@ -66,19 +67,19 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
 
     // Find the index of the summary message
     const summaryIndex = contextMessages.findIndex(msg => msg.id === summaryMessage.id);
-    
+
     // Get the first message (original context) if it exists before the summary
     const firstMessage = contextMessages.find((msg, idx) =>
       idx < summaryIndex && msg.role === 'user' && !msg.hidden
     );
-    
+
     // FIXED: Combine first message + summary into a single user message to avoid consecutive user messages
     let combinedUserContent = '';
-    
+
     if (firstMessage) {
       combinedUserContent = firstMessage.content;
     }
-    
+
     // Add the summary as part of the combined message
     const summaryBlock = `<previous_session_summary>\n${summaryMessage.content}\n</previous_session_summary>`;
     combinedUserContent = combinedUserContent
@@ -102,14 +103,14 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
 
     // Add recent messages that come after the summary (preserved during compression)
     const recentMessages = contextMessages.slice(summaryIndex + 1).filter(msg => !msg.hidden);
-    
+
     // Track last role to avoid consecutive same-role messages
     let lastRole: 'user' | 'assistant' = 'assistant';
-    
+
     for (const msg of recentMessages) {
       // Skip system messages (shouldn't be in recentMessages, but guard anyway)
       if (msg.role === 'system') continue;
-      
+
       let processedContent = removeThinkBlocks(msg.content);
 
       if (msg.role === 'assistant') {
@@ -238,7 +239,7 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
   );
   trimmedHistory.push(finalUserMessage);
 
-  return trimmedHistory;
+  return injectCodeQualityReminder(trimmedHistory, mode);
 }
 
 /**
@@ -283,5 +284,5 @@ export function buildMinimalChatHistory(
   );
   chatHistory.push(finalUserMessage);
 
-  return chatHistory;
+  return injectCodeQualityReminder(chatHistory, mode);
 }

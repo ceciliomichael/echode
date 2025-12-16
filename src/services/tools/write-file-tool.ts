@@ -164,11 +164,29 @@ export class WriteFileTool implements ITool {
       // Check if file exists and capture old content
       let oldContent: string | null = null;
       let fileExisted = false;
-      try {
-        const oldFileContent = await vscode.workspace.fs.readFile(uri);
-        oldContent = Buffer.from(oldFileContent).toString('utf8');
-        fileExisted = true;
+      let existingDocument: vscode.TextDocument | null = null;
 
+      try {
+        // Try to open as text document first (handles dirty state)
+        existingDocument = await vscode.workspace.openTextDocument(uri);
+        oldContent = existingDocument.getText();
+        fileExisted = true;
+      } catch {
+        // If verify fails, try stat to see if it exists on disk but can't be opened as text
+        try {
+          await vscode.workspace.fs.stat(uri);
+          // It exists but openTextDocument failed (maybe binary? or other issue). 
+          // Try reading raw.
+          const oldFileContent = await vscode.workspace.fs.readFile(uri);
+          oldContent = Buffer.from(oldFileContent).toString('utf8');
+          fileExisted = true;
+        } catch {
+          // File really doesn't exist
+          fileExisted = false;
+        }
+      }
+
+      if (fileExisted && oldContent !== null) {
         // Check for identical content (no-op)
         if (oldContent === content) {
           console.log('[WRITE_FILE] Content matches existing file, skipping write');
@@ -186,9 +204,6 @@ export class WriteFileTool implements ITool {
             },
           };
         }
-      } catch {
-        // File doesn't exist, this is a new file
-        fileExisted = false;
       }
 
       // Track which directories will be created
@@ -204,8 +219,35 @@ export class WriteFileTool implements ITool {
       }
 
       // Write new content
-      const contentBytes = Buffer.from(content, 'utf8');
-      await vscode.workspace.fs.writeFile(uri, contentBytes);
+      if (fileExisted && existingDocument) {
+        // Use WorkspaceEdit for existing text documents to handle dirty state and synchronization
+        const edit = new vscode.WorkspaceEdit();
+        const lastLine = existingDocument.lineAt(existingDocument.lineCount - 1);
+        const fullRange = new vscode.Range(0, 0, lastLine.lineNumber, lastLine.range.end.character);
+
+        edit.replace(uri, fullRange, content);
+        const applied = await vscode.workspace.applyEdit(edit);
+
+        if (!applied) {
+          throw new Error('Failed to apply WorkspaceEdit');
+        }
+        await existingDocument.save();
+      } else {
+        // New file or non-text file: use direct file system write
+        const contentBytes = Buffer.from(content, 'utf8');
+        await vscode.workspace.fs.writeFile(uri, contentBytes);
+
+        // If we just created it, try to open it to make it visible
+        if (!fileExisted) {
+          try {
+            const doc = await vscode.workspace.openTextDocument(uri);
+            await vscode.window.showTextDocument(doc, { preview: false, preserveFocus: true });
+          } catch (e) {
+            // Ignore if we can't open it
+          }
+        }
+      }
+
       console.log('[WRITE_FILE] File written successfully');
 
       // Open the file in a tab for visibility (without stealing focus)

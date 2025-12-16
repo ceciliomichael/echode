@@ -85,8 +85,17 @@ export class ReadFileTool implements ITool {
         // If stat fails (e.g. file not found), readFile will handle the error appropriate
       }
 
-      const fileContent = await vscode.workspace.fs.readFile(uri);
-      const content = Buffer.from(fileContent).toString('utf8');
+      // Check if file is already open in an editor - use that content for freshest state
+      const openDocument = vscode.workspace.textDocuments.find(doc => doc.uri.toString() === uri.toString());
+      let content: string;
+
+      if (openDocument) {
+        content = openDocument.getText();
+      } else {
+        const fileContent = await vscode.workspace.fs.readFile(uri);
+        content = Buffer.from(fileContent).toString('utf8');
+      }
+
       const lines = content.split(/\r?\n/);
       const totalLines = lines.length;
 

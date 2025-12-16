@@ -4,7 +4,7 @@
 
 export function getTodoWriteInstructions(): string {
     return `## todo_write
-Track task progress.
+Track task progress with a CONCISE list.
 
 Parameters (use ONE option):
 
@@ -20,7 +20,10 @@ Option 2 - Markdown:
 
 Status values: pending, in_progress, completed
 
-Tips:
-- Keep task descriptions short and action-focused
+STRICT RULES:
+- Maximum 5-8 tasks total - no exceptions
+- Group related steps into single tasks
+- Keep descriptions under 10 words
+- No micro-steps - summarize logically related work
 - Update status as you complete steps`;
 }

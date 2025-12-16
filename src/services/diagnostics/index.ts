@@ -246,8 +246,8 @@ export async function detectNewProblemsAfterEdit(
 
 /**
  * Get ALL diagnostics for a specific file after a file operation.
- * Waits for linters to process, then returns all errors/warnings for the file.
- * Unlike detectNewProblemsAfterEdit, this returns ALL diagnostics, not just new ones.
+ * Uses smart waiting: listens for diagnostic change events for the specific file,
+ * with a minimum delay and maximum timeout to ensure accuracy without hanging.
  */
 export async function getFileDiagnosticsAfterEdit(
     filePath: string,
@@ -255,15 +255,58 @@ export async function getFileDiagnosticsAfterEdit(
     delayMs: number = DEFAULT_WRITE_DELAY_MS,
     maxMessages: number = 50
 ): Promise<string> {
-    // Wait for linters to process the changes
-    const safeDelayMs = Math.max(0, delayMs);
-    await new Promise((resolve) => setTimeout(resolve, safeDelayMs));
+    const normalizedFilePath = path.normalize(filePath).toLowerCase();
+    const MAX_WAIT_MS = 1500; // Maximum time to wait for diagnostics update
+    const MIN_WAIT_MS = Math.max(100, delayMs); // Minimum delay for linter to start
+
+    // Wait for diagnostics to update for this specific file
+    await new Promise<void>((resolve) => {
+        let resolved = false;
+        let timeoutId: NodeJS.Timeout;
+        let minDelayTimeoutId: NodeJS.Timeout;
+        let minDelayPassed = false;
+
+        const cleanup = () => {
+            if (resolved) {
+                return;
+            }
+            resolved = true;
+            disposable.dispose();
+            clearTimeout(timeoutId);
+            clearTimeout(minDelayTimeoutId);
+            resolve();
+        };
+
+        // Listen for diagnostic changes on this file
+        const disposable = vscode.languages.onDidChangeDiagnostics((e) => {
+            if (!minDelayPassed) {
+                return; // Don't resolve before minimum delay
+            }
+
+            // Check if our file's diagnostics changed
+            for (const uri of e.uris) {
+                const normalizedUri = path.normalize(uri.fsPath).toLowerCase();
+                if (normalizedUri === normalizedFilePath) {
+                    // Give a small grace period for additional updates
+                    setTimeout(cleanup, 50);
+                    return;
+                }
+            }
+        });
+
+        // Minimum delay before we start accepting diagnostic updates
+        minDelayTimeoutId = setTimeout(() => {
+            minDelayPassed = true;
+        }, MIN_WAIT_MS);
+
+        // Maximum timeout - don't wait forever
+        timeoutId = setTimeout(cleanup, MAX_WAIT_MS);
+    });
 
     // Get all diagnostics
     const allDiagnostics = vscode.languages.getDiagnostics();
 
     // Filter to only the specific file
-    const normalizedFilePath = path.normalize(filePath).toLowerCase();
     const fileDiagnostics: [vscode.Uri, vscode.Diagnostic[]][] = [];
 
     for (const [uri, diagnostics] of allDiagnostics) {

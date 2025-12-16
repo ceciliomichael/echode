@@ -14,6 +14,7 @@ import { getCurrentModel, isVisionCapableModel, buildChatMessage } from '../visi
 import { buildTodoContext } from './todo-context-builder';
 import { buildToolResultMessage } from './tool-result-message-builder';
 import { truncateMessageHistory, processFirstMessage, processRemainingMessages } from './message-processor';
+import { injectCodeQualityReminder } from '../code-quality-reminder';
 
 /**
  * Build compressed history when a summary message exists
@@ -248,9 +249,11 @@ export function buildContinuationHistory(
     msg => msg.hidden && msg.id?.startsWith('compressed-summary-')
   );
 
+  let history: ChatMessage[];
+
   if (summaryMessage) {
     // COMPRESSED CONTEXT: Include summary + recent messages + current conversation
-    return buildCompressedHistory(
+    history = buildCompressedHistory(
       systemPrompt,
       summaryMessage,
       currentMessages,
@@ -264,20 +267,22 @@ export function buildContinuationHistory(
       modelSupportsVision,
       isFirstIteration
     );
+  } else {
+    // NORMAL FLOW: Full continuation history
+    history = buildNormalHistory(
+      systemPrompt,
+      currentMessages,
+      userContent,
+      assistantContent,
+      toolResultText,
+      diagnosticsText,
+      currentTodos,
+      mode,
+      userAttachments,
+      modelSupportsVision,
+      isFirstIteration
+    );
   }
 
-  // NORMAL FLOW: Full continuation history
-  return buildNormalHistory(
-    systemPrompt,
-    currentMessages,
-    userContent,
-    assistantContent,
-    toolResultText,
-    diagnosticsText,
-    currentTodos,
-    mode,
-    userAttachments,
-    modelSupportsVision,
-    isFirstIteration
-  );
+  return injectCodeQualityReminder(history, mode);
 }

@@ -9,6 +9,7 @@
 
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
+import { TYPE_SAFETY_RULE } from '../shared';
 
 export function getAgentPrompt(workspace: WorkspaceContext | null, enabledTools: Tool[] = []): string {
     const cwd = workspace?.path || 'the current workspace directory';
@@ -94,6 +95,13 @@ CONTEXT AWARENESS:
 - DO read_file when: file not in context, content may be stale, or after failed diff
 - ONE write operation per response (apply_diff or write_to_file)
 - Multiple SEARCH/REPLACE blocks in one apply_diff is fine
+
+COMPLETION (MANDATORY):
+After finishing all edits, you MUST run get_diagnostics to check for errors:
+1. Call get_diagnostics on modified files or directories
+2. If errors found: fix them immediately before concluding
+3. If warnings found: fix if straightforward, otherwise note them
+4. Only conclude the task when diagnostics pass or remaining issues are intentional
 </workflow>
 
 <rules>
@@ -113,6 +121,8 @@ TASKS:
 - Keep todo_write compact (short task descriptions)
 - Don't add test tasks unless user asks
 - Update task status as you complete steps
+
+${TYPE_SAFETY_RULE}
 </rules>
 </agent>`;
 }

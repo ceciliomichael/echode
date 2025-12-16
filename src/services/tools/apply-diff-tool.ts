@@ -59,18 +59,18 @@ export class ApplyDiffTool implements ITool {
             const absolutePath = resolveAbsolutePath(filePath, workspaceRoot);
             const uri = vscode.Uri.file(absolutePath);
 
-            // Check if file exists
+            // Open document to get robust access to content/ranges
+            let document: vscode.TextDocument;
             try {
-                await vscode.workspace.fs.stat(uri);
-            } catch {
-                return { success: false, error: `File does not exist at path: ${absolutePath}` };
+                document = await vscode.workspace.openTextDocument(uri);
+            } catch (error) {
+                return { success: false, error: `File does not exist or cannot be opened: ${absolutePath}` };
             }
 
-            // Read original content
-            const fileContent = await vscode.workspace.fs.readFile(uri);
-            const originalContent = Buffer.from(fileContent).toString('utf8');
+            // Read original content from document (handles dirty state correctly)
+            const originalContent = document.getText();
 
-            // Apply diff
+            // Apply diff matches
             const diffResult = await this.diffStrategy.applyDiff(
                 originalContent,
                 diffContent,
@@ -116,14 +116,39 @@ export class ApplyDiffTool implements ITool {
                 };
             }
 
-            // Write new content only if it differs
+            // Apply changes via WorkspaceEdit
             if (diffResult.content) {
-                await vscode.workspace.fs.writeFile(uri, Buffer.from(diffResult.content, 'utf8'));
+                const edit = new vscode.WorkspaceEdit();
+
+                // Calculate full range of the document
+                const lastLine = document.lineAt(document.lineCount - 1);
+                const fullRange = new vscode.Range(0, 0, lastLine.lineNumber, lastLine.range.end.character);
+
+                edit.replace(uri, fullRange, diffResult.content);
+                const applied = await vscode.workspace.applyEdit(edit);
+
+                if (!applied) {
+                    return { success: false, error: 'Failed to apply WorkspaceEdit to document' };
+                }
+
+                // Ensure changes are saved to disk
+                const saved = await document.save();
+                if (!saved) {
+                    // Start retry loop for saving (sometimes fails if file system is busy)
+                    let retryCount = 0;
+                    while (retryCount < 3 && !await document.save()) {
+                        retryCount++;
+                        await new Promise(r => setTimeout(r, 100)); // 100ms wait
+                    }
+                    if (retryCount >= 3) {
+                        console.warn('[APPLY_DIFF] Warning: Document save returned false after retries');
+                    }
+                }
             }
 
-            // Open the file in a tab for visibility (without stealing focus)
+            // Ensure file is visible
             try {
-                await vscode.window.showTextDocument(uri, {
+                await vscode.window.showTextDocument(document, {
                     preview: false,
                     preserveFocus: true,
                 });
