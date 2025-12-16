@@ -39,7 +39,6 @@ interface ChatInputProps {
   disabled?: boolean;
   isStreaming?: boolean;
   isExecutingTool?: boolean;
-  isCompressing?: boolean;
   onStop?: () => void;
   todos?: TodoTask[];
   mode?: ChatMode;
@@ -53,7 +52,7 @@ interface ChatInputProps {
   restoredImageAttachments?: ImageAttachment[] | null;
 }
 
-export function ChatInput({ onSendMessage, onNewChat, disabled = false, isStreaming = false, isExecutingTool = false, isCompressing = false, onStop, todos = [], mode, onModeChange, provider, model, onModelChange, contextUsage, restoredInput, restoredAttachments, restoredImageAttachments }: ChatInputProps) {
+export function ChatInput({ onSendMessage, onNewChat, disabled = false, isStreaming = false, isExecutingTool = false, onStop, todos = [], mode, onModeChange, provider, model, onModelChange, contextUsage, restoredInput, restoredAttachments, restoredImageAttachments }: ChatInputProps) {
   // Show stop button when streaming OR executing a tool (like echo_search)
   const showStopButton = isStreaming || isExecutingTool;
 
@@ -563,7 +562,6 @@ export function ChatInput({ onSendMessage, onNewChat, disabled = false, isStream
                   usage={contextUsage}
                   disabled={disabled}
                   mode={mode}
-                  isCompressing={isCompressing}
                 />
               )}
               {showStopButton ? (

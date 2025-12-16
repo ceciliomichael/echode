@@ -92,9 +92,6 @@ function buildFilesEditedLaterMap(messages: Message[]): Map<number, Set<string>>
 /**
  * Build chat history with system prompt, context messages, tool results, and final user message
  * Returns the final chat history ready to send to the LLM
- * 
- * NEW: If contextMessages contains a hidden summary message (from compression),
- * we prepend that summary to the user's message for a fresh start with context.
  */
 export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMessage[] {
   const {
@@ -106,125 +103,7 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
     mode,
   } = ctx;
 
-  // Check if we have a compressed summary (hidden user message with summary content)
-  const summaryMessage = contextMessages.find(msg => msg.hidden && msg.id?.startsWith('compressed-summary-'));
-
-  if (summaryMessage) {
-    // COMPRESSED CONTEXT: Include summary + recent messages that were preserved
-    console.log('[ChatHistory] Using compressed summary with recent context');
-
-    const chatHistory: ChatMessage[] = [
-      {
-        role: 'system',
-        content: systemPrompt,
-      },
-    ];
-
-    // Find the index of the summary message
-    const summaryIndex = contextMessages.findIndex(msg => msg.id === summaryMessage.id);
-
-    // Get the first message (original context) if it exists before the summary
-    const firstMessage = contextMessages.find((msg, idx) =>
-      idx < summaryIndex && msg.role === 'user' && !msg.hidden
-    );
-
-    // FIXED: Combine first message + summary into a single user message to avoid consecutive user messages
-    let combinedUserContent = '';
-
-    if (firstMessage) {
-      combinedUserContent = firstMessage.content;
-    }
-
-    // Add the summary as part of the combined message
-    const summaryBlock = `<previous_session_summary>\n${summaryMessage.content}\n</previous_session_summary>`;
-    combinedUserContent = combinedUserContent
-      ? `${combinedUserContent}\n\n${summaryBlock}`
-      : summaryBlock;
-
-    // Build combined user message with first message's attachments if any
-    const combinedUserMessage = buildChatMessage(
-      'user',
-      combinedUserContent,
-      firstMessage?.attachments,
-      modelSupportsVision
-    );
-    chatHistory.push(combinedUserMessage);
-
-    // FIXED: Add assistant acknowledgment to maintain proper role alternation (user → assistant)
-    chatHistory.push({
-      role: 'assistant',
-      content: 'I understand the context from the previous session. I\'ll continue from where we left off.',
-    });
-
-    // Add recent messages that come after the summary (preserved during compression)
-    const recentMessages = contextMessages.slice(summaryIndex + 1).filter(msg => !msg.hidden);
-
-    // Build map of which files are edited later for each message index (using original indexes)
-    const filesEditedLaterMap = buildFilesEditedLaterMap(contextMessages);
-
-    // Track last role to avoid consecutive same-role messages
-    let lastRole: 'user' | 'assistant' = 'assistant';
-
-    for (let i = 0; i < recentMessages.length; i++) {
-      const msg = recentMessages[i];
-      // Skip system messages (shouldn't be in recentMessages, but guard anyway)
-      if (msg.role === 'system') continue;
-
-      let processedContent = removeThinkBlocks(msg.content);
-
-      if (msg.role === 'assistant') {
-        processedContent = stripUnavailableToolCalls(processedContent, mode);
-      }
-
-      const chatMessage = buildChatMessage(
-        msg.role,
-        processedContent,
-        msg.attachments,
-        modelSupportsVision
-      );
-      chatHistory.push(chatMessage);
-      lastRole = msg.role as 'user' | 'assistant';
-
-      // Include tool results for recent messages
-      if (msg.toolExecutions && msg.toolExecutions.size > 0) {
-        // Map back to original index to get correct filesEditedLater set
-        const originalIndex = contextMessages.indexOf(msg);
-        const filesEditedLater = originalIndex >= 0 ? filesEditedLaterMap.get(originalIndex) : undefined;
-        const { toolResults } = formatToolExecutionResults(msg.toolExecutions, mode, filesEditedLater);
-
-        if (toolResults.length > 0) {
-          const toolResultsContent = `<tool_results>\n${toolResults.join('\n\n---\n\n')}\n</tool_results>`;
-          chatHistory.push({
-            role: 'user',
-            content: toolResultsContent,
-          });
-          lastRole = 'user';
-        }
-      }
-    }
-
-    // FIXED: Ensure proper alternation before final user message
-    // If last message was user (from tool results), add assistant acknowledgment
-    if (lastRole === 'user') {
-      chatHistory.push({
-        role: 'assistant',
-        content: 'Understood. Processing the tool results.',
-      });
-    }
-
-    // Add current user message
-    const finalUserMessage = buildChatMessage(
-      'user',
-      content,
-      attachments,
-      modelSupportsVision
-    );
-    chatHistory.push(finalUserMessage);
-
-    return chatHistory;
-  }
-
-  // NORMAL FLOW: Build full chat history with all messages and tool results
+  // Build full chat history with all messages and tool results
   const chatHistory: ChatMessage[] = [
     {
       role: 'system',

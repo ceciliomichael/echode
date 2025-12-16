@@ -26,8 +26,6 @@ export interface ChatSession {
     editingMessageId: string | null;
     revertPreviewMessageId: string | null;
   };
-  /** Original messages before compression, used for revert functionality */
-  preCompressionMessages?: ChatSessionMessage[];
 }
 
 export interface ChatSessionSummary {

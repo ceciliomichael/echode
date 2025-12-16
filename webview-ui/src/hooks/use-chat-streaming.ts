@@ -8,8 +8,6 @@ import { ToolExecutor } from '../lib/tool-executor';
 import { getToolsForMode } from '../lib/tool-config';
 import { getCurrentModel, isVisionCapableModel } from '../utils/vision-utils';
 import { supersedePlanningToolsInMessages } from '../utils/planning-utils';
-import { storageService } from '../utils/storage';
-import { useContextSummarization } from './use-context-summarization';
 
 // Import modular helpers
 import type { ChatStreamingProps } from './chat-streaming/types';
@@ -36,7 +34,6 @@ export function useChatStreaming({
   isStoppingRef,
   saveSession,
   mode,
-  preCompressionMessagesRef,
 }: ChatStreamingProps) {
   const workspace = useWorkspaceContext();
 
@@ -46,27 +43,12 @@ export function useChatStreaming({
   // Use ref to track current mode to avoid stale closures in async callbacks
   const modeRef = useRef(mode);
 
-  // Track system prompt for summarization (updated when workspace changes)
-  const systemPromptRef = useRef('');
-
   // Update ref when mode changes
   useEffect(() => {
     modeRef.current = mode;
     // Also reset tool executor when mode changes to ensure we get fresh tools
     toolExecutorRef.current = null;
   }, [mode]);
-
-  // Get context settings for summarization
-  const getContextSettings = () => {
-    const settings = storageService.getSettings();
-    return settings.contextSettings;
-  };
-
-  // Initialize summarization hook with current system prompt
-  const { checkAndSummarize, isCompressing } = useContextSummarization({
-    systemPrompt: systemPromptRef.current,
-    contextSettings: getContextSettings(),
-  });
 
   const getToolExecutor = () => {
     if (!toolExecutorRef.current) {
@@ -147,30 +129,7 @@ export function useChatStreaming({
       const currentMode = modeRef.current;
       const systemPrompt = getSystemPrompt(latestWorkspace, currentMode);
 
-      // Update system prompt ref for summarization hook
-      systemPromptRef.current = systemPrompt;
-
-      let messagesToSend = overrideMessages !== undefined ? overrideMessages : supersededMessages;
-
-      // === CONTEXT SUMMARIZATION ===
-      // Check if we need to compress context before sending
-      const summarizationResult = await checkAndSummarize(messagesToSend, content);
-      if (summarizationResult.wasCompressed) {
-        console.log(`[sendMessage] Context compressed: ${summarizationResult.originalTokens} → ${summarizationResult.compressedTokens} tokens`);
-        // Store original messages for potential revert
-        if (summarizationResult.preCompressionMessages) {
-          preCompressionMessagesRef.current = summarizationResult.preCompressionMessages;
-        }
-        messagesToSend = summarizationResult.messages;
-        // Update the messages state with compressed version
-        setMessages((prev) => {
-          // Keep the assistant placeholder, replace the rest with compressed messages
-          const assistantMsg = prev.find(m => m.id === assistantMessageId);
-          return assistantMsg ? [...messagesToSend, userMessage, assistantMsg] : [...messagesToSend, userMessage];
-        });
-        // Save the compressed session
-        saveSession([...messagesToSend, userMessage]);
-      }
+      const messagesToSend = overrideMessages !== undefined ? overrideMessages : supersededMessages;
 
       // === MODEL CAPABILITIES ===
       const currentModel = getCurrentModel();
@@ -254,6 +213,5 @@ export function useChatStreaming({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, workspace, executeToolAndContinue, setMessages, setIsStreaming, setIsExecutingTool, isStreamingRef, isExecutingToolRef, sendingMessageRef, abortControllerRef, hasStreamedContentRef, saveSession, mode, updateToolExecution]);
 
-  return { sendMessage, isCompressing };
+  return { sendMessage };
 }
-

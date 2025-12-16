@@ -75,16 +75,12 @@ interface ContextUsage {
   toolResultsTokens: number;
   totalTokens: number;
   maxTokens: number;
-  isCompressed?: boolean;
-  compressionCount?: number;
-  totalMessagesSummarized?: number;
 }
 
 interface ContextIndicatorProps {
   usage: ContextUsage;
   disabled?: boolean;
   mode?: ChatMode;
-  isCompressing?: boolean;
 }
 
 /**
@@ -123,7 +119,7 @@ function formatTokens(tokens: number): string {
   return tokens.toString();
 }
 
-export function ContextIndicator({ usage, disabled = false, mode, isCompressing = false }: ContextIndicatorProps) {
+export function ContextIndicator({ usage, disabled = false, mode }: ContextIndicatorProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const [isTopTooltip, setIsTopTooltip] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState<'above' | 'below'>('above');
@@ -186,16 +182,6 @@ export function ContextIndicator({ usage, disabled = false, mode, isCompressing 
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {isCompressing && (
-        <style>
-          {`
-            @keyframes context-spin {
-              from { transform: rotate(0deg); }
-              to { transform: rotate(360deg); }
-            }
-          `}
-        </style>
-      )}
       <button
         ref={buttonRef}
         type="button"
@@ -205,7 +191,6 @@ export function ContextIndicator({ usage, disabled = false, mode, isCompressing 
         className="p-1 rounded-xl transition-opacity hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
         style={{
           color,
-          animation: isCompressing ? 'context-spin 1s linear infinite' : undefined,
         }}
         aria-label={`Context usage: ${usagePercent.toFixed(0)}%`}
       >
@@ -268,7 +253,7 @@ export function ContextIndicator({ usage, disabled = false, mode, isCompressing 
             </div>
             <div className="flex justify-between text-xs">
               <span style={{ color: 'var(--vscode-descriptionForeground)' }}>
-                {usage.isCompressed ? 'Compressed Chat History' : 'Chat History'}
+                Chat History
               </span>
               <span style={{ color: 'var(--vscode-foreground)' }}>
                 {formatTokens(usage.historyTokens)}
@@ -306,4 +291,3 @@ export function ContextIndicator({ usage, disabled = false, mode, isCompressing 
     </div>
   );
 }
-

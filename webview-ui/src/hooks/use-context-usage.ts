@@ -19,9 +19,6 @@ export interface ContextUsageResult {
   toolResultsTokens: number;
   totalTokens: number;
   maxTokens: number;
-  isCompressed: boolean;
-  compressionCount: number;
-  totalMessagesSummarized: number;
 }
 
 interface UseContextUsageOptions {
@@ -35,7 +32,7 @@ interface UseContextUsageOptions {
 /**
  * Hook to calculate current context usage in tokens
  * When revertPreviewMessageId is set, calculates usage for the effective messages
- * that will remain after revert (excluding compression summaries)
+ * that will remain after revert
  */
 export function useContextUsage({
   systemPrompt,
@@ -47,15 +44,12 @@ export function useContextUsage({
   return useMemo(() => {
     // Calculate effective messages based on revert preview state
     let effectiveMessages = messages;
-    
+
     if (revertPreviewMessageId) {
       const revertIndex = messages.findIndex(msg => msg.id === revertPreviewMessageId);
       if (revertIndex !== -1) {
         // Slice to get messages that will remain after revert
-        // and filter out compression summaries (they get removed on revert)
-        effectiveMessages = messages
-          .slice(0, revertIndex)
-          .filter(msg => !msg.id?.startsWith('compressed-summary-'));
+        effectiveMessages = messages.slice(0, revertIndex);
       }
     }
 
@@ -65,15 +59,6 @@ export function useContextUsage({
     // Calculate history tokens (messages without their tool executions)
     let historyTokens = 0;
     let toolResultsTokens = 0;
-
-    // Track compression state from effective messages
-    const summaryMessages = effectiveMessages.filter(msg => msg.id?.startsWith('compressed-summary-'));
-    const isCompressed = summaryMessages.length > 0;
-    const compressionCount = summaryMessages.length;
-    const totalMessagesSummarized = summaryMessages.reduce(
-      (sum, msg) => sum + (msg.summarizedMessageCount || 0),
-      0
-    );
 
     effectiveMessages.forEach((message) => {
       historyTokens += estimateTokens(message.content);
@@ -109,10 +94,6 @@ export function useContextUsage({
       toolResultsTokens,
       totalTokens,
       maxTokens,
-      isCompressed,
-      compressionCount,
-      totalMessagesSummarized,
     };
   }, [systemPrompt, messages, currentToolResultText, contextSettings, revertPreviewMessageId]);
 }
-

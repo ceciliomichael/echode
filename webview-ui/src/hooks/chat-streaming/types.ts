@@ -31,8 +31,6 @@ export interface ChatStreamingProps {
   isStoppingRef: React.MutableRefObject<boolean>;
   saveSession: (overrideMessages?: Message[]) => void;
   mode: ChatMode;
-  /** Ref to store original messages before compression (for revert support) */
-  preCompressionMessagesRef: React.MutableRefObject<Message[] | null>;
 }
 
 /**

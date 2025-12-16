@@ -44,18 +44,10 @@ export const DEFAULT_COMMIT_MESSAGE_SETTINGS: CommitMessageSettings = {
 
 export interface ContextSettings {
   maxContextTokens: number;
-  summarizationEnabled: boolean;
-  summarizationProvider: Provider;
-  summarizationModel: string;
-  summarizationThreshold: number; // Percentage (0.0-1.0) at which to trigger summarization
 }
 
 export const DEFAULT_CONTEXT_SETTINGS: ContextSettings = {
   maxContextTokens: 128000,
-  summarizationEnabled: false,
-  summarizationProvider: 'anthropic',
-  summarizationModel: '',
-  summarizationThreshold: 0.85, // Trigger at 85% of max tokens
 };
 
 export interface Tool {

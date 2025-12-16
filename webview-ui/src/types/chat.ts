@@ -17,6 +17,4 @@ export interface Message {
   toolExecutions?: Map<string, ToolExecutionState>;
   hidden?: boolean;
   attachments?: ImageAttachment[];
-  isSummary?: boolean;
-  summarizedMessageCount?: number;
 }

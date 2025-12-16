@@ -82,8 +82,7 @@ export function useStreamingChat(
     mode,
   });
 
-  // Chat streaming hook
-  const { sendMessage, isCompressing } = useChatStreaming({
+  const { sendMessage } = useChatStreaming({
     messages: state.messages,
     setMessages: state.setMessages,
     setIsStreaming: state.setIsStreaming,
@@ -99,7 +98,6 @@ export function useStreamingChat(
     isStoppingRef: state.isStoppingRef,
     saveSession: saveCurrentSession,
     mode,
-    preCompressionMessagesRef: state.preCompressionMessagesRef,
   });
 
   // Edit and revert operations
@@ -121,7 +119,6 @@ export function useStreamingChat(
     ensureSessionId,
     sendMessage,
     abortAndReset: state.abortAndReset,
-    preCompressionMessagesRef: state.preCompressionMessagesRef,
   });
 
   // Clear chat
@@ -173,7 +170,6 @@ export function useStreamingChat(
     messages: state.messages,
     isStreaming: state.isStreaming,
     isExecutingTool: state.isExecutingTool,
-    isCompressing,
     revertPreviewMessageId: state.revertPreviewMessageId,
     editingMessageId: state.editingMessageId,
     currentSessionId: state.currentSessionId,

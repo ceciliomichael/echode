@@ -29,7 +29,7 @@ export type { ToolExecutionHookProps, ToolExecutionContext, TodoItem } from './t
  * 1. Detecting tool blocks in assistant responses
  * 2. Executing tools sequentially
  * 3. Managing continuation streams with retry logic
- * 4. Handling diagnostics and context compression
+ * 4. Handling diagnostics
  */
 export function useToolExecution({
   setMessages,

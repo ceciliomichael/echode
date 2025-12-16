@@ -30,7 +30,6 @@ export function ChatContainer() {
     messages,
     isStreaming,
     isExecutingTool,
-    isCompressing,
     revertPreviewMessageId,
     editingMessageId,
     sendMessage,
@@ -199,7 +198,6 @@ export function ChatContainer() {
                       onEditCancel={handleCancel}
                       onRevert={handleRevert}
                       isStreaming={(isStreaming || isExecutingTool) && isLastAssistantMessage}
-                      isCompressing={isCompressing && isLastAssistantMessage}
                       mode={mode}
                       onModeChange={handleModeChange}
                       provider={provider}
@@ -228,7 +226,6 @@ export function ChatContainer() {
               onNewChat={onNewChat}
               isStreaming={isStreaming}
               isExecutingTool={isExecutingTool}
-              isCompressing={isCompressing}
               onStop={abortStream}
               todos={tasks}
               mode={mode}
