@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { Undo2 } from 'lucide-react';
-import { MessageEditForm } from './message-edit-form';
+import { MessageEditForm } from './message-edit-form/index';
 import { Mention } from './mention';
 
 import type { ChatMode } from '../../types/chat-mode';
