@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, type KeyboardEvent, type FormEvent, type ChangeEvent } from 'react';
+import { mentionRegex } from '../../utils/context-mentions';
 import { usePasteHandler } from '../../hooks/use-paste-handler';
 import { ArrowUp, Paperclip } from 'lucide-react';
 import { AttachmentPreview } from './attachment-preview';
@@ -15,6 +16,16 @@ import { processDocumentFiles, buildAllAttachedFileBlocks, extractTextAndAttachm
 import { validateImageFile, processImageFiles } from '../../utils/image-utils';
 import type { ImageAttachment } from '../../types/chat';
 import type { Provider } from '../../types/api-settings';
+import { ContextMenu } from './context-menu';
+import {
+  shouldShowContextMenu,
+  insertMention,
+  ContextMenuOptionType,
+  type SearchResult,
+  getContextMenuOptions
+} from '../../utils/context-mentions';
+import { vscode } from '../../utils/vscode';
+import { InputWithHighlights, type InputWithHighlightsRef } from './input-with-highlights';
 
 interface MessageEditFormProps {
   initialContent: string;
@@ -37,10 +48,58 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
   const [editContent, setEditContent] = useState(parsed.text);
   const [editAttachments, setEditAttachments] = useState<DocumentAttachment[]>(attachments || parsed.attachments);
   const [editImageAttachments, setEditImageAttachments] = useState<ImageAttachment[]>([]);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const textareaRef = useRef<InputWithHighlightsRef | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropdownDirection = useDropdownDirection(containerRef);
+
+  // Mention state
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const [cursorPosition, setCursorPosition] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedMenuIndex, setSelectedMenuIndex] = useState(0);
+  const [selectedMenuType, setSelectedMenuType] = useState<ContextMenuOptionType | null>(null);
+  const [fileSearchResults, setFileSearchResults] = useState<SearchResult[]>([]);
+  // Map to store filename -> path for short display mentions
+  const mentionPathMap = useRef<Map<string, string>>(new Map());
+
+  // Parse initial content to populate mentionPathMap and simplify display text
+  useEffect(() => {
+    // Only do this once on mount/initial content load
+    if (mentionPathMap.current.size === 0) {
+      const content = initialContent;
+      // Find all full mentions @[label](path)
+      // We use the regex to extract them
+
+      const newContent = content.replace(mentionRegex, (match, label, path) => {
+        if (path) {
+          // Handle duplicates if necessary, but coming from history assume unique enough or okay to overwrite?
+          // Actually, if we have two files same name different path, we need to preserve that distinction.
+          // For editing, we might want to keep the (path) if it's ambiguous, OR just map it.
+          // If we map it, later validation needs to hold.
+          // Let's simple map:
+
+          // Check collision
+          let effectiveLabel = label;
+          const basename = label;
+          let counter = 1;
+          // If we already have this label mapped to a DIFFERENT path, rename
+          while (mentionPathMap.current.has(effectiveLabel) && mentionPathMap.current.get(effectiveLabel) !== path) {
+            effectiveLabel = `${basename} (${counter})`;
+            counter++;
+          }
+
+          mentionPathMap.current.set(effectiveLabel, path);
+          return `@[${effectiveLabel}]`;
+        }
+        return match;
+      });
+
+      if (newContent !== content) {
+        setEditContent(newContent);
+      }
+    }
+  }, [initialContent]);
 
   const { handlePaste } = usePasteHandler({
     attachments: editAttachments,
@@ -101,7 +160,16 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
     if (editContent.trim()) {
       // Build <attached_file> blocks and append to message content
       const attachmentBlocks = buildAllAttachedFileBlocks(editAttachments);
-      const newContent = editContent.trim() + attachmentBlocks;
+
+      // Expand mentions
+      let expandedContent = editContent.trim();
+      expandedContent = expandedContent.replace(mentionRegex, (match, label, path) => {
+        if (path) return match;
+        const storedPath = mentionPathMap.current.get(label);
+        return storedPath ? `@[${label}](${storedPath})` : match;
+      });
+
+      const newContent = expandedContent + attachmentBlocks;
       onSubmit(newContent, undefined, forceEchoSearch);
       if (onSave) {
         onSave(newContent);
@@ -112,10 +180,60 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
   };
 
   const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
-    setEditContent(e.target.value);
+    const newValue = e.target.value;
+    const newCursorPos = e.target.selectionStart;
+    setEditContent(newValue);
+    setCursorPosition(newCursorPos);
+
+    if (shouldShowContextMenu(newValue, newCursorPos)) {
+      setShowContextMenu(true);
+      // Reset to first item when menu opens
+      if (!showContextMenu) {
+        setSelectedMenuIndex(0);
+      }
+      const lastAtIndex = newValue.lastIndexOf("@", newCursorPos - 1);
+      const query = newValue.slice(lastAtIndex + 1, newCursorPos);
+      setSearchQuery(query);
+    } else {
+      setShowContextMenu(false);
+      setSelectedMenuType(null);
+    }
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (showContextMenu) {
+      if (e.key === 'Escape') {
+        // If in submenu, go back to category menu; otherwise close
+        if (selectedMenuType !== null) {
+          setSelectedMenuType(null);
+          setSelectedMenuIndex(0);
+        } else {
+          setShowContextMenu(false);
+        }
+        return;
+      }
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        const direction = e.key === 'ArrowUp' ? -1 : 1;
+        const options = getContextMenuOptions(searchQuery, selectedMenuType, fileSearchResults);
+        if (options.length > 0) {
+          setSelectedMenuIndex(prev => (prev + direction + options.length) % options.length);
+        }
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        const options = getContextMenuOptions(searchQuery, selectedMenuType, fileSearchResults);
+        if (options.length > 0 && selectedMenuIndex >= 0 && selectedMenuIndex < options.length) {
+          const option = options[selectedMenuIndex];
+          if (option.type !== ContextMenuOptionType.NoResults) {
+            handleMentionSelect(option.type, option.value);
+          }
+        }
+        return;
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       // Ctrl+Enter: force echo_search for Agent, Plan, and Ask modes
       if (e.ctrlKey || e.metaKey) {
@@ -131,6 +249,64 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
       onCancel();
     }
   };
+
+  const handleMentionSelect = (type: ContextMenuOptionType, value?: string) => {
+    // If this is a category selection (File or Folder without a value), enter that category
+    if ((type === ContextMenuOptionType.File || type === ContextMenuOptionType.Folder) && !value) {
+      setSelectedMenuType(type);
+      setSelectedMenuIndex(0);
+      return;
+    }
+
+    // Otherwise, complete the mention selection
+    setShowContextMenu(false);
+    setSelectedMenuType(null);
+
+    if (value) {
+      const basename = value.split('/').pop() || value;
+      let label = basename;
+      let counter = 1;
+      while (mentionPathMap.current.has(label) && mentionPathMap.current.get(label) !== value) {
+        label = `${basename} (${counter})`;
+        counter++;
+      }
+      mentionPathMap.current.set(label, value);
+
+      const { newValue, mentionIndex } = insertMention(editContent, cursorPosition, value, label);
+      setEditContent(newValue);
+      const newCursorPos = newValue.indexOf(" ", mentionIndex + label.length + 2) + 1; // +2 for @[
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.selectionStart = newCursorPos;
+          textareaRef.current.selectionEnd = newCursorPos;
+          textareaRef.current.focus();
+        }
+      }, 0);
+    }
+  };
+
+  // Listen for file search results
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      const message = event.data;
+      if (message.type === 'fileSearchResults') {
+        setFileSearchResults(message.results || []);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  // Trigger file/folder search when query or type changes
+  useEffect(() => {
+    if (showContextMenu && selectedMenuType !== null) {
+      vscode.postMessage({
+        type: "searchFiles",
+        query: searchQuery,
+        searchType: selectedMenuType // 'file' or 'folder'
+      });
+    }
+  }, [showContextMenu, searchQuery, selectedMenuType]);
 
   const handleAttachmentClick = () => {
     fileInputRef.current?.click();
@@ -231,7 +407,7 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
                 <button
                   type="button"
                   onClick={handleAttachmentClick}
-                  className="text-xs border border-dashed rounded-md px-2 py-1 transition-all hover:opacity-70"
+                  className="text-xs border border-dashed rounded-xl px-2 py-1 transition-all hover:opacity-70"
                   style={{
                     color: 'var(--vscode-descriptionForeground)',
                     borderColor: 'var(--vscode-input-border)',
@@ -256,7 +432,7 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
                     <button
                       type="button"
                       onClick={handleAttachmentClick}
-                      className="text-xs border border-dashed rounded-md px-2 py-1 transition-all hover:opacity-70"
+                      className="text-xs border border-dashed rounded-xl px-2 py-1 transition-all hover:opacity-70"
                       style={{
                         color: 'var(--vscode-descriptionForeground)',
                         borderColor: 'var(--vscode-input-border)',
@@ -272,7 +448,20 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
           </div>
 
           <div className="w-full relative rounded-xl">
-            <textarea
+            {showContextMenu && (
+              <div className="absolute top-[32px] left-0 right-0 z-50">
+                <ContextMenu
+                  onSelect={handleMentionSelect}
+                  searchQuery={searchQuery}
+                  onMouseDown={(e) => e.preventDefault()}
+                  selectedIndex={selectedMenuIndex}
+                  setSelectedIndex={setSelectedMenuIndex}
+                  selectedType={selectedMenuType}
+                  dynamicSearchResults={fileSearchResults}
+                />
+              </div>
+            )}
+            <InputWithHighlights
               ref={textareaRef}
               value={editContent}
               onChange={handleChange}
@@ -284,7 +473,16 @@ export function MessageEditForm({ initialContent, onSubmit, onCancel, onSave, at
               style={{
                 color: 'var(--vscode-input-foreground)',
                 outline: 'none',
-                caretColor: 'var(--vscode-input-foreground)',
+              }}
+              onValueChange={(newValue: string, newCursorPos: number) => {
+                setEditContent(newValue);
+                setCursorPosition(newCursorPos);
+                setTimeout(() => {
+                  if (textareaRef.current) {
+                    textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+                    textareaRef.current.focus();
+                  }
+                }, 0);
               }}
             />
           </div>

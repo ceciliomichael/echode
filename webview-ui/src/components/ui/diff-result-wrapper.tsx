@@ -41,7 +41,7 @@ export function DiffResultWrapper({ oldContent, newContent, fileName, contextLin
       </div>
       <button
         type="button"
-        className="inline-flex items-center justify-center px-2 py-1 text-xs rounded-md border transition-opacity hover:opacity-80 active:opacity-70"
+        className="inline-flex items-center justify-center px-2 py-1 text-xs rounded-xl border transition-opacity hover:opacity-80 active:opacity-70"
         style={{
           backgroundColor: 'var(--vscode-button-secondaryBackground)',
           borderColor: 'var(--vscode-input-border)',

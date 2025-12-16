@@ -226,7 +226,7 @@ export function RefactorIndicator({ largeFiles, isScanning = false, disabled = f
         disabled={disabled}
         onFocus={() => setShowTooltip(true)}
         onBlur={() => setShowTooltip(false)}
-        className="py-1 rounded-md transition-opacity hover:opacity-70 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="py-1 rounded-xl transition-opacity hover:opacity-70 disabled:opacity-50 disabled:cursor-not-allowed"
         style={{ color: isEmpty ? 'var(--vscode-descriptionForeground)' : REFACTOR_COLOR }}
         aria-label={isScanning ? 'Scanning codebase...' : isEmpty ? 'No files need refactoring' : `${fileCount} files may need refactoring`}
       >
@@ -353,7 +353,7 @@ export function RefactorIndicator({ largeFiles, isScanning = false, disabled = f
               </p>
               
               <div 
-                className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs"
+                className="flex items-center gap-2 px-2 py-1.5 rounded-xl text-xs"
                 style={{ 
                   backgroundColor: 'var(--vscode-list-hoverBackground)'
                 }}
@@ -369,7 +369,7 @@ export function RefactorIndicator({ largeFiles, isScanning = false, disabled = f
               <div className="flex gap-2">
                 <button
                   onClick={handleConfirmRefactor}
-                  className="flex-1 px-3 py-1.5 rounded-md text-xs transition-all border"
+                  className="flex-1 px-3 py-1.5 rounded-xl text-xs transition-all border"
                   style={{ 
                     backgroundColor: 'var(--vscode-button-background)', 
                     color: 'var(--vscode-button-foreground)',
@@ -388,7 +388,7 @@ export function RefactorIndicator({ largeFiles, isScanning = false, disabled = f
                 </button>
                 <button
                   onClick={handleCancelRefactor}
-                  className="flex-1 px-3 py-1.5 rounded-md text-xs transition-all border"
+                  className="flex-1 px-3 py-1.5 rounded-xl text-xs transition-all border"
                   style={{ 
                     color: 'var(--vscode-foreground)',
                     borderColor: 'var(--vscode-input-border)',

@@ -195,7 +195,7 @@ function ChatModelSelectorComponent({ provider: activeProvider, model: activeMod
         type="button"
         onClick={handleToggle}
         disabled={disabled}
-        className="flex items-center gap-1.5 px-2 py-1 text-xs rounded-md border transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
+        className="flex items-center gap-1.5 px-2 py-1 text-xs rounded-xl border transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
         style={{
           backgroundColor: 'transparent',
           borderColor: 'var(--vscode-input-border)',
@@ -224,7 +224,7 @@ function ChatModelSelectorComponent({ provider: activeProvider, model: activeMod
           >
             <div className="flex items-center gap-1">
               <div
-                className="relative flex-1 rounded-md border"
+                className="relative flex-1 rounded-xl border"
                 style={{
                   backgroundColor: 'var(--vscode-input-background)',
                   borderColor: 'var(--vscode-input-border)',
@@ -235,7 +235,7 @@ function ChatModelSelectorComponent({ provider: activeProvider, model: activeMod
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search models..."
-                  className="w-full bg-transparent text-xs border-0 rounded-md py-1.5 pl-6 pr-2 placeholder-opacity-50"
+                  className="w-full bg-transparent text-xs border-0 rounded-xl py-1.5 pl-6 pr-2 placeholder-opacity-50"
                   style={{
                     color: 'var(--vscode-input-foreground)',
                     outline: 'none',
@@ -250,7 +250,7 @@ function ChatModelSelectorComponent({ provider: activeProvider, model: activeMod
               <button
                 type="button"
                 onClick={requestModelsRefresh}
-                className="flex items-center justify-center rounded-md border px-1.5 py-1 text-[10px] min-w-[28px] h-7"
+                className="flex items-center justify-center rounded-xl border px-1.5 py-1 text-[10px] min-w-[28px] h-7"
                 style={{
                   backgroundColor: 'var(--vscode-input-background)',
                   borderColor: 'var(--vscode-input-border)',

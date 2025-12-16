@@ -68,7 +68,7 @@ function ModeDropdownComponent({ mode, onModeChange, disabled = false, direction
         type="button"
         onClick={handleToggle}
         disabled={disabled}
-        className="flex items-center gap-1.5 px-2 py-1 text-xs rounded-md border transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
+        className="flex items-center gap-1.5 px-2 py-1 text-xs rounded-xl border transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
         style={{
           color: mode === 'agent' ? '#22c55e' : mode === 'ask' ? '#3b82f6' : mode === 'plan' ? '#f97316' : mode === 'chat' ? '#ec4899' : '#a855f7',
           backgroundColor: 'transparent',

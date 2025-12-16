@@ -240,7 +240,7 @@ export function SettingsModelSelector({
             >
               <div className="flex items-center gap-1">
                 <div
-                  className="relative flex-1 rounded-md border"
+                  className="relative flex-1 rounded-xl border"
                   style={{
                     backgroundColor: 'var(--vscode-input-background)',
                     borderColor: 'var(--vscode-input-border)',
@@ -251,7 +251,7 @@ export function SettingsModelSelector({
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Search models..."
-                    className="w-full bg-transparent text-xs border-0 rounded-md py-1.5 pl-6 pr-2 placeholder-opacity-50"
+                    className="w-full bg-transparent text-xs border-0 rounded-xl py-1.5 pl-6 pr-2 placeholder-opacity-50"
                     style={{
                       color: 'var(--vscode-input-foreground)',
                       outline: 'none',
@@ -266,7 +266,7 @@ export function SettingsModelSelector({
                 <button
                   type="button"
                   onClick={requestModelsRefresh}
-                  className="flex items-center justify-center rounded-md border px-1.5 py-1 text-[10px] min-w-[28px] h-7"
+                  className="flex items-center justify-center rounded-xl border px-1.5 py-1 text-[10px] min-w-[28px] h-7"
                   style={{
                     backgroundColor: 'var(--vscode-input-background)',
                     borderColor: 'var(--vscode-input-border)',

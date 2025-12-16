@@ -95,7 +95,7 @@ export function BaseMessageInput({
               <button
                 type="button"
                 disabled={disabled}
-                className="text-xs border border-dashed rounded-md px-2 py-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="text-xs border border-dashed rounded-xl px-2 py-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
                   color: 'var(--vscode-descriptionForeground)',
                   borderColor: 'var(--vscode-input-border)',

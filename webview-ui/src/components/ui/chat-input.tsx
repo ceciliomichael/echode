@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, type KeyboardEvent, type FormEvent, type ChangeEvent } from 'react';
 import { usePasteHandler } from '../../hooks/use-paste-handler';
+import { mentionRegex } from '../../utils/context-mentions';
 import { ArrowUp, Paperclip, Square } from 'lucide-react';
 
 import { TodoBlock } from './todo-block';
@@ -20,6 +21,16 @@ import { processDocumentFiles, buildAllAttachedFileBlocks, validateDocumentFile,
 import { validateImageFile, processImageFiles } from '../../utils/image-utils';
 import type { ImageAttachment, Message } from '../../types/chat';
 import type { Provider } from '../../types/api-settings';
+import { ContextMenu } from './context-menu';
+import {
+  shouldShowContextMenu,
+  insertMention,
+  ContextMenuOptionType,
+  type SearchResult,
+  getContextMenuOptions
+} from '../../utils/context-mentions';
+import { vscode } from '../../utils/vscode';
+import { InputWithHighlights, type InputWithHighlightsRef } from './input-with-highlights';
 
 interface ChatInputProps {
   onSendMessage: (message: string, attachments?: ImageAttachment[], forceEchoSearch?: boolean, overrideMessages?: Message[]) => void;
@@ -50,11 +61,23 @@ export function ChatInput({ onSendMessage, onNewChat, disabled = false, isStream
   const [attachments, setAttachments] = useState<DocumentAttachment[]>(restoredAttachments ?? []);
   const [imageAttachments, setImageAttachments] = useState<ImageAttachment[]>(restoredImageAttachments ?? []);
 
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const textareaRef = useRef<InputWithHighlightsRef | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Get refactor scan results
   const { largeFiles, isScanning: isRefactorScanning } = useRefactorScan();
+
+  // Mention state
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const [cursorPosition, setCursorPosition] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedMenuIndex, setSelectedMenuIndex] = useState(0);
+
+  const [selectedMenuType, setSelectedMenuType] = useState<ContextMenuOptionType | null>(null);
+  const [fileSearchResults, setFileSearchResults] = useState<SearchResult[]>([]);
+  // Map to store filename -> path for short display mentions
+  // using a ref since we don't need re-renders when this updates
+  const mentionPathMap = useRef<Map<string, string>>(new Map());
 
   const { handlePaste } = usePasteHandler({
     attachments,
@@ -79,9 +102,27 @@ export function ChatInput({ onSendMessage, onNewChat, disabled = false, isStream
     const content = input;
     // Only use trim() to check for non-empty content, but send the original text
     if (content.trim() && !disabled) {
+      // Expand mentions to full format: @[label](path)
+      let expandedContent = content;
+      // We use a regex replacement to find mentions @[label] and replace with @[label](path)
+      // if we have the path in our map
+      expandedContent = expandedContent.replace(mentionRegex, (match, label, path) => {
+        // If it already has a path (from paste or history?), keep it unless we want to normalize?
+        // The regex @[label](path) might match fully if user typed it or it came from somewhere else.
+        // Wait, our new regex finds @[label] group 1, and optional group 2 (path).
+
+        if (path) return match; // Already has path
+
+        const storedPath = mentionPathMap.current.get(label);
+        if (storedPath) {
+          return `@[${label}](${storedPath})`;
+        }
+        return match;
+      });
+
       // Build <attached_file> blocks and append to message content
       const attachmentBlocks = buildAllAttachedFileBlocks(attachments);
-      const contentWithAttachments = content + attachmentBlocks;
+      const contentWithAttachments = expandedContent + attachmentBlocks;
 
       onSendMessage(
         contentWithAttachments,
@@ -92,14 +133,65 @@ export function ChatInput({ onSendMessage, onNewChat, disabled = false, isStream
       setInput('');
       setAttachments([]);
       setImageAttachments([]);
+      mentionPathMap.current.clear();
     }
   };
 
   const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
+    const newValue = e.target.value;
+    const newCursorPos = e.target.selectionStart;
+    setInput(newValue);
+    setCursorPosition(newCursorPos);
+
+    if (shouldShowContextMenu(newValue, newCursorPos)) {
+      setShowContextMenu(true);
+      // Reset to first item when menu opens
+      if (!showContextMenu) {
+        setSelectedMenuIndex(0);
+      }
+      const lastAtIndex = newValue.lastIndexOf("@", newCursorPos - 1);
+      const query = newValue.slice(lastAtIndex + 1, newCursorPos);
+      setSearchQuery(query);
+    } else {
+      setShowContextMenu(false);
+      setSelectedMenuType(null);
+    }
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (showContextMenu) {
+      if (e.key === 'Escape') {
+        // If in submenu, go back to category menu; otherwise close
+        if (selectedMenuType !== null) {
+          setSelectedMenuType(null);
+          setSelectedMenuIndex(0);
+        } else {
+          setShowContextMenu(false);
+        }
+        return;
+      }
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        const direction = e.key === 'ArrowUp' ? -1 : 1;
+        const options = getContextMenuOptions(searchQuery, selectedMenuType, fileSearchResults);
+        if (options.length > 0) {
+          setSelectedMenuIndex(prev => (prev + direction + options.length) % options.length);
+        }
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        const options = getContextMenuOptions(searchQuery, selectedMenuType, fileSearchResults);
+        if (options.length > 0 && selectedMenuIndex >= 0 && selectedMenuIndex < options.length) {
+          const option = options[selectedMenuIndex];
+          if (option.type !== ContextMenuOptionType.NoResults) {
+            handleMentionSelect(option.type, option.value);
+          }
+        }
+        return;
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       // Ctrl+Enter: force echo_search for Agent, Plan, and Ask modes
       if (e.ctrlKey || e.metaKey) {
@@ -113,6 +205,69 @@ export function ChatInput({ onSendMessage, onNewChat, disabled = false, isStream
       handleSubmit(e);
     }
   };
+
+  const handleMentionSelect = (type: ContextMenuOptionType, value?: string) => {
+    // If this is a category selection (File or Folder without a value), enter that category
+    if ((type === ContextMenuOptionType.File || type === ContextMenuOptionType.Folder) && !value) {
+      setSelectedMenuType(type);
+      setSelectedMenuIndex(0);
+      return;
+    }
+
+    // Otherwise, complete the mention selection
+    setShowContextMenu(false);
+    setSelectedMenuType(null);
+
+    if (value) {
+      // Logic to disambiguate if multiple files have same name?
+      // For now, simplify: assume unique basenames or that the user selected one.
+      // We can append (1), (2) if needed but that requires verifying against existing keys.
+
+      const basename = value.split('/').pop() || value;
+      let label = basename;
+      let counter = 1;
+      while (mentionPathMap.current.has(label) && mentionPathMap.current.get(label) !== value) {
+        label = `${basename} (${counter})`;
+        counter++;
+      }
+
+      mentionPathMap.current.set(label, value);
+
+      const { newValue, mentionIndex } = insertMention(input, cursorPosition, value, label);
+      setInput(newValue);
+      const newCursorPos = newValue.indexOf(" ", mentionIndex + label.length + 2) + 1; // +2 for starting @[
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.selectionStart = newCursorPos;
+          textareaRef.current.selectionEnd = newCursorPos;
+          textareaRef.current.focus();
+        }
+      }, 0);
+    }
+  };
+
+  // Listen for file search results
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      const message = event.data;
+      if (message.type === 'fileSearchResults') {
+        setFileSearchResults(message.results || []);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  // Trigger file/folder search when query or type changes
+  useEffect(() => {
+    if (showContextMenu && selectedMenuType !== null) {
+      vscode.postMessage({
+        type: "searchFiles",
+        query: searchQuery,
+        searchType: selectedMenuType // 'file' or 'folder'
+      });
+    }
+  }, [showContextMenu, searchQuery, selectedMenuType]);
 
   const handleAttachmentClick = () => {
     fileInputRef.current?.click();
@@ -217,7 +372,6 @@ export function ChatInput({ onSendMessage, onNewChat, disabled = false, isStream
         backgroundColor: 'var(--vscode-sideBar-background)'
       }}
     >
-      {/* Todo Drawer - Layered above chat input */}
       {todos.length > 0 && (
         <div className="mb-2">
           <TodoBlock tasks={todos} />
@@ -249,7 +403,7 @@ export function ChatInput({ onSendMessage, onNewChat, disabled = false, isStream
                   type="button"
                   onClick={handleAttachmentClick}
                   disabled={disabled || isStreaming}
-                  className="text-xs border border-dashed rounded-md px-2 py-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-xs border border-dashed rounded-xl px-2 py-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
                     color: 'var(--vscode-descriptionForeground)',
                     borderColor: 'var(--vscode-input-border)',
@@ -287,7 +441,7 @@ export function ChatInput({ onSendMessage, onNewChat, disabled = false, isStream
                       type="button"
                       onClick={handleAttachmentClick}
                       disabled={disabled || isStreaming}
-                      className="text-xs border border-dashed rounded-md px-2 py-1 flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="text-xs border border-dashed rounded-xl px-2 py-1 flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{
                         color: 'var(--vscode-descriptionForeground)',
                         borderColor: 'var(--vscode-input-border)',
@@ -315,7 +469,20 @@ export function ChatInput({ onSendMessage, onNewChat, disabled = false, isStream
           </div>
 
           <div className="w-full relative rounded-xl">
-            <textarea
+            {showContextMenu && (
+              <div className="absolute bottom-full left-0 right-0 z-50">
+                <ContextMenu
+                  onSelect={handleMentionSelect}
+                  searchQuery={searchQuery}
+                  onMouseDown={(e) => e.preventDefault()}
+                  selectedIndex={selectedMenuIndex}
+                  setSelectedIndex={setSelectedMenuIndex}
+                  selectedType={selectedMenuType}
+                  dynamicSearchResults={fileSearchResults}
+                />
+              </div>
+            )}
+            <InputWithHighlights
               ref={textareaRef}
               value={input}
               onChange={handleChange}
@@ -328,7 +495,30 @@ export function ChatInput({ onSendMessage, onNewChat, disabled = false, isStream
               style={{
                 color: 'var(--vscode-input-foreground)',
                 outline: 'none',
-                caretColor: 'var(--vscode-input-foreground)',
+              }}
+              onValueChange={(newValue: string, newCursorPos: number) => {
+                setInput(newValue);
+                setCursorPosition(newCursorPos);
+                setTimeout(() => {
+                  if (textareaRef.current) {
+                    textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+                    textareaRef.current.focus();
+                  }
+                }, 0);
+              }}
+              onBlur={() => setShowContextMenu(false)}
+              onFocus={() => {
+                // Recheck if context menu should show when refocusing
+                const textarea = textareaRef.current;
+                if (textarea) {
+                  const cursorPos = textarea.selectionStart;
+                  if (shouldShowContextMenu(input, cursorPos)) {
+                    setShowContextMenu(true);
+                    const lastAtIndex = input.lastIndexOf("@", cursorPos - 1);
+                    const query = input.slice(lastAtIndex + 1, cursorPos);
+                    setSearchQuery(query);
+                  }
+                }
               }}
             />
           </div>

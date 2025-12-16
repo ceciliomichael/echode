@@ -78,7 +78,7 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
   }
 
   private getCurrentWorkspacePath(): string | undefined {
-    return this._workspaceManager?.getCurrentWorkspacePath() 
+    return this._workspaceManager?.getCurrentWorkspacePath()
       ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   }
 
@@ -180,6 +180,48 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
         case 'executeTool':
         case 'abortToolExecution':
           await handleToolExecution(data, webviewView);
+          break;
+        case 'searchFiles':
+          // File and folder search handler
+          const query = data.query?.toLowerCase() || '';
+          const searchType = data.searchType || 'file'; // 'file' or 'folder'
+
+          if (searchType === 'folder') {
+            // Search for directories by finding files and extracting unique directory paths
+            vscode.workspace.findFiles(`**/*${query}*/**/*`, '**/node_modules/**', 50).then(uris => {
+              const folderPaths = new Set<string>();
+              uris.forEach(uri => {
+                // Get the directory containing this file
+                const relativePath = vscode.workspace.asRelativePath(uri);
+                const parts = relativePath.split('/');
+                // Build folder paths progressively and filter by query
+                let currentPath = '';
+                for (let i = 0; i < parts.length - 1; i++) {
+                  currentPath = currentPath ? `${currentPath}/${parts[i]}` : parts[i];
+                  if (currentPath.toLowerCase().includes(query)) {
+                    folderPaths.add(currentPath);
+                  }
+                }
+              });
+
+              const results = Array.from(folderPaths).slice(0, 20).map(folderPath => ({
+                path: folderPath,
+                type: 'folder' as const,
+                label: folderPath.split('/').pop()
+              }));
+              webviewView.webview.postMessage({ type: 'fileSearchResults', results });
+            });
+          } else {
+            // Search for files (existing logic)
+            vscode.workspace.findFiles(`**/*${query}*`, '**/node_modules/**', 20).then(uris => {
+              const results = uris.map(uri => ({
+                path: vscode.workspace.asRelativePath(uri),
+                type: 'file' as const,
+                label: uri.path.split('/').pop()
+              }));
+              webviewView.webview.postMessage({ type: 'fileSearchResults', results });
+            });
+          }
           break;
       }
     });

@@ -202,7 +202,7 @@ export function ContextIndicator({ usage, disabled = false, mode, isCompressing 
         disabled={disabled}
         onFocus={() => setShowTooltip(true)}
         onBlur={() => setShowTooltip(false)}
-        className="p-1 rounded-md transition-opacity hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="p-1 rounded-xl transition-opacity hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
         style={{
           color,
           animation: isCompressing ? 'context-spin 1s linear infinite' : undefined,

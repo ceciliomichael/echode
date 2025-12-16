@@ -18,7 +18,7 @@ export function AttachmentPreview({ attachments, onRemove, disabled = false }: A
           type="button"
           onClick={() => !disabled && onRemove(index)}
           disabled={disabled}
-          className="inline-flex items-center gap-1.5 text-xs border border-dashed rounded-md px-2 py-1 transition-all hover:opacity-70 disabled:opacity-50 disabled:cursor-not-allowed group"
+          className="inline-flex items-center gap-1.5 text-xs border border-dashed rounded-xl px-2 py-1 transition-all hover:opacity-70 disabled:opacity-50 disabled:cursor-not-allowed group"
           style={{
             borderColor: 'var(--vscode-input-border)',
             backgroundColor: 'transparent',

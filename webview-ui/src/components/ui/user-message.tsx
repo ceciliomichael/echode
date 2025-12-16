@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
 import { Undo2 } from 'lucide-react';
 import { MessageEditForm } from './message-edit-form';
+import { Mention } from './mention';
 
 import type { ChatMode } from '../../types/chat-mode';
 import type { Provider } from '../../types/api-settings';
@@ -72,7 +73,7 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
     if (target.closest('button')) {
       return;
     }
-    
+
     if (!isEditing) {
       onEditStart(messageId);
     }
@@ -139,7 +140,7 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
               overflow: 'hidden'
             }}
           >
-            {displayContent}
+            <Mention text={displayContent} />
           </p>
         </div>
 
