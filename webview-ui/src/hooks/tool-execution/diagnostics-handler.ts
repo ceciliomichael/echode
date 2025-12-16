@@ -29,7 +29,7 @@ export function getDiagnosticsFromToolResult(
   }
 
   const fileDiagnostics = extractDiagnosticsFromResult(executedTool.toolName, executedTool.result);
-  
+
   if (fileDiagnostics) {
     return buildDiagnosticsWithInstruction(
       fileDiagnostics,
@@ -55,9 +55,9 @@ function buildDiagnosticsWithInstruction(
 
   let instruction = '';
   if (currentAttempts < MAX_DIAGNOSTIC_ITERATIONS) {
-    instruction = `\n\n[INSTRUCTION: The file you just modified has lint/compile errors. Review the diagnostics above and fix them. This is attempt ${currentAttempts}/${MAX_DIAGNOSTIC_ITERATIONS}.]`;
+    instruction = `\n\n[INSTRUCTION: The file you just modified reports the following lint/compile errors. NOTE: These diagnostics might be stale (from the version before your edit). If you are confident your edit fixed these issues, you may ignore this and verify with get_diagnostics. This is attempt ${currentAttempts}/${MAX_DIAGNOSTIC_ITERATIONS}.]`;
   } else if (currentAttempts === MAX_DIAGNOSTIC_ITERATIONS) {
-    instruction = `\n\n[INSTRUCTION: The file still has lint/compile errors. This is your final attempt (${currentAttempts}/${MAX_DIAGNOSTIC_ITERATIONS}). Review carefully and fix all issues.]`;
+    instruction = `\n\n[INSTRUCTION: The file still reports lint/compile errors. NOTE: Verify these are not stale. This is your final attempt (${currentAttempts}/${MAX_DIAGNOSTIC_ITERATIONS}). Review carefully.]`;
   } else {
     instruction = `\n\n[NOTE: Maximum fix attempts (${MAX_DIAGNOSTIC_ITERATIONS}) reached for this file. Diagnostics are shown for your reference, but you should acknowledge and move forward unless the user requests further fixes.]`;
   }

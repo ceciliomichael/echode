@@ -35,6 +35,61 @@ function extractFilesRead(messages: Message[]): string[] {
 }
 
 /**
+ * Extract file paths that were edited by apply_diff or write_to_file in a message
+ */
+function extractEditedFiles(msg: Message): string[] {
+  const editedFiles: string[] = [];
+
+  if (msg.toolExecutions) {
+    msg.toolExecutions.forEach((execution: ToolExecutionState) => {
+      if ((execution.toolName === 'apply_diff' || execution.toolName === 'write_to_file')
+        && execution.status === 'completed'
+        && execution.result?.success) {
+        const data = execution.result.data as Record<string, unknown>;
+        const filePath = (data.path as string) || (data.absolutePath as string);
+        if (filePath) {
+          editedFiles.push(filePath);
+        }
+      }
+    });
+  }
+
+  return editedFiles;
+}
+
+/**
+ * Build a map indicating which files are edited in later messages for each message index.
+ * This allows us to skip stale diagnostics from earlier edits.
+ */
+function buildFilesEditedLaterMap(messages: Message[]): Map<number, Set<string>> {
+  const result = new Map<number, Set<string>>();
+
+  // First, collect all edited files with their message indices
+  const allEdits: { msgIndex: number; files: string[] }[] = [];
+  for (let i = 0; i < messages.length; i++) {
+    const files = extractEditedFiles(messages[i]);
+    if (files.length > 0) {
+      allEdits.push({ msgIndex: i, files });
+    }
+  }
+
+  // For each message, compute which files are edited in LATER messages
+  for (let i = 0; i < messages.length; i++) {
+    const filesEditedLater = new Set<string>();
+    for (const edit of allEdits) {
+      if (edit.msgIndex > i) {
+        for (const file of edit.files) {
+          filesEditedLater.add(file);
+        }
+      }
+    }
+    result.set(i, filesEditedLater);
+  }
+
+  return result;
+}
+
+/**
  * Build chat history with system prompt, context messages, tool results, and final user message
  * Returns the final chat history ready to send to the LLM
  * 
@@ -104,10 +159,14 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
     // Add recent messages that come after the summary (preserved during compression)
     const recentMessages = contextMessages.slice(summaryIndex + 1).filter(msg => !msg.hidden);
 
+    // Build map of which files are edited later for each message index (using original indexes)
+    const filesEditedLaterMap = buildFilesEditedLaterMap(contextMessages);
+
     // Track last role to avoid consecutive same-role messages
     let lastRole: 'user' | 'assistant' = 'assistant';
 
-    for (const msg of recentMessages) {
+    for (let i = 0; i < recentMessages.length; i++) {
+      const msg = recentMessages[i];
       // Skip system messages (shouldn't be in recentMessages, but guard anyway)
       if (msg.role === 'system') continue;
 
@@ -128,7 +187,10 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
 
       // Include tool results for recent messages
       if (msg.toolExecutions && msg.toolExecutions.size > 0) {
-        const { toolResults } = formatToolExecutionResults(msg.toolExecutions, mode);
+        // Map back to original index to get correct filesEditedLater set
+        const originalIndex = contextMessages.indexOf(msg);
+        const filesEditedLater = originalIndex >= 0 ? filesEditedLaterMap.get(originalIndex) : undefined;
+        const { toolResults } = formatToolExecutionResults(msg.toolExecutions, mode, filesEditedLater);
 
         if (toolResults.length > 0) {
           const toolResultsContent = `<tool_results>\n${toolResults.join('\n\n---\n\n')}\n</tool_results>`;
@@ -170,8 +232,13 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
     },
   ];
 
+  // Build map of which files are edited later for each message index
+  // This allows us to skip stale diagnostics from earlier edits
+  const filesEditedLaterMap = buildFilesEditedLaterMap(contextMessages);
+
   // Add messages with tool results embedded
-  for (const msg of contextMessages) {
+  for (let msgIndex = 0; msgIndex < contextMessages.length; msgIndex++) {
+    const msg = contextMessages[msgIndex];
     // Skip hidden messages
     if (msg.hidden) continue;
 
@@ -194,7 +261,9 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
 
     // If this message has tool executions, add them as context
     if (msg.toolExecutions && msg.toolExecutions.size > 0) {
-      const { toolResults } = formatToolExecutionResults(msg.toolExecutions, mode);
+      // Pass the set of files that will be edited later to skip stale diagnostics
+      const filesEditedLater = filesEditedLaterMap.get(msgIndex);
+      const { toolResults } = formatToolExecutionResults(msg.toolExecutions, mode, filesEditedLater);
 
       if (toolResults.length > 0) {
         const toolResultsContent = `<tool_results>\n${toolResults.join('\n\n---\n\n')}\n</tool_results>`;

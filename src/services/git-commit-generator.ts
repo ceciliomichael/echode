@@ -127,10 +127,64 @@ function getChatStreamSettings(apiSettings: ApiSettings): ChatStreamSettings & {
   };
 }
 
+interface GitDiffResult {
+  diff: string;
+  isStaged: boolean;
+  isInitialCommit: boolean;
+}
+
+/**
+ * Check if this is the first commit (no HEAD exists)
+ */
+async function isInitialCommit(repository: Repository): Promise<boolean> {
+  try {
+    await repository.getCommit('HEAD');
+    return false;
+  } catch {
+    // HEAD doesn't exist, this is the initial commit
+    return true;
+  }
+}
+
+/**
+ * Get file contents for initial commit (when there's no HEAD to diff against)
+ */
+async function getInitialCommitContent(repository: Repository): Promise<string | null> {
+  const indexChanges = repository.state.indexChanges;
+  const workingTreeChanges = repository.state.workingTreeChanges;
+  
+  // Prefer staged changes, fall back to working tree changes
+  const changes = indexChanges.length > 0 ? indexChanges : workingTreeChanges;
+  
+  if (changes.length === 0) {
+    return null;
+  }
+
+  const fileContents: string[] = [];
+  
+  for (const change of changes) {
+    try {
+      const relativePath = vscode.workspace.asRelativePath(change.uri);
+      
+      // Read file content
+      const content = await vscode.workspace.fs.readFile(change.uri);
+      const textContent = new TextDecoder().decode(content);
+      
+      // Format as a pseudo-diff for the LLM
+      fileContents.push(`--- /dev/null\n+++ ${relativePath}\n@@ -0,0 +1,${textContent.split('\n').length} @@\n${textContent.split('\n').map(line => `+${line}`).join('\n')}`);
+    } catch (err) {
+      console.error(`[GitCommitGenerator] Error reading file ${change.uri.fsPath}:`, err);
+    }
+  }
+
+  return fileContents.length > 0 ? fileContents.join('\n\n') : null;
+}
+
 /**
  * Get diff from Git (staged first, then unstaged as fallback)
+ * Also handles initial commit when there's no HEAD
  */
-async function getGitDiff(): Promise<string | null> {
+async function getGitDiff(): Promise<GitDiffResult | null> {
   const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git');
   if (!gitExtension) {
     vscode.window.showErrorMessage('Git extension not found');
@@ -146,18 +200,32 @@ async function getGitDiff(): Promise<string | null> {
   const repository = git.repositories[0];
 
   try {
+    // Check if this is the initial commit (no HEAD)
+    const initialCommit = await isInitialCommit(repository);
+    
+    if (initialCommit) {
+      // For initial commit, read file contents directly
+      const content = await getInitialCommitContent(repository);
+      if (content) {
+        const hasStaged = repository.state.indexChanges.length > 0;
+        return { diff: content, isStaged: hasStaged, isInitialCommit: true };
+      }
+      vscode.window.showWarningMessage('No files found. Add some files first.');
+      return null;
+    }
+
     // Try staged changes first
     const stagedDiff = await repository.diff(true);
 
     if (stagedDiff && stagedDiff.trim() !== '') {
-      return stagedDiff;
+      return { diff: stagedDiff, isStaged: true, isInitialCommit: false };
     }
 
     // Fall back to unstaged changes
     const unstagedDiff = await repository.diff(false);
 
     if (unstagedDiff && unstagedDiff.trim() !== '') {
-      return unstagedDiff;
+      return { diff: unstagedDiff, isStaged: false, isInitialCommit: false };
     }
 
     vscode.window.showWarningMessage('No changes found. Make some changes first.');
@@ -172,7 +240,7 @@ async function getGitDiff(): Promise<string | null> {
 /**
  * Simple non-streaming completion for commit messages
  */
-async function generateCommitMessage(diff: string): Promise<string | null> {
+async function generateCommitMessage(diffResult: GitDiffResult): Promise<string | null> {
   const apiSettings = getSettingsService().getSettings();
   const settings = getChatStreamSettings(apiSettings);
 
@@ -187,9 +255,10 @@ async function generateCommitMessage(diff: string): Promise<string | null> {
     systemPrompt += `\n\nAdditional custom instructions:\n${settings.customPrompt.trim()}`;
   }
 
+  const changeType = diffResult.isStaged ? 'staged' : 'unstaged';
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
-    { role: 'user', content: `Generate a commit message for these staged changes:\n\n${diff}` }
+    { role: 'user', content: `Generate a commit message for these ${changeType} changes:\n\n${diffResult.diff}` }
   ];
 
   try {
@@ -276,7 +345,19 @@ interface GitAPI {
   repositories: Repository[];
 }
 
+interface Change {
+  uri: vscode.Uri;
+  status: number;
+}
+
+interface RepositoryState {
+  indexChanges: Change[];
+  workingTreeChanges: Change[];
+}
+
 interface Repository {
   inputBox: { value: string };
+  state: RepositoryState;
   diff(staged: boolean): Promise<string>;
+  getCommit(ref: string): Promise<unknown>;
 }

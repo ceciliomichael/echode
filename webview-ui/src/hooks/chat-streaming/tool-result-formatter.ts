@@ -6,10 +6,14 @@ import { truncateContent, MAX_FILE_CONTENT_CHARS } from './helpers';
 /**
  * Format tool execution results for inclusion in chat history
  * Returns formatted tool results string array and list of skipped tools
+ * 
+ * @param filesEditedLater - Optional set of file paths that are edited in later messages.
+ *                           If provided, diagnostics from these files will be omitted to avoid stale data.
  */
 export function formatToolExecutionResults(
   toolExecutions: Map<string, ToolExecutionState>,
-  mode: ChatMode
+  mode: ChatMode,
+  filesEditedLater?: Set<string>
 ): { toolResults: string[]; skippedTools: string[] } {
   const toolResults: string[] = [];
   const skippedTools: string[] = [];
@@ -65,8 +69,13 @@ export function formatToolExecutionResults(
           const message = (data.message as string) || `File ${execution.toolName === 'apply_diff' ? 'edited' : 'written'} successfully`;
           const lineCount = data.lineCount as number | undefined;
           const action = data.action as string | undefined;
-          const diagnostics = data.fileDiagnostics as string | undefined;
+          const filePath = (data.path as string) || (data.absolutePath as string);
           const largeFileReminder = data.largeFileReminder as string | undefined;
+
+          // Only include diagnostics if this file wasn't edited again in a later message
+          // Stale diagnostics from older edits can confuse the AI
+          const isFileEditedLater = filePath && filesEditedLater?.has(filePath);
+          const diagnostics = isFileEditedLater ? undefined : (data.fileDiagnostics as string | undefined);
 
           // Build concise result for AI
           formattedResult = `${message}`;

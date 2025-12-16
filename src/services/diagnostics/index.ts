@@ -287,8 +287,9 @@ export async function getFileDiagnosticsAfterEdit(
             for (const uri of e.uris) {
                 const normalizedUri = path.normalize(uri.fsPath).toLowerCase();
                 if (normalizedUri === normalizedFilePath) {
-                    // Give a small grace period for additional updates
-                    setTimeout(cleanup, 50);
+                    // Give a longer grace period for language servers to stabilize
+                    // TypeScript/ESLint often emit multiple updates in quick succession
+                    setTimeout(cleanup, 300);
                     return;
                 }
             }
