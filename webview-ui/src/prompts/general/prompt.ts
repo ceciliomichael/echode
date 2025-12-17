@@ -1,5 +1,6 @@
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
+import { IMAGE_AWARENESS_RULES } from '../shared';
 
 export function getGeneralPrompt(workspace: WorkspaceContext | null, enabledTools: Tool[] = []): string {
     const cwd = workspace?.path || 'the current workspace directory';
@@ -71,5 +72,7 @@ Politely suggest switching modes when the task needs more:
 *   **Any Topic OK**: Not just coding - general help is fine too
 *   **Be Helpful**: When unsure, just ask the user what they need
 </rules>
+
+${IMAGE_AWARENESS_RULES}
 </general_mode>`;
 }

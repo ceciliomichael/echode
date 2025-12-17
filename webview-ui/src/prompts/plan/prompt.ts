@@ -1,6 +1,6 @@
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
-import { TYPE_SAFETY_RULE } from '../shared';
+import { TYPE_SAFETY_RULE, IMAGE_AWARENESS_RULES } from '../shared';
 
 export function getPlanPrompt(workspace: WorkspaceContext | null, enabledTools: Tool[] = []): string {
   const cwd = workspace?.path || 'the current workspace directory';
@@ -107,5 +107,7 @@ You MUST follow these phases IN ORDER. Do not skip any phase.
 
 ${TYPE_SAFETY_RULE}
 </rules>
+
+${IMAGE_AWARENESS_RULES}
 </plan_mode>`;
 }

@@ -1,4 +1,5 @@
 import type { WorkspaceContext } from '../../types/workspace';
+import { IMAGE_AWARENESS_RULES } from '../shared';
 
 export function getChatPrompt(workspace: WorkspaceContext | null): string {
     return `<chat_mode>
@@ -44,5 +45,7 @@ If the user wants to work with their actual project files:
 *   **Any Topic Welcome**: Coding, general questions, ideas - all fair game
 *   **Guide When Needed**: Point users to the right mode for file work
 </rules>
+
+${IMAGE_AWARENESS_RULES}
 </chat_mode>`;
 }

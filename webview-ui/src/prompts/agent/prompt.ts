@@ -9,7 +9,7 @@
 
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
-import { TYPE_SAFETY_RULE } from '../shared';
+import { TYPE_SAFETY_RULE, IMAGE_AWARENESS_RULES } from '../shared';
 
 export function getAgentPrompt(workspace: WorkspaceContext | null, enabledTools: Tool[] = []): string {
     const cwd = workspace?.path || 'the current workspace directory';
@@ -136,5 +136,7 @@ TASKS:
 
 ${TYPE_SAFETY_RULE}
 </rules>
+
+${IMAGE_AWARENESS_RULES}
 </agent>`;
 }

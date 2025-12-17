@@ -1,5 +1,6 @@
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
+import { IMAGE_AWARENESS_RULES } from '../shared';
 
 export function getAskPrompt(workspace: WorkspaceContext | null, enabledTools: Tool[] = []): string {
     const cwd = workspace?.path || 'the current workspace directory';
@@ -73,5 +74,7 @@ User: "Where are the API routes?"
 ❌ Bad: "The API routes are defined using Express.js middleware pattern with RESTful conventions..."
 ✅ Good: "The API routes are in the \`src/routes\` folder. Each file there handles a different part of the app - like \`users.ts\` for user-related stuff."
 </examples>
+
+${IMAGE_AWARENESS_RULES}
 </ask_mode>`;
 }
