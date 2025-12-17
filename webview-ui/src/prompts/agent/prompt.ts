@@ -110,6 +110,18 @@ SCOPE:
 - Prefer small, targeted changes over broad refactors
 - Don't create/modify docs unless explicitly asked
 
+QUALITY:
+- STRICTLY AVOID MONOLITHIC CODE: Split logic into small, focused modules.
+  Example: Instead of one large handler.ts (400 lines), split into:
+    - handler.ts (orchestration, 80 lines)
+    - processors/processor-a.ts (specific logic)
+    - processors/processor-b.ts (specific logic)
+    - validators/validator.ts (validation)
+- Single Responsibility: One file, one purpose.
+- DRY: Extract shared logic to utils/hooks.
+  Example: If formatting logic appears in multiple files, extract to utils/formatters.ts
+- Refactor proactively: If a file grows too large (>200 lines), split it.
+
 TOOLS:
 - Use apply_diff for targeted edits (<50% of file)
 - Use write_to_file for new files or complete rewrites

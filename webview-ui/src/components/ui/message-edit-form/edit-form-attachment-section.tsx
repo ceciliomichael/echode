@@ -44,11 +44,13 @@ export function EditFormAttachmentSection({
               attachments={attachments}
               onRemove={onRemoveAttachment}
               disabled={false}
+              tooltipDirection="down"
             />
             <ImageAttachmentPreview
               attachments={imageAttachments}
               onRemove={onRemoveImageAttachment}
               disabled={false}
+              tooltipDirection="down"
             />
             {canAddMore && (
               <button

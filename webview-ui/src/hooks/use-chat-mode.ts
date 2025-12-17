@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ChatMode } from '../types/chat-mode';
 import { CHAT_MODE_OPTIONS } from '../types/chat-mode';
 import { storageService } from '../utils/storage';
@@ -6,10 +6,12 @@ import { storageService } from '../utils/storage';
 interface ChatModeState {
   mode: ChatMode;
   handleModeChange: (newMode: ChatMode) => void;
+  setHotkeyDisabled: (disabled: boolean) => void;
 }
 
 export function useChatMode(): ChatModeState {
   const [mode, setMode] = useState<ChatMode>(() => storageService.getChatMode());
+  const isDisabledRef = useRef(false);
 
   const handleModeChange = useCallback((newMode: ChatMode) => {
     setMode(newMode);
@@ -33,16 +35,24 @@ export function useChatMode(): ChatModeState {
     };
 
     window.addEventListener('message', handleChatModeLoaded);
-    
+
     // Request workspace-specific mode from backend
     storageService.requestChatMode();
 
     return () => window.removeEventListener('message', handleChatModeLoaded);
   }, []);
 
+  // Callback to update the disabled state from external components
+  const setHotkeyDisabled = useCallback((disabled: boolean) => {
+    isDisabledRef.current = disabled;
+  }, []);
+
   // Ctrl+. hotkey to cycle through modes
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip mode switching when AI is actively streaming or executing tools
+      if (isDisabledRef.current) return;
+
       if (e.ctrlKey && e.key === '.') {
         e.preventDefault();
         setMode((currentMode) => {
@@ -62,5 +72,6 @@ export function useChatMode(): ChatModeState {
   return {
     mode,
     handleModeChange,
+    setHotkeyDisabled,
   };
 }

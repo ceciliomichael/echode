@@ -61,11 +61,13 @@ export function AttachmentSection({
               attachments={attachments}
               onRemove={onRemoveAttachment}
               disabled={disabled}
+              tooltipDirection="up"
             />
             <ImageAttachmentPreview
               attachments={imageAttachments}
               onRemove={onRemoveImageAttachment}
               disabled={disabled}
+              tooltipDirection="up"
             />
             {canAddMore && (
               <button

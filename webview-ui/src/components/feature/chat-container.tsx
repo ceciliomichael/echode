@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import type { ImageAttachment, Message } from '../../types/chat';
 import { MessageBubble } from '../ui/message-bubble';
 import { ChatInput } from '../ui/chat-input';
@@ -20,8 +20,10 @@ import { storageService } from '../../utils/storage';
 
 export function ChatContainer() {
   const { tasks, updateTodos, clearTodos } = useTodo();
-  const { mode, handleModeChange } = useChatMode();
   const { provider, model, setActiveProviderAndModel } = useChatModel();
+
+  // Get mode and hotkey control - setHotkeyDisabled allows disabling Ctrl+. during AI activity
+  const { mode, handleModeChange, setHotkeyDisabled } = useChatMode();
 
   const contentWidthClass = 'w-full max-w-3xl';
   const horizontalPaddingClass = 'px-4 sm:px-5 lg:px-6';
@@ -48,6 +50,11 @@ export function ChatContainer() {
     abortedAttachments,
     abortedImageAttachments,
   } = useStreamingChat(tasks, mode);
+
+  // Disable mode switching hotkey (Ctrl+.) when AI is actively streaming or executing tools
+  useEffect(() => {
+    setHotkeyDisabled(isStreaming || isExecutingTool);
+  }, [isStreaming, isExecutingTool, setHotkeyDisabled]);
 
   // Context usage tracking
   const workspace = useWorkspaceContext();

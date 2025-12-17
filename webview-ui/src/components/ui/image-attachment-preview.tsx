@@ -6,9 +6,15 @@ interface ImageAttachmentPreviewProps {
   attachments: ImageAttachment[];
   onRemove: (index: number) => void;
   disabled?: boolean;
+  tooltipDirection?: 'up' | 'down';
 }
 
-export function ImageAttachmentPreview({ attachments, onRemove, disabled = false }: ImageAttachmentPreviewProps) {
+export function ImageAttachmentPreview({
+  attachments,
+  onRemove,
+  disabled = false,
+  tooltipDirection = 'up'
+}: ImageAttachmentPreviewProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   if (attachments.length === 0) return null;
@@ -58,8 +64,12 @@ export function ImageAttachmentPreview({ attachments, onRemove, disabled = false
           {/* Hover preview */}
           {hoveredIndex === index && (
             <div
-              className="absolute top-full left-0 mt-2 z-50 rounded-lg border shadow-lg overflow-hidden"
+              className="absolute left-0 z-50 rounded-lg border shadow-lg overflow-hidden"
               style={{
+                ...(tooltipDirection === 'up'
+                  ? { bottom: 'calc(100% + 8px)' }
+                  : { top: 'calc(100% + 8px)' }
+                ),
                 backgroundColor: 'var(--vscode-editor-background)',
                 borderColor: 'var(--vscode-input-border)'
               }}
