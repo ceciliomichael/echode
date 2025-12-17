@@ -5,7 +5,7 @@
 
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
-import { getUserRules, getSystemInfo, getThinkingRules } from '../shared';
+import { getUserRules, getSystemInfo } from '../shared';
 import { getAgentPrompt } from './prompt';
 import { getAgentToolInstructions } from './tools';
 import { getToolSystemPrompt } from '../../lib/tool-config';
@@ -36,7 +36,6 @@ No tools are currently enabled.
 
     const userRules = getUserRules(workspace);
     const systemInfo = getSystemInfo(workspace);
-    const thinkingRules = getThinkingRules();
 
     // Assemble in priority order
     const sections = [
@@ -45,7 +44,6 @@ No tools are currently enabled.
         toolInstructions,
         userRules,
         systemInfo,
-        thinkingRules,
     ].filter(Boolean);
 
     return sections.join('\n\n').trim();

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Check, ChevronDown, Search, Cpu, RefreshCcw } from 'lucide-react';
 import type { ApiSettings, Provider } from '../../types/api-settings';
 import { storageService } from '../../utils/storage';
@@ -23,11 +24,11 @@ export function SettingsModelSelector({
 }: SettingsModelSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [openUpward, setOpenUpward] = useState(false);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  const DROPDOWN_HEIGHT = 280;
+  const DROPDOWN_HEIGHT = 200;
 
   // Calculate and update dropdown position
   const updatePosition = () => {
@@ -35,7 +36,17 @@ export function SettingsModelSelector({
       const buttonRect = buttonRef.current.getBoundingClientRect();
       const spaceBelow = window.innerHeight - buttonRect.bottom;
       const spaceAbove = buttonRect.top;
-      setOpenUpward(spaceBelow < DROPDOWN_HEIGHT && spaceAbove > spaceBelow);
+      const isUpward = spaceBelow < DROPDOWN_HEIGHT && spaceAbove > spaceBelow;
+
+      setDropdownStyle({
+        position: 'fixed',
+        top: isUpward ? 'auto' : `${buttonRect.bottom + 4}px`,
+        bottom: isUpward ? `${window.innerHeight - buttonRect.top + 4}px` : 'auto',
+        left: `${buttonRect.left}px`,
+        width: `${buttonRect.width}px`,
+        maxHeight: `${DROPDOWN_HEIGHT}px`,
+        zIndex: 9999,
+      });
     }
   };
 
@@ -53,17 +64,14 @@ export function SettingsModelSelector({
     if (!isOpen) return;
 
     const handlePositionUpdate = () => {
-      if (buttonRef.current) {
-        const buttonRect = buttonRef.current.getBoundingClientRect();
-        const spaceBelow = window.innerHeight - buttonRect.bottom;
-        const spaceAbove = buttonRect.top;
-        setOpenUpward(spaceBelow < DROPDOWN_HEIGHT && spaceAbove > spaceBelow);
-      }
+      updatePosition();
     };
 
     // Listen to all scroll events (capture phase) and resize
     document.addEventListener('scroll', handlePositionUpdate, true);
     window.addEventListener('resize', handlePositionUpdate);
+    // Also update immediately
+    handlePositionUpdate();
 
     return () => {
       document.removeEventListener('scroll', handlePositionUpdate, true);
@@ -222,16 +230,14 @@ export function SettingsModelSelector({
           <ChevronDown size={14} className="flex-shrink-0" />
         </button>
 
-        {isOpen && (
+        {isOpen && createPortal(
           <div
-            className={`absolute w-full rounded-xl border overflow-hidden ${openUpward ? 'bottom-full mb-1' : 'top-full mt-1'
-              }`}
+            className="fixed rounded-xl border overflow-hidden"
             style={{
               backgroundColor: 'var(--vscode-editor-background)',
               borderColor: 'var(--vscode-input-border)',
-              maxHeight: `${DROPDOWN_HEIGHT}px`,
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
-              zIndex: 9999,
+              ...dropdownStyle,
             }}
           >
             <div
@@ -279,7 +285,7 @@ export function SettingsModelSelector({
               </div>
             </div>
 
-            <div className="overflow-y-auto" style={{ maxHeight: '200px' }}>
+            <div className="overflow-y-auto" style={{ maxHeight: `${DROPDOWN_HEIGHT - 60}px` }}>
               {anyLoading && filteredResults.length === 0 && (
                 <div className="px-2 py-1.5 text-xs opacity-70">
                   Loading models...
@@ -334,7 +340,8 @@ export function SettingsModelSelector({
                 </div>
               )}
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     </div>

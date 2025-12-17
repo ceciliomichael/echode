@@ -3,14 +3,26 @@ export function getApplyDiffInstructions(): string {
 <summary>Preferred for editing files. Small, local edits.</summary>
 <format>
 <<<<<<< SEARCH
-[exact content from read_file]
+:start_line:N
+-------
+[exact content to find]
 =======
 [replacement content]
 >>>>>>> REPLACE
 </format>
+<example>
+<<<<<<< SEARCH
+:start_line:10
+-------
+const value = 1;
+=======
+const value = 2;
+>>>>>>> REPLACE
+</example>
 <notes>
-*   Use for small changes (<50% of file).
-*   Content must match exactly.
+*   MUST start with \`<<<<<<< SEARCH\`
+*   MUST include \`:start_line:N\` and \`-------\`
+*   Use for small changes (<50% of file)
 </notes>
 </tool_usage>`;
 }

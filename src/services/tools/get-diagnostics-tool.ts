@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import type { ITool, ToolExecutionResult } from './tool.interface';
 import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
+import { FileLockManager } from './utils/file-lock-manager';
 
 export class GetDiagnosticsTool implements ITool {
   name = 'get_diagnostics';
@@ -30,6 +31,29 @@ export class GetDiagnosticsTool implements ITool {
         const resolved = resolveAbsolutePath(rawPath, workspaceRoot);
         targetPath = resolved;
         isDirectoryTarget = this.isDirectoryTarget(resolved);
+
+        // Wait for any active file modifications to finish
+        if (targetPath) {
+          await FileLockManager.waitForLock(targetPath);
+
+          // If not a directory, check if we need to wait for fresh diagnostics
+          if (!isDirectoryTarget) {
+            try {
+              const fs = require('fs');
+              const stats = fs.statSync(targetPath);
+              const modifiedAgeMs = Date.now() - stats.mtimeMs;
+
+              // If modified less than 2 seconds ago, wait for diagnostics update
+              // This handles the lag between file save and LSP publishing diagnostics
+              if (modifiedAgeMs < 2000) {
+                console.log(`[GetDiagnostics] File ${targetPath} modified recently (${modifiedAgeMs}ms ago). Waiting for fresh diagnostics...`);
+                await this.waitForDiagnosticsUpdate(vscode.Uri.file(targetPath));
+              }
+            } catch (e) {
+              // Ignore fs errors (file might not exist yet)
+            }
+          }
+        }
       }
 
       const allDiagnostics = vscode.languages.getDiagnostics();
@@ -47,7 +71,7 @@ export class GetDiagnosticsTool implements ITool {
       }> = [];
 
       for (const [uri, diagnostics] of allDiagnostics) {
-        if (diagnostics.length === 0) {continue;}
+        if (diagnostics.length === 0) { continue; }
 
         const filePath = uri.fsPath;
 
@@ -78,7 +102,7 @@ export class GetDiagnosticsTool implements ITool {
           d.severity === vscode.DiagnosticSeverity.Hint,
         );
 
-        if (filtered.length === 0) {continue;}
+        if (filtered.length === 0) { continue; }
 
         const converted = filtered.map((d) => ({
           line: d.range.start.line + 1,
@@ -132,5 +156,36 @@ export class GetDiagnosticsTool implements ITool {
     // Heuristic: if the path has a file extension, treat it as a file; otherwise as a directory.
     const ext = path.extname(resolvedPath);
     return ext.length === 0;
+  }
+
+  /**
+   * Waits for diagnostics to update for a specific file URI.
+   * Resolves when onDidChangeDiagnostics fires for that URI, or after timeout.
+   */
+  private async waitForDiagnosticsUpdate(uri: vscode.Uri, timeoutMs = 2000): Promise<void> {
+    return new Promise<void>((resolve) => {
+      let resolved = false;
+
+      const disposable = vscode.languages.onDidChangeDiagnostics((e) => {
+        if (e.uris.some(u => u.fsPath === uri.fsPath)) {
+          if (!resolved) {
+            resolved = true;
+            disposable.dispose();
+            // Give a tiny buffer for full diagnostic set to populate
+            setTimeout(resolve, 50);
+          }
+        }
+      });
+
+      // Timeout fallback
+      setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          disposable.dispose();
+          console.log(`[GetDiagnostics] Timeout waiting for diagnostics update for ${uri.fsPath}`);
+          resolve();
+        }
+      }, timeoutMs);
+    });
   }
 }

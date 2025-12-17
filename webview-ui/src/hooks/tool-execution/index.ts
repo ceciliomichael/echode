@@ -53,16 +53,20 @@ export function useToolExecution({
   const modeRef = useRef(mode);
 
   // Recreate tool executor when mode changes to refresh enabled tools
+  // NOTE: We intentionally do NOT pass abortControllerRef here.
+  // abortControllerRef is used to abort the AI stream (e.g., when detecting tools),
+  // but we don't want that to abort tool execution itself.
+  // Tools should only abort when isStoppingRef is true (user clicked Stop).
   useEffect(() => {
     modeRef.current = mode;
     const enabledTools = getToolsForMode(mode, false).map(t => t.id);
     toolExecutorRef.current = new ToolExecutor({
       enabledTools,
       isStoppingRef,
-      abortControllerRef,
+      // No abortControllerRef - tools should not abort when stream is aborted
       mode,
     });
-  }, [mode, isStoppingRef, abortControllerRef]);
+  }, [mode, isStoppingRef]);
 
   const executeToolAndContinue = useCallback(
     async (
@@ -107,6 +111,7 @@ export function useToolExecution({
         currentTodos,
         saveSession,
         mode: modeRef.current,
+        getToolExecutor: () => toolExecutorRef.current!,
       };
 
       try {
@@ -203,6 +208,17 @@ async function handleBufferedResults(
   ) => Promise<void>
 ): Promise<void> {
 
+  // Check if any of the buffered results are from planning tools that require user interaction
+  const hasPlanningTool = bufferedToolResults.some(result =>
+    result.startsWith('Tool: plan_navigator') || result.startsWith('Tool: plan_handoff')
+  );
+
+  // If a planning tool was executed, stop here and wait for user interaction
+  if (hasPlanningTool) {
+    context.setIsExecutingTool(false);
+    return;
+  }
+
   const toolResultText = bufferedToolResults.join('\n\n');
   const diagnosticsText = ''; // Diagnostics already handled during incremental execution
 
@@ -238,6 +254,8 @@ async function handleBufferedResults(
     setMessages: context.setMessages,
     setIsExecutingTool: context.setIsExecutingTool,
     executeToolAndContinue,
+    updateToolExecution: context.updateToolExecution,
+    getToolExecutor: context.getToolExecutor,
     logPrefix: '[ToolExecution:Buffered]',
     mode: context.mode,
   });

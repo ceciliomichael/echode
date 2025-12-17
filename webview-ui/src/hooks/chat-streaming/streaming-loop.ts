@@ -1,9 +1,10 @@
 import type { StreamingLoopContext } from './types';
-import type { ToolExecutionState } from '../../types/tool';
+import type { ToolExecutionState, ParsedToolBlock } from '../../types/tool';
 import { chatApi } from '../../services/chat-api';
 import { hasCompleteToolBlock, trimToFirstCompleteToolBlock, extractCompleteInvokeBlocksIncremental } from '../../lib/tool-parser';
-import { generateToolExecutionId } from '../../lib/tool-execution-tracker';
+import { generateToolExecutionId, createToolExecutionState, updateToolExecutionStatus } from '../../lib/tool-execution-tracker';
 import { isRetryableError } from './helpers';
+import { ToolExecutor } from '../../lib/tool-executor';
 
 /**
  * Result of the streaming loop
@@ -15,7 +16,110 @@ export interface StreamingLoopResult {
 }
 
 /**
- * Run the streaming loop with incremental tool execution and auto-retry
+ * Parallel execution result for a single tool
+ */
+interface ParallelToolResult {
+  toolIndex: number;
+  toolName: string;
+  result: string;
+  success: boolean;
+}
+
+/**
+ * Execute a single tool in parallel and return the result
+ * Does NOT await - returns a Promise that resolves when the tool completes
+ */
+async function executeToolInParallel(
+  block: ParsedToolBlock,
+  toolIndex: number,
+  execId: string,
+  executionState: ToolExecutionState,
+  assistantMessageId: string,
+  getToolExecutor: () => ToolExecutor,
+  updateToolExecution: (messageId: string, toolExecutionId: string, state: ToolExecutionState) => void,
+  isStoppingRef: React.MutableRefObject<boolean>
+): Promise<ParallelToolResult> {
+  const toolExecutor = getToolExecutor();
+
+  try {
+    // Check if stopped before execution
+    if (isStoppingRef.current) {
+      const abortedState = updateToolExecutionStatus(executionState, 'aborted', {
+        success: false,
+        error: 'Stopped by user'
+      });
+      updateToolExecution(assistantMessageId, execId, abortedState);
+      return {
+        toolIndex,
+        toolName: block.toolName,
+        result: `Tool: ${block.toolName}\nError: Stopped by user`,
+        success: false,
+      };
+    }
+
+    // Execute the tool
+    const result = await toolExecutor.execute({
+      toolName: block.toolName,
+      parameters: block.parameters,
+      status: 'executing',
+    });
+
+    // Check if stopped after execution
+    if (isStoppingRef.current) {
+      const abortedState = updateToolExecutionStatus(executionState, 'aborted', {
+        success: false,
+        error: 'Stopped by user'
+      });
+      updateToolExecution(assistantMessageId, execId, abortedState);
+      return {
+        toolIndex,
+        toolName: block.toolName,
+        result: `Tool: ${block.toolName}\nError: Stopped by user`,
+        success: false,
+      };
+    }
+
+    // Update execution state with result
+    const completedState = updateToolExecutionStatus(
+      executionState,
+      result.success ? 'completed' : 'error',
+      result
+    );
+    updateToolExecution(assistantMessageId, execId, completedState);
+
+    // Format result string
+    const formattedResult = result.success
+      ? `Tool: ${block.toolName}\nResult: ${JSON.stringify(result.data, null, 2)}`
+      : `Tool: ${block.toolName}\nError: ${result.error}`;
+
+    return {
+      toolIndex,
+      toolName: block.toolName,
+      result: formattedResult,
+      success: result.success,
+    };
+  } catch (error) {
+    // Handle execution error
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorState = updateToolExecutionStatus(executionState, 'error', {
+      success: false,
+      error: errorMessage
+    });
+    updateToolExecution(assistantMessageId, execId, errorState);
+
+    return {
+      toolIndex,
+      toolName: block.toolName,
+      result: `Tool: ${block.toolName}\nError: ${errorMessage}`,
+      success: false,
+    };
+  }
+}
+
+/**
+ * Run the streaming loop with PARALLEL tool execution and auto-retry
+ * Tools are executed as each <invoke> block closes, but results are only
+ * sent to AI after </function_calls> closes
  */
 export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<StreamingLoopResult> {
   const {
@@ -32,6 +136,7 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
     setIsExecutingTool,
     updateToolExecution,
     executeToolAndContinue,
+    getToolExecutor,
   } = ctx;
 
   let assistantContent = '';
@@ -65,13 +170,13 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
         updateUI();
       }
 
+      // Track which tool indices have started execution (parallel execution)
+      const executingToolIndices = new Set<number>();
+      // Store parallel execution promises and their results
+      const parallelExecutions: Map<number, Promise<ParallelToolResult>> = new Map();
 
-      // Track which tool indices have been shown in UI
-      const scheduledToolIndices = new Set<number>();
-
-      console.log('[StreamingLoop] STARTING chatApi.streamChat call');
+      console.log('[StreamingLoop] STARTING chatApi.streamChat call with PARALLEL tool execution');
       for await (const chunk of chatApi.streamChat(finalChatHistory, abortController.signal, mode)) {
-
 
         if (isStoppingRef.current) {
           streamSuccess = true;
@@ -91,10 +196,8 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
         // Check for complete and pending invoke blocks (incremental execution)
         const { blocks, pendingBlocks, hasFunctionCallsClose } = extractCompleteInvokeBlocksIncremental(assistantContent);
 
-
         // Update pending execution states for invoke blocks that have opened but not closed yet
         // This allows the UI to show them as "pending" with streaming content
-        // We update on EVERY chunk so the parameters (content) are refreshed as they stream in
         for (let i = 0; i < pendingBlocks.length; i++) {
           const pendingIndex = blocks.length + i; // Pending blocks come after complete blocks
           const pending = pendingBlocks[i];
@@ -104,36 +207,50 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
           const pendingState: ToolExecutionState = {
             toolExecutionId: execId,
             toolName: pending.toolName,
-            parameters: pending.parameters, // Updated parameters with latest streamed content
+            parameters: pending.parameters,
             status: 'pending',
             startedAt: Date.now(),
           };
           updateToolExecution(assistantMessageId, execId, pendingState);
         }
 
-        // Update UI state for complete invoke blocks (but do NOT execute yet)
-        // Execution only happens when </function_calls> is received
+        // START PARALLEL EXECUTION: Execute each complete invoke block immediately
+        // but DON'T wait for results - collect them after </function_calls>
         for (let i = 0; i < blocks.length; i++) {
-          if (!scheduledToolIndices.has(i)) {
-            scheduledToolIndices.add(i);
+          if (!executingToolIndices.has(i)) {
+            executingToolIndices.add(i);
             const block = blocks[i];
             const toolIndex = i;
-
-            // Show tool as pending in UI (not executing yet)
             const execId = generateToolExecutionId(assistantMessageId, toolIndex);
-            const pendingState: ToolExecutionState = {
-              toolExecutionId: execId,
-              toolName: block.toolName,
-              parameters: block.parameters,
-              status: 'pending',
-              startedAt: Date.now(),
-            };
-            updateToolExecution(assistantMessageId, execId, pendingState);
+
+            // Create execution state (status: 'executing')
+            const executionState = createToolExecutionState(
+              execId,
+              block.toolName,
+              block.parameters
+            );
+            updateToolExecution(assistantMessageId, execId, executionState);
+
+            // Start tool execution in parallel (don't await yet)
+            const executionPromise = executeToolInParallel(
+              block,
+              toolIndex,
+              execId,
+              executionState,
+              assistantMessageId,
+              getToolExecutor,
+              updateToolExecution,
+              isStoppingRef
+            );
+            parallelExecutions.set(toolIndex, executionPromise);
+
+            console.log(`[StreamingLoop] Started parallel execution for tool ${toolIndex}: ${block.toolName}`);
           }
         }
 
-        // Check if function_calls is now closed - ONLY THEN execute tools
+        // Check if function_calls is now closed - WAIT for all parallel executions and send results
         if (hasFunctionCallsClose && blocks.length > 0) {
+          console.log(`[StreamingLoop] </function_calls> closed - waiting for ${parallelExecutions.size} parallel tool executions`);
 
           // Trim content to the complete function_calls block
           const trimmedContent = trimToFirstCompleteToolBlock(assistantContent);
@@ -143,16 +260,35 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
           // Abort stream
           abortController.abort();
 
-          // Execute tools sequentially
+          // Mark as executing tools
           setIsExecutingTool(true);
 
-          // Check if user stopped before executing
+          // Check if user stopped before waiting for results
           if (isStoppingRef.current) {
             setIsExecutingTool(false);
             return { success: false, assistantContent, handledByToolExecution: true };
           }
 
-          // Execute tools sequentially
+          // Wait for ALL parallel executions to complete
+          const allResults = await Promise.all(
+            Array.from(parallelExecutions.values())
+          );
+
+          // Sort results by toolIndex to maintain order
+          allResults.sort((a, b) => a.toolIndex - b.toolIndex);
+
+          console.log(`[StreamingLoop] All ${allResults.length} parallel executions completed`);
+
+          // Collect all tool results into buffered results
+          const bufferedToolResults = allResults.map(r => r.result);
+
+          // Check if user stopped after executions completed
+          if (isStoppingRef.current) {
+            setIsExecutingTool(false);
+            return { success: false, assistantContent, handledByToolExecution: true };
+          }
+
+          // Continue with all buffered results
           await executeToolAndContinue(
             assistantContent,
             assistantMessageId,
@@ -161,6 +297,7 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
             content,
             0,
             attachments,
+            bufferedToolResults,
           );
           return { success: true, assistantContent, handledByToolExecution: true };
         }

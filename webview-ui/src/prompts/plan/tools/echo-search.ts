@@ -8,6 +8,8 @@ export function getEchoSearchInstructions(): string {
 <notes>
 *   Use for "how" questions (e.g., "how is auth handled?").
 *   Good for broad exploration/understanding.
+*   **Use sparingly!** Do not use for finding files or simple content.
+*   Use \`grep_search\` if you know the identifier.
 </notes>
 </tool_usage>`;
 }

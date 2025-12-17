@@ -51,6 +51,7 @@ export interface ToolExecutionContext {
   currentTodos: TodoItem[];
   saveSession: () => void;
   mode: ChatMode;
+  getToolExecutor?: () => import('../../lib/tool-executor').ToolExecutor;
 }
 
 /**

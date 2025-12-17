@@ -5,9 +5,11 @@
 import * as vscode from 'vscode';
 import { ITool, ToolExecutionResult, ChatMode } from './tool.interface';
 import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
-import { unescapeHtmlEntities } from '../../utils/text-normalization';
+import { unescapeHtmlEntities, stripCDataWrapper } from '../../utils/text-normalization';
 import { MultiSearchReplaceDiffStrategy } from './apply-diff';
 import { createUnifiedDiff } from '../../utils/diff-generator';
+import { FileLockManager } from './utils/file-lock-manager';
+import { getFileDiagnosticsAfterEdit, formatDiagnosticsForAI } from './utils/diagnostics-utils';
 
 /**
  * Tool for applying diff patches to files
@@ -37,6 +39,9 @@ export class ApplyDiffTool implements ITool {
         // Unescape HTML entities if needed
         diffContent = unescapeHtmlEntities(diffContent);
 
+        // Strip CDATA wrappers that some models (like Gemini) may add
+        diffContent = stripCDataWrapper(diffContent);
+
         // Convert escaped \n, \t, \r sequences ONLY when the diff content appears to be
         // a single packed line with no real newlines. This avoids corrupting
         // intentional "\\n" inside string literals in normal multi-line patches.
@@ -50,13 +55,17 @@ export class ApplyDiffTool implements ITool {
                 .replace(/\\r/g, '\r');
         }
 
-        try {
-            const workspaceRoot = getWorkspaceRoot();
-            if (!workspaceRoot) {
-                return { success: false, error: 'No workspace folder open' };
-            }
+        const workspaceRoot = getWorkspaceRoot();
+        if (!workspaceRoot) {
+            return { success: false, error: 'No workspace folder open' };
+        }
 
-            const absolutePath = resolveAbsolutePath(filePath, workspaceRoot);
+        const absolutePath = resolveAbsolutePath(filePath, workspaceRoot);
+
+        // Acquire lock
+        FileLockManager.tryAcquire(absolutePath);
+
+        try {
             const uri = vscode.Uri.file(absolutePath);
 
             // Open document to get robust access to content/ranges
@@ -80,6 +89,22 @@ export class ApplyDiffTool implements ITool {
             if (!diffResult.success) {
                 const currentCount = (this.applyDiffFailureCounts.get(absolutePath) ?? 0) + 1;
                 this.applyDiffFailureCounts.set(absolutePath, currentCount);
+
+                // Extract the start_line from the diff content to provide context
+                const startLineMatch = diffContent.match(/:start_line:\s*(\d+)/);
+                const startLine = startLineMatch ? parseInt(startLineMatch[1], 10) : 1;
+
+                // Get context around the attempted edit (50 lines before and after, max 100 lines total)
+                const lines = originalContent.split(/\r?\n/);
+                const contextStart = Math.max(0, startLine - 51); // 50 lines before
+                const contextEnd = Math.min(lines.length, startLine + 50); // 50 lines after
+                const contextLines = lines.slice(contextStart, contextEnd);
+
+                // Add line numbers to context
+                const numberedContext = contextLines
+                    .map((line, idx) => `${contextStart + idx + 1}| ${line}`)
+                    .join('\n');
+
                 let formattedError = "";
                 if (diffResult.failParts && diffResult.failParts.length > 0) {
                     for (const failPart of diffResult.failParts) {
@@ -91,6 +116,10 @@ export class ApplyDiffTool implements ITool {
                     const errorDetails = diffResult.details ? JSON.stringify(diffResult.details, null, 2) : "";
                     formattedError = `Unable to apply diff to file: ${absolutePath}\n\n<error_details>\n${diffResult.error}${errorDetails ? `\n\nDetails:\n${errorDetails}` : ""}\n</error_details>`;
                 }
+
+                // Add file context to help AI retry without needing read_file
+                formattedError += `\n\n<file_context path="${filePath}" lines="${contextStart + 1}-${contextEnd}">\n${numberedContext}\n</file_context>`;
+
                 if (currentCount >= 2) {
                     formattedError += "\n\n<notice>apply_diff has failed multiple times for this file. Switch to write_to_file to rewrite the entire file instead.</notice>";
                 }
@@ -164,6 +193,7 @@ export class ApplyDiffTool implements ITool {
 
             // Re-read the actual content after save to capture any changes from formatters/linters
             // (e.g., goimports removing unused imports, prettier formatting, etc.)
+            // (e.g., goimports removing unused imports, prettier formatting, etc.)
             let actualNewContent = diffResult.content || '';
             try {
                 // Small delay to allow formatters to finish
@@ -191,10 +221,14 @@ export class ApplyDiffTool implements ITool {
                 }
                 : undefined;
 
+            // Wait for and fetch diagnostics after modification
+            const diagnostics = await getFileDiagnosticsAfterEdit(uri);
+            const diagnosticsText = formatDiagnosticsForAI(diagnostics);
+
             return {
                 success: true,
                 data: {
-                    message: `Successfully applied diff to ${filePath}${partFailHint}`,
+                    message: `Successfully applied diff to ${filePath}${partFailHint}${diagnosticsText}`,
                     action: 'modified',
                     path: filePath,
                     absolutePath,
@@ -204,6 +238,7 @@ export class ApplyDiffTool implements ITool {
                     largeFileReminder,
                     refactorNotice,
                     diff: createUnifiedDiff(originalContent, actualNewContent, filePath),
+                    diagnostics,
                 },
             };
 
@@ -212,6 +247,9 @@ export class ApplyDiffTool implements ITool {
                 success: false,
                 error: `Error applying diff: ${error instanceof Error ? error.message : String(error)}`,
             };
+        } finally {
+            // Always release lock
+            FileLockManager.release(absolutePath);
         }
     }
 }

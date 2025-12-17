@@ -188,6 +188,8 @@ export async function executeSingleTool(
     setMessages: context.setMessages,
     setIsExecutingTool,
     executeToolAndContinue,
+    updateToolExecution,
+    getToolExecutor: context.getToolExecutor,
     logPrefix: '[SingleExecutor]',
     mode,
   });

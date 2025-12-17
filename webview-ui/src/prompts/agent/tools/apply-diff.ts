@@ -10,23 +10,40 @@ Parameters:
 - path: File path (required)
 - diff: The diff content (required)
 
-Format:
+EXACT Format (markers must be on their own lines):
+\`\`\`
 <<<<<<< SEARCH
 :start_line:N
 -------
-[exact content from read_file]
+[exact content to find]
 =======
 [replacement content]
 >>>>>>> REPLACE
+\`\`\`
 
-Multiple edits: Use multiple SEARCH/REPLACE blocks in one call.
+COMPLETE EXAMPLE - Changing a function name:
+\`\`\`
+<<<<<<< SEARCH
+:start_line:15
+-------
+function oldName(x: number): number {
+    return x * 2;
+}
+=======
+function newName(x: number): number {
+    return x * 2;
+}
+>>>>>>> REPLACE
+\`\`\`
+
+CRITICAL RULES:
+- MUST start with \`<<<<<<< SEARCH\` (7 less-than signs + space + SEARCH)
+- MUST include \`:start_line:N\` and \`-------\` before search content
+- MUST have \`=======\` separator between search and replace
+- MUST end with \`>>>>>>> REPLACE\` (7 greater-than signs + space + REPLACE)
+- Multiple blocks: OK, each must follow this exact format
 
 When to use:
 - Small, targeted changes
-- Editing <50% of file
-
-Tips:
-- Include 2-3 context lines around changes
-- Preserve exact indentation
-- :start_line helps locate the section`;
+- Editing <50% of file`;
 }

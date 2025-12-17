@@ -1,10 +1,11 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import type { ITool, ToolExecutionResult, ChatMode } from './tool.interface';
-import { unescapeHtmlEntities } from '../../utils/text-normalization';
+import { unescapeHtmlEntities, stripCDataWrapper } from '../../utils/text-normalization';
 import { detectCodeOmission } from '../../utils/detect-code-omission';
 import { getWorkspaceRoot, resolveAbsolutePath, getCreatedDirectories } from './utils/workspace-utils';
-
+import { FileLockManager } from './utils/file-lock-manager';
+import { getFileDiagnosticsAfterEdit, formatDiagnosticsForAI } from './utils/diagnostics-utils';
 export class WriteFileTool implements ITool {
   name = 'write_to_file';
 
@@ -108,6 +109,9 @@ export class WriteFileTool implements ITool {
     // Claude models tend to handle this better natively
     content = unescapeHtmlEntities(content);
 
+    // Strip CDATA wrappers that some models (like Gemini) may add
+    content = stripCDataWrapper(content);
+
     // Convert escaped \n, \t, \r sequences ONLY when the content appears to be
     // a single packed line with no real newlines. This prevents us from
     // touching intentional "\\n" inside string literals in normal multi-line code.
@@ -151,13 +155,18 @@ export class WriteFileTool implements ITool {
       };
     }
 
-    try {
-      const workspaceRoot = getWorkspaceRoot();
-      if (!workspaceRoot) {
-        return { success: false, error: 'No workspace folder open' };
-      }
 
-      const absolutePath = resolveAbsolutePath(filePath, workspaceRoot);
+    const workspaceRoot = getWorkspaceRoot();
+    if (!workspaceRoot) {
+      return { success: false, error: 'No workspace folder open' };
+    }
+
+    const absolutePath = resolveAbsolutePath(filePath, workspaceRoot);
+
+    // Acquire lock
+    FileLockManager.tryAcquire(absolutePath);
+
+    try {
       const uri = vscode.Uri.file(absolutePath);
 
       // Check if file exists and capture old content
@@ -294,10 +303,14 @@ export class WriteFileTool implements ITool {
         }
         : undefined;
 
+      // Wait for and fetch diagnostics after modification
+      const diagnostics = await getFileDiagnosticsAfterEdit(uri);
+      const diagnosticsText = formatDiagnosticsForAI(diagnostics);
+
       return {
         success: true,
         data: {
-          message: `Successfully ${fileExisted ? 'modified' : 'created'} ${filePath}`,
+          message: `Successfully ${fileExisted ? 'modified' : 'created'} ${filePath}${diagnosticsText}`,
           path: filePath,
           absolutePath,
           action: fileExisted ? 'modified' : 'created',
@@ -307,6 +320,7 @@ export class WriteFileTool implements ITool {
           lineCount,
           largeFileReminder,
           refactorNotice,
+          diagnostics,
         },
       };
     } catch (error) {
@@ -316,6 +330,9 @@ export class WriteFileTool implements ITool {
         success: false,
         error: `WRITE_FAILED: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
+    } finally {
+      // Always release lock
+      FileLockManager.release(absolutePath);
     }
   }
 }

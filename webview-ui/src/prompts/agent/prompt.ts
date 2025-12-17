@@ -12,45 +12,45 @@ import type { Tool } from '../../types/tool';
 import { TYPE_SAFETY_RULE, IMAGE_AWARENESS_RULES } from '../shared';
 
 export function getAgentPrompt(workspace: WorkspaceContext | null, enabledTools: Tool[] = []): string {
-    const cwd = workspace?.path || 'the current workspace directory';
-    const enabledIds = new Set(enabledTools.map(t => t.id));
+  const cwd = workspace?.path || 'the current workspace directory';
+  const enabledIds = new Set(enabledTools.map(t => t.id));
 
-    // Build dynamic tool list based on what's enabled
-    const toolList: string[] = [];
-    if (enabledIds.has('read_file')) toolList.push('read_file');
-    if (enabledIds.has('apply_diff')) toolList.push('apply_diff');
-    if (enabledIds.has('write_to_file')) toolList.push('write_to_file');
-    if (enabledIds.has('delete_file')) toolList.push('delete_file');
-    if (enabledIds.has('echo_search')) toolList.push('echo_search');
-    if (enabledIds.has('grep_search')) toolList.push('grep_search');
-    if (enabledIds.has('glob_search')) toolList.push('glob_search');
-    if (enabledIds.has('list_files')) toolList.push('list_files');
-    if (enabledIds.has('get_diagnostics')) toolList.push('get_diagnostics');
-    if (enabledIds.has('todo_write')) toolList.push('todo_write');
-    if (enabledIds.has('todo_read')) toolList.push('todo_read');
+  // Build dynamic tool list based on what's enabled
+  const toolList: string[] = [];
+  if (enabledIds.has('read_file')) toolList.push('read_file');
+  if (enabledIds.has('apply_diff')) toolList.push('apply_diff');
+  if (enabledIds.has('write_to_file')) toolList.push('write_to_file');
+  if (enabledIds.has('delete_file')) toolList.push('delete_file');
+  if (enabledIds.has('echo_search')) toolList.push('echo_search');
+  if (enabledIds.has('grep_search')) toolList.push('grep_search');
+  if (enabledIds.has('glob_search')) toolList.push('glob_search');
+  if (enabledIds.has('list_files')) toolList.push('list_files');
+  if (enabledIds.has('get_diagnostics')) toolList.push('get_diagnostics');
+  if (enabledIds.has('todo_write')) toolList.push('todo_write');
+  if (enabledIds.has('todo_read')) toolList.push('todo_read');
 
-    // =========================================================================
-    // PROMPT TEMPLATE
-    // =========================================================================
-    //
-    // <role>
-    //   - Who the agent is and what mode it's in
-    //   - Lists available tools so model knows its capabilities
-    //   - Workspace path for file operations context
-    //
-    // <workflow>
-    //   - BEFORE STARTING: Planning steps (summarize, identify files, mini plan)
-    //   - SEARCH: Which tool to use for different search needs
-    //   - EDIT: The read → copy → diff workflow (most critical for accuracy)
-    //   - CRITICAL RULES: Hard constraints that prevent common errors
-    //
-    // <rules>
-    //   - SCOPE: Stay focused, don't over-expand
-    //   - TOOLS: When to use each tool type
-    //   - TASKS: How to manage todo_write
-    // =========================================================================
+  // =========================================================================
+  // PROMPT TEMPLATE
+  // =========================================================================
+  //
+  // <role>
+  //   - Who the agent is and what mode it's in
+  //   - Lists available tools so model knows its capabilities
+  //   - Workspace path for file operations context
+  //
+  // <workflow>
+  //   - BEFORE STARTING: Planning steps (summarize, identify files, mini plan)
+  //   - SEARCH: Which tool to use for different search needs
+  //   - EDIT: The read → copy → diff workflow (most critical for accuracy)
+  //   - CRITICAL RULES: Hard constraints that prevent common errors
+  //
+  // <rules>
+  //   - SCOPE: Stay focused, don't over-expand
+  //   - TOOLS: When to use each tool type
+  //   - TASKS: How to manage todo_write
+  // =========================================================================
 
-    return `<agent>
+  return `<agent>
 <role>
 You are an autonomous coding agent. Implement changes based on the user's request.
 Mode: AGENT
@@ -77,8 +77,8 @@ BEFORE STARTING:
 4. Stay within scope unless user expands it
 
 SEARCH (pick the right tool):
-- Understand how code works → echo_search
-- Find exact identifier → grep_search (fastest)
+- Understand how code works → echo_search (Sparingly! for complex logic only)
+- Find exact identifier → grep_search (FASTEST & PREFERRED)
 - Find files by pattern → glob_search
 - See directory contents → list_files
 
@@ -125,7 +125,7 @@ QUALITY:
 TOOLS:
 - Use apply_diff for targeted edits (<50% of file)
 - Use write_to_file for new files or complete rewrites
-- Use echo_search when you don't know exact names
+- Use echo_search only for complex architectural questions (if lost)
 - Use grep_search when you know the exact identifier
 - Narrow search paths (e.g., "src/components" not ".")
 

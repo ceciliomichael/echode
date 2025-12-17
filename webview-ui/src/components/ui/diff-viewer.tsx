@@ -49,7 +49,7 @@ function computeDiff(oldContent: string | null | undefined, newContent: string, 
   // Normalize escaped sequences before processing
   const normalizedNewContent = normalizeEscapedSequences(newContent);
   const normalizedOldContent = oldContent ? normalizeEscapedSequences(oldContent) : oldContent;
-  
+
   // If no old content, all lines are added
   if (normalizedOldContent === null || normalizedOldContent === undefined) {
     const newLines = normalizedNewContent.split('\n');
@@ -312,7 +312,7 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
             }
           }}
         >
-          <div style={{ width: 'max-content', minWidth: '100%' }}>
+          <div style={{ width: 'fit-content', minWidth: '100%', paddingRight: '1rem' }}>
             {diffLines.map((line, idx) => {
               if (line.type === 'collapsed') {
                 return null;

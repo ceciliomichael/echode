@@ -59,9 +59,9 @@ You MUST follow these phases IN ORDER. Do not skip any phase.
 
 ## Phase 2: ANALYZE
 - Explore the codebase systematically using tools:
-  * Unknown concept? -> \`echo_search\` ("how does auth work?")
+  * Unknown concept? -> \`echo_search\` ("how does auth work?") **[Use sparingly]**
   * Unknown file? -> \`glob_search\` ("**/auth*")
-  * Known function? -> \`grep_search\`
+  * Known function? -> \`grep_search\` **[PREFERRED]**
 - Read relevant files with \`read_file\` to understand current implementation
 - Verify file existence and content before planning changes
 - Do NOT guess paths or functionality

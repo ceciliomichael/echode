@@ -99,3 +99,27 @@ export function unescapeHtmlEntities(text: string): string {
 		.replace(/&rsqb;/g, "]")
 		.replace(/&amp;/g, "&");
 }
+
+/**
+ * Strips XML CDATA wrappers from content
+ * Some AI models wrap their output in <![CDATA[...]]> which should be removed
+ *
+ * @param text The string that may contain CDATA wrappers
+ * @returns The unwrapped content
+ */
+export function stripCDataWrapper(text: string): string {
+	if (!text) {
+		return text;
+	}
+
+	// Match <![CDATA[content]]> pattern, capturing the inner content
+	// Handle both single-line and multi-line CDATA sections
+	const cdataPattern = /^<!\[CDATA\[([\s\S]*?)\]\]>$/;
+	const match = text.trim().match(cdataPattern);
+
+	if (match) {
+		return match[1];
+	}
+
+	return text;
+}

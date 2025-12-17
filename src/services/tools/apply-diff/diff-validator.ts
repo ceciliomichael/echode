@@ -194,8 +194,7 @@ export function validateMarkerSequencing(diffContent: string): ValidationResult 
         ? { success: true }
         : {
             success: false,
-            error: `ERROR: Unexpected end of sequence: Expected '${
-                state.current === ValidatorState.AFTER_SEARCH ? "=======" : ">>>>>>> REPLACE"
-            }' was not found.`,
+            error: `ERROR: Unexpected end of sequence: Expected '${state.current === ValidatorState.AFTER_SEARCH ? "=======" : ">>>>>>> REPLACE"
+                }' was not found.`,
         };
 }
