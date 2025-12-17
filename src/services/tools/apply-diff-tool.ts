@@ -7,6 +7,7 @@ import { ITool, ToolExecutionResult, ChatMode } from './tool.interface';
 import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
 import { unescapeHtmlEntities } from '../../utils/text-normalization';
 import { MultiSearchReplaceDiffStrategy } from './apply-diff';
+import { createUnifiedDiff } from '../../utils/diff-generator';
 
 /**
  * Tool for applying diff patches to files
@@ -161,8 +162,21 @@ export class ApplyDiffTool implements ITool {
                 partFailHint = ` (some diff parts failed - use read_file to verify)`;
             }
 
+            // Re-read the actual content after save to capture any changes from formatters/linters
+            // (e.g., goimports removing unused imports, prettier formatting, etc.)
+            let actualNewContent = diffResult.content || '';
+            try {
+                // Small delay to allow formatters to finish
+                await new Promise(r => setTimeout(r, 100));
+                // Re-open the document to get fresh content
+                const refreshedDocument = await vscode.workspace.openTextDocument(uri);
+                actualNewContent = refreshedDocument.getText();
+            } catch (refreshError) {
+                console.warn('[APPLY_DIFF] Could not refresh document content:', refreshError);
+            }
+
             // Calculate line count and add mode-specific reminder for large files
-            const lineCount = diffResult.content ? diffResult.content.split(/\r?\n/).length : 0;
+            const lineCount = actualNewContent.split(/\r?\n/).length;
             let largeFileReminder: string | undefined;
             if (lineCount > 300 && (mode === 'agent' || mode === 'general' || mode === undefined)) {
                 largeFileReminder = `[FILE NOW ${lineCount} LINES] This file exceeds the 300-line threshold after modification. Consider refactoring into smaller, focused modules to maintain code quality.`;
@@ -185,10 +199,11 @@ export class ApplyDiffTool implements ITool {
                     path: filePath,
                     absolutePath,
                     oldContent: originalContent,
-                    newContent: diffResult.content,
+                    newContent: actualNewContent,
                     lineCount,
                     largeFileReminder,
                     refactorNotice,
+                    diff: createUnifiedDiff(originalContent, actualNewContent, filePath),
                 },
             };
 

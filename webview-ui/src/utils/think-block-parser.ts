@@ -15,8 +15,10 @@ export function removeThinkBlocks(content: string): string {
   return content
     .replace(/<think>[\s\S]*?<\/think>/g, '')
     .replace(/<thinking>[\s\S]*?<\/thinking>/g, '')
+    .replace(/<reasoning_content>[\s\S]*?<\/reasoning_content>/g, '')
     .replace(/<think>[\s\S]*$/g, '') // Remove unclosed <think> at end
-    .replace(/<thinking>[\s\S]*$/g, ''); // Remove unclosed <thinking> at end
+    .replace(/<thinking>[\s\S]*$/g, '') // Remove unclosed <thinking> at end
+    .replace(/<reasoning_content>[\s\S]*$/g, ''); // Remove unclosed <reasoning_content> at end
 }
 
 /**
@@ -29,21 +31,22 @@ export function parseThinkBlocks(content: string): ParsedContent {
   // Process both <think> and <thinking> tags
   const tagPatterns = [
     { open: '<think>', close: '</think>', openLen: 7, closeLen: 8 },
-    { open: '<thinking>', close: '</thinking>', openLen: 10, closeLen: 11 }
+    { open: '<thinking>', close: '</thinking>', openLen: 10, closeLen: 11 },
+    { open: '<reasoning_content>', close: '</reasoning_content>', openLen: 19, closeLen: 20 }
   ];
 
   // Find all think/thinking blocks in order
   const blocks: Array<{ start: number; end: number; content: string; tagType: string }> = [];
-  
+
   for (const pattern of tagPatterns) {
     let searchPos = 0;
     while (true) {
       const openIndex = content.indexOf(pattern.open, searchPos);
-      if (openIndex === -1) {break;}
-      
+      if (openIndex === -1) { break; }
+
       const contentStart = openIndex + pattern.openLen;
       const closeIndex = content.indexOf(pattern.close, contentStart);
-      
+
       if (closeIndex !== -1) {
         // Closed block
         blocks.push({
@@ -65,10 +68,10 @@ export function parseThinkBlocks(content: string): ParsedContent {
       }
     }
   }
-  
+
   // Sort blocks by start position
   blocks.sort((a, b) => a.start - b.start);
-  
+
   // Build textContent with placeholders
   let lastIndex = 0;
   for (const block of blocks) {
@@ -80,9 +83,9 @@ export function parseThinkBlocks(content: string): ParsedContent {
     textContent += `__THINK_BLOCK_${thinkBlocks.length - 1}__`;
     lastIndex = block.end;
   }
-  
+
   // Add remaining text
   textContent += content.slice(lastIndex);
-  
+
   return { thinkBlocks, textContent };
 }

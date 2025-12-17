@@ -9,6 +9,7 @@ type ChatCompletionChunkLike = {
   choices: Array<{
     delta?: {
       content?: string;
+      reasoning_content?: string;
     };
   }>;
 };
@@ -56,7 +57,7 @@ export class OpenAIProvider implements ILLMProvider {
   ): Promise<void> {
     // Add /v1 to baseURL for OpenAI-compatible APIs
     const baseURL = `${settings.baseURL}/v1`;
-    
+
     const client = new OpenAI({
       apiKey: settings.apiKey,
       baseURL,
@@ -78,15 +79,43 @@ export class OpenAIProvider implements ILLMProvider {
     try {
       const stream = await this.createChatCompletionStream(client, messages, settings) as AsyncIterable<ChatCompletionChunkLike>;
 
+      // Track reasoning state
+      let isInReasoningBlock = false;
+
       const processStream = async () => {
         for await (const chunk of stream) {
           // Check for abort
           if (signal.aborted) {
             break;
           }
-          
-          // Extract content from delta - OpenAI ALWAYS sends deltas, not cumulative
-          const content = chunk.choices[0]?.delta?.content;
+
+          const delta = chunk.choices[0]?.delta;
+          if (!delta) {
+            continue;
+          }
+
+          // Handle reasoning content
+          const reasoningContent = delta.reasoning_content;
+          if (reasoningContent) {
+            // Mark first chunk received and clear timeout
+            if (!hasReceivedContent) {
+              hasReceivedContent = true;
+              if (timeoutId) {
+                clearTimeout(timeoutId);
+                timeoutId = null;
+              }
+            }
+
+            // Send reasoning content
+            webview.webview.postMessage({
+              type: 'chatStreamChunk',
+              requestId,
+              chunk: reasoningContent
+            });
+          }
+
+          // Handle regular content
+          const content = delta.content;
           if (content) {
             // Mark first chunk received and clear timeout
             if (!hasReceivedContent) {
@@ -96,13 +125,33 @@ export class OpenAIProvider implements ILLMProvider {
                 timeoutId = null;
               }
             }
-            
+
+            // Close reasoning block if we were in one
+            if (isInReasoningBlock) {
+              isInReasoningBlock = false;
+              webview.webview.postMessage({
+                type: 'chatStreamChunk',
+                requestId,
+                chunk: '</reasoning_content>'
+              });
+            }
+
+            // Send regular content
             webview.webview.postMessage({
               type: 'chatStreamChunk',
               requestId,
               chunk: content
             });
           }
+        }
+
+        // Close reasoning block if stream ends while in reasoning
+        if (isInReasoningBlock) {
+          webview.webview.postMessage({
+            type: 'chatStreamChunk',
+            requestId,
+            chunk: '</reasoning_content>'
+          });
         }
       };
 

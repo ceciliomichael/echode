@@ -58,7 +58,7 @@ export class AnthropicProvider implements ILLMProvider {
       .map(m => {
         // Convert our ChatMessageContent format to Anthropic's format
         let content: string | Anthropic.MessageParam['content'];
-        
+
         if (typeof m.content === 'string') {
           content = m.content;
         } else {
@@ -88,7 +88,7 @@ export class AnthropicProvider implements ILLMProvider {
             return { type: 'text' as const, text: '' };
           }).filter(c => c.type === 'text' ? c.text !== '' : true); // Remove empty text blocks
         }
-        
+
         return {
           role: m.role as 'user' | 'assistant',
           content
@@ -124,6 +124,11 @@ export class AnthropicProvider implements ILLMProvider {
         stream: true,
       });
 
+      // Track content block state for thinking blocks
+      let currentBlockIndex = -1;
+      let currentBlockType: string | null = null;
+      const thinkingBlocks = new Set<number>();
+
       // Process stream with timeout race
       const processStream = async () => {
         for await (const event of stream) {
@@ -131,11 +136,35 @@ export class AnthropicProvider implements ILLMProvider {
           if (signal.aborted) {
             break;
           }
-          
-          // Extract text deltas from content blocks - Anthropic ALWAYS sends deltas
-          if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-            const text = event.delta.text;
-            
+
+          // Handle content block start - track block type
+          if (event.type === 'content_block_start') {
+            currentBlockIndex = event.index;
+            currentBlockType = event.content_block.type;
+
+            // If this is a thinking block, send opening tag
+            if (currentBlockType === 'thinking') {
+              thinkingBlocks.add(currentBlockIndex);
+
+              // Mark first chunk received and clear timeout
+              if (!hasReceivedFirstChunk) {
+                hasReceivedFirstChunk = true;
+                if (timeoutId) {
+                  clearTimeout(timeoutId);
+                  timeoutId = null;
+                }
+              }
+
+              webview.webview.postMessage({
+                type: 'chatStreamChunk',
+                requestId,
+                chunk: '<thinking>'
+              });
+            }
+          }
+
+          // Handle content block deltas
+          if (event.type === 'content_block_delta') {
             // Mark first chunk received and clear timeout
             if (!hasReceivedFirstChunk) {
               hasReceivedFirstChunk = true;
@@ -144,12 +173,40 @@ export class AnthropicProvider implements ILLMProvider {
                 timeoutId = null;
               }
             }
-            
-            webview.webview.postMessage({
-              type: 'chatStreamChunk',
-              requestId,
-              chunk: text
-            });
+
+            // Handle thinking deltas
+            if (event.delta.type === 'thinking_delta') {
+              const thinkingText = event.delta.thinking;
+              webview.webview.postMessage({
+                type: 'chatStreamChunk',
+                requestId,
+                chunk: thinkingText
+              });
+            }
+            // Handle regular text deltas
+            else if (event.delta.type === 'text_delta') {
+              const text = event.delta.text;
+              webview.webview.postMessage({
+                type: 'chatStreamChunk',
+                requestId,
+                chunk: text
+              });
+            }
+          }
+
+          // Handle content block stop - close thinking blocks
+          if (event.type === 'content_block_stop') {
+            const stoppedIndex = event.index;
+
+            // If this was a thinking block, send closing tag
+            if (thinkingBlocks.has(stoppedIndex)) {
+              webview.webview.postMessage({
+                type: 'chatStreamChunk',
+                requestId,
+                chunk: '</thinking>'
+              });
+              thinkingBlocks.delete(stoppedIndex);
+            }
           }
         }
       };
@@ -172,16 +229,16 @@ export class AnthropicProvider implements ILLMProvider {
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
-      
+
       if (signal.aborted) {
         // Stream was aborted, don't throw
         return;
       }
-      
+
       if (error instanceof StreamingTimeoutError) {
         throw error; // Let retry logic handle this
       }
-      
+
       throw new Error(`Anthropic API Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       if (timeoutId) {

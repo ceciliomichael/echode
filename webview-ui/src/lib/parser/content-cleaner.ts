@@ -74,24 +74,31 @@ export function cleanToolCallContent(content: string): string {
  */
 export function removeThinkBlocks(content: string): string {
   let result = content;
-  
+
   // First, remove complete think blocks
   result = result
     .replace(/<think>[\s\S]*?<\/think>/g, '')
-    .replace(/<thinking>[\s\S]*?<\/thinking>/g, '');
-  
+    .replace(/<think>[\s\S]*?<\/think>/g, '')
+    .replace(/<thinking>[\s\S]*?<\/thinking>/g, '')
+    .replace(/<reasoning_content>[\s\S]*?<\/reasoning_content>/g, '');
+
   // Then, remove incomplete/unclosed think blocks (streaming case)
   // If <think> exists without a closing </think>, remove from <think> to end
   const unclosedThinkMatch = result.match(/<think>(?![\s\S]*<\/think>)/);
   if (unclosedThinkMatch && unclosedThinkMatch.index !== undefined) {
     result = result.slice(0, unclosedThinkMatch.index);
   }
-  
+
   const unclosedThinkingMatch = result.match(/<thinking>(?![\s\S]*<\/thinking>)/);
   if (unclosedThinkingMatch && unclosedThinkingMatch.index !== undefined) {
     result = result.slice(0, unclosedThinkingMatch.index);
   }
-  
+
+  const unclosedReasoningMatch = result.match(/<reasoning_content>(?![\s\S]*<\/reasoning_content>)/);
+  if (unclosedReasoningMatch && unclosedReasoningMatch.index !== undefined) {
+    result = result.slice(0, unclosedReasoningMatch.index);
+  }
+
   return result;
 }
 
