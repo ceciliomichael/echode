@@ -4,7 +4,6 @@ import type { ITool, ToolExecutionResult, ChatMode } from './tool.interface';
 import { unescapeHtmlEntities } from '../../utils/text-normalization';
 import { detectCodeOmission } from '../../utils/detect-code-omission';
 import { getWorkspaceRoot, resolveAbsolutePath, getCreatedDirectories } from './utils/workspace-utils';
-import { getFileDiagnosticsAfterEdit } from '../diagnostics';
 
 export class WriteFileTool implements ITool {
   name = 'write_to_file';
@@ -276,12 +275,6 @@ export class WriteFileTool implements ITool {
         console.log('[WRITE_FILE] WARNING: Could not verify written file:', verifyError);
       }
 
-      // Get file diagnostics after the edit (errors/warnings for this file)
-      const fileDiagnostics = await getFileDiagnosticsAfterEdit(absolutePath, workspaceRoot);
-      if (fileDiagnostics) {
-        console.log('[WRITE_FILE] File diagnostics found after edit');
-      }
-
       console.log('[WRITE_FILE] ==================== SUCCESS ====================');
 
       // Calculate line count and add mode-specific reminder for large files
@@ -314,7 +307,6 @@ export class WriteFileTool implements ITool {
           lineCount,
           largeFileReminder,
           refactorNotice,
-          fileDiagnostics: fileDiagnostics || undefined,
         },
       };
     } catch (error) {

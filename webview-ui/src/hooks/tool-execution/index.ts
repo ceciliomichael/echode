@@ -29,7 +29,6 @@ export type { ToolExecutionHookProps, ToolExecutionContext, TodoItem } from './t
  * 1. Detecting tool blocks in assistant responses
  * 2. Executing tools sequentially
  * 3. Managing continuation streams with retry logic
- * 4. Handling diagnostics
  */
 export function useToolExecution({
   setMessages,
@@ -46,9 +45,6 @@ export function useToolExecution({
   mode,
 }: ToolExecutionHookProps) {
   const workspace = useWorkspaceContext();
-
-  // Track diagnostic fix attempts per file to prevent infinite loops
-  const diagnosticAttemptsRef = useRef<Record<string, number>>({});
 
   // Initialize tool executor with mode-aware enabled tools
   const toolExecutorRef = useRef<ToolExecutor | null>(null);
@@ -111,7 +107,6 @@ export function useToolExecution({
         currentTodos,
         saveSession,
         mode: modeRef.current,
-        diagnosticAttemptsRef,
       };
 
       try {

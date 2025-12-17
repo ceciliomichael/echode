@@ -51,7 +51,6 @@ export interface ToolExecutionContext {
   currentTodos: TodoItem[];
   saveSession: () => void;
   mode: ChatMode;
-  diagnosticAttemptsRef: React.MutableRefObject<Record<string, number>>;
 }
 
 /**
@@ -83,7 +82,6 @@ export interface ToolBlock {
  */
 export interface ExecutionResult {
   toolResultText: string;
-  diagnosticsText: string;
   wasStopped: boolean;
   isPlanningTool?: boolean;
   nextToolIndex: number;

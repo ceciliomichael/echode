@@ -30,7 +30,7 @@ export class ToolHistoryService {
 
     try {
       const handler = this.handlerRegistry.getHandler(toolName);
-      
+
       if (handler) {
         return await handler.undo(toolName, data, workspacePath);
       }
@@ -93,7 +93,7 @@ export class ToolHistoryService {
 
     try {
       const handler = this.handlerRegistry.getHandler(toolName);
-      
+
       if (handler) {
         return await handler.redo(toolName, data, workspacePath);
       }

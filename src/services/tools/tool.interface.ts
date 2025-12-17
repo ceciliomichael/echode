@@ -1,7 +1,7 @@
 export interface ToolExecutionResult {
-  success: boolean;
-  data?: unknown;
-  error?: string;
+    success: boolean;
+    data?: unknown;
+    error?: string;
 }
 
 /**
@@ -15,11 +15,11 @@ export type ToolProgressCallback = (progress: unknown) => void;
 export type ChatMode = 'agent' | 'plan' | 'ask' | 'general';
 
 export interface ITool {
-  name: string;
-  execute(
-    parameters: Record<string, unknown>,
-    onProgress?: ToolProgressCallback,
-    signal?: AbortSignal,
-    mode?: ChatMode
-  ): Promise<ToolExecutionResult>;
+    name: string;
+    execute(
+        parameters: Record<string, unknown>,
+        onProgress?: ToolProgressCallback,
+        signal?: AbortSignal,
+        mode?: ChatMode
+    ): Promise<ToolExecutionResult>;
 }

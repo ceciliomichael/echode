@@ -1,8 +1,8 @@
 /**
  * Single Executor Module
- * 
+ *
  * Handles execution of a single tool with progress tracking.
- * Manages execution state, diagnostics, and continuation for individual tools.
+ * Manages execution state and continuation for individual tools.
  */
 import type { Message, ImageAttachment } from '../../types/chat';
 import type { ToolBlock, ToolExecutionContext, ExecuteToolAndContinueFn } from './types';
@@ -10,7 +10,6 @@ import { ToolExecutor } from '../../lib/tool-executor';
 import { createToolExecutionState, updateToolExecutionStatus, updateToolExecutionProgress, generateToolExecutionId } from '../../lib/tool-execution-tracker';
 import { buildContinuationHistory } from '../../utils/continuation-builder';
 import { executeToolWithStopCheck, type ToolProgressCallback } from '../../utils/tool-execution-helpers';
-import { getDiagnosticsFromToolResult } from './diagnostics-handler';
 import { runContinuationStream } from './continuation-stream';
 
 /**
@@ -65,7 +64,6 @@ export async function executeSingleTool(
     messagesRef,
     currentTodos,
     mode,
-    diagnosticAttemptsRef,
     workspace,
   } = context;
 
@@ -152,10 +150,7 @@ export async function executeSingleTool(
   // Format tool results for AI context
   const toolResultText = result.toolResults.join('\n\n');
 
-  // Extract diagnostics from tool result (Roo Code approach - no external fetch needed)
-  const diagnosticsText = getDiagnosticsFromToolResult(executedTool, diagnosticAttemptsRef);
-
-  // Check if stopped during diagnostic processing
+  // Check if stopped
   if (isStoppingRef.current) {
     setIsExecutingTool(false);
     return { wasStopped: true, isPlanningTool: false, continueExecution: false };
@@ -170,7 +165,7 @@ export async function executeSingleTool(
     userContent,
     assistantContent,
     toolResultText,
-    diagnosticsText,
+    '', // No automatic diagnostics - AI should use get_diagnostics tool
     currentTodos,
     mode,
     userAttachments,

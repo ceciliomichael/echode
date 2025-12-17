@@ -6,7 +6,6 @@ import * as vscode from 'vscode';
 import { ITool, ToolExecutionResult, ChatMode } from './tool.interface';
 import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
 import { unescapeHtmlEntities } from '../../utils/text-normalization';
-import { getFileDiagnosticsAfterEdit } from '../diagnostics';
 import { MultiSearchReplaceDiffStrategy } from './apply-diff';
 
 /**
@@ -157,12 +156,6 @@ export class ApplyDiffTool implements ITool {
                 console.warn('[APPLY_DIFF] Could not open file in tab:', openError);
             }
 
-            // Get file diagnostics after the edit (errors/warnings for this file)
-            const fileDiagnostics = await getFileDiagnosticsAfterEdit(absolutePath, workspaceRoot);
-            if (fileDiagnostics) {
-                console.log('[APPLY_DIFF] File diagnostics found after edit');
-            }
-
             let partFailHint = "";
             if (diffResult.failParts && diffResult.failParts.length > 0) {
                 partFailHint = ` (some diff parts failed - use read_file to verify)`;
@@ -196,7 +189,6 @@ export class ApplyDiffTool implements ITool {
                     lineCount,
                     largeFileReminder,
                     refactorNotice,
-                    fileDiagnostics: fileDiagnostics || undefined,
                 },
             };
 
