@@ -1,6 +1,6 @@
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
-import { TYPE_SAFETY_RULE, IMAGE_AWARENESS_RULES } from '../shared';
+import { TYPE_SAFETY_RULE, IMAGE_AWARENESS_RULES, INTERACTION_RULES } from '../shared';
 
 export function getPlanPrompt(workspace: WorkspaceContext | null, enabledTools: Tool[] = []): string {
   const cwd = workspace?.path || 'the current workspace directory';
@@ -49,7 +49,11 @@ Workspace: ${cwd}
 Tools: ${toolList}
 </context>
 
+${INTERACTION_RULES}
+
 <mandatory_workflow>
+IF VALID PLANNING TASK (see interaction rules):
+
 You MUST follow these phases IN ORDER. Do not skip any phase.
 
 ## Phase 1: STUDY

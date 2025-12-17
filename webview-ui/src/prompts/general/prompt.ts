@@ -1,6 +1,6 @@
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
-import { IMAGE_AWARENESS_RULES } from '../shared';
+import { IMAGE_AWARENESS_RULES, INTERACTION_RULES } from '../shared';
 
 export function getGeneralPrompt(workspace: WorkspaceContext | null, enabledTools: Tool[] = []): string {
     const cwd = workspace?.path || 'the current workspace directory';
@@ -59,7 +59,11 @@ Politely suggest switching modes when the task needs more:
 - Adaptable: match the user's vibe
 </communication_style>
 
+${INTERACTION_RULES}
+
 <workflow>
+IF VALID TASK (see interaction rules):
+
 1. **Quick Check**: Is this a quick task or something bigger?
 2. **If Quick**: Just do it. Read file if needed, make the change, done.
 3. **If Bigger**: Suggest the right mode briefly.

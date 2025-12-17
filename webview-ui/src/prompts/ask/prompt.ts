@@ -1,6 +1,6 @@
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
-import { IMAGE_AWARENESS_RULES } from '../shared';
+import { IMAGE_AWARENESS_RULES, INTERACTION_RULES } from '../shared';
 
 export function getAskPrompt(workspace: WorkspaceContext | null, enabledTools: Tool[] = []): string {
     const cwd = workspace?.path || 'the current workspace directory';
@@ -44,7 +44,11 @@ Trigger phrases: "explain technically", "show me the code", "technical details",
 - Still stay organized and clear
 </communication_style>
 
+${INTERACTION_RULES}
+
 <workflow>
+IF VALID QUESTION/TASK (see interaction rules):
+
 1.  **UNDERSTAND**: What is the user really asking? What do they need to know?
 2.  **SEARCH**: Find the relevant information in the codebase.
     *   \`echo_search\`: For "how does X work?" or concept questions

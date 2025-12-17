@@ -9,7 +9,7 @@
 
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
-import { TYPE_SAFETY_RULE, IMAGE_AWARENESS_RULES } from '../shared';
+import { TYPE_SAFETY_RULE, IMAGE_AWARENESS_RULES, INTERACTION_RULES } from '../shared';
 
 export function getAgentPrompt(workspace: WorkspaceContext | null, enabledTools: Tool[] = []): string {
   const cwd = workspace?.path || 'the current workspace directory';
@@ -69,7 +69,11 @@ CRITICAL: You must maintain strict separation between YOUR capabilities and the 
 - The project's architecture, patterns, and code are what you EDIT, not what you ARE
 </isolation>
 
+${INTERACTION_RULES}
+
 <workflow>
+IF VALID TASK (see interaction rules):
+
 BEFORE STARTING:
 1. Summarize the request in 1-2 sentences
 2. Identify files/modules involved
