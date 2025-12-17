@@ -2,7 +2,7 @@
   "name": "echode",
   "displayName": "Echode",
   "description": "Agentic Coding",
-  "version": "1.0.1129",
+  "version": "1.0.1130",
   "publisher": "EchoSphere",
   "icon": "icon.png",
   "repository": {
@@ -10,7 +10,7 @@
     "url": "https://github.com/ceciliomichael/echode"
   },
   "engines": {
-    "vscode": "^1.106.3"
+    "vscode": "^1.107.0"
   },
   "categories": [
     "Other"
@@ -170,9 +170,10 @@
     "out": "./builds/"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
-    "@types/vscode": "^1.106.0",
+    "@types/vscode": "^1.107.0",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
     "esbuild": "^0.27.0",
@@ -183,6 +184,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.70.0",
+    "better-sqlite3": "^12.5.0",
     "fastest-levenshtein": "^1.0.16",
     "openai": "^6.9.1",
     "remark-gfm": "^4.0.1"
