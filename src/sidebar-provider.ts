@@ -186,15 +186,13 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
           const query = data.query?.toLowerCase() || '';
           const searchType = data.searchType || 'file'; // 'file' or 'folder'
 
-          if (searchType === 'folder') {
-            // Search for directories by finding files and extracting unique directory paths
-            vscode.workspace.findFiles(`**/*${query}*/**/*`, '**/node_modules/**', 50).then(uris => {
+          if (searchType === 'folder' || searchType === 'all') {
+            // Helper to get folder results
+            const folderPromise = vscode.workspace.findFiles(`**/*${query}*/**/*`, '**/node_modules/**', 50).then(uris => {
               const folderPaths = new Set<string>();
               uris.forEach(uri => {
-                // Get the directory containing this file
                 const relativePath = vscode.workspace.asRelativePath(uri);
                 const parts = relativePath.split('/');
-                // Build folder paths progressively and filter by query
                 let currentPath = '';
                 for (let i = 0; i < parts.length - 1; i++) {
                   currentPath = currentPath ? `${currentPath}/${parts[i]}` : parts[i];
@@ -203,14 +201,33 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
                   }
                 }
               });
-
-              const results = Array.from(folderPaths).slice(0, 20).map(folderPath => ({
+              return Array.from(folderPaths).slice(0, 20).map(folderPath => ({
                 path: folderPath,
                 type: 'folder' as const,
                 label: folderPath.split('/').pop()
               }));
-              webviewView.webview.postMessage({ type: 'fileSearchResults', results });
             });
+
+            if (searchType === 'folder') {
+              folderPromise.then(results => {
+                webviewView.webview.postMessage({ type: 'fileSearchResults', results });
+              });
+            } else {
+              // searchType === 'all'
+              const filePromise = vscode.workspace.findFiles(`**/*${query}*`, '**/node_modules/**', 20).then(uris => {
+                return uris.map(uri => ({
+                  path: vscode.workspace.asRelativePath(uri),
+                  type: 'file' as const,
+                  label: uri.path.split('/').pop()
+                }));
+              });
+
+              Promise.all([folderPromise, filePromise]).then(([folders, files]) => {
+                // Interleave or just concat? Let's concat with files first (usually more relevant)
+                const results = [...files, ...folders].slice(0, 30);
+                webviewView.webview.postMessage({ type: 'fileSearchResults', results });
+              });
+            }
           } else {
             // Search for files (existing logic)
             vscode.workspace.findFiles(`**/*${query}*`, '**/node_modules/**', 20).then(uris => {

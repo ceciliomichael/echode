@@ -70,12 +70,21 @@ export function useContextMenu({
 
   // Trigger file/folder search when query or type changes
   useEffect(() => {
-    if (showContextMenu && selectedMenuType !== null) {
-      vscode.postMessage({
-        type: 'searchFiles',
-        query: searchQuery,
-        searchType: selectedMenuType
-      });
+    if (showContextMenu) {
+      if (selectedMenuType !== null) {
+        vscode.postMessage({
+          type: 'searchFiles',
+          query: searchQuery,
+          searchType: selectedMenuType
+        });
+      } else if (searchQuery.length > 0) {
+        // Mixed search (files + folders) when no specific type is selected
+        vscode.postMessage({
+          type: 'searchFiles',
+          query: searchQuery,
+          searchType: 'all'
+        });
+      }
     }
   }, [showContextMenu, searchQuery, selectedMenuType]);
 
@@ -91,11 +100,16 @@ export function useContextMenu({
       const lastAtIndex = newValue.lastIndexOf('@', newCursorPos - 1);
       const query = newValue.slice(lastAtIndex + 1, newCursorPos);
       setSearchQuery(query);
+
+      // Reset to categories if query is cleared, regardless of current mode
+      if (query.length === 0) {
+        setSelectedMenuType(null);
+      }
     } else {
       setShowContextMenu(false);
       setSelectedMenuType(null);
     }
-  }, [showContextMenu]);
+  }, [showContextMenu, selectedMenuType]);
 
   const handleMentionSelect = useCallback((type: ContextMenuOptionType, value?: string) => {
     // If this is a category selection (File or Folder without a value), enter that category

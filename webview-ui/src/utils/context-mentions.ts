@@ -69,6 +69,16 @@ export function getContextMenuOptions(
 ): ContextMenuQueryItem[] {
     // If no category selected, show the category options
     if (selectedType === null) {
+        // If we have mixed results (from 'all' search), show them
+        if (dynamicSearchResults.length > 0) {
+            return dynamicSearchResults.map((result) => ({
+                type: result.type === "folder" ? ContextMenuOptionType.Folder : ContextMenuOptionType.File,
+                value: result.path,
+                label: result.label || result.path.split('/').pop() || result.path,
+                description: result.path
+            }));
+        }
+
         return [
             { type: ContextMenuOptionType.File, label: "File", description: "Search for files" },
             { type: ContextMenuOptionType.Folder, label: "Folder", description: "Search for folders" },
