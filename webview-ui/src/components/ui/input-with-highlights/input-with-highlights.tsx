@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
+import React, { useRef, useLayoutEffect, forwardRef, useImperativeHandle } from 'react';
 import type { InputWithHighlightsProps, InputWithHighlightsRef } from './types';
 import { useMentionNavigation } from './use-mention-navigation';
 import { useScrollSync } from './use-scroll-sync';
@@ -27,19 +27,19 @@ const baseStyles: React.CSSProperties = {
  * while maintaining full textarea functionality
  */
 export const InputWithHighlights = forwardRef<InputWithHighlightsRef, InputWithHighlightsProps>(
-    ({ 
-        value, 
-        onChange, 
-        onKeyDown, 
-        onPaste, 
-        onBlur, 
-        onFocus, 
-        placeholder, 
-        disabled, 
-        rows = 1, 
-        className, 
-        style, 
-        onValueChange 
+    ({
+        value,
+        onChange,
+        onKeyDown,
+        onPaste,
+        onBlur,
+        onFocus,
+        placeholder,
+        disabled,
+        rows = 1,
+        className,
+        style,
+        onValueChange
     }, ref) => {
         const textareaRef = useRef<HTMLTextAreaElement>(null);
         const backdropRef = useRef<HTMLDivElement>(null);
@@ -68,7 +68,7 @@ export const InputWithHighlights = forwardRef<InputWithHighlightsRef, InputWithH
         }));
 
         // Use custom hooks for behavior
-        const { handleScroll } = useScrollSync({ textareaRef, backdropRef });
+        const { handleScroll, scrollOffset } = useScrollSync({ textareaRef });
         const { handleKeyDown } = useMentionNavigation({
             value,
             onKeyDown,
@@ -76,8 +76,9 @@ export const InputWithHighlights = forwardRef<InputWithHighlightsRef, InputWithH
             textareaRef
         });
 
-        // Auto-resize textarea and backdrop based on content
-        useEffect(() => {
+        // Auto-resize textarea and backdrop based on content, then sync scroll
+        // Using useLayoutEffect ensures scroll sync happens before paint
+        useLayoutEffect(() => {
             if (textareaRef.current && backdropRef.current) {
                 textareaRef.current.style.height = 'auto';
                 backdropRef.current.style.height = 'auto';
@@ -86,8 +87,10 @@ export const InputWithHighlights = forwardRef<InputWithHighlightsRef, InputWithH
                     textareaRef.current.style.height = `${newHeight}px`;
                     backdropRef.current.style.height = `${newHeight}px`;
                 }
+                // Sync scroll position after resize to catch auto-scroll
+                handleScroll();
             }
-        }, [value]);
+        }, [value, handleScroll]);
 
         return (
             <div className="relative w-full">
@@ -103,7 +106,14 @@ export const InputWithHighlights = forwardRef<InputWithHighlightsRef, InputWithH
                     }}
                     aria-hidden="true"
                 >
-                    <HighlightRenderer value={value} />
+                    {/* Inner wrapper with transform for scroll sync */}
+                    <div
+                        style={{
+                            transform: `translate(${-scrollOffset.left}px, ${-scrollOffset.top}px)`,
+                        }}
+                    >
+                        <HighlightRenderer value={value} />
+                    </div>
                 </div>
 
                 {/* Actual textarea - text is visible normally */}

@@ -97,9 +97,7 @@ export class GetDiagnosticsTool implements ITool {
 
         const filtered = diagnostics.filter((d) =>
           d.severity === vscode.DiagnosticSeverity.Error ||
-          d.severity === vscode.DiagnosticSeverity.Warning ||
-          d.severity === vscode.DiagnosticSeverity.Information ||
-          d.severity === vscode.DiagnosticSeverity.Hint,
+          d.severity === vscode.DiagnosticSeverity.Warning,
         );
 
         if (filtered.length === 0) { continue; }

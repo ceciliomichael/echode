@@ -125,18 +125,13 @@ export function useContextMenu({
 
     if (value) {
       const basename = value.split('/').pop() || value;
-      let label = basename;
-      let counter = 1;
-      while (mentionPathMap.current.has(label) && mentionPathMap.current.get(label) !== value) {
-        label = `${basename} (${counter})`;
-        counter++;
-      }
 
-      mentionPathMap.current.set(label, value);
+      // Always use the basename as label, overwrite any previous mapping
+      mentionPathMap.current.set(basename, value);
 
-      const { newValue, mentionIndex } = insertMention(input, cursorPosition, value, label);
+      const { newValue, mentionIndex } = insertMention(input, cursorPosition, value, basename);
       setInput(newValue);
-      const newCursorPos = newValue.indexOf(' ', mentionIndex + label.length + 2) + 1;
+      const newCursorPos = newValue.indexOf(' ', mentionIndex + basename.length + 2) + 1;
       setTimeout(() => {
         if (textareaRef.current) {
           textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);

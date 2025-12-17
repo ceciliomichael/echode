@@ -23,15 +23,20 @@ export async function getFileDiagnosticsAfterEdit(
     // Get diagnostics for the file
     const diagnostics = vscode.languages.getDiagnostics(uri);
 
-    // Convert all diagnostics to our format (include all severities)
-    const results: DiagnosticInfo[] = diagnostics.map(d => ({
-        line: d.range.start.line + 1,
-        character: d.range.start.character,
-        severity: severityToString(d.severity),
-        message: d.message,
-        source: d.source,
-        code: typeof d.code === 'object' ? d.code.value : d.code,
-    }));
+    // Only include errors and warnings (AI confuses info/hints as problems)
+    const results: DiagnosticInfo[] = diagnostics
+        .filter(d =>
+            d.severity === vscode.DiagnosticSeverity.Error ||
+            d.severity === vscode.DiagnosticSeverity.Warning
+        )
+        .map(d => ({
+            line: d.range.start.line + 1,
+            character: d.range.start.character,
+            severity: severityToString(d.severity),
+            message: d.message,
+            source: d.source,
+            code: typeof d.code === 'object' ? d.code.value : d.code,
+        }));
 
     return results;
 }
@@ -93,10 +98,9 @@ export function formatDiagnosticsForAI(diagnostics: DiagnosticInfo[]): string {
 
     const errors = diagnostics.filter(d => d.severity === 'Error').length;
     const warnings = diagnostics.filter(d => d.severity === 'Warning').length;
-    const info = diagnostics.filter(d => d.severity === 'Information').length;
-    const hints = diagnostics.filter(d => d.severity === 'Hint').length;
 
-    let result = `\n\n<diagnostics errors="${errors}" warnings="${warnings}" info="${info}" hints="${hints}">`;
+    let result = `\n\n[File saved successfully. Post-save diagnostics detected:]`;
+    result += `\n<diagnostics errors="${errors}" warnings="${warnings}">`;
     for (const d of diagnostics) {
         result += `\n  [${d.severity}] Line ${d.line}: ${d.message}${d.source ? ` (${d.source})` : ''}`;
     }
@@ -104,3 +108,4 @@ export function formatDiagnosticsForAI(diagnostics: DiagnosticInfo[]): string {
 
     return result;
 }
+

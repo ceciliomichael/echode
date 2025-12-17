@@ -1,21 +1,30 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import type { RefObject } from 'react';
 
 interface UseScrollSyncParams {
     textareaRef: RefObject<HTMLTextAreaElement | null>;
-    backdropRef: RefObject<HTMLDivElement | null>;
+}
+
+interface ScrollOffset {
+    top: number;
+    left: number;
 }
 
 /**
- * Hook that synchronizes scroll position between textarea and backdrop
+ * Hook that tracks scroll position for CSS transform-based sync
+ * Uses transforms instead of scrollTop for better compatibility with overflow-hidden
  */
-export function useScrollSync({ textareaRef, backdropRef }: UseScrollSyncParams) {
-    const handleScroll = useCallback(() => {
-        if (backdropRef.current && textareaRef.current) {
-            backdropRef.current.scrollTop = textareaRef.current.scrollTop;
-            backdropRef.current.scrollLeft = textareaRef.current.scrollLeft;
-        }
-    }, [backdropRef, textareaRef]);
+export function useScrollSync({ textareaRef }: UseScrollSyncParams) {
+    const [scrollOffset, setScrollOffset] = useState<ScrollOffset>({ top: 0, left: 0 });
 
-    return { handleScroll };
+    const handleScroll = useCallback(() => {
+        if (textareaRef.current) {
+            setScrollOffset({
+                top: textareaRef.current.scrollTop,
+                left: textareaRef.current.scrollLeft
+            });
+        }
+    }, [textareaRef]);
+
+    return { handleScroll, scrollOffset };
 }

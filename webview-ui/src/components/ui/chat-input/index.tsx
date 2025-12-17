@@ -152,7 +152,7 @@ export function ChatInput({
 
           <div className="w-full relative rounded-xl">
             {contextMenu.showContextMenu && (
-              <div className="absolute bottom-full left-0 right-0 z-50">
+              <div className="absolute bottom-full left-0 right-0 z-50 mb-1">
                 <ContextMenu
                   onSelect={contextMenu.handleMentionSelect}
                   searchQuery={contextMenu.searchQuery}
