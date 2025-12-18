@@ -101,7 +101,7 @@ export function MessageEditForm({
 
           <div className="w-full relative rounded-xl">
             {contextMenu.showContextMenu && (
-              <div className="absolute top-[32px] left-0 right-0 z-50">
+              <div className="absolute top-full left-0 right-0 z-50 mt-1">
                 <ContextMenu
                   onSelect={contextMenu.handleMentionSelect}
                   searchQuery={contextMenu.searchQuery}
