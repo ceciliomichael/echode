@@ -23,8 +23,11 @@ export async function handleModelFetch(
     let models: string[] = [];
 
     // Skip API calls for providers that require API key if it's empty
-    const requiresApiKey = provider !== 'vscode-lm' && provider !== 'qwen-code';
-    if (requiresApiKey && (!apiKey || apiKey.trim() === '')) {
+    // OpenAI-compatible and custom providers might not require an API key (e.g. local servers)
+    const isCustom = provider.startsWith('custom-');
+    const isOptionalKey = provider === 'vscode-lm' || provider === 'qwen-code' || provider === 'openai-compatible' || isCustom;
+    
+    if (!isOptionalKey && (!apiKey || apiKey.trim() === '')) {
       webview.webview.postMessage({
         type: 'modelsResponse',
         requestId,
@@ -36,7 +39,7 @@ export async function handleModelFetch(
     // Route to appropriate provider
     if (provider === 'anthropic') {
       models = await fetchAnthropicModels(apiKey, baseURL);
-    } else if (provider === 'openai' || provider === 'openai-compatible' || provider === 'megallm') {
+    } else if (provider === 'openai' || provider === 'openai-compatible' || provider === 'megallm' || provider.startsWith('custom-')) {
       models = await fetchOpenAIModels(apiKey, baseURL, provider === 'openai' ? 'openai' : 'openai-compatible');
     } else if (provider === 'vscode-lm') {
       models = await fetchVSCodeLMModels();

@@ -1,4 +1,4 @@
-import type { ApiSettings, Provider } from '../../types/api-settings';
+import type { ApiSettings, Provider, CustomProvider } from '../../types/api-settings';
 
 /**
  * Settings specific to a single provider
@@ -36,6 +36,15 @@ export interface ProviderStateMap {
 }
 
 /**
+ * Custom provider handlers
+ */
+export interface CustomProviderHandlers {
+  handleAddCustomProvider: (provider: CustomProvider) => void;
+  handleUpdateCustomProvider: (provider: CustomProvider) => void;
+  handleDeleteCustomProvider: (id: string) => void;
+}
+
+/**
  * Handler functions for updating provider settings
  */
 export interface ProviderHandlers {
@@ -62,6 +71,11 @@ export interface UseProviderSettingsReturn {
   handleStreamingTimeoutChange: (value: number) => void;
   streamingTimeout: number;
   buildSettings: () => ApiSettings;
+  // Custom providers
+  customProviders: CustomProvider[];
+  handleAddCustomProvider: (provider: CustomProvider) => void;
+  handleUpdateCustomProvider: (provider: CustomProvider) => void;
+  handleDeleteCustomProvider: (id: string) => void;
   allSettings: {
     anthropicCustomUrl: string;
     openaiCustomUrl: string;

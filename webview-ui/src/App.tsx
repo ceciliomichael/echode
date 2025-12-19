@@ -23,13 +23,9 @@ function App() {
       setSettings(loadedSettings);
       setShowSetup(window.isSettingsPanel || !storageService.hasSettings());
       setIsLoading(false);
+      // Prefetch models once settings are loaded to populate cache
+      prefetchAllModels(loadedSettings);
     });
-  }, []);
-
-  // Prefetch models at app startup to populate cache (runs once)
-  useEffect(() => {
-    prefetchAllModels(settings);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

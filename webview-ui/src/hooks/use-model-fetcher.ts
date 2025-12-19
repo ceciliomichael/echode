@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { getProviderDefaults, type Provider } from '../types/api-settings';
+import { getProviderDefaults, isCustomProvider, type Provider } from '../types/api-settings';
 import type { ApiSettings } from '../types/api-settings';
 
 // Session-only cache for fetched models
@@ -47,9 +47,23 @@ export function prefetchAllModels(settings: ApiSettings) {
     { provider: 'qwen-code', url: undefined, key: '' },
   ];
 
+  // Add custom providers to prefetch list
+  if (settings.customProviders) {
+    settings.customProviders.forEach(cp => {
+      providers.push({
+        provider: `custom-${cp.id}` as Provider,
+        url: cp.baseUrl,
+        key: cp.apiKey
+      });
+    });
+  }
+
   for (const { provider, url, key } of providers) {
-    // Skip providers without API key (except vscode-lm and qwen-code)
-    if (provider !== 'vscode-lm' && provider !== 'qwen-code' && !key) continue;
+    // Skip providers without API key (except vscode-lm, qwen-code, openai-compatible, and custom providers)
+    const isCustom = isCustomProvider(provider);
+    const isOptionalKey = provider === 'vscode-lm' || provider === 'qwen-code' || provider === 'openai-compatible' || isCustom;
+    
+    if (!isOptionalKey && !key) continue;
 
     const cacheKey = generateCacheKey(provider, url, key || 'no-key');
     if (modelCache.has(cacheKey)) continue;
@@ -108,8 +122,11 @@ export function useModelFetcher(
   }, [cacheKey]);
 
   const fetchModels = useCallback((force = false) => {
-    // VS Code LM and Qwen Code don't require API key, skip check for them
-    if (!window.vscode || (provider !== 'vscode-lm' && provider !== 'qwen-code' && !apiKey)) {
+    // Check if provider requires API key
+    const isCustom = isCustomProvider(provider);
+    const isOptionalKey = provider === 'vscode-lm' || provider === 'qwen-code' || provider === 'openai-compatible' || isCustom;
+
+    if (!window.vscode || (!isOptionalKey && !apiKey)) {
       setLoadingModels(false);
       setModels([]);
       return;

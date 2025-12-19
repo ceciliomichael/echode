@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Search } from 'lucide-react';
-import type { Provider } from '../../types/api-settings';
+import type { Provider, CustomProvider, BuiltInProvider } from '../../types/api-settings';
 
 interface ProviderDropdownProps {
   value: Provider;
   onChange: (value: Provider) => void;
+  customProviders?: CustomProvider[];
 }
 
-const PROVIDER_OPTIONS: { value: Provider; label: string }[] = [
+const BUILT_IN_PROVIDER_OPTIONS: { value: BuiltInProvider; label: string }[] = [
   { value: 'anthropic', label: 'Anthropic' },
   { value: 'openai', label: 'OpenAI' },
   { value: 'openai-compatible', label: 'OpenAI Compatible' },
@@ -16,7 +17,7 @@ const PROVIDER_OPTIONS: { value: Provider; label: string }[] = [
   { value: 'qwen-code', label: 'Qwen Code' },
 ];
 
-export function ProviderDropdown({ value, onChange }: ProviderDropdownProps) {
+export function ProviderDropdown({ value, onChange, customProviders = [] }: ProviderDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -33,9 +34,31 @@ export function ProviderDropdown({ value, onChange }: ProviderDropdownProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const filteredProviders = PROVIDER_OPTIONS.filter(provider =>
+  // Convert custom providers to option format
+  const customProviderOptions: { value: Provider; label: string; isCustom: boolean }[] =
+    customProviders.map(cp => ({
+      value: `custom-${cp.id}` as Provider,
+      label: cp.name,
+      isCustom: true,
+    }));
+
+  // Built-in providers with isCustom flag
+  const builtInOptions: { value: Provider; label: string; isCustom: boolean }[] =
+    BUILT_IN_PROVIDER_OPTIONS.map(p => ({ ...p, isCustom: false }));
+
+  // Combine all providers
+  const allProviders = [...builtInOptions, ...customProviderOptions];
+
+  // Filter by search
+  const filteredBuiltIn = builtInOptions.filter(provider =>
     provider.label.toLowerCase().includes(search.toLowerCase())
   );
+
+  const filteredCustom = customProviderOptions.filter(provider =>
+    provider.label.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const hasResults = filteredBuiltIn.length > 0 || filteredCustom.length > 0;
 
   const handleSelect = (provider: Provider) => {
     onChange(provider);
@@ -43,7 +66,33 @@ export function ProviderDropdown({ value, onChange }: ProviderDropdownProps) {
     setSearch('');
   };
 
-  const selectedLabel = PROVIDER_OPTIONS.find(p => p.value === value)?.label || 'Select provider...';
+  // Find selected label from all providers
+  const selectedLabel = allProviders.find(p => p.value === value)?.label || 'Select provider...';
+
+  const renderProviderButton = (provider: { value: Provider; label: string }) => (
+    <button
+      key={provider.value}
+      type="button"
+      onClick={() => handleSelect(provider.value)}
+      className="w-full px-3 py-2 text-sm text-left transition-colors"
+      style={{
+        backgroundColor: provider.value === value ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent',
+        color: provider.value === value ? 'var(--vscode-list-activeSelectionForeground)' : 'var(--vscode-input-foreground)'
+      }}
+      onMouseEnter={(e) => {
+        if (provider.value !== value) {
+          e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (provider.value !== value) {
+          e.currentTarget.style.backgroundColor = 'transparent';
+        }
+      }}
+    >
+      {provider.label}
+    </button>
+  );
 
   return (
     <div ref={dropdownRef} className="relative">
@@ -104,7 +153,7 @@ export function ProviderDropdown({ value, onChange }: ProviderDropdownProps) {
               maxHeight: '240px'
             }}
           >
-            {filteredProviders.length === 0 ? (
+            {!hasResults ? (
               <div className="p-4 text-center">
                 <div
                   className="text-xs"
@@ -114,30 +163,27 @@ export function ProviderDropdown({ value, onChange }: ProviderDropdownProps) {
                 </div>
               </div>
             ) : (
-              filteredProviders.map((provider) => (
-                <button
-                  key={provider.value}
-                  type="button"
-                  onClick={() => handleSelect(provider.value)}
-                  className="w-full px-3 py-2 text-sm text-left transition-colors"
-                  style={{
-                    backgroundColor: provider.value === value ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent',
-                    color: provider.value === value ? 'var(--vscode-list-activeSelectionForeground)' : 'var(--vscode-input-foreground)'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (provider.value !== value) {
-                      e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (provider.value !== value) {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }
-                  }}
-                >
-                  {provider.label}
-                </button>
-              ))
+              <>
+                {/* Built-in Providers */}
+                {filteredBuiltIn.map(renderProviderButton)}
+
+                {/* Custom Providers Section */}
+                {filteredCustom.length > 0 && (
+                  <>
+                    <div
+                      className="px-3 py-1.5 text-xs font-medium border-t mt-1"
+                      style={{
+                        color: 'var(--vscode-descriptionForeground)',
+                        borderColor: 'var(--vscode-input-border)',
+                        backgroundColor: 'var(--vscode-editor-background)'
+                      }}
+                    >
+                      Custom Providers
+                    </div>
+                    {filteredCustom.map(renderProviderButton)}
+                  </>
+                )}
+              </>
             )}
           </div>
         </div>

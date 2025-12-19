@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown, Search, Cpu, RefreshCcw } from 'lucide-react';
 import type { ApiSettings, Provider } from '../../types/api-settings';
 import { storageService } from '../../utils/storage';
 import { useModelFetcher, requestModelsRefresh } from '../../hooks/use-model-fetcher';
+import { CustomModelFetcher } from './custom-model-fetcher';
 
 interface SettingsModelSelectorProps {
   provider: Provider;
@@ -80,6 +81,7 @@ export function SettingsModelSelector({
   }, [isOpen]);
 
   const [settings, setSettings] = useState<ApiSettings>(() => storageService.getSettings());
+  const [customModels, setCustomModels] = useState<Record<string, { models: string[]; loading: boolean }>>({});
 
   useEffect(() => {
     const handleSettingsUpdated = (event: Event) => {
@@ -143,7 +145,22 @@ export function SettingsModelSelector({
     loadingOpenaiCompatible ||
     loadingMegallm ||
     loadingVscodeLm ||
-    loadingQwenCode;
+    loadingQwenCode ||
+    Object.values(customModels).some(m => m.loading);
+
+  const handleCustomModelsFetched = useCallback((provider: Provider, models: string[], loading: boolean) => {
+    setCustomModels(prev => {
+      // Only update if changed to avoid render loops
+      const current = prev[provider];
+      if (current && current.loading === loading && JSON.stringify(current.models) === JSON.stringify(models)) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [provider]: { models, loading }
+      };
+    });
+  }, []);
 
   // Fetch for all providers when dropdown opens; useModelFetcher and its
   // shared cache will avoid redundant network calls when data is fresh
@@ -185,8 +202,23 @@ export function SettingsModelSelector({
     if (vscodeLmModels) models.push(...vscodeLmModels.map(m => ({ provider: 'vscode-lm' as Provider, providerLabel: 'VS Code LM (Copilot)', model: m })));
     if (qwenCodeModels) models.push(...qwenCodeModels.map(m => ({ provider: 'qwen-code' as Provider, providerLabel: 'Qwen Code', model: m })));
 
+    // Add custom provider models
+    if (settings.customProviders) {
+      settings.customProviders.forEach(cp => {
+        const providerId = `custom-${cp.id}`;
+        const data = customModels[providerId];
+        if (data && data.models) {
+          models.push(...data.models.map(m => ({
+            provider: providerId as Provider,
+            providerLabel: cp.name,
+            model: m
+          })));
+        }
+      });
+    }
+
     return models;
-  }, [anthropicModels, openaiModels, openaiCompatibleModels, megallmModels, vscodeLmModels, qwenCodeModels]);
+  }, [anthropicModels, openaiModels, openaiCompatibleModels, megallmModels, vscodeLmModels, qwenCodeModels, customModels, settings.customProviders]);
 
   const searchValue = search.trim().toLowerCase();
   const hasSearch = searchValue.length > 0;
@@ -229,6 +261,17 @@ export function SettingsModelSelector({
           </span>
           <ChevronDown size={14} className="flex-shrink-0" />
         </button>
+
+        {/* Render fetchers for custom providers */}
+        {settings.customProviders?.map(cp => (
+          <CustomModelFetcher
+            key={cp.id}
+            provider={`custom-${cp.id}` as Provider}
+            baseUrl={cp.baseUrl}
+            apiKey={cp.apiKey}
+            onModelsFetched={handleCustomModelsFetched}
+          />
+        ))}
 
         {isOpen && createPortal(
           <div

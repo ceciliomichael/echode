@@ -1,5 +1,5 @@
 import type { ApiSettings, Provider } from '../types/api-settings';
-import { DEFAULT_API_SETTINGS } from '../types/api-settings';
+import { DEFAULT_API_SETTINGS, isCustomProvider } from '../types/api-settings';
 import { DEFAULT_CHAT_MODE } from '../types/chat-mode';
 import type { ChatSession } from '../types/chat-session';
 import type { Message } from '../types/chat';
@@ -149,6 +149,14 @@ export const storageService = {
     }
 
     // Provider-aware validation
+    if (isCustomProvider(settings.provider)) {
+      const customId = settings.provider.replace('custom-', '');
+      const customProvider = settings.customProviders?.find(cp => cp.id === customId);
+      // For custom providers, we check if the provider exists and has a base URL
+      // We don't strictly enforce API key (optional) or model (might be provided by default)
+      return !!(customProvider && customProvider.baseUrl);
+    }
+
     if (settings.provider === 'anthropic') {
       return !!(settings.anthropicApiKey && (settings.anthropicModel || settings.model));
     }

@@ -1,4 +1,20 @@
-export type Provider = 'anthropic' | 'openai' | 'openai-compatible' | 'megallm' | 'vscode-lm' | 'qwen-code';
+export type BuiltInProvider = 'anthropic' | 'openai' | 'openai-compatible' | 'megallm' | 'vscode-lm' | 'qwen-code';
+
+// Extended provider type that includes custom providers with pattern custom-{id}
+export type Provider = BuiltInProvider | `custom-${string}`;
+
+/**
+ * Configuration for a custom OpenAI-compatible provider
+ */
+export interface CustomProvider {
+  id: string;
+  name: string;
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  maxTokens: number;
+  temperature: number;
+}
 
 export interface IndexingSettings {
   enabled: boolean;
@@ -99,6 +115,7 @@ export interface ApiSettings {
   autocompleteSettings?: AutocompleteSettings;
   contextSettings?: ContextSettings;
   commitMessageSettings?: CommitMessageSettings;
+  customProviders?: CustomProvider[];
 }
 
 export const DEFAULT_API_SETTINGS: ApiSettings = {
@@ -165,11 +182,32 @@ export const PROVIDER_DEFAULTS = {
 } as const;
 
 /**
- * Safely get provider defaults with fallback to anthropic
+ * Check if a provider is a built-in provider
+ */
+export function isBuiltInProvider(provider: string): provider is BuiltInProvider {
+  return provider in PROVIDER_DEFAULTS;
+}
+
+/**
+ * Check if a provider is a custom provider
+ */
+export function isCustomProvider(provider: string): boolean {
+  return provider.startsWith('custom-');
+}
+
+/**
+ * Safely get provider defaults with fallback to openai-compatible for custom providers
  */
 export function getProviderDefaults(provider: Provider | undefined) {
-  if (!provider || !(provider in PROVIDER_DEFAULTS)) {
+  if (!provider) {
     return PROVIDER_DEFAULTS.anthropic;
   }
-  return PROVIDER_DEFAULTS[provider];
+  // Custom providers use openai-compatible defaults
+  if (isCustomProvider(provider)) {
+    return PROVIDER_DEFAULTS['openai-compatible'];
+  }
+  if (isBuiltInProvider(provider)) {
+    return PROVIDER_DEFAULTS[provider];
+  }
+  return PROVIDER_DEFAULTS.anthropic;
 }

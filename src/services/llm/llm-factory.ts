@@ -5,8 +5,20 @@ import { OpenAICompatibleProvider } from './openai-compatible-provider';
 import { VSCodeLMProvider } from './vscode-lm-provider';
 import { QwenProvider } from './qwen-provider';
 
+/**
+ * Check if a provider is a custom provider (starts with 'custom-')
+ */
+function isCustomProvider(providerName: string): boolean {
+  return providerName.startsWith('custom-');
+}
+
 export class LLMFactory {
   static getProvider(providerName: ChatStreamSettings['provider']): ILLMProvider {
+    // Custom providers are OpenAI-compatible
+    if (isCustomProvider(providerName)) {
+      return new OpenAICompatibleProvider();
+    }
+
     switch (providerName) {
       case 'anthropic':
         return new AnthropicProvider();

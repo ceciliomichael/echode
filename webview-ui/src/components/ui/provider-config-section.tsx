@@ -1,12 +1,13 @@
 import { ApiKeyInput } from './api-key-input';
 import { ProviderDropdown } from './provider-dropdown';
-import { getProviderDefaults, type Provider } from '../../types/api-settings';
+import { getProviderDefaults, isCustomProvider, type Provider, type CustomProvider } from '../../types/api-settings';
 
 interface ProviderConfigSectionProps {
   provider: Provider;
   customBaseUrl: string;
   apiKey: string;
   qwenCodeOauthPath?: string;
+  customProviders?: CustomProvider[];
   onProviderChange: (value: Provider) => void;
   onCustomBaseUrlChange: (value: string) => void;
   onApiKeyChange: (value: string) => void;
@@ -18,16 +19,29 @@ export function ProviderConfigSection({
   customBaseUrl,
   apiKey,
   qwenCodeOauthPath,
+  customProviders = [],
   onProviderChange,
   onCustomBaseUrlChange,
   onApiKeyChange,
   onQwenCodeOauthPathChange
 }: ProviderConfigSectionProps) {
+  // Check if current provider is a custom provider
+  const isCurrentCustomProvider = isCustomProvider(provider);
+
+  // For custom providers, we don't show base URL field since it's configured in the provider itself
+  const showBaseUrlField = !isCurrentCustomProvider &&
+    provider !== 'vscode-lm' &&
+    provider !== 'qwen-code' &&
+    provider !== 'megallm';
+
+  // Show API key for non-vscode-lm, non-qwen-code providers (including custom providers)
+  const showApiKeyField = provider !== 'vscode-lm' && provider !== 'qwen-code' && !isCurrentCustomProvider;
+
   return (
     <div className="space-y-4">
-      <h2 
+      <h2
         className="text-sm font-bold pb-2 border-b"
-        style={{ 
+        style={{
           color: 'var(--vscode-foreground)',
           borderColor: 'var(--vscode-panel-border)'
         }}
@@ -42,10 +56,14 @@ export function ProviderConfigSection({
         >
           Provider
         </label>
-        <ProviderDropdown value={provider} onChange={onProviderChange} />
+        <ProviderDropdown
+          value={provider}
+          onChange={onProviderChange}
+          customProviders={customProviders}
+        />
       </div>
 
-      {provider !== 'vscode-lm' && provider !== 'qwen-code' && provider !== 'megallm' && (
+      {showBaseUrlField && (
         <div className="space-y-2">
           <label
             htmlFor="customBaseUrl"
@@ -120,7 +138,7 @@ export function ProviderConfigSection({
         </div>
       )}
 
-      {provider !== 'vscode-lm' && provider !== 'qwen-code' && (
+      {showApiKeyField && (
         <ApiKeyInput value={apiKey} onChange={onApiKeyChange} />
       )}
     </div>

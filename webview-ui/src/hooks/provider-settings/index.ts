@@ -1,4 +1,5 @@
-import type { ApiSettings, Provider } from '../../types/api-settings';
+import type { ApiSettings, Provider, CustomProvider } from '../../types/api-settings';
+import { isBuiltInProvider } from '../../types/api-settings';
 import type { UseProviderSettingsReturn } from './types';
 import { useProviderState } from './use-provider-state';
 import { useProviderHandlers } from './use-provider-handlers';
@@ -18,6 +19,8 @@ export function useProviderSettings(initialSettings: ApiSettings): UseProviderSe
     providerStates,
     setProviderStates,
     currentSettings,
+    customProviders,
+    setCustomProviders,
     qwenCodeOauthPath,
     setQwenCodeOauthPath,
     streamingTimeout,
@@ -29,29 +32,63 @@ export function useProviderSettings(initialSettings: ApiSettings): UseProviderSe
 
   // Handle provider switching with model persistence
   const handleProviderChange = (newProvider: Provider) => {
-    // Save current model to current provider state
-    const updatedStates = saveCurrentModelToProvider(provider, model, providerStates);
-    setProviderStates(updatedStates);
+    // Only save model for built-in providers
+    if (isBuiltInProvider(provider)) {
+      const updatedStates = saveCurrentModelToProvider(provider, model, providerStates);
+      setProviderStates(updatedStates);
+    }
 
-    // Get saved model for new provider
-    const { savedModelForNewProvider } = handleProviderSwitch(newProvider, updatedStates);
+    // Get saved model for new provider (only for built-in providers)
+    if (isBuiltInProvider(newProvider)) {
+      const { savedModelForNewProvider } = handleProviderSwitch(newProvider, providerStates);
+      setModel(savedModelForNewProvider);
+    } else {
+      // For custom providers, get the model from the custom provider config
+      const customId = newProvider.replace('custom-', '');
+      const customProvider = customProviders.find(cp => cp.id === customId);
+      if (customProvider) {
+        setModel(customProvider.model || '');
+      }
+    }
 
     // Switch to new provider
     setProvider(newProvider);
+  };
 
-    // Restore the saved model for the new provider
-    setModel(savedModelForNewProvider);
+  // Custom provider handlers
+  const handleAddCustomProvider = (newProvider: CustomProvider) => {
+    setCustomProviders(prev => [...prev, newProvider]);
+  };
+
+  const handleUpdateCustomProvider = (updatedProvider: CustomProvider) => {
+    setCustomProviders(prev =>
+      prev.map(p => p.id === updatedProvider.id ? updatedProvider : p)
+    );
+  };
+
+  const handleDeleteCustomProvider = (id: string) => {
+    setCustomProviders(prev => prev.filter(p => p.id !== id));
+    // If the deleted provider was selected, switch to anthropic
+    if (provider === `custom-${id}`) {
+      setProvider('anthropic');
+      setModel(providerStates.anthropic.model);
+    }
   };
 
   // Build complete settings object
   const buildSettings = (): ApiSettings => {
-    return buildApiSettings(
+    const settings = buildApiSettings(
       provider,
       providerStates,
       currentSettings,
       qwenCodeOauthPath,
       streamingTimeout
     );
+    // Add custom providers to settings
+    return {
+      ...settings,
+      customProviders,
+    };
   };
 
   // Special handlers for qwen-code and streaming timeout
@@ -77,6 +114,11 @@ export function useProviderSettings(initialSettings: ApiSettings): UseProviderSe
     handleStreamingTimeoutChange,
     streamingTimeout,
     buildSettings,
+    // Custom providers
+    customProviders,
+    handleAddCustomProvider,
+    handleUpdateCustomProvider,
+    handleDeleteCustomProvider,
     allSettings: {
       anthropicCustomUrl: providerStates.anthropic.customUrl,
       openaiCustomUrl: providerStates.openai.customUrl,

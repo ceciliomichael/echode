@@ -1,7 +1,8 @@
 import { ProviderConfigSection } from '../ui/provider-config-section';
 import { GenerationParamsSection } from '../ui/generation-params-section';
 import { RequestSettingsSection } from '../ui/request-settings-section';
-import type { Provider } from '../../types/api-settings';
+import { CustomProviderManager } from '../ui/custom-provider-manager';
+import type { Provider, CustomProvider } from '../../types/api-settings';
 
 interface ApiConfigTabProps {
   provider: Provider;
@@ -11,6 +12,7 @@ interface ApiConfigTabProps {
   maxTokens: number;
   temperature: number;
   streamingTimeout: number;
+  customProviders: CustomProvider[];
   onProviderChange: (value: Provider) => void;
   onCustomBaseUrlChange: (value: string) => void;
   onApiKeyChange: (value: string) => void;
@@ -18,6 +20,9 @@ interface ApiConfigTabProps {
   onMaxTokensChange: (value: number) => void;
   onTemperatureChange: (value: number) => void;
   onStreamingTimeoutChange: (value: number) => void;
+  onAddCustomProvider: (provider: CustomProvider) => void;
+  onUpdateCustomProvider: (provider: CustomProvider) => void;
+  onDeleteCustomProvider: (id: string) => void;
 }
 
 export function ApiConfigTab({
@@ -28,13 +33,17 @@ export function ApiConfigTab({
   maxTokens,
   temperature,
   streamingTimeout,
+  customProviders,
   onProviderChange,
   onCustomBaseUrlChange,
   onApiKeyChange,
   onQwenCodeOauthPathChange,
   onMaxTokensChange,
   onTemperatureChange,
-  onStreamingTimeoutChange
+  onStreamingTimeoutChange,
+  onAddCustomProvider,
+  onUpdateCustomProvider,
+  onDeleteCustomProvider
 }: ApiConfigTabProps) {
   return (
     <div className="max-w-2xl space-y-6">
@@ -43,10 +52,18 @@ export function ApiConfigTab({
         customBaseUrl={customBaseUrl}
         apiKey={apiKey}
         qwenCodeOauthPath={qwenCodeOauthPath}
+        customProviders={customProviders}
         onProviderChange={onProviderChange}
         onCustomBaseUrlChange={onCustomBaseUrlChange}
         onApiKeyChange={onApiKeyChange}
         onQwenCodeOauthPathChange={onQwenCodeOauthPathChange}
+      />
+
+      <CustomProviderManager
+        customProviders={customProviders}
+        onAddProvider={onAddCustomProvider}
+        onUpdateProvider={onUpdateCustomProvider}
+        onDeleteProvider={onDeleteCustomProvider}
       />
 
       <GenerationParamsSection

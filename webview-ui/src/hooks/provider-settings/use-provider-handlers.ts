@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import type { Provider } from '../../types/api-settings';
+import type { Provider, BuiltInProvider } from '../../types/api-settings';
+import { isBuiltInProvider } from '../../types/api-settings';
 import type { ProviderHandlers } from './types';
 
 /**
@@ -9,14 +10,14 @@ import type { ProviderHandlers } from './types';
 export function useProviderHandlers(
   provider: Provider,
   updateProviderState: (
-    targetProvider: Provider,
+    targetProvider: BuiltInProvider,
     updates: Partial<{ customUrl: string; apiKey: string; maxTokens: number; temperature: number }>
   ) => void
 ): ProviderHandlers {
   return useMemo(
     () => ({
       handleCustomUrlChange: (value: string) => {
-        // Only certain providers support custom URLs
+        // Only certain built-in providers support custom URLs
         if (
           provider === 'anthropic' ||
           provider === 'openai' ||
@@ -27,7 +28,7 @@ export function useProviderHandlers(
       },
 
       handleApiKeyChange: (value: string) => {
-        // Only certain providers use API keys
+        // Only certain built-in providers use API keys
         if (
           provider === 'anthropic' ||
           provider === 'openai' ||
@@ -39,11 +40,17 @@ export function useProviderHandlers(
       },
 
       handleMaxTokensChange: (value: number) => {
-        updateProviderState(provider, { maxTokens: value });
+        // Only update for built-in providers
+        if (isBuiltInProvider(provider)) {
+          updateProviderState(provider, { maxTokens: value });
+        }
       },
 
       handleTemperatureChange: (value: number) => {
-        updateProviderState(provider, { temperature: value });
+        // Only update for built-in providers
+        if (isBuiltInProvider(provider)) {
+          updateProviderState(provider, { temperature: value });
+        }
       },
     }),
     [provider, updateProviderState]

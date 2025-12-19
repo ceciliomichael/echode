@@ -1,7 +1,7 @@
 import type { ChatMessage } from '../types/chat-api';
 import type { ChatMode } from '../types/chat-mode';
 import { storageService } from '../utils/storage';
-import { getProviderDefaults } from '../types/api-settings';
+import { getProviderDefaults, isCustomProvider } from '../types/api-settings';
 import { UnifiedChatService } from './unified-chat-service';
 import { getToolsForMode } from '../lib/tool-config';
 
@@ -21,7 +21,26 @@ export class ChatApiService {
     let baseURL = '';
     let qwenCodeOauthPath: string | undefined;
 
-    if (settings.provider === 'anthropic') {
+    // Check if it's a custom provider
+    if (isCustomProvider(settings.provider)) {
+      const customId = settings.provider.replace('custom-', '');
+      const customProvider = settings.customProviders?.find(cp => cp.id === customId);
+      
+      if (customProvider) {
+        effectiveApiKey = customProvider.apiKey || '';
+        effectiveModel = customProvider.model || settings.model;
+        maxTokens = customProvider.maxTokens;
+        temperature = customProvider.temperature;
+        baseURL = customProvider.baseUrl;
+      } else {
+        // Fallback to openai-compatible defaults if custom provider not found
+        effectiveApiKey = settings.openaiCompatibleApiKey || settings.apiKey || '';
+        effectiveModel = settings.openaiCompatibleModel || settings.model;
+        maxTokens = settings.openaiCompatibleMaxTokens;
+        temperature = settings.openaiCompatibleTemperature;
+        baseURL = settings.openaiCompatibleCustomUrl?.trim() || getProviderDefaults('openai-compatible').baseUrl;
+      }
+    } else if (settings.provider === 'anthropic') {
       effectiveApiKey = settings.anthropicApiKey || settings.apiKey || '';
       effectiveModel = settings.anthropicModel || settings.model;
       maxTokens = settings.anthropicMaxTokens;

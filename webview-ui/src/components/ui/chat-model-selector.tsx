@@ -1,9 +1,10 @@
-import { memo, useState, useRef, useEffect, useMemo } from 'react';
+import { memo, useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useHoverEffect, hoverPresets } from '../../hooks/use-hover-effect';
 import { Check, Cpu, Search, RefreshCcw } from 'lucide-react';
 import type { ApiSettings, Provider } from '../../types/api-settings';
 import { storageService } from '../../utils/storage';
 import { useModelFetcher, requestModelsRefresh } from '../../hooks/use-model-fetcher';
+import { CustomModelFetcher } from './custom-model-fetcher';
 
 const PROVIDER_OPTIONS: { value: Provider; label: string }[] = [
   { value: 'anthropic', label: 'Anthropic' },
@@ -29,6 +30,7 @@ function ChatModelSelectorComponent({ provider: activeProvider, model: activeMod
   const { handleMouseEnter, handleMouseLeave } = useHoverEffect();
 
   const [settings, setSettings] = useState<ApiSettings>(() => storageService.getSettings());
+  const [customModels, setCustomModels] = useState<Record<string, { models: string[]; loading: boolean }>>({});
 
   // Note: we intentionally do NOT sync active provider/model from settingsSaved events,
   // so the chat header model selector state is decoupled from the settings page provider.
@@ -99,7 +101,22 @@ function ChatModelSelectorComponent({ provider: activeProvider, model: activeMod
     loadingOpenaiCompatible ||
     loadingMegallm ||
     loadingVscodeLm ||
-    loadingQwenCode;
+    loadingQwenCode ||
+    Object.values(customModels).some(m => m.loading);
+
+  const handleCustomModelsFetched = useCallback((provider: Provider, models: string[], loading: boolean) => {
+    setCustomModels(prev => {
+      // Only update if changed to avoid render loops
+      const current = prev[provider];
+      if (current && current.loading === loading && JSON.stringify(current.models) === JSON.stringify(models)) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [provider]: { models, loading }
+      };
+    });
+  }, []);
 
   useEffect(() => {
     fetchAnthropic();
@@ -174,8 +191,23 @@ function ChatModelSelectorComponent({ provider: activeProvider, model: activeMod
     if (vscodeLmModels) models.push(...vscodeLmModels.map(m => ({ provider: 'vscode-lm' as Provider, providerLabel: 'VS Code LM (Copilot)', model: m })));
     if (qwenCodeModels) models.push(...qwenCodeModels.map(m => ({ provider: 'qwen-code' as Provider, providerLabel: 'Qwen Code', model: m })));
 
+    // Add custom provider models
+    if (settings.customProviders) {
+      settings.customProviders.forEach(cp => {
+        const providerId = `custom-${cp.id}`;
+        const data = customModels[providerId];
+        if (data && data.models) {
+          models.push(...data.models.map(m => ({
+            provider: providerId as Provider,
+            providerLabel: cp.name,
+            model: m
+          })));
+        }
+      });
+    }
+
     return models;
-  }, [anthropicModels, openaiModels, openaiCompatibleModels, megallmModels, vscodeLmModels, qwenCodeModels]);
+  }, [anthropicModels, openaiModels, openaiCompatibleModels, megallmModels, vscodeLmModels, qwenCodeModels, customModels, settings.customProviders]);
 
   const searchValue = search.trim().toLowerCase();
   const hasSearch = searchValue.length > 0;
@@ -208,6 +240,17 @@ function ChatModelSelectorComponent({ provider: activeProvider, model: activeMod
         <Cpu className="w-3.5 h-3.5" />
         <span className="max-w-[120px] truncate">{buttonLabel}</span>
       </button>
+
+      {/* Render fetchers for custom providers */}
+      {settings.customProviders?.map(cp => (
+        <CustomModelFetcher
+          key={cp.id}
+          provider={`custom-${cp.id}` as Provider}
+          baseUrl={cp.baseUrl}
+          apiKey={cp.apiKey}
+          onModelsFetched={handleCustomModelsFetched}
+        />
+      ))}
 
       {isOpen && (
         <div

@@ -2,6 +2,16 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
+export interface CustomProviderConfig {
+  id: string;
+  name: string;
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  maxTokens: number;
+  temperature: number;
+}
+
 export interface ApiSettings {
   provider: string;
   customBaseUrl?: string;
@@ -44,6 +54,7 @@ export interface ApiSettings {
   autocompleteSettings?: unknown;
   contextSettings?: unknown;
   commitMessageSettings?: unknown;
+  customProviders?: CustomProviderConfig[];
 }
 
 const DEFAULT_SETTINGS: ApiSettings = {

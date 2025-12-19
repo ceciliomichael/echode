@@ -53,6 +53,10 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
     handleStreamingTimeoutChange,
     streamingTimeout,
     buildSettings,
+    customProviders,
+    handleAddCustomProvider,
+    handleUpdateCustomProvider,
+    handleDeleteCustomProvider,
   } = useProviderSettings(initialSettings);
 
   // Sync system prompt, tools, and indexing with initial settings
@@ -102,7 +106,7 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
     }, 500);
     return () => clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [provider, currentSettings, systemPrompt, enabledTools, indexingSettings, contextSettings, commitMessageSettings, streamingTimeout]);
+  }, [provider, currentSettings, systemPrompt, enabledTools, indexingSettings, contextSettings, commitMessageSettings, streamingTimeout, customProviders]);
 
   return (
     <div
@@ -144,6 +148,7 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
               maxTokens={currentSettings.maxTokens}
               temperature={currentSettings.temperature}
               streamingTimeout={streamingTimeout}
+              customProviders={customProviders}
               onProviderChange={handleProviderChange}
               onCustomBaseUrlChange={handleCustomUrlChange}
               onApiKeyChange={handleApiKeyChange}
@@ -151,6 +156,9 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
               onMaxTokensChange={handleMaxTokensChange}
               onTemperatureChange={handleTemperatureChange}
               onStreamingTimeoutChange={handleStreamingTimeoutChange}
+              onAddCustomProvider={handleAddCustomProvider}
+              onUpdateCustomProvider={handleUpdateCustomProvider}
+              onDeleteCustomProvider={handleDeleteCustomProvider}
             />
           )}
 
