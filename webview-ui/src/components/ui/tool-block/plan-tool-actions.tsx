@@ -25,17 +25,13 @@ export function PlanToolActions({
 }: PlanToolActionsProps) {
   const { triggerContinuation } = usePlanContinuationEmitter();
 
-  // Only show actions when status is awaiting_user
-  if (toolCall.status !== 'awaiting_user') {
-    return null;
-  }
-
   const result = toolCall.result;
   if (!result?.success || !result.data) {
     return null;
   }
 
-  const data = result.data as PlanToolResult;
+  // Cast data to include potential userAction from continuation
+  const data = result.data as PlanToolResult & { userAction?: string };
   const actionType = data.actionType;
 
   // No button for 'ask' mode (actionType: 'none')
@@ -43,7 +39,16 @@ export function PlanToolActions({
     return null;
   }
 
+  // Only show actions when status is awaiting_user OR when completed with a user action
+  const isAwaitingUser = toolCall.status === 'awaiting_user';
+  const isCompletedWithAction = toolCall.status === 'completed' && !!data.userAction;
+
+  if (!isAwaitingUser && !isCompletedWithAction) {
+    return null;
+  }
+
   const handleVerifyPlan = () => {
+    if (!isAwaitingUser) return;
     triggerContinuation(
       'verify_plan',
       messageId,
@@ -53,6 +58,7 @@ export function PlanToolActions({
   };
 
   const handleStartImplementation = () => {
+    if (!isAwaitingUser) return;
     triggerContinuation(
       'start_implementation',
       messageId,
@@ -69,16 +75,17 @@ export function PlanToolActions({
       {actionType === 'verify_plan' && (
         <button
           onClick={handleVerifyPlan}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors"
+          disabled={!isAwaitingUser}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${!isAwaitingUser ? 'opacity-50 cursor-not-allowed' : ''}`}
           style={{
             backgroundColor: 'var(--vscode-button-background)',
             color: 'var(--vscode-button-foreground)',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--vscode-button-hoverBackground)';
+            if (isAwaitingUser) e.currentTarget.style.backgroundColor = 'var(--vscode-button-hoverBackground)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--vscode-button-background)';
+            if (isAwaitingUser) e.currentTarget.style.backgroundColor = 'var(--vscode-button-background)';
           }}
         >
           <CheckCircle className="w-4 h-4" />
@@ -89,16 +96,17 @@ export function PlanToolActions({
       {actionType === 'start_implementation' && (
         <button
           onClick={handleStartImplementation}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors"
+          disabled={!isAwaitingUser}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${!isAwaitingUser ? 'opacity-50 cursor-not-allowed' : ''}`}
           style={{
             backgroundColor: 'var(--vscode-button-background)',
             color: 'var(--vscode-button-foreground)',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--vscode-button-hoverBackground)';
+            if (isAwaitingUser) e.currentTarget.style.backgroundColor = 'var(--vscode-button-hoverBackground)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--vscode-button-background)';
+            if (isAwaitingUser) e.currentTarget.style.backgroundColor = 'var(--vscode-button-background)';
           }}
         >
           <Rocket className="w-4 h-4" />

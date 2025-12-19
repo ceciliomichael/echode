@@ -41,7 +41,7 @@ CRITICAL RULES:
 - MUST include \`:start_line:N\` and \`-------\` before search content
 - MUST have \`=======\` separator between search and replace
 - MUST end with \`>>>>>>> REPLACE\` (7 greater-than signs + space + REPLACE)
-- Multiple blocks: NOT ALLOWED. One block per invocation.
+- For multi-edits, use multi <invoke> blocks, one per edit
 
 When to use:
 - Small, targeted changes

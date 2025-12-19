@@ -27,8 +27,13 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId }: 
     (toolCall.status === 'executing' || toolCall.status === 'pending' || (isAborted && hasStreamedContent)) &&
     !toolCall.result?.success;
 
-  // Plan tool with awaiting_user status should always show content (for the action buttons)
-  const shouldRenderInnerContent = isExpanded || isStreamingPhase || (isPlanTool && isAwaitingUser);
+  // Check for plan tool completion with user action
+  const planResult = isPlanTool ? toolCall.result?.data as { userAction?: string } | undefined : undefined;
+  const hasPlanUserAction = !!planResult?.userAction;
+  const showPlanActions = isPlanTool && (isAwaitingUser || (toolCall.status === 'completed' && hasPlanUserAction));
+
+  // Plan tool with awaiting_user status or completed with action should always show content
+  const shouldRenderInnerContent = isExpanded || isStreamingPhase || showPlanActions;
 
   return (
     <div
@@ -70,7 +75,7 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId }: 
                   {renderToolResult(toolCall.toolName, toolCall.result.data, fileInfo.displayName)}
                   
                   {/* Plan tool action buttons */}
-                  {isPlanTool && isAwaitingUser && (
+                  {showPlanActions && (
                     <div className="px-3 pb-3">
                       <PlanToolActions toolCall={toolCall} messageId={messageId} />
                     </div>

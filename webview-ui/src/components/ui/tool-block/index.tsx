@@ -1,4 +1,4 @@
-import { memo, useMemo, useState, useEffect, useRef } from 'react';
+import { memo, useMemo, useState, useEffect } from 'react';
 import type { ToolCall } from '../../../types/tool';
 import { getToolStatusDisplay } from '../../../utils/tool-status-formatter';
 import { getToolFileInfo } from '../../../utils/tool-file-info';
@@ -19,22 +19,6 @@ const ToolBlockComponent = ({
   const isEchoSearch = toolCall.toolName === 'echo_search';
 
   const [isExpanded, setIsExpanded] = useState(false);
-
-  const hasAutoExpandedRef = useRef(false);
-
-  // Auto-expand any tool as soon as it starts running
-  useEffect(() => {
-    if (
-      (toolCall.status === 'pending' || toolCall.status === 'executing') &&
-      !hasAutoExpandedRef.current
-    ) {
-      hasAutoExpandedRef.current = true;
-      // Defer the state update to avoid synchronous render warning
-      setTimeout(() => {
-        setIsExpanded(true);
-      }, 0);
-    }
-  }, [toolCall.status]);
 
   // Auto-expand when awaiting user action (e.g. Plan tool)
   // This ensures the action buttons are visible when the state changes
@@ -94,34 +78,55 @@ const ToolBlockComponent = ({
   // Always allow toggling - users should be able to expand/collapse at any time
   const canToggle = true;
 
-  return (
-    <div
-      className="overflow-hidden w-full mt-2"
-      style={{
-        borderColor: 'var(--vscode-input-border)',
-        backgroundColor: 'var(--vscode-editor-background)',
-        borderWidth: '1px',
-        borderStyle: 'solid',
-        borderRadius: '0.75rem',
-      }}
-    >
-      <ToolBlockHeader
-        isExpanded={isExpanded}
-        onToggle={() => setIsExpanded(!isExpanded)}
-        fileInfo={fileInfo}
-        statusConfig={statusConfig}
-        status={toolCall.status}
-        isStreaming={isStreaming}
-        canToggle={canToggle}
-      />
+  // Check for plan tool completion with user action for the message below
+  const isPlanTool = toolCall.toolName === 'plan';
+  const planResult = isPlanTool ? toolCall.result?.data as { userAction?: string } | undefined : undefined;
+  const userAction = planResult?.userAction;
 
-      <ToolBlockContent
-        toolCall={toolCall}
-        fileInfo={fileInfo}
-        isExpanded={isExpanded}
-        messageId={messageId}
-      />
-    </div>
+  return (
+    <>
+      <div
+        className="overflow-hidden w-full mt-2"
+        style={{
+          borderColor: 'var(--vscode-input-border)',
+          backgroundColor: 'var(--vscode-editor-background)',
+          borderWidth: '1px',
+          borderStyle: 'solid',
+          borderRadius: '0.75rem',
+        }}
+      >
+        <ToolBlockHeader
+          isExpanded={isExpanded}
+          onToggle={() => setIsExpanded(!isExpanded)}
+          fileInfo={fileInfo}
+          statusConfig={statusConfig}
+          status={toolCall.status}
+          isStreaming={isStreaming}
+          canToggle={canToggle}
+        />
+
+        <ToolBlockContent
+          toolCall={toolCall}
+          fileInfo={fileInfo}
+          isExpanded={isExpanded}
+          messageId={messageId}
+        />
+      </div>
+
+      {isPlanTool && userAction && (
+        <div 
+          className="mt-4 mb-2 flex items-center justify-center gap-3 select-none w-full"
+          style={{ color: 'var(--vscode-descriptionForeground)' }}
+        >
+          <div className="h-[1px] flex-1" style={{ backgroundColor: 'currentColor', opacity: 0.2 }} />
+          <span className="text-xs font-medium uppercase tracking-widest opacity-80 flex-shrink-0">
+            {userAction === 'verify_plan' ? 'Plan Verified' : 
+             userAction === 'start_implementation' ? 'Implementation Started' : ''}
+          </span>
+          <div className="h-[1px] flex-1" style={{ backgroundColor: 'currentColor', opacity: 0.2 }} />
+        </div>
+      )}
+    </>
   );
 };
 
