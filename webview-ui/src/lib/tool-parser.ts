@@ -321,6 +321,31 @@ export function extractCompleteInvokeBlocksIncremental(content: string): {
       continue;
     }
 
+    // Check if there's significant text before the function_calls tag (after thinking blocks).
+    // If so, this is likely an AI explanation about tool usage, not a real tool call.
+    // Real tool calls typically appear on their own line, possibly after descriptive text separated by blank lines.
+    const textBeforeTag = preprocessed.slice(searchStart, openPos);
+
+    // Check if the function_calls tag is on the same line as explanatory text
+    // by looking at the content from the last newline to the tag
+    const lastNewlinePos = textBeforeTag.lastIndexOf('\n');
+    const textOnSameLine = lastNewlinePos >= 0
+      ? textBeforeTag.slice(lastNewlinePos + 1).trim()
+      : textBeforeTag.trim();
+
+    // If there's significant text on the same line as <function_calls>, it's likely an explanation
+    if (textOnSameLine.length > 0) {
+      // Check for common explanation patterns
+      const isLikelyExplanation =
+        /(?:example|here(?:'s| is)|for instance|like this|as follows|such as|usage:|format:|e\.g\.|i\.e\.)/i.test(textOnSameLine) ||
+        textOnSameLine.endsWith(':'); // Text ending with colon before the tag suggests it's an example
+
+      if (isLikelyExplanation) {
+        openPos += openTag.length;
+        continue;
+      }
+    }
+
     break;
   }
 

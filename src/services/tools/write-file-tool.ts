@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import type { ITool, ToolExecutionResult, ChatMode } from './tool.interface';
-import { unescapeHtmlEntities, stripCDataWrapper } from '../../utils/text-normalization';
+import { unescapeHtmlEntities, stripAllCDataWrappers } from '../../utils/text-normalization';
 import { detectCodeOmission } from '../../utils/detect-code-omission';
 import { getWorkspaceRoot, resolveAbsolutePath, getCreatedDirectories } from './utils/workspace-utils';
 import { FileLockManager } from './utils/file-lock-manager';
@@ -110,7 +110,7 @@ export class WriteFileTool implements ITool {
     content = unescapeHtmlEntities(content);
 
     // Strip CDATA wrappers that some models (like Gemini) may add
-    content = stripCDataWrapper(content);
+    content = stripAllCDataWrappers(content);
 
     // Convert escaped \n, \t, \r sequences ONLY when the content appears to be
     // a single packed line with no real newlines. This prevents us from

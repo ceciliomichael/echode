@@ -123,3 +123,20 @@ export function stripCDataWrapper(text: string): string {
 
 	return text;
 }
+
+/**
+ * Strips all CDATA wrappers from content (inline occurrences)
+ * Used for filtering file content in real-time (e.g., write_to_file)
+ *
+ * @param text The string that may contain CDATA wrappers anywhere
+ * @returns The content with all CDATA wrappers removed
+ */
+export function stripAllCDataWrappers(text: string): string {
+	if (!text) {
+		return text;
+	}
+
+	// Match all <![CDATA[content]]> patterns globally, replacing with inner content
+	// Handles multiple CDATA sections and multi-line content
+	return text.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1");
+}
