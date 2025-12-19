@@ -21,6 +21,7 @@ import './tools/todo-read-tool.tsx';
 import './tools/apply-diff-tool.tsx';
 import './tools/get-diagnostics-tool.tsx';
 import './tools/echo-search-tool.tsx';
+import './tools/plan-tool.tsx';
 
 /**
  * Tool status callback for mid-execution updates

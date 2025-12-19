@@ -5,6 +5,7 @@ import type { ImageAttachment } from '../types/chat';
 import { extractTextAndAttachmentsFromContent } from '../utils/document-utils';
 import { useToolExecution } from './use-tool-execution';
 import { useChatStreaming } from './use-chat-streaming';
+import { usePlanContinuationHandler } from './use-plan-continuation';
 import { storageService } from '../utils/storage';
 import {
   useChatState,
@@ -15,7 +16,8 @@ import {
 
 export function useStreamingChat(
   _currentTodos?: Array<{ id: string; content: string; status: string }>,
-  mode: ChatMode = 'agent'
+  mode: ChatMode = 'agent',
+  onModeChange?: (newMode: ChatMode) => void
 ) {
   // Core state management
   const state = useChatState();
@@ -97,6 +99,14 @@ export function useStreamingChat(
     isStoppingRef: state.isStoppingRef,
     saveSession: saveCurrentSession,
     mode,
+  });
+
+  // Plan continuation handler - listens for button clicks and sends user message
+  usePlanContinuationHandler({
+    setMessages: state.setMessages,
+    updateToolExecution,
+    sendMessage,
+    onModeChange,
   });
 
   // Edit and revert operations

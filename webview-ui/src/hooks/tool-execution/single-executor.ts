@@ -129,6 +129,26 @@ export async function executeSingleTool(
   const executedTool = result.executedToolCalls[0];
   let completedState = executionState;
   if (executedTool) {
+    // Check if this is a plan tool that awaits user action
+    const awaitsUserAction = checkAwaitsUserAction(executedTool.result);
+    
+    if (awaitsUserAction) {
+      // Update tool execution state with 'awaiting_user' status
+      completedState = updateToolExecutionStatus(
+        executionState,
+        'awaiting_user',
+        executedTool.result
+      );
+      updateToolExecution(assistantMessageId, toolExecutionId, completedState);
+      
+      // STOP HERE - Do not continue, wait for user interaction
+      // The tool result is stored in the execution state
+      // User must click a button to trigger continuation
+      setIsExecutingTool(false);
+      console.log('[SingleExecutor] Plan tool awaits user action - stopping execution');
+      return { wasStopped: false, isPlanningTool: true, continueExecution: false };
+    }
+    
     // Update tool execution state with result - show in dropdown immediately
     completedState = updateToolExecutionStatus(
       executionState,
@@ -186,4 +206,17 @@ export async function executeSingleTool(
   });
 
   return { wasStopped: false, isPlanningTool: false, continueExecution: true };
+}
+
+/**
+ * Check if a tool result indicates it awaits user action
+ * This is used by the plan tool to pause execution until user clicks a button
+ */
+function checkAwaitsUserAction(result?: { success: boolean; data?: unknown; error?: string }): boolean {
+  if (!result?.success || !result.data) {
+    return false;
+  }
+  
+  const data = result.data as Record<string, unknown>;
+  return data.awaitsUserAction === true;
 }

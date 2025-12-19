@@ -49,7 +49,7 @@ export function ChatContainer() {
     abortedUserInput,
     abortedAttachments,
     abortedImageAttachments,
-  } = useStreamingChat(tasks, mode);
+  } = useStreamingChat(tasks, mode, handleModeChange);
 
   // Disable mode switching hotkey (Ctrl+.) when AI is actively streaming or executing tools
   useEffect(() => {

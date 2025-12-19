@@ -2,6 +2,7 @@ import { X } from 'lucide-react';
 import { DiffViewer } from '../diff-viewer';
 import { renderToolResult } from '../tool-result-renderer';
 import { EchoSearchProgressIndicator } from './echo-search-progress';
+import { PlanToolActions } from './plan-tool-actions';
 import type { ToolCall } from '../../../types/tool';
 import type { ToolFileInfo } from '../../../utils/tool-file-info';
 
@@ -9,10 +10,13 @@ interface ToolBlockContentProps {
   toolCall: ToolCall;
   fileInfo: ToolFileInfo;
   isExpanded: boolean;
+  messageId: string;
 }
 
-export function ToolBlockContent({ toolCall, fileInfo, isExpanded }: ToolBlockContentProps) {
+export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId }: ToolBlockContentProps) {
   const isAborted = toolCall.status === 'aborted';
+  const isAwaitingUser = toolCall.status === 'awaiting_user';
+  const isPlanTool = toolCall.toolName === 'plan';
   
   // Check if we have streamed content to preserve
   const hasStreamedContent = 
@@ -23,7 +27,8 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded }: ToolBlockCo
     (toolCall.status === 'executing' || toolCall.status === 'pending' || (isAborted && hasStreamedContent)) &&
     !toolCall.result?.success;
 
-  const shouldRenderInnerContent = isExpanded || isStreamingPhase;
+  // Plan tool with awaiting_user status should always show content (for the action buttons)
+  const shouldRenderInnerContent = isExpanded || isStreamingPhase || (isPlanTool && isAwaitingUser);
 
   return (
     <div
@@ -63,6 +68,13 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded }: ToolBlockCo
               {toolCall.result.success ? (
                 <div style={{ color: 'var(--vscode-editor-foreground)' }}>
                   {renderToolResult(toolCall.toolName, toolCall.result.data, fileInfo.displayName)}
+                  
+                  {/* Plan tool action buttons */}
+                  {isPlanTool && isAwaitingUser && (
+                    <div className="px-3 pb-3">
+                      <PlanToolActions toolCall={toolCall} messageId={messageId} />
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div

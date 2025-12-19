@@ -28,6 +28,7 @@ export const PLAN_MODE_TOOL_IDS = [
   'echo_search',
   'todo_write',
   'todo_read',
+  'plan',
 ] as const;
 
 /** Ask mode: read-only exploration tools */
@@ -63,7 +64,8 @@ const STANDARD_TOOL_IDS = new Set([
   'todo_read',
   'apply_diff',
   'get_diagnostics',
-  'echo_search'
+  'echo_search',
+  'plan',
 ]);
 
 // ============================================================================

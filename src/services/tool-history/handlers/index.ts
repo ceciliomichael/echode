@@ -1,10 +1,12 @@
 import type { IToolHistoryHandler } from './handler.interface';
 import { FileOperationsHandler } from './file-operations-handler';
 import { TodoOperationsHandler } from './todo-operations-handler';
+import { PlanOperationsHandler } from './plan-operations-handler';
 
 export { IToolHistoryHandler } from './handler.interface';
 export { FileOperationsHandler } from './file-operations-handler';
 export { TodoOperationsHandler } from './todo-operations-handler';
+export { PlanOperationsHandler } from './plan-operations-handler';
 
 /**
  * Registry for tool history handlers
@@ -17,6 +19,7 @@ export class ToolHistoryHandlerRegistry {
     // Register default handlers
     this.register(new FileOperationsHandler());
     this.register(new TodoOperationsHandler());
+    this.register(new PlanOperationsHandler());
   }
 
   /**

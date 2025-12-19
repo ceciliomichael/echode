@@ -14,6 +14,7 @@ import { getGlobSearchInstructions } from './glob-search';
 import { getListFilesInstructions } from './list-files';
 import { getTodoWriteInstructions } from './todo-write';
 import { getTodoReadInstructions } from './todo-read';
+import { getPlanInstructions } from './plan';
 
 const TOOL_INSTRUCTION_MAP: Record<string, () => string> = {
     'read_file': getReadFileInstructions,
@@ -23,6 +24,7 @@ const TOOL_INSTRUCTION_MAP: Record<string, () => string> = {
     'list_files': getListFilesInstructions,
     'todo_write': getTodoWriteInstructions,
     'todo_read': getTodoReadInstructions,
+    'plan': getPlanInstructions,
 };
 
 /**

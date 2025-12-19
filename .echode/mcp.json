@@ -1,17 +1,3 @@
 {
-  "mcpServers": {
-    "time-mcp": {
-      "name": "time-mcp",
-      "type": "stdio",
-      "description": "MCP stdio server: time-mcp",
-      "tool_configuration": {
-        "enabled": true
-      },
-      "command": "node",
-      "args": [
-        "C:/Users/Administrator/Desktop/time_mcp/build/index.js"
-      ],
-      "env": {}
-    }
-  }
+  "mcpServers": {}
 }

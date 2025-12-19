@@ -10,7 +10,6 @@ interface ToolBlockHeaderProps {
   statusConfig: string | ReactNode;
   status: ToolStatus;
   isStreaming?: boolean;
-  hasResultContent: boolean;
   canToggle: boolean;
 }
 
@@ -21,14 +20,10 @@ export function ToolBlockHeader({
   statusConfig,
   status,
   isStreaming,
-  hasResultContent,
   canToggle,
 }: ToolBlockHeaderProps) {
-  const isDone = !isStreaming &&
-    status !== 'pending' &&
-    status !== 'executing' &&
-    status !== 'fetching_diagnostics';
-  const showChevron = isDone && hasResultContent;
+  // Always show chevron on hover since users can always toggle
+  const showChevron = canToggle;
 
   return (
     <button

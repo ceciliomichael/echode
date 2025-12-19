@@ -201,6 +201,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                           <ToolBlock
                             toolCall={fileToolCall}
                             isStreaming={false}
+                            messageId={messageId}
                           />
                         </div>
                       );
@@ -231,6 +232,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                 <ToolBlock
                   toolCall={toolCall}
                   isStreaming={isStreaming && !token.isClosed}
+                  messageId={messageId}
                 />
               </div>
             );

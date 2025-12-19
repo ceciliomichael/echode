@@ -23,6 +23,7 @@ interface ParallelToolResult {
   toolName: string;
   result: string;
   success: boolean;
+  awaitsUserAction?: boolean;
 }
 
 /**
@@ -79,6 +80,29 @@ async function executeToolInParallel(
       };
     }
 
+    // Check if this tool awaits user action (e.g., plan tool)
+    const awaitsUserAction = checkAwaitsUserAction(result);
+    
+    if (awaitsUserAction) {
+      // Update tool execution state with 'awaiting_user' status
+      const awaitingState = updateToolExecutionStatus(
+        executionState,
+        'awaiting_user',
+        result
+      );
+      updateToolExecution(assistantMessageId, execId, awaitingState);
+      
+      console.log(`[StreamingLoop] Tool ${block.toolName} awaits user action - will stop continuation`);
+      
+      return {
+        toolIndex,
+        toolName: block.toolName,
+        result: `Tool: ${block.toolName}\nAwaiting user action`,
+        success: true,
+        awaitsUserAction: true,
+      };
+    }
+
     // Update execution state with result
     const completedState = updateToolExecutionStatus(
       executionState,
@@ -114,6 +138,19 @@ async function executeToolInParallel(
       success: false,
     };
   }
+}
+
+/**
+ * Check if a tool result indicates it awaits user action
+ * This is used by the plan tool to pause execution until user clicks a button
+ */
+function checkAwaitsUserAction(result: { success: boolean; data?: unknown; error?: string }): boolean {
+  if (!result.success || !result.data) {
+    return false;
+  }
+  
+  const data = result.data as Record<string, unknown>;
+  return data.awaitsUserAction === true;
 }
 
 /**
@@ -278,6 +315,14 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
           allResults.sort((a, b) => a.toolIndex - b.toolIndex);
 
           console.log(`[StreamingLoop] All ${allResults.length} parallel executions completed`);
+
+          // Check if any tool awaits user action - if so, STOP and don't continue
+          const hasAwaitingTool = allResults.some(r => r.awaitsUserAction);
+          if (hasAwaitingTool) {
+            console.log('[StreamingLoop] Tool awaits user action - stopping continuation');
+            setIsExecutingTool(false);
+            return { success: true, assistantContent, handledByToolExecution: true };
+          }
 
           // Collect all tool results into buffered results
           const bufferedToolResults = allResults.map(r => r.result);
