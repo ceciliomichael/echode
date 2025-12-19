@@ -37,17 +37,6 @@ export function isPathWithinAnyWorkspace(absolutePath: string): boolean {
 }
 
 /**
- * Get the workspace folder that contains the given path
- */
-export function getWorkspaceFolderForPath(absolutePath: string): vscode.WorkspaceFolder | undefined {
-  const folders = getAllWorkspaceFolders();
-  // Sort by length descending to match the most specific (nested) workspace first
-  const sortedFolders = [...folders].sort((a, b) => b.uri.fsPath.length - a.uri.fsPath.length);
-  
-  return sortedFolders.find(folder => isPathWithinWorkspace(absolutePath, folder.uri.fsPath));
-}
-
-/**
  * Resolve a path relative to workspace root, ensuring it stays within the workspace.
  * Returns workspaceRoot if the path would escape the workspace.
  */
@@ -73,49 +62,6 @@ export function resolveAbsolutePath(filePath: string, workspaceRoot: string): st
   }
   
   return resolved;
-}
-
-/**
- * Resolve a path across multiple workspaces.
- * Handles:
- * 1. "WorkspaceName/path/to/file" format
- * 2. Absolute paths checking against all workspaces
- * 3. Relative paths (defaults to first workspace)
- */
-export function resolveMultiRootPath(filePath: string): string {
-  const folders = getAllWorkspaceFolders();
-  if (folders.length === 0) {
-    return filePath;
-  }
-
-  // 1. Handle "WorkspaceName/..." format if multiple workspaces exist
-  if (folders.length > 1) {
-    const parts = filePath.split(/[/\\]/);
-    const potentialWorkspaceName = parts[0];
-    const targetWorkspace = folders.find(w => w.name === potentialWorkspaceName);
-    
-    if (targetWorkspace) {
-      // Remove workspace name from path and resolve against that workspace
-      const relativePath = parts.slice(1).join(path.sep);
-      // If path was just "WorkspaceName", return the root
-      if (parts.length === 1) {
-        return targetWorkspace.uri.fsPath;
-      }
-      return resolveAbsolutePath(relativePath, targetWorkspace.uri.fsPath);
-    }
-  }
-
-  // 2. Handle Absolute Paths
-  if (path.isAbsolute(filePath)) {
-    if (isPathWithinAnyWorkspace(filePath)) {
-      return path.normalize(filePath);
-    }
-    // Security fallback
-    return folders[0].uri.fsPath;
-  }
-
-  // 3. Default: Relative to first workspace
-  return resolveAbsolutePath(filePath, folders[0].uri.fsPath);
 }
 
 export async function getCreatedDirectories(

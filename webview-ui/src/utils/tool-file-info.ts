@@ -1,4 +1,4 @@
-import { Loader, Folder, Search, FileSearch, Trash2, Radar, XCircle, Stethoscope, type LucideIcon } from 'lucide-react';
+import { Loader, Folder, Search, FileSearch, Trash2, Radar, XCircle, Stethoscope, Cable, type LucideIcon } from 'lucide-react';
 import type { IconType } from 'react-icons';
 import { getToolMetadata } from '../lib/tool-registry';
 import { getFileIconConfig, extractFileName } from './file-icon-mapper';
@@ -152,6 +152,19 @@ export function getToolFileInfo(
       fullPath: path,
       icon: getIcon(iconConfig.icon),
       iconColor: getIconColor(iconConfig.color),
+      isSpinning: isExecuting,
+    };
+  }
+
+  // MCP tools -> Use Cable icon
+  if (toolName.startsWith('mcp_')) {
+    // Remove 'mcp_' prefix for display name
+    const displayName = toolName.substring(4);
+    return {
+      displayName,
+      fullPath: '',
+      icon: getIcon(Cable),
+      iconColor: getIconColor('var(--vscode-charts-purple)'),
       isSpinning: isExecuting,
     };
   }

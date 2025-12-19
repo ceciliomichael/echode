@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { ITool, ToolExecutionResult } from './tool.interface';
-import { getWorkspaceRoot, resolveAbsolutePath, getAllWorkspaceFolders, resolveMultiRootPath, getWorkspaceFolderForPath } from './utils/workspace-utils';
+import { resolveAbsolutePath, getAllWorkspaceFolders } from './utils/workspace-utils';
+import { PathResolver } from '../path-resolver';
 import { parseGitignore, matchesGitignorePattern } from '../../constants/excluded-patterns';
 
 const MAX_LIST_FILES_RESULTS = 200;
@@ -189,16 +190,17 @@ export class ListFilesTool implements ITool {
     }
 
     // 1. Resolve Path and Workspace
-    // Use multi-root resolution to handle "WorkspaceName/..." or defaults
-    const absolutePath = dirPath ? resolveMultiRootPath(dirPath) : (allFolders[0]?.uri.fsPath || '');
-    
-    if (!absolutePath) {
-      return { success: false, error: 'No workspace folder open' };
+    let resolvedPath;
+    try {
+      // If path is empty string, PathResolver resolves to primary workspace root
+      // which is what we want for single-root or fallback behavior
+      resolvedPath = PathResolver.resolve(dirPath);
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to resolve path' };
     }
 
-    // Determine which workspace we are in for gitignore contexts
-    const targetWorkspaceFolder = getWorkspaceFolderForPath(absolutePath) || allFolders[0];
-    const workspaceRoot = targetWorkspaceFolder.uri.fsPath;
+    const { absolutePath, workspaceFolder } = resolvedPath;
+    const workspaceRoot = workspaceFolder.uri.fsPath;
 
     // Auto-bypass: If user explicitly provides a path that is ignored by .gitignore,
     // assume they want to see it (they mentioned it explicitly)

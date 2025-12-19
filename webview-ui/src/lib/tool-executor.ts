@@ -1,7 +1,15 @@
 import type { ToolCall, ToolExecutionResult } from '../types/tool';
 import { getToolHandler, type ToolStatusCallback, type ToolProgressCallback, isToolRegistered } from './tool-registry';
 import { extractFirstToolBlock } from './tool-parser';
-import type { ChatMode } from './tool-utils';
+import { type ChatMode, executeToolViaExtension } from './tool-utils';
+
+/**
+ * Check if a tool is an MCP (Model Context Protocol) tool
+ * MCP tools are prefixed with 'mcp_' and are handled by the extension backend
+ */
+function isMcpTool(toolName: string): boolean {
+  return toolName.startsWith('mcp_');
+}
 
 export interface ToolCallExecutionResult {
   executedToolCalls: Array<{
@@ -50,7 +58,28 @@ export class ToolExecutor {
     onStatusChange?: ToolStatusCallback,
     onProgress?: ToolProgressCallback,
   ): Promise<ToolExecutionResult> {
-    // Check if tool is registered (exists in the system)
+    // Use provided signal or fall back to the abort controller ref's signal
+    const effectiveSignal = signal ?? this.getAbortSignal();
+
+    // MCP tools bypass local registry checks and execute directly via extension
+    if (isMcpTool(toolCall.toolName)) {
+      try {
+        return await executeToolViaExtension(
+          toolCall.toolName,
+          toolCall.parameters,
+          effectiveSignal,
+          onProgress,
+          this.mode,
+        );
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'MCP tool execution failed',
+        };
+      }
+    }
+
+    // Check if tool is registered (exists in the system) - only for built-in tools
     if (!isToolRegistered(toolCall.toolName)) {
       return {
         success: false,
@@ -74,9 +103,6 @@ export class ToolExecutor {
         error: `Invalid tool: ${toolCall.toolName}. This tool is not registered.`,
       };
     }
-
-    // Use provided signal or fall back to the abort controller ref's signal
-    const effectiveSignal = signal ?? this.getAbortSignal();
 
     return await handler.execute(
       toolCall.parameters,

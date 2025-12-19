@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 import { ITool, ToolExecutionResult, ChatMode } from './tool.interface';
 import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
 import { unescapeHtmlEntities, stripCDataWrapper } from '../../utils/text-normalization';
-import { MultiSearchReplaceDiffStrategy } from './apply-diff';
+import { SearchReplaceDiffStrategy } from './apply-diff';
 import { createUnifiedDiff } from '../../utils/diff-generator';
 import { FileLockManager } from './utils/file-lock-manager';
 import { getFileDiagnosticsAfterEdit, formatDiagnosticsForAI } from './utils/diagnostics-utils';
@@ -16,7 +16,7 @@ import { getFileDiagnosticsAfterEdit, formatDiagnosticsForAI } from './utils/dia
  */
 export class ApplyDiffTool implements ITool {
     name = 'apply_diff';
-    private diffStrategy = new MultiSearchReplaceDiffStrategy();
+    private diffStrategy = new SearchReplaceDiffStrategy();
     private applyDiffFailureCounts = new Map<string, number>();
 
     async execute(

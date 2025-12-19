@@ -56,6 +56,26 @@ export const PLAN_ONLY_TOOL_IDS = new Set<string>([
   'plan_handoff',
 ]);
 
+/**
+ * Set of all standard built-in tools.
+ * Used to identify remote/MCP tools (which are not in this list).
+ */
+const STANDARD_TOOL_IDS = new Set([
+  'read_file',
+  'write_to_file',
+  'list_files',
+  'grep_search',
+  'glob_search',
+  'delete_file',
+  'todo_write',
+  'todo_read',
+  'plan_navigator',
+  'plan_handoff',
+  'apply_diff',
+  'get_diagnostics',
+  'echo_search'
+]);
+
 // ============================================================================
 // TOOL RETRIEVAL FUNCTIONS
 // ============================================================================
@@ -73,16 +93,29 @@ export function getToolsForMode(mode: ChatMode, defaultEnabled = true): Tool[] {
 
   switch (mode) {
     case 'plan':
-      return allTools.filter(t => (PLAN_MODE_TOOL_IDS as readonly string[]).includes(t.id));
+      // Include explicitly allowed plan tools OR any remote/MCP tool (not in standard set)
+      return allTools.filter(t =>
+        (PLAN_MODE_TOOL_IDS as readonly string[]).includes(t.id) ||
+        !STANDARD_TOOL_IDS.has(t.id)
+      );
 
     case 'ask':
-      return allTools.filter(t => (ASK_MODE_TOOL_IDS as readonly string[]).includes(t.id));
+      // Ask mode: allowed exploration tools + MCP tools
+      return allTools.filter(t => 
+        (ASK_MODE_TOOL_IDS as readonly string[]).includes(t.id) ||
+        !STANDARD_TOOL_IDS.has(t.id)
+      );
 
     case 'general':
-      return allTools.filter(t => (GENERAL_MODE_TOOL_IDS as readonly string[]).includes(t.id));
+      // Include explicitly allowed general tools OR any remote/MCP tool (not in standard set)
+      return allTools.filter(t =>
+        (GENERAL_MODE_TOOL_IDS as readonly string[]).includes(t.id) ||
+        !STANDARD_TOOL_IDS.has(t.id)
+      );
 
     case 'chat':
-      return []; // No tools in chat mode
+      // Chat mode: MCP tools only (no standard tools)
+      return allTools.filter(t => !STANDARD_TOOL_IDS.has(t.id));
 
     case 'agent':
     default:

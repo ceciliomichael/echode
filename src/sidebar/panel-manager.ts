@@ -3,6 +3,7 @@ import { getSettingsHtml, getMermaidPreviewHtml } from '../utils/html-generator'
 import { handleApiRequest } from '../handlers/api-handler';
 import { handleModelFetch } from '../handlers/model-fetching-handler';
 import { getSettingsService } from '../services/settings-service';
+import { handleMcpMessage, setupMcpStatusListener } from './handlers/mcp-handler';
 import type { AutocompleteService } from '../autocomplete';
 
 /**
@@ -55,7 +56,9 @@ export class PanelManager {
     panel.iconPath = vscode.Uri.joinPath(this._extensionUri, 'icon.svg');
 
     // Clear reference when panel is disposed
+    const statusListener = setupMcpStatusListener(panel);
     panel.onDidDispose(() => {
+      statusListener.dispose();
       this._settingsPanel = undefined;
     });
 
@@ -89,6 +92,11 @@ export class PanelManager {
         case 'clearApiSettings':
           getSettingsService().clearSettings();
           panel.webview.postMessage({ type: 'apiSettingsCleared' });
+          break;
+        default:
+          if (data.type && data.type.startsWith('mcp.')) {
+            await handleMcpMessage(data, panel);
+          }
           break;
       }
     });

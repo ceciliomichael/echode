@@ -6,7 +6,7 @@
 export type { DiffResult, DiffStrategy, NormalizeOptions, ValidationResult, FuzzySearchResult } from './types';
 
 // Strategy
-export { MultiSearchReplaceDiffStrategy } from './diff-strategy';
+export { SearchReplaceDiffStrategy } from './diff-strategy';
 
 // Utilities (exported for testing and advanced usage)
 export { validateMarkerSequencing } from './diff-validator';

@@ -1,6 +1,6 @@
-import { Settings, FileText, Wrench, ChevronDown, Search, Zap, Brain, GitCommit } from 'lucide-react';
+import { Settings, FileText, Wrench, ChevronDown, Search, Zap, Brain, GitCommit, Network } from 'lucide-react';
 
-type TabType = 'api' | 'system' | 'tools' | 'indexing' | 'autocomplete' | 'context' | 'commit-message';
+type TabType = 'api' | 'system' | 'tools' | 'indexing' | 'autocomplete' | 'context' | 'commit-message' | 'mcp';
 
 interface SettingsDropdownProps {
   activeTab: TabType;
@@ -24,7 +24,7 @@ export function SettingsDropdown({ activeTab, onTabChange, isOpen, onToggle }: S
         <div className="flex items-center gap-2">
           <Settings size={16} strokeWidth={1.5} />
           <span className="text-sm font-semibold">
-            {activeTab === 'api' ? 'API Configuration' : activeTab === 'system' ? 'System Prompt' : activeTab === 'tools' ? 'Tools' : activeTab === 'indexing' ? 'Indexing' : activeTab === 'autocomplete' ? 'Autocomplete' : activeTab === 'context' ? 'Context' : 'Commit Message'}
+            {activeTab === 'api' ? 'API Configuration' : activeTab === 'system' ? 'System Prompt' : activeTab === 'tools' ? 'Tools' : activeTab === 'indexing' ? 'Indexing' : activeTab === 'autocomplete' ? 'Autocomplete' : activeTab === 'context' ? 'Context' : activeTab === 'mcp' ? 'MCP Servers' : 'Commit Message'}
           </span>
         </div>
         <ChevronDown
@@ -217,6 +217,31 @@ export function SettingsDropdown({ activeTab, onTabChange, isOpen, onToggle }: S
             >
               <GitCommit size={14} strokeWidth={1.5} />
               <span className="font-medium">Commit Message</span>
+            </button>
+            <button
+              onClick={() => {
+                onTabChange('mcp');
+                onToggle();
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs rounded-xl transition-all border"
+              style={{
+                backgroundColor: activeTab === 'mcp' ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent',
+                color: activeTab === 'mcp' ? 'var(--vscode-list-activeSelectionForeground)' : 'var(--vscode-foreground)',
+                borderColor: activeTab === 'mcp' ? 'var(--vscode-focusBorder)' : 'transparent'
+              }}
+              onMouseEnter={(e) => {
+                if (activeTab !== 'mcp') {
+                  e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeTab !== 'mcp') {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
+              }}
+            >
+              <Network size={14} strokeWidth={1.5} />
+              <span className="font-medium">MCP Servers</span>
             </button>
           </nav>
         </div>

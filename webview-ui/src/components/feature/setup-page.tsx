@@ -9,6 +9,7 @@ import { IndexingTab } from './indexing-tab';
 import { AutocompleteTab } from './autocomplete-tab';
 import { ContextSettingsTab } from './context-settings-tab';
 import { CommitMessageTab } from './commit-message-tab';
+import { MCPTab } from './mcp-tab';
 
 import { useProviderSettings } from '../../hooks/provider-settings';
 import { getAllTools } from '../../lib/tool-config';
@@ -38,7 +39,7 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
   const [commitMessageSettings, setCommitMessageSettings] = useState<CommitMessageSettings>(
     initialSettings.commitMessageSettings || DEFAULT_COMMIT_MESSAGE_SETTINGS
   );
-  const [activeTab, setActiveTab] = useState<'api' | 'system' | 'tools' | 'indexing' | 'autocomplete' | 'context' | 'commit-message'>('api');
+  const [activeTab, setActiveTab] = useState<'api' | 'system' | 'tools' | 'indexing' | 'autocomplete' | 'context' | 'commit-message' | 'mcp'>('api');
   const [showDropdown, setShowDropdown] = useState(false);
 
   const {
@@ -134,7 +135,7 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
             className="text-sm sm:text-base font-semibold"
             style={{ color: 'var(--vscode-foreground)' }}
           >
-            {activeTab === 'api' ? 'API Configuration' : activeTab === 'system' ? 'System Prompt' : activeTab === 'tools' ? 'Tool Configuration' : activeTab === 'indexing' ? 'Indexing / Code Search' : activeTab === 'autocomplete' ? 'Autocomplete' : activeTab === 'context' ? 'Context Management' : activeTab === 'commit-message' ? 'Commit Message' : ''}
+            {activeTab === 'api' ? 'API Configuration' : activeTab === 'system' ? 'System Prompt' : activeTab === 'tools' ? 'Tool Configuration' : activeTab === 'indexing' ? 'Indexing / Code Search' : activeTab === 'autocomplete' ? 'Autocomplete' : activeTab === 'context' ? 'Context Management' : activeTab === 'commit-message' ? 'Commit Message' : activeTab === 'mcp' ? 'MCP Servers' : ''}
           </h1>
         </div>
 
@@ -196,6 +197,10 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
               commitMessageSettings={commitMessageSettings}
               onChange={setCommitMessageSettings}
             />
+          )}
+
+          {activeTab === 'mcp' && (
+            <MCPTab />
           )}
         </div>
       </div>

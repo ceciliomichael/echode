@@ -235,16 +235,25 @@ export class SettingsService {
     });
 
     // 3. Prepare the updated global settings
-    // We update global settings with EVERYTHING to ensure:
-    // - API keys are saved
-    // - Global defaults are updated (last write wins for global default)
-    // - User expects their last used settings to persist when opening a new window
-    const updatedGlobal: ApiSettings = {
+    // We update global settings with ONLY non-workspace-specific fields to ensure:
+    // - API keys are saved globally
+    // - Global defaults remain stable (don't jump around when changing local workspace models)
+    // - Workspace settings remain isolated
+    const updatedGlobal: ApiSettings = { 
       ...globalSettings,
-      ...newSettings,
-      // Ensure the workspaceSettings map is preserved/initialized
-      workspaceSettings: globalSettings.workspaceSettings || {}
+      // Preserve existing workspace settings map, will be updated below
+      workspaceSettings: globalSettings.workspaceSettings || {} 
     };
+
+    // Update global settings with non-workspace specific fields from newSettings
+    Object.keys(newSettings).forEach((key) => {
+      const k = key as keyof ApiSettings;
+      // Skip workspace-specific fields and the workspaceSettings map itself
+      if (!workspaceSpecificFields.includes(k) && k !== 'workspaceSettings') {
+        // @ts-ignore
+        updatedGlobal[k] = newSettings[k];
+      }
+    });
 
     // 4. Save the workspace override if we are in a workspace
     if (workspacePath) {
@@ -252,6 +261,15 @@ export class SettingsService {
         updatedGlobal.workspaceSettings = {};
       }
       updatedGlobal.workspaceSettings[workspaceId] = workspaceOverride;
+    } else {
+      // If we are NOT in a workspace (global context), we SHOULD update the global defaults
+      // for model fields, otherwise they can never be changed in a non-workspace window.
+      workspaceSpecificFields.forEach(field => {
+        if (field in newSettings) {
+          // @ts-ignore
+          updatedGlobal[field] = newSettings[field];
+        }
+      });
     }
 
     this.saveSettings(updatedGlobal);

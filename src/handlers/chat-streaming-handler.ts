@@ -3,6 +3,8 @@ import { LLMFactory } from '../services/llm/llm-factory';
 import { ChatMessage, ChatStreamSettings } from '../services/llm/llm-provider.interface';
 import { mergeSameRoleChatMessages } from '../utils/message-merger';
 import { processTodoReminders } from '../utils/todo-reminder';
+import { defaultRegistry } from '../services/tools/tool-registry';
+import { MCPToolAdapter } from '../services/mcp/mcp-tool-adapter';
 
 interface ChatStreamRequest {
   requestId: number;
@@ -53,18 +55,56 @@ export async function handleChatStream(
       const lastMessage = messagesWithTodos[messagesWithTodos.length - 1];
       if (lastMessage.role === 'user') {
 
-        // Chat mode: NO tools, NO system reminder about tools
-        if (chatMode !== 'chat') {
-          // Get enabled tools from settings
-          const enabledTools = settings.enabledTools?.filter(t => t.enabled) || [];
-          const enabledToolNames = enabledTools.map(t => `\`${t.id}\``).join(', ') || '';
+        // Tool logic (MCP allowed in all modes, Standard tools restricted in Chat)
+        {
+          // Get enabled tools from settings (standard tools)
+          // In Chat mode, standard tools are disabled
+          const rawEnabledTools = settings.enabledTools?.filter(t => t.enabled) || [];
+          const enabledStandardTools = chatMode === 'chat' ? [] : rawEnabledTools;
+          
+          // Get MCP tools from registry (they are enabled if present in registry)
+          const allRegistryTools = defaultRegistry.getTools();
+          const mcpTools = allRegistryTools.filter(t => t instanceof MCPToolAdapter);
+          
+          // Combine standard tools and MCP tools names
+          // For standard tools we use t.id (which matches registry name usually), for MCP tools t.name
+          const standardToolNames = enabledStandardTools.map(t => `\`${t.id}\``);
+          const mcpToolNames = mcpTools.map(t => `\`${t.name}\``);
+          
+          const allEnabledToolNames = [...standardToolNames, ...mcpToolNames];
+          const enabledToolNamesString = allEnabledToolNames.join(', ') || '';
 
           let toolsMessage = '';
-          if (enabledTools.length === 0) {
+          if (allEnabledToolNames.length === 0) {
             toolsMessage = '\nNo tools are currently enabled. You cannot use any tools for this request.';
           } else {
             const modeLabel = chatMode === 'plan' ? 'AVAILABLE' : 'ENABLED';
-            toolsMessage = `\n${modeLabel} TOOLS: ${enabledToolNames}\nThese are the ONLY tools you can use. Do not attempt to use any other tools.`;
+            toolsMessage = `\n${modeLabel} TOOLS: ${enabledToolNamesString}\nThese are the ONLY tools you can use. Do not attempt to use any other tools.`;
+          }
+
+          // Inject MCP tool instructions into the system prompt
+          // Allowed in ALL modes
+          const shouldInjectMcp = true;
+
+          // Find the system message
+          const systemMessage = messagesWithTodos.find(m => m.role === 'system');
+          if (systemMessage && mcpTools.length > 0 && shouldInjectMcp) {
+            const mcpInstructions = mcpTools
+              .map(t => t.getInstruction())
+              .join('\n\n');
+            
+            // Append to the system message content
+            const additionalContext = `\n\n<mcp_tool_instructions>\nThe following additional tools are available for you to use:\n\n${mcpInstructions}\n</mcp_tool_instructions>`;
+            
+            if (typeof systemMessage.content === 'string') {
+              systemMessage.content += additionalContext;
+            } else if (Array.isArray(systemMessage.content)) {
+              // Handle multimodal system message
+              const textContent = systemMessage.content.find(c => c.type === 'text');
+              if (textContent && textContent.text) {
+                textContent.text += additionalContext;
+              }
+            }
           }
 
           // Mode-specific reminder content
@@ -76,7 +116,7 @@ export async function handleChatStream(
           }
 
           const systemReminder = `\n\n<system_reminder>\nPlease remember:${toolsMessage}
-- Use only the XML format: <function_calls><invoke name="TOOL">...</invoke></function_calls>
+- Use only the XML format: <function_calls><invoke name="tool_name">...</invoke></function_calls>
 - Avoid redundant file reads when you already have the necessary code in context, but if you are unsure or need to verify details, call the relevant tool again instead of guessing.
 - Do not nest tool XML inside parameters.
 - Keep tool syntax internal. Never show it to the user.
@@ -85,18 +125,23 @@ export async function handleChatStream(
 </system_reminder>`;
 
           // Handle multimodal content (text + images) properly
-          if (Array.isArray(lastMessage.content)) {
-            // Find the text content and append system reminder
-            const textContent = lastMessage.content.find(c => c.type === 'text');
-            if (textContent && textContent.text !== undefined) {
-              textContent.text += systemReminder;
+          // For 'chat' mode, only inject system reminder if tools are actually available (MCP tools).
+          // For other modes, always inject (even to say "No tools enabled").
+          const shouldInjectReminder = chatMode !== 'chat' || allEnabledToolNames.length > 0;
+
+          if (shouldInjectReminder) {
+            if (Array.isArray(lastMessage.content)) {
+              // Find the text content and append system reminder
+              const textContent = lastMessage.content.find(c => c.type === 'text');
+              if (textContent && textContent.text !== undefined) {
+                textContent.text += systemReminder;
+              }
+            } else {
+              // Simple string content
+              lastMessage.content += systemReminder;
             }
-          } else {
-            // Simple string content
-            lastMessage.content += systemReminder;
           }
         }
-        // Chat mode: no system_reminder injected at all
       }
     }
 

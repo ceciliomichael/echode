@@ -5,8 +5,9 @@
 
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { Cable } from 'lucide-react';
 import type { Tool, ToolExecutionResult, EchoSearchProgress } from '../types/tool';
-import type { ChatMode } from './tool-utils';
+import { type ChatMode, executeToolViaExtension } from './tool-utils';
 import { getAllToolPlugins } from './tools/tool-plugin';
 // Import tools to trigger auto-registration
 import './tools/read-file-tool.tsx';
@@ -104,6 +105,42 @@ export function registerToolRenderer(
   renderer: ToolResultRenderer,
 ): void {
   toolRenderers.set(toolId, renderer);
+}
+
+/**
+ * Unregister a tool
+ */
+export function unregisterTool(toolId: string): void {
+  toolHandlers.delete(toolId);
+  toolMetadata.delete(toolId);
+  toolRenderers.delete(toolId);
+}
+
+/**
+ * Register a remote tool (e.g. from MCP)
+ */
+export function registerRemoteTool(
+  toolInfo: { name: string; description: string; inputSchema?: any }
+): void {
+  const toolId = toolInfo.name;
+  
+  // Register Metadata
+  registerToolMetadata({
+    id: toolId,
+    name: toolInfo.name,
+    description: toolInfo.description || 'Remote tool',
+    aiDescription: toolInfo.description,
+    icon: Cable,
+    usage: `Use ${toolInfo.name}`,
+    formatExample: `<invoke name="${toolInfo.name}">\n<parameter name="param">value</parameter>\n</invoke>`,
+  });
+
+  // Register Handler
+  registerToolHandler(toolId, {
+    execute: async (parameters, signal, _onStatusChange, onProgress, mode) => {
+      return executeToolViaExtension(toolId, parameters, signal, onProgress, mode);
+    },
+  });
 }
 
 /**

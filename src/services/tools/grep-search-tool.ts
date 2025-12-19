@@ -1,6 +1,7 @@
 import * as path from 'path';
 import { ITool, ToolExecutionResult } from './tool.interface';
-import { getAllWorkspaceFolders, resolveMultiRootPath, getWorkspaceFolderForPath } from './utils/workspace-utils';
+import { getAllWorkspaceFolders } from './utils/workspace-utils';
+import { PathResolver } from '../path-resolver';
 import { regexSearchFilesStructured } from '../ripgrep';
 import { GrepFileResult } from '../ripgrep/types';
 
@@ -42,10 +43,16 @@ export class GrepSearchTool implements ITool {
 
       if (searchPath) {
         // Specific path search
-        const absolutePath = resolveMultiRootPath(searchPath);
-        const owner = getWorkspaceFolderForPath(absolutePath) || folders[0];
+        let resolvedPath;
+        try {
+          resolvedPath = PathResolver.resolve(searchPath);
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : 'Failed to resolve path' };
+        }
+
+        const { absolutePath, workspaceFolder } = resolvedPath;
         targets.push({
-          root: owner.uri.fsPath,
+          root: workspaceFolder.uri.fsPath,
           searchPath: absolutePath
         });
       } else {

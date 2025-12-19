@@ -4,8 +4,13 @@ import { AutocompleteService } from './autocomplete';
 import { clearGitignoreCache } from './utils/workspace-scanner';
 import { clearListFilesGitignoreCache } from './services/tools/list-files-tool';
 import { generateGitCommitMessage } from './services/git-commit-generator';
+import { getGlobalServerManager } from './services/mcp/mcp-server-manager';
+import { defaultRegistry } from './services/tools/tool-registry';
 
 export function activate(context: vscode.ExtensionContext) {
+  // Initialize MCP Server Manager
+  getGlobalServerManager(defaultRegistry);
+
   const autocompleteService = new AutocompleteService(context);
   const sidebarProvider = new EchodeSidebarProvider(context.extensionUri, context, autocompleteService);
 

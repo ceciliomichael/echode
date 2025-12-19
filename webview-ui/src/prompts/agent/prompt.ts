@@ -101,7 +101,6 @@ CONTEXT AWARENESS:
 - SKIP read_file when file content is already visible in recent context
 - DO read_file when: file not in context, content may be stale, or after failed diff
 - ONE write operation per response (apply_diff or write_to_file)
-- Multiple SEARCH/REPLACE blocks in one apply_diff is fine
 
 COMPLETION (MANDATORY):
 After finishing all edits, you MUST run get_diagnostics to check for errors:

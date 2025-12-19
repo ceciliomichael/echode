@@ -9,6 +9,10 @@ export class ToolRegistry {
     this.tools.set(tool.name, tool);
   }
 
+  unregisterTool(name: string): void {
+    this.tools.delete(name);
+  }
+
   getTool(name: string): ITool | undefined {
     return this.tools.get(name);
   }

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import type { ITool, ToolExecutionResult, ChatMode } from './tool.interface';
-import { resolveMultiRootPath, getAllWorkspaceFolders } from './utils/workspace-utils';
+import { PathResolver } from '../path-resolver';
 import { addLineNumbers } from '../../utils/line-number-utils';
 
 /**
@@ -64,13 +64,14 @@ export class ReadFileTool implements ITool {
   ): Promise<ToolExecutionResult> {
 
     try {
-      const folders = getAllWorkspaceFolders();
-      if (folders.length === 0) {
-        return { success: false, error: 'No workspace folder open' };
+      let resolvedPath;
+      try {
+        resolvedPath = PathResolver.resolve(filePath);
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Failed to resolve path' };
       }
 
-      const absolutePath = resolveMultiRootPath(filePath);
-      const uri = vscode.Uri.file(absolutePath);
+      const { uri, absolutePath } = resolvedPath;
 
       // Check if path is a directory
       try {

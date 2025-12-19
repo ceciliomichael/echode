@@ -3,6 +3,7 @@ import { SetupPage } from './components/feature/setup-page';
 import { ChatContainer } from './components/feature/chat-container';
 import { storageService, initializeSettings } from './utils/storage';
 import { prefetchAllModels } from './hooks/use-model-fetcher';
+import { useMcpToolSync } from './hooks/use-mcp-tool-sync';
 import type { ApiSettings } from './types/api-settings';
 import { DEFAULT_API_SETTINGS } from './types/api-settings';
 
@@ -16,6 +17,9 @@ function App() {
   const [settings, setSettings] = useState<ApiSettings>(DEFAULT_API_SETTINGS);
   const [showSetup, setShowSetup] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Enable MCP tool synchronization
+  useMcpToolSync();
 
   // Initialize settings from backend on mount
   useEffect(() => {

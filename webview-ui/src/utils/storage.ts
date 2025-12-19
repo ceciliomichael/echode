@@ -61,6 +61,8 @@ function requestSettingsFromBackend(): Promise<ApiSettings> {
         cachedSettings = normalized;
         settingsLoadedFromBackend = true;
         settingsLoadPromise = null;
+        // Dispatch event to notify listeners (e.g., useChatModel hook) of loaded settings
+        window.dispatchEvent(new CustomEvent('settingsUpdated', { detail: normalized }));
         resolve(normalized);
       }
     };

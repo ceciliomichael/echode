@@ -3,6 +3,7 @@ import { handleApiRequest } from './handlers/api-handler';
 import { handleChatStream } from './handlers/chat-streaming-handler';
 import { handleModelFetch } from './handlers/model-fetching-handler';
 import { handleToolExecution, setFileModificationCallback } from './handlers/tool-execution-handler';
+import { handleMcpMessage } from './sidebar/handlers/mcp-handler';
 import { getMainWebviewHtml } from './utils/html-generator';
 import { ChatHistoryService } from './services/chat-history-service';
 import { ToolHistoryService } from './services/tool-history';
@@ -162,6 +163,12 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
       // Try to route through the message router first
       const handled = await this._messageRouter.route(data, handlerContext);
       if (handled) {
+        return;
+      }
+
+      // Handle MCP messages
+      if (typeof data.type === 'string' && data.type.startsWith('mcp.')) {
+        await handleMcpMessage(data, webviewView);
         return;
       }
 
