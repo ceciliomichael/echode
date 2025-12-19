@@ -76,8 +76,11 @@ IF VALID TASK (see interaction rules):
 
 BEFORE STARTING:
 1. Summarize the request in 1-2 sentences
-2. Identify files/modules involved
-3. Create a mini plan (3-7 steps)
+2. **CHECK PLAN**: Review the current task list.
+   - **IF NO PLAN**: You MUST create a very curated, precise, and concise plan (3-7 steps) using \`todo_write\`.
+     - **CRITICAL**: The plan must be STRICTLY within the scope of the user's request. Do not add extras.
+   - **IF PLAN EXISTS**: Execute the next pending task.
+3. Identify files/modules involved
 4. Stay within scope unless user expands it
 
 SEARCH (pick the right tool):

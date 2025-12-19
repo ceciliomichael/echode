@@ -39,6 +39,7 @@ export interface ApiSettings {
   enabledTools?: unknown[];
   chatMode?: string;
   workspaceModes?: Record<string, string>;
+  workspaceSettings?: Record<string, Partial<ApiSettings>>;
   indexingSettings?: unknown;
   autocompleteSettings?: unknown;
   contextSettings?: unknown;
@@ -160,6 +161,89 @@ export class SettingsService {
       hash = hash & hash;
     }
     return `ws_${Math.abs(hash).toString(36)}`;
+  }
+
+  /**
+   * Get settings with workspace-specific overrides
+   */
+  getEffectiveSettings(workspacePath?: string): ApiSettings {
+    const globalSettings = this.getSettings();
+    const workspaceId = this.generateWorkspaceId(workspacePath);
+
+    if (globalSettings.workspaceSettings && globalSettings.workspaceSettings[workspaceId]) {
+      // Merge workspace-specific overrides on top of global settings
+      return {
+        ...globalSettings,
+        ...globalSettings.workspaceSettings[workspaceId]
+      };
+    }
+
+    return globalSettings;
+  }
+
+  /**
+   * Save settings with workspace-specific overrides logic
+   * - API Keys and URLs are always global
+   * - Model selection and parameters are workspace-specific if a workspace is active
+   */
+  saveEffectiveSettings(workspacePath: string | undefined, newSettings: ApiSettings): void {
+    const globalSettings = this.getSettings();
+    const workspaceId = this.generateWorkspaceId(workspacePath);
+
+    // 1. Identify model-related fields that should be workspace-specific
+    const workspaceSpecificFields: (keyof ApiSettings)[] = [
+      'provider',
+      'model',
+      'anthropicModel',
+      'openaiModel',
+      'openaiCompatibleModel',
+      'megallmModel',
+      'vscodeLmModel',
+      'qwenCodeModel',
+      'anthropicMaxTokens',
+      'openaiMaxTokens',
+      'openaiCompatibleMaxTokens',
+      'megallmMaxTokens',
+      'vscodeLmMaxTokens',
+      'qwenCodeMaxTokens',
+      'anthropicTemperature',
+      'openaiTemperature',
+      'openaiCompatibleTemperature',
+      'megallmTemperature',
+      'vscodeLmTemperature',
+      'qwenCodeTemperature'
+    ];
+
+    // 2. Prepare the workspace override object
+    const workspaceOverride: Partial<ApiSettings> = {};
+    workspaceSpecificFields.forEach(field => {
+      if (field in newSettings) {
+        // @ts-ignore
+        workspaceOverride[field] = newSettings[field];
+      }
+    });
+
+    // 3. Prepare the updated global settings
+    // We update global settings with EVERYTHING to ensure:
+    // - API keys are saved
+    // - Global defaults are updated (last write wins for global default)
+    // - User expects their last used settings to persist when opening a new window
+    const updatedGlobal: ApiSettings = {
+      ...globalSettings,
+      ...newSettings,
+      // Ensure the workspaceSettings map is preserved/initialized
+      workspaceSettings: globalSettings.workspaceSettings || {}
+    };
+
+    // 4. Save the workspace override if we are in a workspace
+    if (workspacePath) {
+      if (!updatedGlobal.workspaceSettings) {
+        updatedGlobal.workspaceSettings = {};
+      }
+      updatedGlobal.workspaceSettings[workspaceId] = workspaceOverride;
+    }
+
+    this.saveSettings(updatedGlobal);
   }
 
   /**

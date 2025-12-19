@@ -2,15 +2,15 @@
   "name": "echode",
   "displayName": "Echode",
   "description": "Agentic Coding",
-  "version": "1.0.1179",
+  "version": "1.0.1188",
   "publisher": "EchoSphere",
   "icon": "icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ceciliomichael/echode"
+    "url": "https://github.com/ceciliomichael/echode.git"
   },
   "engines": {
-    "vscode": "^1.107.0"
+    "vscode": "^1.85.0"
   },
   "categories": [
     "Other"
@@ -173,7 +173,7 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
-    "@types/vscode": "^1.107.0",
+    "@types/vscode": "^1.85.0",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
     "esbuild": "^0.27.0",

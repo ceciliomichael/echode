@@ -94,6 +94,7 @@ export interface ApiSettings {
   systemPrompt?: string;
   enabledTools?: Tool[];
   chatMode?: 'agent' | 'plan' | 'ask' | 'general' | 'chat';
+  workspaceSettings?: Record<string, Partial<ApiSettings>>;
   indexingSettings?: IndexingSettings;
   autocompleteSettings?: AutocompleteSettings;
   contextSettings?: ContextSettings;

@@ -30,7 +30,8 @@ export async function handleGetApiSettings(
   _data: SettingsData,
   webview: WebviewTarget
 ): Promise<void> {
-  const apiSettings = getSettingsService().getSettings();
+  const workspacePath = getWorkspacePath();
+  const apiSettings = getSettingsService().getEffectiveSettings(workspacePath);
   webview.webview.postMessage({
     type: 'apiSettingsLoaded',
     settings: apiSettings
@@ -44,7 +45,8 @@ export async function handleSaveApiSettings(
   data: SettingsData,
   webview: WebviewTarget
 ): Promise<void> {
-  getSettingsService().saveSettings(data.settings as ApiSettings);
+  const workspacePath = getWorkspacePath();
+  getSettingsService().saveEffectiveSettings(workspacePath, data.settings as ApiSettings);
   webview.webview.postMessage({ type: 'apiSettingsSaved' });
 }
 
