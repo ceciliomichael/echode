@@ -1,7 +1,8 @@
 import * as path from 'path';
 import { ITool, ToolExecutionResult } from './tool.interface';
-import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
+import { getAllWorkspaceFolders, resolveMultiRootPath, getWorkspaceFolderForPath } from './utils/workspace-utils';
 import { regexSearchFilesStructured } from '../ripgrep';
+import { GrepFileResult } from '../ripgrep/types';
 
 /**
  * Grep Search Tool - Uses native ripgrep for fast regex searching
@@ -25,14 +26,36 @@ export class GrepSearchTool implements ITool {
     }
 
     try {
-      const workspaceRoot = getWorkspaceRoot();
-      if (!workspaceRoot) {
+      const folders = getAllWorkspaceFolders();
+      if (folders.length === 0) {
         return { success: false, error: 'No workspace folder open' };
       }
 
-      const absoluteSearchPath = searchPath
-        ? resolveAbsolutePath(searchPath, workspaceRoot)
-        : workspaceRoot;
+      // Prepare search targets
+      interface SearchTarget {
+        root: string;
+        searchPath: string;
+        workspaceName?: string;
+      }
+
+      let targets: SearchTarget[] = [];
+
+      if (searchPath) {
+        // Specific path search
+        const absolutePath = resolveMultiRootPath(searchPath);
+        const owner = getWorkspaceFolderForPath(absolutePath) || folders[0];
+        targets.push({
+          root: owner.uri.fsPath,
+          searchPath: absolutePath
+        });
+      } else {
+        // Search all workspaces if no path specified
+        targets = folders.map(f => ({
+          root: f.uri.fsPath,
+          searchPath: f.uri.fsPath,
+          workspaceName: f.name
+        }));
+      }
 
       // Normalize file pattern for ripgrep glob syntax
       let globPattern: string | undefined;
@@ -47,13 +70,45 @@ export class GrepSearchTool implements ITool {
         }
       }
 
-      // Execute ripgrep search with structured results
-      const searchResult = await regexSearchFilesStructured(
-        workspaceRoot,
-        absoluteSearchPath,
-        query,
-        globPattern
-      );
+      // Execute searches
+      const aggregatedResults: GrepFileResult[] = [];
+      let totalMatches = 0;
+      let filesWithMatches = 0;
+      let aggregatedFormattedString = '';
+
+      for (const target of targets) {
+        const result = await regexSearchFilesStructured(
+          target.root,
+          target.searchPath,
+          query,
+          globPattern
+        );
+
+        // If searching across multiple workspaces, prefix the file paths
+        if (targets.length > 1 && target.workspaceName) {
+          const prefixedResults = result.results.map(r => ({
+            ...r,
+            file: `${target.workspaceName}/${r.file}`
+          }));
+          aggregatedResults.push(...prefixedResults);
+          
+          if (result.formattedString && result.formattedString !== 'No results found') {
+            aggregatedFormattedString += `\n--- Workspace: ${target.workspaceName} ---\n${result.formattedString}\n`;
+          }
+        } else {
+          aggregatedResults.push(...result.results);
+          if (result.formattedString && result.formattedString !== 'No results found') {
+            aggregatedFormattedString += result.formattedString + '\n';
+          }
+        }
+
+        totalMatches += result.totalMatches;
+        filesWithMatches += result.filesWithMatches;
+      }
+
+      if (aggregatedFormattedString.trim() === '') {
+        aggregatedFormattedString = 'No results found';
+      }
 
       return {
         success: true,
@@ -64,11 +119,11 @@ export class GrepSearchTool implements ITool {
           isRegex,
           caseSensitive,
           // Structured results for frontend UI rendering
-          results: searchResult.results,
-          totalMatches: searchResult.totalMatches,
-          filesWithMatches: searchResult.filesWithMatches,
+          results: aggregatedResults,
+          totalMatches: totalMatches,
+          filesWithMatches: filesWithMatches,
           // Formatted string for AI context
-          formattedResults: searchResult.formattedString,
+          formattedResults: aggregatedFormattedString.trim(),
         },
       };
     } catch (error) {

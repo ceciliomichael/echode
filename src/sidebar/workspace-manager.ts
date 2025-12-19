@@ -2,13 +2,14 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { spawn } from 'child_process';
 import { getWorkspaceFiles, getAgentsConfig } from '../utils/workspace-scanner';
+import { getAllWorkspaceFolders } from '../services/tools/utils/workspace-utils';
 
 /**
  * Workspace Manager
  * Handles workspace monitoring, file watching, and refactor scanning
  */
 export class WorkspaceManager {
-  private _fileWatcher?: vscode.FileSystemWatcher;
+  private _fileWatchers: vscode.FileSystemWatcher[] = [];
   private _workspaceUpdateDebounce?: NodeJS.Timeout;
   private _refactorScanInProgress: boolean = false;
   private _refactorScanComplete: boolean = false;
@@ -32,18 +33,14 @@ export class WorkspaceManager {
    * Setup file system watcher to detect file changes in workspace
    */
   public setupFileWatcher(onUpdate?: () => void): void {
-    // Dispose existing watcher if any
-    this._fileWatcher?.dispose();
+    // Dispose existing watchers if any
+    this._fileWatchers.forEach(w => w.dispose());
+    this._fileWatchers = [];
 
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders || workspaceFolders.length === 0) {
+    const workspaceFolders = getAllWorkspaceFolders();
+    if (workspaceFolders.length === 0) {
       return;
     }
-
-    // Watch for all file changes in workspace
-    this._fileWatcher = vscode.workspace.createFileSystemWatcher(
-      new vscode.RelativePattern(workspaceFolders[0], '**/*')
-    );
 
     // Debounced update to avoid excessive refreshes
     const debouncedUpdate = () => {
@@ -57,9 +54,18 @@ export class WorkspaceManager {
       }, 300);
     };
 
-    // Listen for file create, delete, and rename events
-    this._fileWatcher.onDidCreate(debouncedUpdate);
-    this._fileWatcher.onDidDelete(debouncedUpdate);
+    // Watch for all file changes in all workspaces
+    for (const folder of workspaceFolders) {
+      const watcher = vscode.workspace.createFileSystemWatcher(
+        new vscode.RelativePattern(folder, '**/*')
+      );
+
+      // Listen for file create, delete, and rename events
+      watcher.onDidCreate(debouncedUpdate);
+      watcher.onDidDelete(debouncedUpdate);
+      
+      this._fileWatchers.push(watcher);
+    }
   }
 
   /**
@@ -74,15 +80,40 @@ export class WorkspaceManager {
    * Send current workspace info to webview
    */
   public sendWorkspaceInfo(webview: vscode.Webview): void {
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    const workspaceInfo = workspaceFolders && workspaceFolders.length > 0
-      ? {
-        path: workspaceFolders[0].uri.fsPath,
-        name: workspaceFolders[0].name,
-        files: getWorkspaceFiles(workspaceFolders[0].uri.fsPath),
-        agentsConfig: getAgentsConfig(workspaceFolders[0].uri.fsPath)
+    const workspaceFolders = getAllWorkspaceFolders();
+    
+    if (workspaceFolders.length === 0) {
+      webview.postMessage({
+        type: 'workspaceInfo',
+        workspace: null
+      });
+      return;
+    }
+
+    // Aggregate files from all workspaces
+    const allFiles: string[] = [];
+    const isMultiRoot = workspaceFolders.length > 1;
+
+    for (const folder of workspaceFolders) {
+      try {
+        const files = getWorkspaceFiles(folder.uri.fsPath);
+        if (isMultiRoot) {
+          files.forEach(f => allFiles.push(`${folder.name}/${f}`));
+        } else {
+          allFiles.push(...files);
+        }
+      } catch (error) {
+        console.error(`[Echode] Failed to scan files for workspace ${folder.name}:`, error);
       }
-      : null;
+    }
+
+    // Use primary workspace for metadata, but include all files
+    const workspaceInfo = {
+      path: workspaceFolders[0].uri.fsPath,
+      name: workspaceFolders[0].name,
+      files: allFiles,
+      agentsConfig: getAgentsConfig(workspaceFolders[0].uri.fsPath)
+    };
 
     webview.postMessage({
       type: 'workspaceInfo',
@@ -95,7 +126,7 @@ export class WorkspaceManager {
 
   /**
    * Send refactor scan results (large files) to webview
-   * Spawns external Node process to avoid blocking extension host
+   * Spawns external Node process for each workspace and aggregates results
    */
   public sendRefactorScanResults(webview: vscode.Webview): void {
     // If scan already completed, send cached results
@@ -113,9 +144,9 @@ export class WorkspaceManager {
     }
     this._refactorScanInProgress = true;
 
-    const workspaceFolders = vscode.workspace.workspaceFolders;
+    const workspaceFolders = getAllWorkspaceFolders();
 
-    if (!workspaceFolders || workspaceFolders.length === 0) {
+    if (workspaceFolders.length === 0) {
       this._refactorScanInProgress = false;
       this._refactorScanComplete = true;
       webview.postMessage({
@@ -125,74 +156,59 @@ export class WorkspaceManager {
       return;
     }
 
-    const workspacePath = workspaceFolders[0].uri.fsPath;
     const scriptPath = path.join(this._extensionPath, 'dist', 'scripts', 'scan-large-files.js');
-
-    console.log('[Echode] Spawning scan script:', scriptPath);
+    console.log('[Echode] Spawning scan scripts for workspaces');
     const startTime = Date.now();
 
-    // Spawn external Node process
-    const child = spawn('node', [scriptPath, workspacePath, '300'], {
-      cwd: workspacePath,
-      stdio: ['ignore', 'pipe', 'pipe']
-    });
+    // Helper to scan a single workspace
+    const scanWorkspace = (folder: vscode.WorkspaceFolder): Promise<{ path: string; lineCount: number }[]> => {
+      return new Promise((resolve) => {
+        const workspacePath = folder.uri.fsPath;
+        const child = spawn('node', [scriptPath, workspacePath, '300'], {
+          cwd: workspacePath,
+          stdio: ['ignore', 'pipe', 'pipe']
+        });
 
-    let stdout = '';
-    let stderr = '';
+        let stdout = '';
 
-    child.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
+        child.stdout.on('data', (data) => {
+          stdout += data.toString();
+        });
 
-    child.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
+        child.on('close', (code) => {
+          let results: { path: string; lineCount: number }[] = [];
+          if (code === 0 && stdout) {
+            try {
+              results = JSON.parse(stdout);
+              // Prefix if multi-root
+              if (workspaceFolders.length > 1) {
+                results = results.map(r => ({ ...r, path: `${folder.name}/${r.path}` }));
+              }
+            } catch { }
+          }
+          resolve(results);
+        });
 
-    // Timeout after 10 seconds – only used if scan never completes
-    const timeout = setTimeout(() => {
-      // If scan already finished, don't override results
-      if (this._refactorScanComplete) {
-        return;
-      }
-
-      this._refactorScanInProgress = false;
-      this._refactorScanComplete = true;
-      this._cachedLargeFiles = [];
-
-      if (!child.killed) {
-        child.kill();
-      }
-
-      webview.postMessage({
-        type: 'refactorScanResults',
-        largeFiles: []
+        child.on('error', () => resolve([]));
+        
+        // Timeout for individual scan
+        setTimeout(() => {
+          if (!child.killed) child.kill();
+          resolve([]);
+        }, 8000);
       });
-    }, 10000);
+    };
 
-    child.on('close', (code) => {
+    // Run scans in parallel
+    Promise.all(workspaceFolders.map(scanWorkspace)).then(results => {
       const elapsed = Date.now() - startTime;
-      console.log(`[Echode] Scan completed in ${elapsed}ms, exit code: ${code}`);
-
-      // Scan finished before timeout - prevent timeout handler from firing
-      clearTimeout(timeout);
+      console.log(`[Echode] All scans completed in ${elapsed}ms`);
 
       this._refactorScanInProgress = false;
       this._refactorScanComplete = true;
 
-      let largeFiles: { path: string; lineCount: number }[] = [];
-
-      if (code === 0 && stdout) {
-        try {
-          largeFiles = JSON.parse(stdout);
-          console.log(`[Echode] Found ${largeFiles.length} large files`);
-        } catch {
-          console.error('[Echode] Failed to parse scan results:', stdout);
-        }
-      } else if (stderr) {
-        console.error('[Echode] Scan script error:', stderr);
-      }
-
-      // Cache results for subsequent requests
+      // Flatten results
+      const largeFiles = results.flat();
       this._cachedLargeFiles = largeFiles;
 
       webview.postMessage({
@@ -206,7 +222,7 @@ export class WorkspaceManager {
    * Dispose resources
    */
   public dispose(): void {
-    this._fileWatcher?.dispose();
+    this._fileWatchers.forEach(w => w.dispose());
     if (this._workspaceUpdateDebounce) {
       clearTimeout(this._workspaceUpdateDebounce);
     }

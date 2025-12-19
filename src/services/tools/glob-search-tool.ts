@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { ITool, ToolExecutionResult } from './tool.interface';
-import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
+import { getAllWorkspaceFolders, resolveMultiRootPath, getWorkspaceFolderForPath } from './utils/workspace-utils';
 import { listFilesWithRipgrep } from '../ripgrep';
 
 interface FileResult {
@@ -31,48 +31,88 @@ export class GlobSearchTool implements ITool {
     }
 
     try {
-      const workspaceRoot = getWorkspaceRoot();
-      if (!workspaceRoot) {
+      const folders = getAllWorkspaceFolders();
+      if (folders.length === 0) {
         return { success: false, error: 'No workspace folder open' };
       }
 
-      const absoluteSearchPath = searchPath
-        ? resolveAbsolutePath(searchPath, workspaceRoot)
-        : workspaceRoot;
+      // Prepare search targets
+      interface SearchTarget {
+        root: string;
+        searchPath: string;
+        workspaceName?: string;
+      }
 
-      // Use ripgrep for fast file listing
-      const fileResults = await listFilesWithRipgrep(absoluteSearchPath, {
-        limit: maxResults,
-        globPatterns: patterns,
-        excludePatterns: excludes,
-      });
+      let targets: SearchTarget[] = [];
 
-      // Filter to only files and format results with line count
+      if (searchPath) {
+        // Specific path search
+        const absolutePath = resolveMultiRootPath(searchPath);
+        const owner = getWorkspaceFolderForPath(absolutePath) || folders[0];
+        targets.push({
+          root: owner.uri.fsPath,
+          searchPath: absolutePath
+        });
+      } else {
+        // Search all workspaces if no path specified
+        targets = folders.map(f => ({
+          root: f.uri.fsPath,
+          searchPath: f.uri.fsPath,
+          workspaceName: f.name
+        }));
+      }
+
+      // Execute searches
       const results: FileResult[] = [];
-      const fileList = fileResults
-        .filter(f => f.type === 'file')
-        .slice(0, maxResults);
+      let truncated = false;
 
-      for (const f of fileList) {
-        const absolutePath = path.isAbsolute(f.path)
-          ? f.path
-          : path.join(workspaceRoot, f.path);
-        
-        let lineCount = 0;
-        try {
-          const content = fs.readFileSync(absolutePath, 'utf8');
-          lineCount = content.split('\n').length;
-        } catch {
-          // If we can't read the file, default to 0 lines
-          lineCount = 0;
+      for (const target of targets) {
+        // Check if we already hit the limit
+        if (results.length >= maxResults) {
+          truncated = true;
+          break;
         }
 
-        results.push({
-          path: f.path,
-          name: f.label || path.basename(f.path),
-          lines: lineCount,
-          type: f.type,
+        // Use ripgrep for fast file listing
+        // Adjust limit based on what we already have
+        const remainingLimit = maxResults - results.length;
+        
+        const fileResults = await listFilesWithRipgrep(target.searchPath, {
+          limit: remainingLimit,
+          globPatterns: patterns,
+          excludePatterns: excludes,
         });
+
+        const fileList = fileResults
+          .filter(f => f.type === 'file');
+
+        for (const f of fileList) {
+          // If multi-root search, prefix the path with workspace name
+          // f.path from listFilesWithRipgrep is relative to target.searchPath (root)
+          let displayPath = f.path;
+          if (targets.length > 1 && target.workspaceName) {
+            displayPath = `${target.workspaceName}/${f.path}`;
+          }
+
+          const absolutePath = path.isAbsolute(f.path)
+            ? f.path
+            : path.join(target.root, f.path);
+          
+          let lineCount = 0;
+          try {
+            const content = fs.readFileSync(absolutePath, 'utf8');
+            lineCount = content.split('\n').length;
+          } catch {
+            lineCount = 0;
+          }
+
+          results.push({
+            path: displayPath,
+            name: f.label || path.basename(f.path),
+            lines: lineCount,
+            type: f.type,
+          });
+        }
       }
 
       return {
@@ -82,7 +122,7 @@ export class GlobSearchTool implements ITool {
           searchPath: searchPath || '/',
           totalFiles: results.length,
           results,
-          truncated: results.length >= maxResults,
+          truncated: truncated || results.length >= maxResults,
         },
       };
     } catch (error) {

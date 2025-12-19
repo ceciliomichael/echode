@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { ITool, ToolExecutionResult } from './tool.interface';
-import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
+import { getWorkspaceRoot, resolveAbsolutePath, getAllWorkspaceFolders, resolveMultiRootPath, getWorkspaceFolderForPath } from './utils/workspace-utils';
 import { parseGitignore, matchesGitignorePattern } from '../../constants/excluded-patterns';
 
 const MAX_LIST_FILES_RESULTS = 200;
@@ -168,28 +168,54 @@ export class ListFilesTool implements ITool {
     const rawIgnoreGitignore = parameters.ignoreGitignore;
     let ignoreGitignore = rawIgnoreGitignore === true || rawIgnoreGitignore === 'true';
 
+    // 0. Handle Multi-Root Virtual Listing (Empty Path + Multiple Roots)
+    const allFolders = getAllWorkspaceFolders();
+    if (!dirPath && allFolders.length > 1) {
+      // Return virtual root listing
+      const directories = allFolders.map(f => ({ name: f.name, type: 'directory' }));
+      // Sort alphabetically
+      directories.sort((a, b) => a.name.localeCompare(b.name));
+      
+      return {
+        success: true,
+        data: {
+          path: '/',
+          directories,
+          files: [],
+          totalCount: directories.length,
+          truncated: false
+        }
+      };
+    }
+
+    // 1. Resolve Path and Workspace
+    // Use multi-root resolution to handle "WorkspaceName/..." or defaults
+    const absolutePath = dirPath ? resolveMultiRootPath(dirPath) : (allFolders[0]?.uri.fsPath || '');
+    
+    if (!absolutePath) {
+      return { success: false, error: 'No workspace folder open' };
+    }
+
+    // Determine which workspace we are in for gitignore contexts
+    const targetWorkspaceFolder = getWorkspaceFolderForPath(absolutePath) || allFolders[0];
+    const workspaceRoot = targetWorkspaceFolder.uri.fsPath;
+
     // Auto-bypass: If user explicitly provides a path that is ignored by .gitignore,
     // assume they want to see it (they mentioned it explicitly)
     if (!ignoreGitignore && dirPath) {
       try {
-        const workspaceRootCheck = getWorkspaceRoot();
-        if (workspaceRootCheck) {
-          const rootPatterns = getGitignorePatterns(workspaceRootCheck);
-          if (matchesGitignorePattern(dirPath, rootPatterns)) {
-            // Target path is ignored, user must be explicitly asking for it
-            ignoreGitignore = true;
-          }
+        const rootPatterns = getGitignorePatterns(workspaceRoot);
+        // Note: matchesGitignorePattern typically expects relative path
+        // We need the path relative to the workspace root
+        const relToCheck = path.relative(workspaceRoot, absolutePath);
+        if (matchesGitignorePattern(relToCheck, rootPatterns)) {
+          // Target path is ignored, user must be explicitly asking for it
+          ignoreGitignore = true;
         }
       } catch { }
     }
 
     try {
-      const workspaceRoot = getWorkspaceRoot();
-      if (!workspaceRoot) {
-        return { success: false, error: 'No workspace folder open' };
-      }
-
-      const absolutePath = dirPath ? resolveAbsolutePath(dirPath, workspaceRoot) : workspaceRoot;
       const uri = vscode.Uri.file(absolutePath);
       const entries = await vscode.workspace.fs.readDirectory(uri);
 
