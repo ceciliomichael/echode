@@ -28,8 +28,6 @@ export function useProviderSettings(initialSettings: ApiSettings): UseProviderSe
     updateProviderState,
   } = useProviderState(initialSettings);
 
-  const handlers = useProviderHandlers(provider, updateProviderState);
-
   // Handle provider switching with model persistence
   const handleProviderChange = (newProvider: Provider) => {
     // Only save model for built-in providers
@@ -74,6 +72,13 @@ export function useProviderSettings(initialSettings: ApiSettings): UseProviderSe
       setModel(providerStates.anthropic.model);
     }
   };
+
+  const handlers = useProviderHandlers(
+    provider,
+    updateProviderState,
+    customProviders,
+    handleUpdateCustomProvider
+  );
 
   // Build complete settings object
   const buildSettings = (): ApiSettings => {

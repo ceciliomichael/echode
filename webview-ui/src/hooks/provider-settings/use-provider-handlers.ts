@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import type { Provider, BuiltInProvider } from '../../types/api-settings';
-import { isBuiltInProvider } from '../../types/api-settings';
+import type { Provider, BuiltInProvider, CustomProvider } from '../../types/api-settings';
+import { isBuiltInProvider, isCustomProvider } from '../../types/api-settings';
 import type { ProviderHandlers } from './types';
 
 /**
@@ -12,7 +12,9 @@ export function useProviderHandlers(
   updateProviderState: (
     targetProvider: BuiltInProvider,
     updates: Partial<{ customUrl: string; apiKey: string; maxTokens: number; temperature: number }>
-  ) => void
+  ) => void,
+  customProviders: CustomProvider[],
+  updateCustomProvider: (provider: CustomProvider) => void
 ): ProviderHandlers {
   return useMemo(
     () => ({
@@ -40,19 +42,45 @@ export function useProviderHandlers(
       },
 
       handleMaxTokensChange: (value: number) => {
-        // Only update for built-in providers
+        // Handle built-in providers
         if (isBuiltInProvider(provider)) {
           updateProviderState(provider, { maxTokens: value });
+          return;
+        }
+
+        // Handle custom providers
+        if (isCustomProvider(provider)) {
+          const id = provider.replace('custom-', '');
+          const existingProvider = customProviders.find(p => p.id === id);
+          if (existingProvider) {
+            updateCustomProvider({
+              ...existingProvider,
+              maxTokens: value
+            });
+          }
         }
       },
 
       handleTemperatureChange: (value: number) => {
-        // Only update for built-in providers
+        // Handle built-in providers
         if (isBuiltInProvider(provider)) {
           updateProviderState(provider, { temperature: value });
+          return;
+        }
+
+        // Handle custom providers
+        if (isCustomProvider(provider)) {
+          const id = provider.replace('custom-', '');
+          const existingProvider = customProviders.find(p => p.id === id);
+          if (existingProvider) {
+            updateCustomProvider({
+              ...existingProvider,
+              temperature: value
+            });
+          }
         }
       },
     }),
-    [provider, updateProviderState]
+    [provider, updateProviderState, customProviders, updateCustomProvider]
   );
 }
