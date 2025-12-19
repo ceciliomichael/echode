@@ -16,6 +16,11 @@ export interface CustomProvider {
   temperature: number;
 }
 
+export interface ModeModelConfig {
+  provider: Provider;
+  model: string;
+}
+
 export interface IndexingSettings {
   enabled: boolean;
   provider: Provider;
@@ -116,6 +121,7 @@ export interface ApiSettings {
   contextSettings?: ContextSettings;
   commitMessageSettings?: CommitMessageSettings;
   customProviders?: CustomProvider[];
+  modeModelSettings?: Record<string, ModeModelConfig>;
 }
 
 export const DEFAULT_API_SETTINGS: ApiSettings = {
