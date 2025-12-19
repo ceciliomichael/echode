@@ -45,7 +45,7 @@ function buildMergeConflictError(found: string, lineNumber: number): ValidationR
             ">>>>>>> REPLACE\n" +
             "\n" +
             "Without escaping, the system confuses your content with diff syntax markers.\n" +
-            "You may use multiple diff blocks in a single diff request, but ANY of ONLY the following separators that occur within SEARCH or REPLACE content must be escaped, as follows:\n" +
+            "ANY of the following separators that occur within SEARCH or REPLACE content must be escaped with a backslash:\n" +
             `\\${SEARCH}\n` +
             `\\${SEP}\n` +
             `\\${REPLACE}\n`,

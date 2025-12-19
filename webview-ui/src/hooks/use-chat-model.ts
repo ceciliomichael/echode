@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { ApiSettings, Provider } from '../types/api-settings';
+import type { ApiSettings, ChatMode, ModeModelConfig, Provider } from '../types/api-settings';
 import { storageService } from '../utils/storage';
 
 interface ChatModelState {
@@ -9,7 +9,29 @@ interface ChatModelState {
   setActiveProviderAndModel: (provider: Provider, model: string) => void;
 }
 
-export function useChatModel(): ChatModelState {
+/**
+ * Get the provider and model for a specific mode
+ * Falls back to legacy settings if no mode-specific config exists
+ */
+function getModeModel(settings: ApiSettings, mode: ChatMode): ModeModelConfig {
+  const modeConfig = settings.modeModels?.[mode];
+  
+  if (modeConfig?.provider && modeConfig?.model) {
+    return modeConfig;
+  }
+  
+  // Fallback to legacy global provider/model
+  return {
+    provider: settings.provider,
+    model: settings.model,
+  };
+}
+
+/**
+ * Hook to manage chat model selection per mode
+ * Each mode can have its own provider and model configuration
+ */
+export function useChatModel(mode: ChatMode): ChatModelState {
   const [settings, setSettings] = useState<ApiSettings>(() => storageService.getSettings());
 
   useEffect(() => {
@@ -32,12 +54,20 @@ export function useChatModel(): ChatModelState {
   const setActiveProviderAndModel = useCallback(
     (provider: Provider, model: string) => {
       const currentSettings = storageService.getSettings();
+      
+      // Update mode-specific model settings
       const updated: ApiSettings = {
         ...currentSettings,
+        // Keep legacy fields updated for backwards compatibility
         provider,
         model,
+        modeModels: {
+          ...currentSettings.modeModels,
+          [mode]: { provider, model },
+        },
       };
 
+      // Also update provider-specific model fields for compatibility
       if (provider === 'anthropic') {
         updated.anthropicModel = model;
       } else if (provider === 'openai') {
@@ -63,12 +93,15 @@ export function useChatModel(): ChatModelState {
 
       setSettings(updated);
     },
-    []
+    [mode]
   );
 
+  // Get mode-specific provider/model
+  const modeModel = getModeModel(settings, mode);
+
   return {
-    provider: settings.provider,
-    model: settings.model,
+    provider: modeModel.provider,
+    model: modeModel.model,
     settings,
     setActiveProviderAndModel,
   };

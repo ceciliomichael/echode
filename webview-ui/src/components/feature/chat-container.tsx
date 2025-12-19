@@ -20,10 +20,12 @@ import { storageService } from '../../utils/storage';
 
 export function ChatContainer() {
   const { tasks, updateTodos, clearTodos } = useTodo();
-  const { provider, model, setActiveProviderAndModel } = useChatModel();
-
-  // Get mode and hotkey control - setHotkeyDisabled allows disabling Ctrl+. during AI activity
+  
+  // Get mode first - needed for per-mode model selection
   const { mode, handleModeChange, setHotkeyDisabled } = useChatMode();
+  
+  // Model selection is now per-mode
+  const { provider, model, setActiveProviderAndModel } = useChatModel(mode);
 
   const contentWidthClass = 'w-full max-w-3xl';
   const horizontalPaddingClass = 'px-4 sm:px-5 lg:px-6';
