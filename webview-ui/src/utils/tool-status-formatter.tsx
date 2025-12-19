@@ -57,10 +57,6 @@ export function getToolStatusDisplay(
       executingText = 'Searching';
     } else if (toolName === 'todo_write' || toolName === 'todo_read') {
       executingText = 'Processing';
-    } else if (toolName === 'plan_navigator') {
-      executingText = 'Asking';
-    } else if (toolName === 'plan_handoff') {
-      executingText = 'Ready';
     } else if (toolName === 'apply_diff') {
       executingText = 'Editing';
     } else if (toolName === 'echo_search') {

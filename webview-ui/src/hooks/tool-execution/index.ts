@@ -208,17 +208,6 @@ async function handleBufferedResults(
   ) => Promise<void>
 ): Promise<void> {
 
-  // Check if any of the buffered results are from planning tools that require user interaction
-  const hasPlanningTool = bufferedToolResults.some(result =>
-    result.startsWith('Tool: plan_navigator') || result.startsWith('Tool: plan_handoff')
-  );
-
-  // If a planning tool was executed, stop here and wait for user interaction
-  if (hasPlanningTool) {
-    context.setIsExecutingTool(false);
-    return;
-  }
-
   const toolResultText = bufferedToolResults.join('\n\n');
   const diagnosticsText = ''; // Diagnostics already handled during incremental execution
 

@@ -7,7 +7,6 @@ import type { Message, ImageAttachment } from '../types/chat';
 import { ToolExecutor } from '../lib/tool-executor';
 import { getToolsForMode } from '../lib/tool-config';
 import { getCurrentModel, isVisionCapableModel } from '../utils/vision-utils';
-import { supersedePlanningToolsInMessages } from '../utils/planning-utils';
 
 // Import modular helpers
 import type { ChatStreamingProps } from './chat-streaming/types';
@@ -104,9 +103,7 @@ export function useChatStreaming({
     };
 
     const baseMessages = overrideMessages ?? messages;
-    // CRITICAL: Mark any active planning tools as superseded since user is responding with text
-    const supersededMessages = supersedePlanningToolsInMessages(baseMessages);
-    const nextMessages = [...supersededMessages, userMessage];
+    const nextMessages = [...baseMessages, userMessage];
 
     // Save immediately with the precise nextMessages snapshot
     saveSession(nextMessages);
@@ -129,7 +126,7 @@ export function useChatStreaming({
       const currentMode = modeRef.current;
       const systemPrompt = getSystemPrompt(latestWorkspace, currentMode);
 
-      const messagesToSend = overrideMessages !== undefined ? overrideMessages : supersededMessages;
+      const messagesToSend = overrideMessages !== undefined ? overrideMessages : baseMessages;
 
       // === MODEL CAPABILITIES ===
       const currentModel = getCurrentModel();

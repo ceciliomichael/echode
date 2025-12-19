@@ -62,7 +62,6 @@ export function useStreamingChat(
     updateMessage,
     updateToolExecution,
     updateToolResultData,
-    supersedePlanningTools,
   } = useMessageActions({
     setMessages: state.setMessages,
   });
@@ -187,7 +186,6 @@ export function useStreamingChat(
     handleRevertPreview,
     handleCancelRevert,
     updateToolResultData,
-    supersedePlanningTools,
     saveCurrentSession,
   };
 }

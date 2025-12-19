@@ -101,9 +101,8 @@ export function useChatScroll(
   }, [messageCount, lastMessageKey, isStreaming, isExecutingTool, scrollToBottom]);
 
   // Keep pinned to bottom when content height changes while user is at bottom.
-  // This covers tool output (e.g. plan_navigator / plan_handoff) and tool
-  // expansion (isExpanded) that add extra vertical space without changing
-  // message content.
+  // This covers tool output and tool expansion (isExpanded) that add extra
+  // vertical space without changing message content.
   useEffect(() => {
     // Guard for environments without ResizeObserver (should be present in VS Code webview)
     if (typeof ResizeObserver === 'undefined') {

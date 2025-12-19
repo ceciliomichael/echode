@@ -39,12 +39,12 @@ export function getFilteredToolsForMode(mode: ChatMode): string[] {
 
   if (mode === 'chat') {
     // Chat mode has no tools - all tools are filtered
-    return ['read_file', 'write_to_file', 'apply_diff', 'list_files', 'delete_file', 'grep_search', 'glob_search', 'echo_search', 'todo_write', 'todo_read', 'plan_navigator', 'plan_handoff', 'get_diagnostics', 'execute_command'];
+    return ['read_file', 'write_to_file', 'apply_diff', 'list_files', 'delete_file', 'grep_search', 'glob_search', 'echo_search', 'todo_write', 'todo_read', 'get_diagnostics', 'execute_command'];
   }
 
   if (mode === 'general') {
     // General mode has file ops but no search tools
-    return ['grep_search', 'glob_search', 'echo_search', 'todo_write', 'todo_read', 'plan_navigator', 'plan_handoff', 'get_diagnostics', 'execute_command'];
+    return ['grep_search', 'glob_search', 'echo_search', 'todo_write', 'todo_read', 'get_diagnostics', 'execute_command'];
   }
 
   if (mode === 'plan') {
@@ -54,7 +54,7 @@ export function getFilteredToolsForMode(mode: ChatMode): string[] {
 
   if (mode === 'ask') {
     // Ask mode is read-only - filter ALL editing, command, and planning tools
-    return ['write_to_file', 'apply_diff', 'delete_file', 'execute_command', 'get_diagnostics', 'todo_write', 'todo_read', 'plan_navigator', 'plan_handoff'];
+    return ['write_to_file', 'apply_diff', 'delete_file', 'execute_command', 'get_diagnostics', 'todo_write', 'todo_read'];
   }
 
   // Default: filter editing tools

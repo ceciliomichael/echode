@@ -127,20 +127,6 @@ export function useSessionManagement({
             msg.toolExecutions.map(([id, execution]) => {
               let fixedExecution = execution;
 
-              const isPlanningTool =
-                fixedExecution.toolName === 'plan_navigator' ||
-                fixedExecution.toolName === 'plan_handoff';
-
-              if (isPlanningTool && !fixedExecution.result) {
-                const preservedData = fixedExecution.toolName === 'plan_navigator'
-                  ? { question: fixedExecution.parameters.question, options: fixedExecution.parameters.options }
-                  : {};
-                fixedExecution = {
-                  ...fixedExecution,
-                  result: { success: true, data: preservedData },
-                };
-              }
-
               if (fixedExecution.status === 'executing' && fixedExecution.result) {
                 const finalStatus = fixedExecution.result.success ? 'completed' : 'error';
                 fixedExecution = { ...fixedExecution, status: finalStatus };

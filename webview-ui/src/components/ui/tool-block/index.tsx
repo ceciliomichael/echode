@@ -45,17 +45,6 @@ const ToolBlockComponent = ({
     }
   }, [isEchoSearch, toolCall.status]);
 
-  // Auto-expand plan tools when completed
-  const isPlanTool = toolCall.toolName === 'plan_handoff' || toolCall.toolName === 'plan_navigator';
-  useEffect(() => {
-    if (isPlanTool && toolCall.status === 'completed' && !hasAutoExpandedRef.current) {
-      hasAutoExpandedRef.current = true;
-      setTimeout(() => {
-        setIsExpanded(true);
-      }, 0);
-    }
-  }, [isPlanTool, toolCall.status]);
-
   // Get status display
   const statusConfig = useMemo(
     () => getToolStatusDisplay(toolCall, isStreaming),

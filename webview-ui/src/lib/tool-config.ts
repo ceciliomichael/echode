@@ -28,8 +28,6 @@ export const PLAN_MODE_TOOL_IDS = [
   'echo_search',
   'todo_write',
   'todo_read',
-  'plan_navigator',
-  'plan_handoff',
 ] as const;
 
 /** Ask mode: read-only exploration tools */
@@ -50,12 +48,6 @@ export const GENERAL_MODE_TOOL_IDS = [
   'delete_file',
 ] as const;
 
-/** Tools exclusive to Plan mode (never shown in Agent/other modes) */
-export const PLAN_ONLY_TOOL_IDS = new Set<string>([
-  'plan_navigator',
-  'plan_handoff',
-]);
-
 /**
  * Set of all standard built-in tools.
  * Used to identify remote/MCP tools (which are not in this list).
@@ -69,8 +61,6 @@ const STANDARD_TOOL_IDS = new Set([
   'delete_file',
   'todo_write',
   'todo_read',
-  'plan_navigator',
-  'plan_handoff',
   'apply_diff',
   'get_diagnostics',
   'echo_search'
@@ -119,8 +109,8 @@ export function getToolsForMode(mode: ChatMode, defaultEnabled = true): Tool[] {
 
     case 'agent':
     default:
-      // Agent mode: all tools except plan-only
-      return allTools.filter(t => !PLAN_ONLY_TOOL_IDS.has(t.id));
+      // Agent mode: all tools
+      return allTools;
   }
 }
 

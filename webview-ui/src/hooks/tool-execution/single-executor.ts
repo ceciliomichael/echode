@@ -138,15 +138,6 @@ export async function executeSingleTool(
     updateToolExecution(assistantMessageId, toolExecutionId, completedState);
   }
 
-  // Check if this is a planning tool that requires user interaction
-  const isPlanningTool = toolBlock.toolName === 'plan_navigator' || toolBlock.toolName === 'plan_handoff';
-
-  if (isPlanningTool) {
-    // Stop execution here - wait for user to interact with the tool
-    setIsExecutingTool(false);
-    return { wasStopped: false, isPlanningTool: true, continueExecution: false };
-  }
-
   // Format tool results for AI context
   const toolResultText = result.toolResults.join('\n\n');
 

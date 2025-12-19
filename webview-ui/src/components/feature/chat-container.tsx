@@ -11,7 +11,6 @@ import { useChatModel } from '../../hooks/use-chat-model';
 import { useChatMode } from '../../hooks/use-chat-mode';
 import { useChatScroll } from '../../hooks/use-chat-scroll';
 import { useExtensionMessages } from '../../hooks/use-extension-messages';
-import { usePlanEvents } from '../../hooks/use-plan-events';
 import { useTodoExtraction } from '../../hooks/use-todo-extraction';
 import { useContextUsage } from '../../hooks/use-context-usage';
 import { useWorkspaceContext } from '../../hooks/use-workspace-context';
@@ -46,7 +45,6 @@ export function ChatContainer() {
     handleEditCancel,
     handleRevertPreview,
     handleCancelRevert,
-    updateToolResultData,
     saveCurrentSession,
     abortedUserInput,
     abortedAttachments,
@@ -98,14 +96,6 @@ export function ChatContainer() {
     }, 100);
   }, [sendMessage, setIsAutoScrollEnabled, scrollToBottom]);
 
-  const handleSendHiddenMessage = useCallback(async (content: string) => {
-    setIsAutoScrollEnabled(true);
-    sendMessage(content, undefined, undefined, true, false);
-    setTimeout(() => {
-      scrollToBottom({ behavior: 'smooth' });
-    }, 100);
-  }, [sendMessage, setIsAutoScrollEnabled, scrollToBottom]);
-
   const onNewChat = useCallback(() => {
     // Persist the current session (if any messages) before starting a new chat
     if (messages.length > 0) {
@@ -128,13 +118,6 @@ export function ChatContainer() {
     onSessionLoaded: () => { /* Session load handled internally */ },
     scrollContainerRef,
     setIsAutoScrollEnabled,
-  });
-
-  usePlanEvents({
-    mode,
-    handleModeChange,
-    handleSendHiddenMessage,
-    updateToolResultData,
   });
 
   useTodoExtraction({

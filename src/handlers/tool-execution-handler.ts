@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { defaultRegistry } from '../services/tools/tool-registry';
-import { ReadFileTool, WriteFileTool, ListFilesTool, GrepSearchTool, GlobSearchTool, DeleteFileTool, TodoWriteTool, TodoReadTool, PlanNavigatorTool, PlanHandoffTool, ApplyDiffTool, GetDiagnosticsTool, EchoSearchTool } from '../services/tools';
+import { ReadFileTool, WriteFileTool, ListFilesTool, GrepSearchTool, GlobSearchTool, DeleteFileTool, TodoWriteTool, TodoReadTool, ApplyDiffTool, GetDiagnosticsTool, EchoSearchTool } from '../services/tools';
 import { getWorkspaceFiles, getAgentsConfig } from '../utils/workspace-scanner';
 
 // Tools that modify the file system and require workspace refresh
@@ -26,8 +26,6 @@ defaultRegistry.registerTool(new GlobSearchTool());
 defaultRegistry.registerTool(new DeleteFileTool());
 defaultRegistry.registerTool(new TodoWriteTool());
 defaultRegistry.registerTool(new TodoReadTool());
-defaultRegistry.registerTool(new PlanNavigatorTool());
-defaultRegistry.registerTool(new PlanHandoffTool());
 defaultRegistry.registerTool(new ApplyDiffTool());
 defaultRegistry.registerTool(new GetDiagnosticsTool());
 defaultRegistry.registerTool(new EchoSearchTool());

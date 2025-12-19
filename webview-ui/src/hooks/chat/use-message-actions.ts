@@ -2,16 +2,12 @@ import { useCallback } from 'react';
 import type { Message } from '../../types/chat';
 import type { ToolExecutionState } from '../../types/tool';
 
-import { supersedePlanningToolsInMessages } from '../../utils/planning-utils';
-
-// Planning tool names defined in planning-utils.ts
-
 interface MessageActionsProps {
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
 }
 
 /**
- * Hook for message update operations (update content, tool executions, supersede planning tools)
+ * Hook for message update operations (update content, tool executions)
  */
 export function useMessageActions({ setMessages }: MessageActionsProps) {
   const updateMessage = useCallback((messageId: string, newContent: string) => {
@@ -70,14 +66,9 @@ export function useMessageActions({ setMessages }: MessageActionsProps) {
     });
   }, [setMessages]);
 
-  const supersedePlanningTools = useCallback(() => {
-    setMessages(prevMessages => supersedePlanningToolsInMessages(prevMessages));
-  }, [setMessages]);
-
   return {
     updateMessage,
     updateToolExecution,
     updateToolResultData,
-    supersedePlanningTools,
   };
 }
