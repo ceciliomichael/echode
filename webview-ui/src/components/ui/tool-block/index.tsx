@@ -75,8 +75,18 @@ const ToolBlockComponent = ({
     [toolCall, isIconExecuting]
   );
 
-  // Always allow toggling - users should be able to expand/collapse at any time
-  const canToggle = true;
+  // Determine if toggling is allowed
+  // For apply_diff, disable toggle while executing - only allow after completion
+  const canToggle = useMemo(() => {
+    if (toolCall.toolName === 'apply_diff') {
+      // Only allow toggle after the tool has completed with result data
+      const isCompleted = toolCall.status === 'completed' && toolCall.result != null;
+      return isCompleted;
+    }
+    
+    // All other tools can always be toggled
+    return true;
+  }, [toolCall.toolName, toolCall.status, toolCall.result]);
 
   // Check for plan tool completion with user action for the message below
   const isPlanTool = toolCall.toolName === 'plan';
