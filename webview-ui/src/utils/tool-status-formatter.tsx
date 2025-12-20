@@ -183,7 +183,21 @@ export function getToolStatusDisplay(
   }
 
   // plan: show mode-based status (Ask, Created, Updated, Handoff)
+  // But if user clicked an action button, show that status instead
   if (toolName === 'plan') {
+    // Check if user has taken an action (clicked Verify Plan or Start Implementation)
+    const resultData = toolCall.result?.data as { userAction?: string } | undefined;
+    const userAction = resultData?.userAction;
+    
+    if (userAction) {
+      const userActionDisplayNames: Record<string, string> = {
+        verify_plan: 'Verified',
+        start_implementation: 'Started',
+        continue: 'Continued',
+      };
+      return userActionDisplayNames[userAction] || 'Plan';
+    }
+    
     const mode = toolCall.parameters.mode as PlanMode | undefined;
     const modeDisplayNames: Record<PlanMode, string> = {
       ask: 'Ask',

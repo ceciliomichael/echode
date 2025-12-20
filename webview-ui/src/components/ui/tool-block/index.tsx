@@ -45,29 +45,25 @@ const ToolBlockComponent = ({
 
   // Auto-collapse plan tool when:
   // 1. User clicked a button (status becomes 'completed' with userAction)
-  // 2. User sent a message instead of clicking button (isLastMessage becomes false)
-  // 3. Ask mode: user replied (isLastMessage becomes false and status is completed)
+  // 2. This is no longer the last message (user sent a new message/reply)
   useEffect(() => {
-    if (isPlanTool) {
-      const planResult = toolCall.result?.data as { userAction?: string; mode?: string } | undefined;
-      const hasUserAction = !!planResult?.userAction;
-      const isAskMode = toolCall.parameters.mode === 'ask';
-      
-      // Collapse if completed with user action OR if this is no longer the last message
-      if (hasUserAction || (!isLastMessage && toolCall.status === 'awaiting_user')) {
-        setTimeout(() => {
-          setIsExpanded(false);
-        }, 0);
-      }
-      
-      // For ask mode: collapse when user replies (no longer last message)
-      if (isAskMode && !isLastMessage && toolCall.status === 'completed') {
-        setTimeout(() => {
-          setIsExpanded(false);
-        }, 0);
-      }
+    if (!isPlanTool) return;
+    
+    const planResult = toolCall.result?.data as { userAction?: string } | undefined;
+    const hasUserAction = !!planResult?.userAction;
+    
+    // User clicked an action button (Verify Plan or Start Implementation)
+    if (hasUserAction) {
+      setIsExpanded(false);
+      return;
     }
-  }, [isPlanTool, toolCall.status, toolCall.result, toolCall.parameters.mode, isLastMessage]);
+    
+    // This is no longer the last message (user sent a new message/reply)
+    // This handles all modes: ask, create_plan, update_plan, handoff
+    if (!isLastMessage) {
+      setIsExpanded(false);
+    }
+  }, [isPlanTool, toolCall.result, isLastMessage]);
 
   // Get status display
   const statusConfig = useMemo(
@@ -189,6 +185,7 @@ export const ToolBlock = memo(ToolBlockComponent, (prevProps, nextProps) => {
     prevProps.toolCall.status === nextProps.toolCall.status &&
     prevProps.toolCall.toolName === nextProps.toolCall.toolName &&
     prevProps.isStreaming === nextProps.isStreaming &&
+    prevProps.isLastMessage === nextProps.isLastMessage &&
     JSON.stringify(prevProps.toolCall.parameters) ===
     JSON.stringify(nextProps.toolCall.parameters) &&
     JSON.stringify(prevProps.toolCall.result) === JSON.stringify(nextProps.toolCall.result) &&

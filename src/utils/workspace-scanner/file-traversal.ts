@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { GitignoreContext } from './types';
 import { getGitignorePatterns, shouldExclude } from './gitignore-manager';
+import { isExcludedFromWorkspaceContext } from '../../constants/excluded-patterns';
 
 /**
  * Recursively scan workspace directory and return list of files
@@ -32,6 +33,11 @@ export function getWorkspaceFiles(workspacePath: string): string[] {
         }
 
         if (shouldExclude(entry.name, entry.isDirectory(), relPath, localContexts)) {
+          continue;
+        }
+
+        // Skip files excluded from workspace context (but still accessible via read_file)
+        if (!entry.isDirectory() && isExcludedFromWorkspaceContext(entry.name)) {
           continue;
         }
 

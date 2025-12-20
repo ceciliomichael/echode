@@ -2,6 +2,24 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 /**
+ * Files that should be excluded from workspace context display
+ * but remain accessible via read_file and mentions
+ */
+export const WORKSPACE_CONTEXT_EXCLUDED_FILES = [
+  'AGENTS.md',
+];
+
+/**
+ * Check if a filename should be excluded from workspace context
+ */
+export function isExcludedFromWorkspaceContext(filename: string): boolean {
+  const baseName = path.basename(filename);
+  return WORKSPACE_CONTEXT_EXCLUDED_FILES.some(
+    excluded => baseName.toLowerCase() === excluded.toLowerCase()
+  );
+}
+
+/**
  * Parse .gitignore file and return patterns
  * Strictly follows .gitignore - no exceptions
  */

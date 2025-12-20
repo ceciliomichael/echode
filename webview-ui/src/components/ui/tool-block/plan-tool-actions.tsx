@@ -96,10 +96,10 @@ export function PlanToolActions({
         <button
           onClick={handleVerifyPlan}
           disabled={!isButtonActive}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl border transition-all ${!isButtonActive ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-90'}`}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border transition-all ${!isButtonActive ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-90'}`}
           style={buttonStyle}
         >
-          <CheckCircle className="w-4 h-4" />
+          <CheckCircle className="w-3.5 h-3.5" />
           Verify Plan
         </button>
       )}
@@ -108,10 +108,10 @@ export function PlanToolActions({
         <button
           onClick={handleStartImplementation}
           disabled={!isButtonActive}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl border transition-all ${!isButtonActive ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-90'}`}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border transition-all ${!isButtonActive ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-90'}`}
           style={buttonStyle}
         >
-          <Rocket className="w-4 h-4" />
+          <Rocket className="w-3.5 h-3.5" />
           Start Implementation
         </button>
       )}
