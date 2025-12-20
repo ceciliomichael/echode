@@ -2,6 +2,7 @@ import type { ChatMessage } from '../types/chat-api';
 import type { ChatMode } from '../types/chat-mode';
 import { storageService } from '../utils/storage';
 import { getProviderDefaults, isCustomProvider } from '../types/api-settings';
+import type { Provider } from '../types/api-settings';
 import { UnifiedChatService } from './unified-chat-service';
 import { getToolsForMode } from '../lib/tool-config';
 
@@ -13,61 +14,66 @@ export class ChatApiService {
       throw new Error('API configuration not available. Please configure your API settings in the header settings.');
     }
 
+    // Get mode-specific provider and model
+    const modeModel = storageService.getModeModel(mode);
+    const activeProvider = modeModel.provider;
+    const activeModel = modeModel.model;
+
     // Resolve effective per-provider configuration
     let effectiveApiKey = '';
-    let effectiveModel = '';
+    let effectiveModel = activeModel; // Use mode-specific model
     let maxTokens = 0;
     let temperature = 0;
     let baseURL = '';
     let qwenCodeOauthPath: string | undefined;
 
     // Check if it's a custom provider
-    if (isCustomProvider(settings.provider)) {
-      const customId = settings.provider.replace('custom-', '');
+    if (isCustomProvider(activeProvider)) {
+      const customId = activeProvider.replace('custom-', '');
       const customProvider = settings.customProviders?.find(cp => cp.id === customId);
       
       if (customProvider) {
         effectiveApiKey = customProvider.apiKey || '';
-        effectiveModel = customProvider.model || settings.model;
+        effectiveModel = activeModel || customProvider.model;
         maxTokens = customProvider.maxTokens;
         temperature = customProvider.temperature;
         baseURL = customProvider.baseUrl;
       } else {
         // Fallback to openai-compatible defaults if custom provider not found
         effectiveApiKey = settings.openaiCompatibleApiKey || settings.apiKey || '';
-        effectiveModel = settings.openaiCompatibleModel || settings.model;
+        effectiveModel = activeModel || settings.openaiCompatibleModel || settings.model;
         maxTokens = settings.openaiCompatibleMaxTokens;
         temperature = settings.openaiCompatibleTemperature;
         baseURL = settings.openaiCompatibleCustomUrl?.trim() || getProviderDefaults('openai-compatible').baseUrl;
       }
-    } else if (settings.provider === 'anthropic') {
+    } else if (activeProvider === 'anthropic') {
       effectiveApiKey = settings.anthropicApiKey || settings.apiKey || '';
-      effectiveModel = settings.anthropicModel || settings.model;
+      effectiveModel = activeModel || settings.anthropicModel || settings.model;
       maxTokens = settings.anthropicMaxTokens;
       temperature = settings.anthropicTemperature;
       baseURL = settings.anthropicCustomUrl?.trim() || getProviderDefaults('anthropic').baseUrl;
-    } else if (settings.provider === 'openai') {
+    } else if (activeProvider === 'openai') {
       effectiveApiKey = settings.openaiApiKey || settings.apiKey || '';
-      effectiveModel = settings.openaiModel || settings.model;
+      effectiveModel = activeModel || settings.openaiModel || settings.model;
       maxTokens = settings.openaiMaxTokens;
       temperature = settings.openaiTemperature;
       baseURL = settings.openaiCustomUrl?.trim() || getProviderDefaults('openai').baseUrl;
-    } else if (settings.provider === 'openai-compatible') {
+    } else if (activeProvider === 'openai-compatible') {
       effectiveApiKey = settings.openaiCompatibleApiKey || settings.apiKey || '';
-      effectiveModel = settings.openaiCompatibleModel || settings.model;
+      effectiveModel = activeModel || settings.openaiCompatibleModel || settings.model;
       maxTokens = settings.openaiCompatibleMaxTokens;
       temperature = settings.openaiCompatibleTemperature;
       baseURL = settings.openaiCompatibleCustomUrl?.trim() || getProviderDefaults('openai-compatible').baseUrl;
-    } else if (settings.provider === 'megallm') {
+    } else if (activeProvider === 'megallm') {
       effectiveApiKey = settings.megallmApiKey || settings.apiKey || '';
-      effectiveModel = settings.megallmModel || settings.model;
+      effectiveModel = activeModel || settings.megallmModel || settings.model;
       maxTokens = settings.megallmMaxTokens;
       temperature = settings.megallmTemperature;
       baseURL = getProviderDefaults('megallm').baseUrl;
-    } else if (settings.provider === 'qwen-code') {
+    } else if (activeProvider === 'qwen-code') {
       // Qwen Code: uses OAuth, no API key
       effectiveApiKey = '';
-      effectiveModel = settings.qwenCodeModel || settings.model;
+      effectiveModel = activeModel || settings.qwenCodeModel || settings.model;
       maxTokens = settings.qwenCodeMaxTokens;
       temperature = settings.qwenCodeTemperature;
       baseURL = getProviderDefaults('qwen-code').baseUrl;
@@ -75,7 +81,7 @@ export class ChatApiService {
     } else {
       // VS Code LM: no apiKey/baseURL, provider-specific model/maxTokens
       effectiveApiKey = '';
-      effectiveModel = settings.vscodeLmModel || settings.model;
+      effectiveModel = activeModel || settings.vscodeLmModel || settings.model;
       maxTokens = settings.vscodeLmMaxTokens;
       temperature = settings.vscodeLmTemperature;
       baseURL = '';
@@ -119,7 +125,7 @@ export class ChatApiService {
       enabledTools: enabledToolsForBackend,
       chatMode: mode,
       streamingTimeout: settings.streamingTimeout || 5000,
-    }, settings.provider);
+    }, activeProvider as Provider);
 
     yield* service.streamChat({ messages, signal });
   }
