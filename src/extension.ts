@@ -8,8 +8,8 @@ import { getGlobalServerManager } from './services/mcp/mcp-server-manager';
 import { defaultRegistry } from './services/tools/tool-registry';
 
 export function activate(context: vscode.ExtensionContext) {
-  // Initialize MCP Server Manager
-  getGlobalServerManager(defaultRegistry);
+  // Initialize MCP Server Manager with context for global storage access
+  getGlobalServerManager(defaultRegistry, context);
 
   const autocompleteService = new AutocompleteService(context);
   const sidebarProvider = new EchodeSidebarProvider(context.extensionUri, context, autocompleteService);

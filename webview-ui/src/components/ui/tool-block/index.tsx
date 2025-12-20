@@ -21,7 +21,8 @@ const ToolBlockComponent = ({
   const isEchoSearch = toolCall.toolName === 'echo_search';
   const isPlanTool = toolCall.toolName === 'plan';
 
-  const [isExpanded, setIsExpanded] = useState(false);
+  // echo_search starts expanded by default to show progress
+  const [isExpanded, setIsExpanded] = useState(isEchoSearch);
 
   // Auto-expand when awaiting user action (e.g. Plan tool) - only for the last message
   // This ensures the action buttons are visible when the state changes

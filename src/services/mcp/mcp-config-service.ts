@@ -1,5 +1,5 @@
 /**
- * MCP Config Service - Manages .echode/mcp.json configuration
+ * MCP Config Service - Manages mcp.json configuration in global storage
  * Implements Single Responsibility Principle - only handles config persistence
  */
 
@@ -12,26 +12,25 @@ export class MCPConfigService {
   private configPath: string | null = null;
   private watchers: vscode.FileSystemWatcher[] = [];
 
-  constructor() {
-    this.initializePath();
-  }
-
-  private initializePath() {
-    if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
-      const rootPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-      this.configPath = path.join(rootPath, '.echode', 'mcp.json');
+  constructor(storagePath?: string) {
+    if (storagePath) {
+      this.configPath = path.join(storagePath, 'mcp.json');
     }
   }
 
   /**
-   * Ensure .echode directory and mcp.json exist
+   * Get the config file path
    */
-  private async ensureConfigExists(): Promise<void> {
+  public getConfigPath(): string | null {
+    return this.configPath;
+  }
+
+  /**
+   * Ensure storage directory and mcp.json exist
+   */
+  public async ensureConfigExists(): Promise<void> {
     if (!this.configPath) {
-      this.initializePath();
-      if (!this.configPath) {
-        throw new Error('No workspace folder open');
-      }
+      throw new Error('Storage path not configured');
     }
 
     const dirPath = path.dirname(this.configPath);
@@ -53,10 +52,7 @@ export class MCPConfigService {
   async loadConfigs(): Promise<MCPServerConfig[]> {
     try {
       if (!this.configPath) {
-        this.initializePath();
-        if (!this.configPath) {
-          return [];
-        }
+        return [];
       }
 
       if (!fs.existsSync(this.configPath)) {
@@ -179,7 +175,7 @@ export class MCPConfigService {
         description: config.description,
         tool_configuration: config.tool_configuration,
         enabled: config.tool_configuration?.enabled ?? true,
-        autoConnect: true // Default to auto-connect
+        autoConnect: config.autoConnect ?? false // Default to NOT auto-connect
       });
     }
 
@@ -192,9 +188,11 @@ export class MCPConfigService {
       name: config.name,
       type: config.type,
       description: config.description,
+      autoConnect: config.autoConnect, // Persist auto-connect preference
       tool_configuration: {
         enabled: config.enabled,
-        allowed_tools: config.tool_configuration?.allowed_tools
+        allowed_tools: config.tool_configuration?.allowed_tools,
+        disabled_tools: config.tool_configuration?.disabled_tools
       }
     };
 

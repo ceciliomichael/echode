@@ -111,8 +111,8 @@ export function getToolsForMode(mode: ChatMode, defaultEnabled = true): Tool[] {
 
     case 'agent':
     default:
-      // Agent mode: all tools
-      return allTools;
+      // Agent mode: all tools EXCEPT plan (plan is exclusive to Plan mode)
+      return allTools.filter(t => t.id !== 'plan');
   }
 }
 

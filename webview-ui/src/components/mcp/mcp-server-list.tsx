@@ -9,9 +9,7 @@ interface MCPServerListProps {
   statuses: Record<string, MCPServerStatus>;
   onConnect: (config: MCPServerConfig) => void;
   onDisconnect: (serverId: string) => void;
-  onDelete: (serverId: string) => void;
-  onRefresh: (serverId: string) => void;
-  onEdit: (config: MCPServerConfig) => void;
+  onToggleTool: (serverId: string, toolName: string, enabled: boolean) => void;
 }
 
 export function MCPServerList({
@@ -19,16 +17,14 @@ export function MCPServerList({
   statuses,
   onConnect,
   onDisconnect,
-  onDelete,
-  onRefresh,
-  onEdit,
+  onToggleTool,
 }: MCPServerListProps) {
   if (configs.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed py-12 px-4" style={{ borderColor: 'var(--vscode-widget-border)', backgroundColor: 'var(--vscode-editor-background)' }}>
         <p className="text-sm" style={{ color: 'var(--vscode-foreground)' }}>No MCP servers configured</p>
         <p className="text-xs" style={{ color: 'var(--vscode-descriptionForeground)' }}>
-          Add a server to get started with MCP tools
+          Click "Edit Configuration" to add servers
         </p>
       </div>
     );
@@ -43,9 +39,7 @@ export function MCPServerList({
           status={statuses[config.id]}
           onConnect={onConnect}
           onDisconnect={onDisconnect}
-          onDelete={onDelete}
-          onRefresh={onRefresh}
-          onEdit={onEdit}
+          onToggleTool={onToggleTool}
         />
       ))}
     </div>

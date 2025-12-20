@@ -38,6 +38,16 @@ export interface ModeModelSettings {
   model: string;
 }
 
+/**
+ * Per-workspace MCP server overrides
+ * Allows enabling/disabling specific MCP servers per workspace
+ */
+export interface McpServerOverride {
+  enabled: boolean;
+}
+
+export type McpServerOverrides = Record<string, McpServerOverride>;
+
 export interface ApiSettings {
   provider: string;
   customBaseUrl?: string;
@@ -81,6 +91,7 @@ export interface ApiSettings {
   commitMessageSettings?: CommitMessageSettings;
   customProviders?: CustomProviderConfig[];
   modeModelSettings?: Record<string, ModeModelSettings>;
+  mcpServerOverrides?: McpServerOverrides;
 }
 
 export const DEFAULT_SETTINGS: ApiSettings = {

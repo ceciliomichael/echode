@@ -8,6 +8,13 @@ export type MCPTransportType = "stdio" | "http";
 export interface MCPToolConfiguration {
   enabled: boolean;
   allowed_tools?: string[];
+  disabled_tools?: string[];
+}
+
+export interface MCPTool {
+  name: string;
+  description?: string;
+  inputSchema: any;
 }
 
 export interface MCPServerConfig {
@@ -32,4 +39,5 @@ export interface MCPServerStatus {
   error?: string;
   connectedAt?: number;
   toolCount?: number;
+  tools?: MCPTool[];
 }

@@ -6,12 +6,15 @@
 
 export type MCPTransportType = "stdio" | "http";
 
+import { MCPTool } from './mcp-types';
+
 /**
  * Tool configuration for MCP servers
  */
 export interface MCPToolConfiguration {
   enabled: boolean;
   allowed_tools?: string[];
+  disabled_tools?: string[];
 }
 
 /**
@@ -53,6 +56,7 @@ export interface MCPServerStatus {
   error?: string;
   connectedAt?: number;
   toolCount?: number;
+  tools?: MCPTool[];
 }
 
 export interface MCPConnectionLog {

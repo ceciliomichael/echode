@@ -14,6 +14,7 @@ const WORKSPACE_SPECIFIC_FIELDS: (keyof ApiSettings)[] = [
   'contextSettings',
   'commitMessageSettings',
   'chatMode', // Each workspace can have its own default mode (Agent/Plan/Ask/etc.)
+  'mcpServerOverrides', // Each workspace can enable/disable specific MCP servers
 ];
 
 export class SettingsService {

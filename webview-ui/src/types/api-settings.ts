@@ -77,6 +77,16 @@ export const DEFAULT_CONTEXT_SETTINGS: ContextSettings = {
   maxContextTokens: 128000,
 };
 
+/**
+ * Per-workspace MCP server overrides
+ * Allows enabling/disabling specific MCP servers per workspace
+ */
+export interface McpServerOverride {
+  enabled: boolean;
+}
+
+export type McpServerOverrides = Record<string, McpServerOverride>;
+
 // ChatMode is imported from './chat-mode' - re-export for convenience
 export type { ChatMode } from './chat-mode';
 
@@ -132,6 +142,8 @@ export interface ApiSettings {
   customProviders?: CustomProvider[];
   /** Per-mode model configuration - each mode can have its own provider/model */
   modeModelSettings?: Partial<Record<ChatMode, ModeModelSettings>>;
+  /** Per-workspace MCP server overrides */
+  mcpServerOverrides?: McpServerOverrides;
 }
 
 export const DEFAULT_API_SETTINGS: ApiSettings = {

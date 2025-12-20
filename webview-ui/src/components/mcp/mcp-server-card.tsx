@@ -1,11 +1,8 @@
 import {
   ChevronDown,
   ChevronUp,
-  Pencil,
   Power,
-  RefreshCw,
   Server,
-  Trash2,
 } from "lucide-react";
 import { useState } from "react";
 import type {
@@ -18,9 +15,7 @@ interface MCPServerCardProps {
   status?: MCPServerStatus;
   onConnect: (config: MCPServerConfig) => void;
   onDisconnect: (serverId: string) => void;
-  onDelete: (serverId: string) => void;
-  onRefresh: (serverId: string) => void;
-  onEdit: (config: MCPServerConfig) => void;
+  onToggleTool?: (serverId: string, toolName: string, enabled: boolean) => void;
 }
 
 export function MCPServerCard({
@@ -28,9 +23,7 @@ export function MCPServerCard({
   status,
   onConnect,
   onDisconnect,
-  onDelete,
-  onRefresh,
-  onEdit,
+  onToggleTool,
 }: MCPServerCardProps) {
   const [showDetails, setShowDetails] = useState(false);
   const isConnected = status?.status === "connected";
@@ -52,10 +45,10 @@ export function MCPServerCard({
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-4 overflow-hidden min-w-0" style={{ borderColor: 'var(--vscode-widget-border)', backgroundColor: 'var(--vscode-editor-background)' }}>
+    <div className="flex flex-col gap-3 rounded-xl border p-4 overflow-hidden min-w-0" style={{ borderColor: 'var(--vscode-widget-border)', backgroundColor: 'var(--vscode-editor-background)' }}>
       <div className="flex items-start justify-between min-w-0">
         <div className="flex items-start gap-3 min-w-0 flex-1">
-          <div className="rounded-lg bg-neutral-100 p-2 shrink-0" style={{ backgroundColor: 'var(--vscode-toolbar-hoverBackground)' }}>
+          <div className="rounded-lg p-2 shrink-0" style={{ backgroundColor: 'var(--vscode-toolbar-hoverBackground)' }}>
             <Server className="h-5 w-5" style={{ color: 'var(--vscode-foreground)' }} />
           </div>
           <div className="flex flex-col gap-1 min-w-0 flex-1">
@@ -78,136 +71,124 @@ export function MCPServerCard({
             </div>
           </div>
         </div>
+
+        {/* Toggle Connect/Disconnect */}
+        <button
+          type="button"
+          onClick={() => isConnected ? onDisconnect(config.id) : onConnect(config)}
+          disabled={isConnecting || !config.enabled}
+          className="flex items-center gap-1.5 min-h-[28px] rounded-xl px-2.5 py-1 text-xs font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+          style={{ 
+            backgroundColor: isConnected ? 'var(--vscode-button-secondaryBackground)' : 'var(--vscode-button-background)', 
+            color: isConnected ? 'var(--vscode-button-secondaryForeground)' : 'var(--vscode-button-foreground)',
+            borderColor: 'var(--vscode-button-border)'
+          }}
+        >
+          <Power className="h-3.5 w-3.5" />
+          {isConnecting ? "Connecting..." : isConnected ? "Disconnect" : "Connect"}
+        </button>
       </div>
 
       {hasError && status?.error && (
-        <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 break-words overflow-hidden" style={{ backgroundColor: 'var(--vscode-inputValidation-errorBackground)', color: 'var(--vscode-inputValidation-errorForeground)', border: '1px solid var(--vscode-inputValidation-errorBorder)' }}>
+        <div className="rounded-lg px-3 py-2 text-xs break-words overflow-hidden" style={{ backgroundColor: 'var(--vscode-inputValidation-errorBackground)', color: 'var(--vscode-inputValidation-errorForeground)', border: '1px solid var(--vscode-inputValidation-errorBorder)' }}>
           {status.error}
         </div>
       )}
 
-      <div className="flex flex-col gap-2 text-xs min-w-0" style={{ color: 'var(--vscode-descriptionForeground)' }}>
-        {/* Transport Type Badge */}
-        <div className="flex items-center gap-2">
-          <span className="shrink-0">Type:</span>
-          <span className="rounded px-2 py-1 text-xs font-medium" style={{ backgroundColor: 'var(--vscode-badge-background)', color: 'var(--vscode-badge-foreground)' }}>
-            {config.type.toUpperCase()}
-          </span>
-        </div>
+      {/* Collapsible Details */}
+      <button
+        type="button"
+        onClick={() => setShowDetails(!showDetails)}
+        className="flex items-center gap-1 text-xs hover:opacity-80"
+        style={{ color: 'var(--vscode-descriptionForeground)' }}
+      >
+        {showDetails ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+        {showDetails ? "Hide details" : "Show details"}
+      </button>
 
-        {/* Stdio Transport Details */}
-        {config.type === "stdio" && config.command && (
-          <>
-            <div className="flex flex-col gap-1 min-w-0">
-              <span className="shrink-0">Command:</span>
-              <code className="rounded px-2 py-1 break-all overflow-hidden w-full" style={{ backgroundColor: 'var(--vscode-textBlockQuote-background)' }}>
-                {config.command}
-              </code>
-            </div>
-            {config.args && config.args.length > 0 && (
+      {showDetails && (
+        <div className="flex flex-col gap-2 text-xs min-w-0 pt-2 border-t" style={{ color: 'var(--vscode-descriptionForeground)', borderColor: 'var(--vscode-widget-border)' }}>
+          {/* Transport Type Badge */}
+          <div className="flex items-center gap-2">
+            <span className="shrink-0">Type:</span>
+            <span className="rounded px-2 py-0.5 text-xs font-medium" style={{ backgroundColor: 'var(--vscode-badge-background)', color: 'var(--vscode-badge-foreground)' }}>
+              {config.type.toUpperCase()}
+            </span>
+          </div>
+
+          {/* Stdio Transport Details */}
+          {config.type === "stdio" && config.command && (
+            <>
               <div className="flex flex-col gap-1 min-w-0">
-                <span className="shrink-0">Args:</span>
-                <code className="rounded px-2 py-1 break-all overflow-wrap-anywhere whitespace-pre-wrap overflow-hidden w-full" style={{ backgroundColor: 'var(--vscode-textBlockQuote-background)' }}>
-                  {config.args.join(" ")}
+                <span className="shrink-0">Command:</span>
+                <code className="rounded-md px-2 py-1 break-all overflow-hidden w-full" style={{ backgroundColor: 'var(--vscode-textBlockQuote-background)' }}>
+                  {config.command}
                 </code>
               </div>
-            )}
-          </>
-        )}
-
-        {/* HTTP/SSE Transport Details */}
-        {config.type === "http" && config.url && (
-          <div className="flex flex-col gap-1 min-w-0">
-            <span className="shrink-0">URL:</span>
-            <code className="rounded px-2 py-1 break-all overflow-hidden w-full" style={{ backgroundColor: 'var(--vscode-textBlockQuote-background)' }}>
-              {config.url}
-            </code>
-          </div>
-        )}
-      </div>
-
-      <div className="flex flex-wrap gap-2 pt-2">
-        {!isConnected && !isConnecting && (
-          <button
-            type="button"
-            onClick={() => onConnect(config)}
-            disabled={!config.enabled}
-            className="flex items-center gap-2 min-h-[32px] rounded-sm px-3 py-1 text-xs font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ backgroundColor: 'var(--vscode-button-background)', color: 'var(--vscode-button-foreground)' }}
-          >
-            <Power className="h-3.5 w-3.5" />
-            Connect
-          </button>
-        )}
-        {isConnected && (
-          <>
-            <button
-              type="button"
-              onClick={() => onDisconnect(config.id)}
-              className="flex items-center gap-2 min-h-[32px] rounded-sm border px-3 py-1 text-xs font-medium hover:bg-neutral-50"
-              style={{ backgroundColor: 'var(--vscode-button-secondaryBackground)', color: 'var(--vscode-button-secondaryForeground)', borderColor: 'var(--vscode-button-border)' }}
-            >
-              <Power className="h-3.5 w-3.5" />
-              Disconnect
-            </button>
-            <button
-              type="button"
-              onClick={() => onRefresh(config.id)}
-              className="flex items-center gap-2 min-h-[32px] rounded-sm border px-3 py-1 text-xs font-medium hover:bg-neutral-50"
-              style={{ backgroundColor: 'var(--vscode-button-secondaryBackground)', color: 'var(--vscode-button-secondaryForeground)', borderColor: 'var(--vscode-button-border)' }}
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-              Refresh
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowDetails(!showDetails)}
-              className="flex items-center gap-2 min-h-[32px] rounded-sm border px-3 py-1 text-xs font-medium hover:bg-neutral-50"
-              style={{ backgroundColor: 'var(--vscode-button-secondaryBackground)', color: 'var(--vscode-button-secondaryForeground)', borderColor: 'var(--vscode-button-border)' }}
-            >
-              {showDetails ? (
-                <ChevronUp className="h-3.5 w-3.5" />
-              ) : (
-                <ChevronDown className="h-3.5 w-3.5" />
+              {config.args && config.args.length > 0 && (
+                <div className="flex flex-col gap-1 min-w-0">
+                  <span className="shrink-0">Args:</span>
+                  <code className="rounded px-2 py-1 break-all whitespace-pre-wrap overflow-hidden w-full" style={{ backgroundColor: 'var(--vscode-textBlockQuote-background)' }}>
+                    {config.args.join(" ")}
+                  </code>
+                </div>
               )}
-              {showDetails ? "Hide" : "Show"} Tools
-            </button>
-          </>
-        )}
-        <button
-          type="button"
-          onClick={() => onEdit(config)}
-          className="flex items-center gap-2 min-h-[32px] rounded-sm border px-3 py-1 text-xs font-medium hover:bg-neutral-50"
-          style={{ backgroundColor: 'var(--vscode-button-secondaryBackground)', color: 'var(--vscode-button-secondaryForeground)', borderColor: 'var(--vscode-button-border)' }}
-          title="Edit server configuration"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-          Edit
-        </button>
-        <button
-          type="button"
-          onClick={() => onDelete(config.id)}
-          className="ml-auto flex items-center gap-2 min-h-[32px] rounded-sm border px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
-          style={{ backgroundColor: 'var(--vscode-button-secondaryBackground)', color: 'var(--vscode-errorForeground)', borderColor: 'var(--vscode-button-border)' }}
-          title={
-            isConnected ? "Will disconnect before deleting" : "Delete server"
-          }
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          Delete
-        </button>
-      </div>
+            </>
+          )}
 
-      {/* Tool Details - shown when expanded and connected */}
-      {showDetails && isConnected && (
-        <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--vscode-widget-border)' }}>
-          <p className="text-xs font-medium mb-2" style={{ color: 'var(--vscode-foreground)' }}>
-            Available Tools ({status?.toolCount || 0})
-          </p>
-          <p className="text-xs" style={{ color: 'var(--vscode-descriptionForeground)' }}>
-            Tools from this server can be enabled/disabled in the chat input
-            tool dropdown.
-          </p>
+          {/* HTTP/SSE Transport Details */}
+          {config.type === "http" && config.url && (
+            <div className="flex flex-col gap-1 min-w-0">
+              <span className="shrink-0">URL:</span>
+              <code className="rounded-md px-2 py-1 break-all overflow-hidden w-full" style={{ backgroundColor: 'var(--vscode-textBlockQuote-background)' }}>
+                {config.url}
+              </code>
+            </div>
+          )}
+
+          {/* Tool count info when connected */}
+          {isConnected && (
+            <div className="mt-2 pt-2 border-t" style={{ borderColor: 'var(--vscode-widget-border)' }}>
+              <p className="text-xs font-medium mb-2" style={{ color: 'var(--vscode-foreground)' }}>
+                Available Tools ({status?.toolCount || 0})
+              </p>
+              
+              {status?.tools && status.tools.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {status.tools.map((tool) => {
+                    const isEnabled = !config.tool_configuration?.disabled_tools?.includes(tool.name);
+                    return (
+                      <button
+                        key={tool.name}
+                        type="button"
+                        onClick={() => onToggleTool?.(config.id, tool.name, !isEnabled)}
+                        disabled={!onToggleTool}
+                        className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
+                        style={{
+                          backgroundColor: isEnabled 
+                            ? 'var(--vscode-button-background)' 
+                            : 'var(--vscode-input-background)',
+                          color: isEnabled 
+                            ? 'var(--vscode-button-foreground)' 
+                            : 'var(--vscode-disabledForeground)',
+                          border: `1px solid ${isEnabled ? 'var(--vscode-button-background)' : 'var(--vscode-input-border)'}`,
+                          cursor: 'pointer',
+                          opacity: isEnabled ? 1 : 0.6
+                        }}
+                        title={tool.description || tool.name}
+                      >
+                        {tool.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs" style={{ color: 'var(--vscode-descriptionForeground)' }}>
+                  No tools found on this server.
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

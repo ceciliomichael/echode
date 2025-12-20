@@ -77,6 +77,33 @@ export function useMCPSettings() {
     vscode.postMessage({ type: 'mcp.refresh', serverId });
   }, []);
 
+  const openConfig = useCallback(() => {
+    vscode.postMessage({ type: 'mcp.openConfig' });
+  }, []);
+
+  const toggleTool = useCallback((serverId: string, toolName: string, enabled: boolean) => {
+    // Optimistic update for immediate UI feedback (no loading state needed)
+    setConfigs(prev => prev.map(config => {
+      if (config.id !== serverId) return config;
+      
+      const currentDisabled = config.tool_configuration?.disabled_tools || [];
+      const newDisabled = enabled
+        ? currentDisabled.filter(t => t !== toolName)
+        : [...currentDisabled, toolName];
+      
+      return {
+        ...config,
+        tool_configuration: {
+          ...config.tool_configuration,
+          enabled: config.tool_configuration?.enabled ?? true,
+          disabled_tools: newDisabled
+        }
+      };
+    }));
+    
+    vscode.postMessage({ type: 'mcp.toggleTool', serverId, toolName, enabled });
+  }, []);
+
   return {
     configs,
     statuses,
@@ -85,6 +112,8 @@ export function useMCPSettings() {
     deleteConfig,
     connectServer,
     disconnectServer,
-    refreshServer
+    refreshServer,
+    openConfig,
+    toggleTool
   };
 }
