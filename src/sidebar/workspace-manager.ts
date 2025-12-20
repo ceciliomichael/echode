@@ -107,12 +107,19 @@ export class WorkspaceManager {
       }
     }
 
-    // Use primary workspace for metadata, but include all files
+    // Build workspace info with multi-root support
     const workspaceInfo = {
       path: workspaceFolders[0].uri.fsPath,
       name: workspaceFolders[0].name,
       files: allFiles,
-      agentsConfig: getAgentsConfig(workspaceFolders[0].uri.fsPath)
+      agentsConfig: getAgentsConfig(workspaceFolders[0].uri.fsPath),
+      isMultiRoot,
+      folders: isMultiRoot
+        ? workspaceFolders.map(folder => ({
+            name: folder.name,
+            path: folder.uri.fsPath
+          }))
+        : undefined
     };
 
     webview.postMessage({
