@@ -1,4 +1,4 @@
-import { ClipboardList, HelpCircle, Rocket, FileCheck } from 'lucide-react';
+import { ClipboardList, HelpCircle, Rocket, FileCheck, RefreshCw } from 'lucide-react';
 import type { ToolExecutionResult } from '../../types/tool';
 import { registerToolPlugin } from './tool-plugin';
 import { executeToolViaExtension } from '../tool-utils';
@@ -6,7 +6,7 @@ import { executeToolViaExtension } from '../tool-utils';
 /**
  * Plan Tool Result Types
  */
-export type PlanMode = 'ask' | 'create_plan' | 'handoff';
+export type PlanMode = 'ask' | 'create_plan' | 'update_plan' | 'handoff';
  
 export interface PlanToolResult {
   mode: PlanMode;
@@ -15,6 +15,7 @@ export interface PlanToolResult {
   questions?: string[];
   planTitle?: string;
   planContent?: string;
+  planFilePath?: string;  // Path to the saved plan file (for update_plan mode)
   summary?: string;
   message: string;
 }
@@ -71,7 +72,9 @@ registerToolPlugin({
       case 'ask':
         return <AskModeRenderer questions={result.questions || []} />;
       case 'create_plan':
-        return <CreatePlanModeRenderer title={result.planTitle} message={result.message} />;
+        return <CreatePlanModeRenderer title={result.planTitle} message={result.message} planContent={result.planContent} />;
+      case 'update_plan':
+        return <UpdatePlanModeRenderer title={result.planTitle} message={result.message} planContent={result.planContent} />;
       case 'handoff':
         return <HandoffModeRenderer summary={result.summary} message={result.message} />;
       default:
@@ -131,11 +134,44 @@ function AskModeRenderer({ questions }: { questions: string[] }) {
     </div>
   );
 }
- 
+
 /**
- * Create Plan Mode Renderer - Shows plan was created
+ * Truncates content by maximum number of lines
  */
-function CreatePlanModeRenderer({ title, message }: { title?: string; message: string }) {
+function truncateByLines(content: string, maxLines: number = 5): string {
+  if (!content) return '';
+  const lines = content.split('\n');
+  if (lines.length <= maxLines) {
+    return content;
+  }
+  return lines.slice(0, maxLines).join('\n');
+}
+
+/**
+ * Plan Content Snippet - Shows truncated plan content by lines
+ */
+function PlanContentSnippet({ content }: { content?: string }) {
+  if (!content) return null;
+  
+  const truncated = truncateByLines(content);
+  
+  return (
+    <div
+      className="py-2 px-3 rounded-lg font-mono text-xs whitespace-pre-wrap"
+      style={{ 
+        backgroundColor: 'var(--vscode-textBlockQuote-background)',
+        color: 'var(--vscode-input-foreground)',
+      }}
+    >
+      {truncated}
+    </div>
+  );
+}
+
+/**
+ * Create Plan Mode Renderer - Shows plan was created with content snippet
+ */
+function CreatePlanModeRenderer({ title, message, planContent }: { title?: string; message: string; planContent?: string }) {
   return (
     <div className="text-sm space-y-3">
       <div
@@ -153,12 +189,49 @@ function CreatePlanModeRenderer({ title, message }: { title?: string; message: s
           {title}
         </div>
       )}
+      <PlanContentSnippet content={planContent} />
+      {!planContent && (
+        <div
+          className="text-xs"
+          style={{ color: 'var(--vscode-descriptionForeground)' }}
+        >
+          {message}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Update Plan Mode Renderer - Shows plan was updated with content snippet
+ */
+function UpdatePlanModeRenderer({ title, message, planContent }: { title?: string; message: string; planContent?: string }) {
+  return (
+    <div className="text-sm space-y-3">
       <div
-        className="text-xs"
+        className="font-semibold text-xs uppercase tracking-wide flex items-center gap-2"
         style={{ color: 'var(--vscode-descriptionForeground)' }}
       >
-        {message}
+        <RefreshCw className="w-4 h-4" />
+        Plan Updated
       </div>
+      {title && (
+        <div
+          className="font-medium"
+          style={{ color: 'var(--vscode-input-foreground)' }}
+        >
+          {title}
+        </div>
+      )}
+      <PlanContentSnippet content={planContent} />
+      {!planContent && (
+        <div
+          className="text-xs"
+          style={{ color: 'var(--vscode-descriptionForeground)' }}
+        >
+          {message}
+        </div>
+      )}
     </div>
   );
 }

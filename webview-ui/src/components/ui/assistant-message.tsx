@@ -11,6 +11,7 @@ interface AssistantMessageProps {
   content: string;
   messageId?: string;
   isStreaming?: boolean;
+  isLastMessage?: boolean;
   toolExecutions?: Map<string, ToolExecutionState>;
 }
 
@@ -81,7 +82,7 @@ function sanitizeAssistantText(content: string): string {
   return result;
 }
 
-function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming = false, toolExecutions }: AssistantMessageProps) {
+function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming = false, isLastMessage = true, toolExecutions }: AssistantMessageProps) {
   // Allow text/think to span wider while staying slightly inset
   const contentMaxWidth = 'min(110ch, 100%)';
 
@@ -99,22 +100,26 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
       if (token.type === 'think' && token.content.trim() === '') {
         return false;
       }
-      // For file modification tools, show as soon as path parameter is present (even if not fully closed)
+      // For tool blocks, show as soon as tool name is known (to display loading state)
       if (token.type === 'tool') {
+        // Must have a valid tool name to display
+        if (!token.toolName || token.toolName.trim() === '') {
+          return false;
+        }
+        // For file modification tools, also require path parameter
         const isFileModificationTool = token.toolName === 'write_to_file' || token.toolName === 'apply_diff';
         if (isFileModificationTool) {
           const path = token.parameters.path as string | undefined;
-          // Show if path is present and not empty, even if tool block is not fully closed
+          // Show if path is present and not empty
           if (path && path.trim() !== '') {
             return true;
           }
           // Hide if path is missing or empty
           return false;
         }
-      }
-      // Filter incomplete tool blocks for non-file-modification tools
-      if (token.type === 'tool' && !token.isClosed) {
-        return false;
+        // For all other tools, show immediately once tool name is known
+        // This allows displaying loading states like "Planning", "Searching", etc.
+        return true;
       }
       return true;
     });
@@ -202,6 +207,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                             toolCall={fileToolCall}
                             isStreaming={false}
                             messageId={messageId}
+                            isLastMessage={isLastMessage}
                           />
                         </div>
                       );
@@ -233,6 +239,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                   toolCall={toolCall}
                   isStreaming={isStreaming && !token.isClosed}
                   messageId={messageId}
+                  isLastMessage={isLastMessage}
                 />
               </div>
             );
@@ -279,17 +286,19 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
         {/* Show loading dots when waiting for response after tool or think block */}
         {isStreaming && (
           (() => {
-            // Check if there are filtered tool blocks (incomplete or missing path)
+            // Check if there are filtered tool blocks (file modification tools missing path, or tools without name)
             const hasFilteredToolBlocks = tokens.some(token => {
               if (token.type !== 'tool') return false;
+              // Tool without a valid name is filtered
+              if (!token.toolName || token.toolName.trim() === '') {
+                return true;
+              }
               // Check if path is missing for file modification tools
               const isFileModificationTool = token.toolName === 'write_to_file' || token.toolName === 'apply_diff';
               if (isFileModificationTool) {
                 const path = token.parameters.path as string | undefined;
                 return !path || path.trim() === '';
               }
-              // Check if tool was filtered out (not closed)
-              if (!token.isClosed) return true;
               return false;
             });
 

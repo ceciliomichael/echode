@@ -6,6 +6,7 @@ import { usePlanContinuationEmitter } from '../../../hooks/use-plan-continuation
 interface PlanToolActionsProps {
   toolCall: ToolCall;
   messageId: string;
+  isLastMessage?: boolean;
 }
 
 /**
@@ -22,6 +23,7 @@ interface PlanToolActionsProps {
 export function PlanToolActions({ 
   toolCall, 
   messageId,
+  isLastMessage = true,
 }: PlanToolActionsProps) {
   const { triggerContinuation } = usePlanContinuationEmitter();
 
@@ -47,8 +49,11 @@ export function PlanToolActions({
     return null;
   }
 
+  // Button is only active when awaiting user AND this is the last message
+  const isButtonActive = isAwaitingUser && isLastMessage;
+
   const handleVerifyPlan = () => {
-    if (!isAwaitingUser) return;
+    if (!isButtonActive) return;
     triggerContinuation(
       'verify_plan',
       messageId,
@@ -58,7 +63,7 @@ export function PlanToolActions({
   };
 
   const handleStartImplementation = () => {
-    if (!isAwaitingUser) return;
+    if (!isButtonActive) return;
     triggerContinuation(
       'start_implementation',
       messageId,
@@ -67,26 +72,32 @@ export function PlanToolActions({
     );
   };
 
+  // After user clicks, show muted style
+  const isClicked = isCompletedWithAction;
+
+  const buttonStyle = isClicked
+    ? {
+        backgroundColor: 'rgba(249, 115, 22, 0.10)',
+        color: '#f97316',
+        borderColor: '#f97316',
+      }
+    : {
+        backgroundColor: '#f97316',
+        color: '#ffffff',
+        borderColor: '#f97316',
+      };
+
   return (
     <div 
-      className="flex items-center gap-2 pt-3 mt-3 border-t"
+      className="flex items-center justify-end gap-2 pt-3 mt-3 border-t"
       style={{ borderColor: 'var(--vscode-input-border)' }}
     >
       {actionType === 'verify_plan' && (
         <button
           onClick={handleVerifyPlan}
-          disabled={!isAwaitingUser}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${!isAwaitingUser ? 'opacity-50 cursor-not-allowed' : ''}`}
-          style={{
-            backgroundColor: 'var(--vscode-button-background)',
-            color: 'var(--vscode-button-foreground)',
-          }}
-          onMouseEnter={(e) => {
-            if (isAwaitingUser) e.currentTarget.style.backgroundColor = 'var(--vscode-button-hoverBackground)';
-          }}
-          onMouseLeave={(e) => {
-            if (isAwaitingUser) e.currentTarget.style.backgroundColor = 'var(--vscode-button-background)';
-          }}
+          disabled={!isButtonActive}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl border transition-all ${!isButtonActive ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-90'}`}
+          style={buttonStyle}
         >
           <CheckCircle className="w-4 h-4" />
           Verify Plan
@@ -96,18 +107,9 @@ export function PlanToolActions({
       {actionType === 'start_implementation' && (
         <button
           onClick={handleStartImplementation}
-          disabled={!isAwaitingUser}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${!isAwaitingUser ? 'opacity-50 cursor-not-allowed' : ''}`}
-          style={{
-            backgroundColor: 'var(--vscode-button-background)',
-            color: 'var(--vscode-button-foreground)',
-          }}
-          onMouseEnter={(e) => {
-            if (isAwaitingUser) e.currentTarget.style.backgroundColor = 'var(--vscode-button-hoverBackground)';
-          }}
-          onMouseLeave={(e) => {
-            if (isAwaitingUser) e.currentTarget.style.backgroundColor = 'var(--vscode-button-background)';
-          }}
+          disabled={!isButtonActive}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl border transition-all ${!isButtonActive ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-90'}`}
+          style={buttonStyle}
         >
           <Rocket className="w-4 h-4" />
           Start Implementation

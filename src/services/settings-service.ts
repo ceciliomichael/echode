@@ -6,12 +6,14 @@ import { ApiSettings, DEFAULT_SETTINGS } from '../types/api-settings';
 export { ApiSettings };
 
 // Fields that can be overridden per workspace
+// NOTE: modeModelSettings is intentionally NOT here - it should be global
+// so your per-mode model preferences persist across all workspaces
 const WORKSPACE_SPECIFIC_FIELDS: (keyof ApiSettings)[] = [
   'indexingSettings',
   'autocompleteSettings',
   'contextSettings',
   'commitMessageSettings',
-  'modeModelSettings'
+  'chatMode', // Each workspace can have its own default mode (Agent/Plan/Ask/etc.)
 ];
 
 export class SettingsService {

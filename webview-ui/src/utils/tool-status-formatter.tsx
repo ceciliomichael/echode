@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { getToolMetadata } from '../lib/tool-registry';
 import type { ToolCall } from '../types/tool';
 import { calculateDiffStats } from './diff-calculator';
+import type { PlanMode } from '../lib/tools/plan-tool';
 
 function renderWaveLabel(text: string): ReactNode {
   return (
@@ -65,6 +66,8 @@ export function getToolStatusDisplay(
       executingText = 'Linting';
     } else if (toolName === 'glob_search') {
       executingText = 'Searching';
+    } else if (toolName === 'plan') {
+      executingText = 'Planning';
     }
 
     return renderWaveLabel(executingText);
@@ -177,6 +180,18 @@ export function getToolStatusDisplay(
       return `${completed}/${tasks.length}`;
     }
     return 'Todo';
+  }
+
+  // plan: show mode-based status (Ask, Created, Updated, Handoff)
+  if (toolName === 'plan') {
+    const mode = toolCall.parameters.mode as PlanMode | undefined;
+    const modeDisplayNames: Record<PlanMode, string> = {
+      ask: 'Ask',
+      create_plan: 'Created',
+      update_plan: 'Updated',
+      handoff: 'Handoff',
+    };
+    return mode ? modeDisplayNames[mode] : 'Plan';
   }
 
   // Other tools: show tool name from metadata

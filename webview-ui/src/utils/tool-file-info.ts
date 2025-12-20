@@ -1,4 +1,4 @@
-import { Loader, Folder, Search, FileSearch, Trash2, Radar, XCircle, Stethoscope, Cable, type LucideIcon } from 'lucide-react';
+import { Loader, Folder, Search, FileSearch, Trash2, Radar, XCircle, Stethoscope, Cable, ClipboardList, type LucideIcon } from 'lucide-react';
 import type { IconType } from 'react-icons';
 import { getToolMetadata } from '../lib/tool-registry';
 import { getFileIconConfig, extractFileName } from './file-icon-mapper';
@@ -139,6 +139,17 @@ export function getToolFileInfo(
       fullPath: path || '',
       icon: getIcon(Trash2),
       iconColor: getIconColor('var(--vscode-errorForeground)'),
+      isSpinning: isExecuting,
+    };
+  }
+
+  // Plan tool -> Use ClipboardList icon with "Plan" display name
+  if (toolName === 'plan') {
+    return {
+      displayName: 'Plan',
+      fullPath: '',
+      icon: getIcon(ClipboardList),
+      iconColor: getIconColor('var(--vscode-foreground)'),
       isSpinning: isExecuting,
     };
   }

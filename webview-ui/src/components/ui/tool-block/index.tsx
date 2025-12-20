@@ -9,26 +9,29 @@ interface ToolBlockProps {
   toolCall: ToolCall;
   isStreaming?: boolean;
   messageId?: string;
+  isLastMessage?: boolean;
 }
 
 const ToolBlockComponent = ({
   toolCall,
   isStreaming = false,
   messageId = 'unknown',
+  isLastMessage = true,
 }: ToolBlockProps) => {
   const isEchoSearch = toolCall.toolName === 'echo_search';
+  const isPlanTool = toolCall.toolName === 'plan';
 
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Auto-expand when awaiting user action (e.g. Plan tool)
+  // Auto-expand when awaiting user action (e.g. Plan tool) - only for the last message
   // This ensures the action buttons are visible when the state changes
   useEffect(() => {
-    if (toolCall.status === 'awaiting_user') {
+    if (toolCall.status === 'awaiting_user' && isLastMessage) {
       setTimeout(() => {
         setIsExpanded(true);
       }, 0);
     }
-  }, [toolCall.status]);
+  }, [toolCall.status, isLastMessage]);
 
   // Auto-collapse echo_search when completed or aborted
   useEffect(() => {
@@ -38,6 +41,32 @@ const ToolBlockComponent = ({
       }, 0);
     }
   }, [isEchoSearch, toolCall.status]);
+
+  // Auto-collapse plan tool when:
+  // 1. User clicked a button (status becomes 'completed' with userAction)
+  // 2. User sent a message instead of clicking button (isLastMessage becomes false)
+  // 3. Ask mode: user replied (isLastMessage becomes false and status is completed)
+  useEffect(() => {
+    if (isPlanTool) {
+      const planResult = toolCall.result?.data as { userAction?: string; mode?: string } | undefined;
+      const hasUserAction = !!planResult?.userAction;
+      const isAskMode = toolCall.parameters.mode === 'ask';
+      
+      // Collapse if completed with user action OR if this is no longer the last message
+      if (hasUserAction || (!isLastMessage && toolCall.status === 'awaiting_user')) {
+        setTimeout(() => {
+          setIsExpanded(false);
+        }, 0);
+      }
+      
+      // For ask mode: collapse when user replies (no longer last message)
+      if (isAskMode && !isLastMessage && toolCall.status === 'completed') {
+        setTimeout(() => {
+          setIsExpanded(false);
+        }, 0);
+      }
+    }
+  }, [isPlanTool, toolCall.status, toolCall.result, toolCall.parameters.mode, isLastMessage]);
 
   // Get status display
   const statusConfig = useMemo(
@@ -76,22 +105,27 @@ const ToolBlockComponent = ({
   );
 
   // Determine if toggling is allowed
-  // For file-modifying tools (apply_diff, write_to_file), disable toggle while executing
+  // Disable toggle for all tools while executing - only allow after completion
   const canToggle = useMemo(() => {
-    const isFileModifyingTool = toolCall.toolName === 'apply_diff' || toolCall.toolName === 'write_to_file';
+    const isExecuting = toolCall.status === 'pending' || toolCall.status === 'executing';
     
+    // Don't allow toggling while tool is executing
+    if (isExecuting) {
+      return false;
+    }
+    
+    // For file-modifying tools, also require result data
+    const isFileModifyingTool = toolCall.toolName === 'apply_diff' || toolCall.toolName === 'write_to_file';
     if (isFileModifyingTool) {
-      // Only allow toggle after the tool has completed with result data
       const isCompleted = toolCall.status === 'completed' && toolCall.result != null;
       return isCompleted;
     }
     
-    // All other tools can always be toggled
+    // All other tools can be toggled once not executing
     return true;
   }, [toolCall.toolName, toolCall.status, toolCall.result]);
 
   // Check for plan tool completion with user action for the message below
-  const isPlanTool = toolCall.toolName === 'plan';
   const planResult = isPlanTool ? toolCall.result?.data as { userAction?: string } | undefined : undefined;
   const userAction = planResult?.userAction;
 
@@ -122,6 +156,7 @@ const ToolBlockComponent = ({
           fileInfo={fileInfo}
           isExpanded={isExpanded}
           messageId={messageId}
+          isLastMessage={isLastMessage}
         />
       </div>
 

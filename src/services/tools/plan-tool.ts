@@ -13,22 +13,24 @@ function generateUUID(): string {
 /**
  * Plan Tool
  * 
- * A tool exclusive to plan mode that supports three modes:
+ * A tool exclusive to plan mode that supports four modes:
  * - ask: Display clarifying questions to the user (no button, just stops)
  * - create_plan: Create a markdown plan and open it in VS Code (shows "Verify Plan" button)
+ * - update_plan: Update an existing plan file when user provides feedback (shows "Verify Plan" button)
  * - handoff: Prepare to hand off to agent mode (shows "Start Implementation" button)
  * 
  * IMPORTANT: This tool returns `awaitsUserAction: true` which signals the frontend
  * to stop execution and wait for user interaction before continuing.
  */
 
-export type PlanMode = 'ask' | 'create_plan' | 'handoff';
+export type PlanMode = 'ask' | 'create_plan' | 'update_plan' | 'handoff';
 
 export interface PlanToolParameters {
   mode: PlanMode;
   questions?: string[];      // For 'ask' mode
-  plan?: string;             // For 'create_plan' mode (markdown content)
-  title?: string;            // For 'create_plan' mode (plan title)
+  plan?: string;             // For 'create_plan' and 'update_plan' modes (markdown content)
+  title?: string;            // For 'create_plan' and 'update_plan' modes (plan title)
+  planFilePath?: string;     // For 'update_plan' mode (existing plan file path)
   summary?: string;          // For 'handoff' mode
 }
 
@@ -52,10 +54,10 @@ export class PlanTool implements ITool {
       const params = parameters as unknown as PlanToolParameters;
       const mode = params.mode;
 
-      if (!mode || !['ask', 'create_plan', 'handoff'].includes(mode)) {
+      if (!mode || !['ask', 'create_plan', 'update_plan', 'handoff'].includes(mode)) {
         return {
           success: false,
-          error: 'Invalid mode. Must be one of: ask, create_plan, handoff',
+          error: 'Invalid mode. Must be one of: ask, create_plan, update_plan, handoff',
         };
       }
 
@@ -64,6 +66,8 @@ export class PlanTool implements ITool {
           return this.handleAskMode(params);
         case 'create_plan':
           return this.handleCreatePlanMode(params);
+        case 'update_plan':
+          return this.handleUpdatePlanMode(params);
         case 'handoff':
           return this.handleHandoffMode(params);
         default:
@@ -179,6 +183,78 @@ export class PlanTool implements ITool {
       return {
         success: false,
         error: `Failed to save plan document: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      };
+    }
+  }
+
+  /**
+   * Update plan mode: Update an existing plan file when user provides feedback
+   * Shows "Verify Plan" button
+   */
+  private async handleUpdatePlanMode(params: PlanToolParameters): Promise<ToolExecutionResult> {
+    const planContent = params.plan;
+    const title = params.title || 'Implementation Plan';
+    const existingPlanFilePath = params.planFilePath;
+
+    if (!planContent || typeof planContent !== 'string' || planContent.trim().length === 0) {
+      return {
+        success: false,
+        error: 'Update plan mode requires a non-empty "plan" parameter with markdown content',
+      };
+    }
+
+    if (!existingPlanFilePath || typeof existingPlanFilePath !== 'string') {
+      return {
+        success: false,
+        error: 'Update plan mode requires a valid "planFilePath" parameter pointing to the existing plan file',
+      };
+    }
+
+    try {
+      const fullContent = `# ${title}\n\n${planContent}`;
+      
+      // Verify the file exists
+      const planFileUri = vscode.Uri.file(existingPlanFilePath);
+      try {
+        await vscode.workspace.fs.stat(planFileUri);
+      } catch {
+        return {
+          success: false,
+          error: `Plan file not found: ${existingPlanFilePath}`,
+        };
+      }
+
+      // Update the existing plan file
+      await vscode.workspace.fs.writeFile(planFileUri, Buffer.from(fullContent, 'utf-8'));
+
+      // Open/refresh the plan file in editor
+      const document = await vscode.workspace.openTextDocument(planFileUri);
+      await vscode.window.showTextDocument(document, {
+        preview: false,
+        preserveFocus: true,
+      });
+
+      // Extract filename for message
+      const planFileName = path.basename(existingPlanFilePath);
+
+      const result: PlanToolResult = {
+        mode: 'update_plan',
+        awaitsUserAction: true,
+        actionType: 'verify_plan',
+        planTitle: title,
+        planContent: fullContent,
+        planFilePath: existingPlanFilePath,
+        message: `Plan "${title}" updated in .echode/${planFileName}. Click "Verify Plan" to continue.`,
+      };
+
+      return {
+        success: true,
+        data: result,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to update plan document: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
   }

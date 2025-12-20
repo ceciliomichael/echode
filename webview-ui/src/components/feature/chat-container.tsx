@@ -190,6 +190,7 @@ export function ChatContainer() {
                       onEditCancel={handleCancel}
                       onRevert={handleRevert}
                       isStreaming={(isStreaming || isExecutingTool) && isLastAssistantMessage}
+                      isLastMessage={isLastAssistantMessage}
                       mode={mode}
                       onModeChange={handleModeChange}
                       provider={provider}

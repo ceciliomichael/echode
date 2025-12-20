@@ -11,9 +11,10 @@ interface ToolBlockContentProps {
   fileInfo: ToolFileInfo;
   isExpanded: boolean;
   messageId: string;
+  isLastMessage?: boolean;
 }
 
-export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId }: ToolBlockContentProps) {
+export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, isLastMessage = true }: ToolBlockContentProps) {
   const isAborted = toolCall.status === 'aborted';
   const isAwaitingUser = toolCall.status === 'awaiting_user';
   const isPlanTool = toolCall.toolName === 'plan';
@@ -77,7 +78,7 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId }: 
                   {/* Plan tool action buttons */}
                   {showPlanActions && (
                     <div className="px-3 pb-3">
-                      <PlanToolActions toolCall={toolCall} messageId={messageId} />
+                      <PlanToolActions toolCall={toolCall} messageId={messageId} isLastMessage={isLastMessage} />
                     </div>
                   )}
                 </div>
