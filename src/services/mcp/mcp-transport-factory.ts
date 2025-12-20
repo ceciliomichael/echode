@@ -27,28 +27,25 @@ export class MCPTransportFactory {
         throw new Error("Stdio transport requires command and args");
       }
 
-      // On Windows, npm/npx/pnpm/yarn commands need .cmd extension
+      // On Windows, npm/npx/pnpm/yarn commands are .cmd batch files
+      // They MUST be spawned with shell: true to work correctly
       const isWindows = process.platform === "win32";
-      const needsCmdExtension = ["npx", "npm", "pnpm", "yarn"].includes(
+      const isNodePackageManager = ["npx", "npm", "pnpm", "yarn"].includes(
         config.command,
       );
-      const command =
-        isWindows && needsCmdExtension
-          ? `${config.command}.cmd`
-          : config.command;
       
-      // Prepare env - merge with process.env but careful with strict extensions
+      // Prepare env - merge with process.env
       const env = { ...process.env, ...config.env };
 
-      console.log(`[MCP] Spawning command: ${command} with args:`, config.args);
+      console.log(`[MCP] Spawning command: ${config.command} with args:`, config.args);
 
       // Spawn the MCP server process
-      // Note: We avoid shell: true to prevent argument escaping issues on Windows
-      // unless strictly necessary. For node/python scripts, direct spawn is safer.
-      const serverProcess = spawn(command, config.args, {
+      // On Windows, .cmd files (npm, npx, etc.) require shell: true
+      // Direct spawn without shell causes EINVAL error
+      const serverProcess = spawn(config.command, config.args, {
         env,
         stdio: ["pipe", "pipe", "pipe"],
-        shell: false,
+        shell: isWindows && isNodePackageManager,
       });
 
       return new StdioTransport(serverProcess);

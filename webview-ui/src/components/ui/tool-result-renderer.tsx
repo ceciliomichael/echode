@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { getToolRenderer } from '../../lib/tool-registry';
 import { DiffViewer } from './diff-viewer';
 import { DiffResultWrapper } from './diff-result-wrapper';
+import { McpToolResult } from './tool-block/mcp-tool-result';
 
 /**
  * Normalize content by converting escaped sequences to actual characters.
@@ -141,6 +142,11 @@ export function renderToolResult(
         </div>
       );
     }
+  }
+
+  // Special handling for MCP tools - show formatted result with word wrap
+  if (toolName.startsWith('mcp_')) {
+    return <McpToolResult toolName={toolName} data={data} />;
   }
 
   // Use registered renderer for other tools
