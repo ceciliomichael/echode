@@ -270,28 +270,15 @@ export const storageService = {
   },
 
   setChatMode(mode: ChatMode): void {
-    // Update local cache
+    // Update local cache - only change the mode, don't sync global provider/model
     const currentSettings = this.getSettings();
-    
-    // Get the model for the new mode to sync global settings
-    const modeModel = this.getModeModel(mode);
     
     const updated: ApiSettings = {
       ...currentSettings,
       chatMode: mode,
-      provider: modeModel.provider,
-      model: modeModel.model
     };
 
-    // Also update provider-specific model fields to match the mode's selection
-    if (modeModel.provider === 'anthropic') updated.anthropicModel = modeModel.model;
-    else if (modeModel.provider === 'openai') updated.openaiModel = modeModel.model;
-    else if (modeModel.provider === 'openai-compatible') updated.openaiCompatibleModel = modeModel.model;
-    else if (modeModel.provider === 'megallm') updated.megallmModel = modeModel.model;
-    else if (modeModel.provider === 'vscode-lm') updated.vscodeLmModel = modeModel.model;
-    else if (modeModel.provider === 'qwen-code') updated.qwenCodeModel = modeModel.model;
-
-    // Save to backend (syncs both mode and global model)
+    // Save to backend
     this.saveSettings(updated);
     
     // Dispatch event for same-window listeners
@@ -301,6 +288,7 @@ export const storageService = {
   /**
    * Get the provider and model for a specific chat mode.
    * Falls back to global provider/model if no mode-specific setting exists.
+   * This allows new modes to inherit the current global selection until customized.
    */
   getModeModel(mode: ChatMode): ModeModelSettings {
     const settings = this.getSettings();
@@ -310,7 +298,7 @@ export const storageService = {
       return modeSettings;
     }
     
-    // Fallback to global provider/model
+    // Fallback to global provider/model (inherits current selection)
     return {
       provider: settings.provider,
       model: settings.model,
@@ -319,41 +307,24 @@ export const storageService = {
 
   /**
    * Set the provider and model for a specific chat mode.
-   * Updates both mode-specific settings and syncs to backend.
+   * Only updates the mode-specific settings - does NOT affect other modes or global settings.
+   * This ensures mode isolation: changing model in Agent mode won't affect Plan mode.
    */
   setModeModel(mode: ChatMode, provider: Provider, model: string): void {
     const currentSettings = this.getSettings();
     
-    // Update the mode-specific settings using spread to ensure immutability
+    // Update ONLY the mode-specific settings using spread to ensure immutability
     const modeModelSettings = {
       ...(currentSettings.modeModelSettings || {}),
       [mode]: { provider, model }
     };
     
-    // Create updated settings object
-    // When setting a mode's model, we ALSO update the global provider/model
-    // so the rest of the system stays in sync with the current selection.
+    // Create updated settings object - do NOT update global provider/model
+    // This ensures mode isolation
     const updated: ApiSettings = {
       ...currentSettings,
       modeModelSettings,
-      provider,
-      model
     };
-
-    // Update provider-specific fields when model changes
-    if (provider === 'anthropic') {
-      updated.anthropicModel = model;
-    } else if (provider === 'openai') {
-      updated.openaiModel = model;
-    } else if (provider === 'openai-compatible') {
-      updated.openaiCompatibleModel = model;
-    } else if (provider === 'megallm') {
-      updated.megallmModel = model;
-    } else if (provider === 'vscode-lm') {
-      updated.vscodeLmModel = model;
-    } else if (provider === 'qwen-code') {
-      updated.qwenCodeModel = model;
-    }
 
     this.saveSettings(updated);
   },
