@@ -28,6 +28,7 @@ export function SettingsModelSelector({
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const portalRef = useRef<HTMLDivElement>(null);
 
   const DROPDOWN_HEIGHT = 200;
 
@@ -176,7 +177,11 @@ export function SettingsModelSelector({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const clickedOutsideDropdown = dropdownRef.current && !dropdownRef.current.contains(target);
+      const clickedOutsidePortal = portalRef.current && !portalRef.current.contains(target);
+
+      if (clickedOutsideDropdown && clickedOutsidePortal) {
         setIsOpen(false);
         setSearch('');
       }
@@ -275,6 +280,7 @@ export function SettingsModelSelector({
 
         {isOpen && createPortal(
           <div
+            ref={portalRef}
             className="fixed rounded-xl border overflow-hidden"
             style={{
               backgroundColor: 'var(--vscode-editor-background)',

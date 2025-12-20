@@ -100,7 +100,8 @@ EDIT:
 CONTEXT AWARENESS:
 - SKIP read_file when file content is already visible in recent context
 - DO read_file when: file not in context, content may be stale, or after failed diff
-- ONE write operation per response (apply_diff or write_to_file)
+- Use multiple tool invocations for multiple edits (apply_diff)
+- ONE write_to_file operation per response (unless rewriting multiple files)
 
 COMPLETION (MANDATORY):
 After finishing all edits, you MUST run get_diagnostics to check for errors:
