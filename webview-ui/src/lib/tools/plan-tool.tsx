@@ -1,4 +1,4 @@
-import { ClipboardList, HelpCircle, Rocket, FileCheck, RefreshCw } from 'lucide-react';
+import { ClipboardList, Rocket, FileCheck, RefreshCw } from 'lucide-react';
 import type { ToolExecutionResult } from '../../types/tool';
 import { registerToolPlugin } from './tool-plugin';
 import { executeToolViaExtension } from '../tool-utils';
@@ -6,13 +6,12 @@ import { executeToolViaExtension } from '../tool-utils';
 /**
  * Plan Tool Result Types
  */
-export type PlanMode = 'ask' | 'create_plan' | 'update_plan' | 'handoff';
+export type PlanMode = 'create_plan' | 'update_plan' | 'handoff';
  
 export interface PlanToolResult {
   mode: PlanMode;
   awaitsUserAction: boolean;
-  actionType: 'none' | 'verify_plan' | 'start_implementation';
-  questions?: string[];
+  actionType: 'verify_plan' | 'start_implementation';
   planTitle?: string;
   planContent?: string;
   planFilePath?: string;  // Path to the saved plan file (for update_plan mode)
@@ -48,10 +47,10 @@ registerToolPlugin({
   metadata: {
     id: 'plan',
     name: 'Plan',
-    description: 'Create plans, ask questions, and hand off to agent mode',
+    description: 'Create plans and hand off to agent mode',
     icon: ClipboardList,
-    usage: 'Use plan tool in plan mode to ask questions, create plans, or hand off to implementation',
-    formatExample: '<function_calls>\n<invoke name="plan">\n<parameter name="mode">ask</parameter>\n<parameter name="questions">["What is the target framework?", "Should we use TypeScript?"]</parameter>\n</invoke>\n</function_calls>',
+    usage: 'Use plan tool in plan mode to create plans or hand off to implementation',
+    formatExample: '<function_calls>\n<invoke name="plan">\n<parameter name="mode">create_plan</parameter>\n<parameter name="title">Implementation Plan</parameter>\n<parameter name="plan">## Overview\nPlan content here...</parameter>\n</invoke>\n</function_calls>',
   },
   handler: {
     execute: executePlan,
@@ -69,8 +68,6 @@ registerToolPlugin({
  
     // Render based on mode
     switch (result.mode) {
-      case 'ask':
-        return <AskModeRenderer questions={result.questions || []} />;
       case 'create_plan':
         return <CreatePlanModeRenderer title={result.planTitle} message={result.message} planContent={result.planContent} />;
       case 'update_plan':
@@ -86,54 +83,6 @@ registerToolPlugin({
     }
   },
 });
- 
-/**
- * Ask Mode Renderer - Displays questions
- */
-function AskModeRenderer({ questions }: { questions: string[] }) {
-  return (
-    <div className="text-sm space-y-3">
-      <div
-        className="font-semibold text-xs uppercase tracking-wide flex items-center gap-2"
-        style={{ color: 'var(--vscode-descriptionForeground)' }}
-      >
-        <HelpCircle className="w-4 h-4" />
-        Clarifying Questions
-      </div>
-      <div className="space-y-2">
-        {questions.map((question, index) => (
-          <div
-            key={index}
-            className="flex items-start gap-2.5 py-1.5 px-2 rounded-lg"
-            style={{ backgroundColor: 'var(--vscode-textBlockQuote-background)' }}
-          >
-            <span
-              className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-xs font-semibold"
-              style={{
-                backgroundColor: 'var(--vscode-charts-blue)',
-                color: 'var(--vscode-editor-background)',
-              }}
-            >
-              {index + 1}
-            </span>
-            <span
-              className="flex-1 leading-relaxed"
-              style={{ color: 'var(--vscode-input-foreground)' }}
-            >
-              {question}
-            </span>
-          </div>
-        ))}
-      </div>
-      <div
-        className="text-xs italic"
-        style={{ color: 'var(--vscode-descriptionForeground)' }}
-      >
-        Please answer these questions to help refine the plan.
-      </div>
-    </div>
-  );
-}
 
 /**
  * Truncates content by maximum number of lines
@@ -235,9 +184,9 @@ function UpdatePlanModeRenderer({ title, message, planContent }: { title?: strin
     </div>
   );
 }
- 
+
 /**
- * Handoff Mode Renderer - Shows handoff summary
+ * Handoff Mode Renderer - Shows ready for implementation
  */
 function HandoffModeRenderer({ summary, message }: { summary?: string; message: string }) {
   return (

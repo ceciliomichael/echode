@@ -13,8 +13,7 @@ function generateUUID(): string {
 /**
  * Plan Tool
  * 
- * A tool exclusive to plan mode that supports four modes:
- * - ask: Display clarifying questions to the user (no button, just stops)
+ * A tool exclusive to plan mode that supports three modes:
  * - create_plan: Create a markdown plan and open it in VS Code (shows "Verify Plan" button)
  * - update_plan: Update an existing plan file when user provides feedback (shows "Verify Plan" button)
  * - handoff: Prepare to hand off to agent mode (shows "Start Implementation" button)
@@ -23,11 +22,10 @@ function generateUUID(): string {
  * to stop execution and wait for user interaction before continuing.
  */
 
-export type PlanMode = 'ask' | 'create_plan' | 'update_plan' | 'handoff';
+export type PlanMode = 'create_plan' | 'update_plan' | 'handoff';
 
 export interface PlanToolParameters {
   mode: PlanMode;
-  questions?: string[];      // For 'ask' mode
   plan?: string;             // For 'create_plan' and 'update_plan' modes (markdown content)
   title?: string;            // For 'create_plan' and 'update_plan' modes (plan title)
   planFilePath?: string;     // For 'update_plan' mode (existing plan file path)
@@ -37,8 +35,7 @@ export interface PlanToolParameters {
 export interface PlanToolResult {
   mode: PlanMode;
   awaitsUserAction: boolean;
-  actionType: 'none' | 'verify_plan' | 'start_implementation';
-  questions?: string[];
+  actionType: 'verify_plan' | 'start_implementation';
   planTitle?: string;
   planContent?: string;
   planFilePath?: string;     // Path to saved plan file for undo/delete
@@ -54,16 +51,14 @@ export class PlanTool implements ITool {
       const params = parameters as unknown as PlanToolParameters;
       const mode = params.mode;
 
-      if (!mode || !['ask', 'create_plan', 'update_plan', 'handoff'].includes(mode)) {
+      if (!mode || !['create_plan', 'update_plan', 'handoff'].includes(mode)) {
         return {
           success: false,
-          error: 'Invalid mode. Must be one of: ask, create_plan, update_plan, handoff',
+          error: 'Invalid mode. Must be one of: create_plan, update_plan, handoff',
         };
       }
 
       switch (mode) {
-        case 'ask':
-          return this.handleAskMode(params);
         case 'create_plan':
           return this.handleCreatePlanMode(params);
         case 'update_plan':
@@ -82,34 +77,6 @@ export class PlanTool implements ITool {
         error: `Plan tool error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
-  }
-
-  /**
-   * Ask mode: Display questions to the user
-   * No button needed - just displays questions and stops
-   */
-  private handleAskMode(params: PlanToolParameters): ToolExecutionResult {
-    const questions = params.questions;
-
-    if (!questions || !Array.isArray(questions) || questions.length === 0) {
-      return {
-        success: false,
-        error: 'Ask mode requires a non-empty "questions" array',
-      };
-    }
-
-    const result: PlanToolResult = {
-      mode: 'ask',
-      awaitsUserAction: true,
-      actionType: 'none',
-      questions,
-      message: `Displaying ${questions.length} question(s) for clarification`,
-    };
-
-    return {
-      success: true,
-      data: result,
-    };
   }
 
   /**
@@ -206,37 +173,35 @@ export class PlanTool implements ITool {
     if (!existingPlanFilePath || typeof existingPlanFilePath !== 'string') {
       return {
         success: false,
-        error: 'Update plan mode requires a valid "planFilePath" parameter pointing to the existing plan file',
+        error: 'Update plan mode requires a valid "planFilePath" parameter from the previous create_plan result',
       };
     }
 
     try {
       const fullContent = `# ${title}\n\n${planContent}`;
       
-      // Verify the file exists
+      // Check if the file exists
       const planFileUri = vscode.Uri.file(existingPlanFilePath);
       try {
         await vscode.workspace.fs.stat(planFileUri);
       } catch {
         return {
           success: false,
-          error: `Plan file not found: ${existingPlanFilePath}`,
+          error: `Plan file not found at: ${existingPlanFilePath}. Use create_plan mode instead.`,
         };
       }
 
       // Update the existing plan file
       await vscode.workspace.fs.writeFile(planFileUri, Buffer.from(fullContent, 'utf-8'));
 
-      // Open/refresh the plan file in editor
+      // Open the updated plan file in editor
       const document = await vscode.workspace.openTextDocument(planFileUri);
       await vscode.window.showTextDocument(document, {
         preview: false,
         preserveFocus: true,
       });
 
-      // Extract filename for message
       const planFileName = path.basename(existingPlanFilePath);
-
       const result: PlanToolResult = {
         mode: 'update_plan',
         awaitsUserAction: true,
@@ -244,7 +209,7 @@ export class PlanTool implements ITool {
         planTitle: title,
         planContent: fullContent,
         planFilePath: existingPlanFilePath,
-        message: `Plan "${title}" updated in .echode/${planFileName}. Click "Verify Plan" to continue.`,
+        message: `Plan "${title}" updated at .echode/${planFileName}. Click "Verify Plan" to continue.`,
       };
 
       return {
@@ -264,14 +229,16 @@ export class PlanTool implements ITool {
    * Shows "Start Implementation" button
    */
   private handleHandoffMode(params: PlanToolParameters): ToolExecutionResult {
-    const summary = params.summary || 'Ready to start implementation';
+    const summary = params.summary;
 
     const result: PlanToolResult = {
       mode: 'handoff',
       awaitsUserAction: true,
       actionType: 'start_implementation',
       summary,
-      message: 'Click "Start Implementation" to switch to Agent mode and begin development.',
+      message: summary 
+        ? `Ready to implement: ${summary}. Click "Start Implementation" to switch to Agent mode.`
+        : 'Ready to implement. Click "Start Implementation" to switch to Agent mode.',
     };
 
     return {

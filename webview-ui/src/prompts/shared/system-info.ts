@@ -6,64 +6,43 @@
 import type { WorkspaceContext } from '../../types/workspace';
 
 /**
- * Build workspace metadata section based on single/multi-root status
+ * Build workspace metadata section
+ * 
+ * For multi-root: simulates a virtual "Workspace" folder containing all project folders
+ * For single-root: shows the actual workspace name and path
+ * 
+ * This unified approach lets the AI use relative paths consistently:
+ * - Single: src/file.ts (relative to workspace root)
+ * - Multi: echode/src/file.ts (relative to virtual Workspace root)
  */
 function buildWorkspaceMetadata(workspace: WorkspaceContext): string {
-    // Use explicit isMultiRoot flag from backend, with fallback to folders array check
-    const isMultiRoot = workspace.isMultiRoot || (workspace.folders && workspace.folders.length > 1);
+    const isMultiRoot = workspace.isMultiRoot === true;
     
     if (isMultiRoot && workspace.folders && workspace.folders.length > 0) {
-        const folderEntries = workspace.folders
-            .map(f => `  <folder name="${f.name}" path="${f.path}" />`)
-            .join('\n');
-        return `<workspace_type>multi-root</workspace_type>
-<workspace_folders>
-${folderEntries}
-</workspace_folders>`;
+        // Virtual "Workspace" root containing project folders
+        const folderNames = workspace.folders.map(f => f.name).join(', ');
+        return `<workspace_name>Workspace</workspace_name>
+<workspace_contents>${folderNames}</workspace_contents>`;
     }
     
-    // Single workspace - use simple name/path format
     return `<workspace_name>${workspace.name}</workspace_name>
 <workspace_path>${workspace.path}</workspace_path>`;
 }
 
 /**
- * Build file section with proper grouping for multi-root workspaces
+ * Build file section - unified flat list format
+ * Files are relative paths from workspace root:
+ * - Single workspace: src/file.ts
+ * - Multi-root: echode/src/file.ts (folder prefix acts as subdirectory)
  */
-function buildFileSection(workspace: WorkspaceContext): { fileSection: string; isMultiRoot: boolean } {
+function buildFileSection(workspace: WorkspaceContext): string {
     const files = workspace.files;
     
     if (files.length === 0) {
-        return { fileSection: `<files>\nNo files found.\n</files>`, isMultiRoot: false };
+        return `No files found.`;
     }
     
-    // Group files by first path segment
-    const groups = new Map<string, string[]>();
-    for (const file of files) {
-        const parts = file.split('/');
-        const root = parts[0];
-        if (!groups.has(root)) {
-            groups.set(root, []);
-        }
-        groups.get(root)!.push(file);
-    }
-    
-    // Check if multi-root based on file grouping or explicit flag
-    const isMultiRoot = workspace.isMultiRoot || groups.size > 1;
-    
-    if (isMultiRoot && groups.size > 1) {
-        const sections: string[] = [];
-        const sortedKeys = Array.from(groups.keys()).sort();
-        
-        for (const key of sortedKeys) {
-            const groupFiles = groups.get(key)!.sort();
-            sections.push(`<${key}>\n${groupFiles.join('\n')}\n</${key}>`);
-        }
-        
-        return { fileSection: sections.join('\n\n'), isMultiRoot: true };
-    }
-    
-    return { fileSection: `<files>\n${files.join('\n')}\n</files>`, isMultiRoot: false };
+    return [...files].sort().join('\n');
 }
 
 /**
@@ -76,11 +55,10 @@ export function getSystemInfo(workspace: WorkspaceContext | null): string {
     }
 
     const workspaceMetadata = buildWorkspaceMetadata(workspace);
-    const { fileSection, isMultiRoot } = buildFileSection(workspace);
+    const fileSection = buildFileSection(workspace);
 
-    const note = isMultiRoot
-        ? `The file list above is grouped by project. To access a file, USE THE FULL PATH shown (e.g., "ProjectName/src/file.ts").`
-        : `The file list above is a complete snapshot. Do not assume other files exist. Use list_files or glob_search to find files.`;
+    // Unified note - paths are always relative (folder prefix in multi-root acts as subdirectory)
+    const note = `The file list shows relative paths. Use list_files or glob_search to explore further.`;
 
     return `<system_info>
 <os>Windows</os>

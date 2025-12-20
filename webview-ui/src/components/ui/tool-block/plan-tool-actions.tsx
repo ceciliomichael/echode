@@ -15,7 +15,6 @@ interface PlanToolActionsProps {
  * Renders action buttons for the plan tool based on the action type:
  * - verify_plan: "Verify Plan" button for create_plan mode
  * - start_implementation: "Start Implementation" button for handoff mode
- * - none: No button (for ask mode)
  * 
  * Uses the plan continuation emitter to trigger continuation without
  * needing callbacks passed through the component tree.
@@ -35,11 +34,6 @@ export function PlanToolActions({
   // Cast data to include potential userAction from continuation
   const data = result.data as PlanToolResult & { userAction?: string };
   const actionType = data.actionType;
-
-  // No button for 'ask' mode (actionType: 'none')
-  if (actionType === 'none') {
-    return null;
-  }
 
   // Only show actions when status is awaiting_user OR when completed with a user action
   const isAwaitingUser = toolCall.status === 'awaiting_user';

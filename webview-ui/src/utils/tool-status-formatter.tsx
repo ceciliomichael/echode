@@ -182,7 +182,7 @@ export function getToolStatusDisplay(
     return 'Todo';
   }
 
-  // plan: show mode-based status (Ask, Created, Updated, Handoff)
+  // plan: show mode-based status (Created, Updated, Handoff)
   // But if user clicked an action button, show that status instead
   if (toolName === 'plan') {
     // Check if user has taken an action (clicked Verify Plan or Start Implementation)
@@ -200,7 +200,6 @@ export function getToolStatusDisplay(
     
     const mode = toolCall.parameters.mode as PlanMode | undefined;
     const modeDisplayNames: Record<PlanMode, string> = {
-      ask: 'Ask',
       create_plan: 'Created',
       update_plan: 'Updated',
       handoff: 'Handoff',

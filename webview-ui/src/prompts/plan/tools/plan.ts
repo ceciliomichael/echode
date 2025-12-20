@@ -13,29 +13,7 @@ export function getPlanInstructions(): string {
 Interactive planning tool for structured development workflow.
  
 Parameters:
-- mode: "ask" | "create_plan" | "update_plan" | "handoff" (required)
- 
-### Mode: ask
-Ask clarifying questions before creating a plan.
- 
-Parameters:
-- mode: "ask"
-- questions: Array of question strings (required)
- 
-Use when:
-- Requirements are unclear or ambiguous
-- Need user input to make decisions
-- Want to confirm assumptions before planning
- 
-Example:
-\`\`\`xml
-<invoke name="plan">
-<parameter name="mode">ask</parameter>
-<parameter name="questions">["What framework should be used?", "Should we include tests?"]</parameter>
-</invoke>
-\`\`\`
- 
-After asking, STOP and wait for the user to respond.
+- mode: "create_plan" | "update_plan" | "handoff" (required)
  
 ### Mode: create_plan
 Create a detailed implementation plan in markdown format.
