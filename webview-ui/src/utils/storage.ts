@@ -1,5 +1,6 @@
-import type { ApiSettings, Provider } from '../types/api-settings';
+import type { ApiSettings, Provider, ModeModelSettings } from '../types/api-settings';
 import { DEFAULT_API_SETTINGS, isCustomProvider } from '../types/api-settings';
+import type { ChatMode } from '../types/chat-mode';
 import { DEFAULT_CHAT_MODE } from '../types/chat-mode';
 import type { ChatSession } from '../types/chat-session';
 import type { Message } from '../types/chat';
@@ -262,23 +263,98 @@ export const storageService = {
     return content.substring(0, maxLength).trim() + '...';
   },
 
-  getChatMode(): 'agent' | 'plan' | 'ask' | 'general' | 'chat' {
+  getChatMode(): ChatMode {
     // Return cached value from settings (will be updated by backend)
     const settings = this.getSettings();
     return settings.chatMode || DEFAULT_CHAT_MODE;
   },
 
-  setChatMode(mode: 'agent' | 'plan' | 'ask' | 'general' | 'chat'): void {
+  setChatMode(mode: ChatMode): void {
     // Update local cache
-    const settings = this.getSettings();
-    settings.chatMode = mode;
+    const currentSettings = this.getSettings();
     
-    // Save to backend (global setting)
-    if (window.vscode) {
-      window.vscode.postMessage({ type: 'saveChatMode', mode });
-    }
+    // Get the model for the new mode to sync global settings
+    const modeModel = this.getModeModel(mode);
+    
+    const updated: ApiSettings = {
+      ...currentSettings,
+      chatMode: mode,
+      provider: modeModel.provider,
+      model: modeModel.model
+    };
+
+    // Also update provider-specific model fields to match the mode's selection
+    if (modeModel.provider === 'anthropic') updated.anthropicModel = modeModel.model;
+    else if (modeModel.provider === 'openai') updated.openaiModel = modeModel.model;
+    else if (modeModel.provider === 'openai-compatible') updated.openaiCompatibleModel = modeModel.model;
+    else if (modeModel.provider === 'megallm') updated.megallmModel = modeModel.model;
+    else if (modeModel.provider === 'vscode-lm') updated.vscodeLmModel = modeModel.model;
+    else if (modeModel.provider === 'qwen-code') updated.qwenCodeModel = modeModel.model;
+
+    // Save to backend (syncs both mode and global model)
+    this.saveSettings(updated);
     
     // Dispatch event for same-window listeners
     window.dispatchEvent(new CustomEvent('chatModeUpdated', { detail: mode }));
+  },
+
+  /**
+   * Get the provider and model for a specific chat mode.
+   * Falls back to global provider/model if no mode-specific setting exists.
+   */
+  getModeModel(mode: ChatMode): ModeModelSettings {
+    const settings = this.getSettings();
+    const modeSettings = settings.modeModelSettings?.[mode];
+    
+    if (modeSettings) {
+      return modeSettings;
+    }
+    
+    // Fallback to global provider/model
+    return {
+      provider: settings.provider,
+      model: settings.model,
+    };
+  },
+
+  /**
+   * Set the provider and model for a specific chat mode.
+   * Updates both mode-specific settings and syncs to backend.
+   */
+  setModeModel(mode: ChatMode, provider: Provider, model: string): void {
+    const currentSettings = this.getSettings();
+    
+    // Update the mode-specific settings using spread to ensure immutability
+    const modeModelSettings = {
+      ...(currentSettings.modeModelSettings || {}),
+      [mode]: { provider, model }
+    };
+    
+    // Create updated settings object
+    // When setting a mode's model, we ALSO update the global provider/model
+    // so the rest of the system stays in sync with the current selection.
+    const updated: ApiSettings = {
+      ...currentSettings,
+      modeModelSettings,
+      provider,
+      model
+    };
+
+    // Update provider-specific fields when model changes
+    if (provider === 'anthropic') {
+      updated.anthropicModel = model;
+    } else if (provider === 'openai') {
+      updated.openaiModel = model;
+    } else if (provider === 'openai-compatible') {
+      updated.openaiCompatibleModel = model;
+    } else if (provider === 'megallm') {
+      updated.megallmModel = model;
+    } else if (provider === 'vscode-lm') {
+      updated.vscodeLmModel = model;
+    } else if (provider === 'qwen-code') {
+      updated.qwenCodeModel = model;
+    }
+
+    this.saveSettings(updated);
   },
 };

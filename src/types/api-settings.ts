@@ -33,6 +33,11 @@ export interface ContextSettings {
   maxContextTokens: number;
 }
 
+export interface ModeModelSettings {
+  provider: string;
+  model: string;
+}
+
 export interface ApiSettings {
   provider: string;
   customBaseUrl?: string;
@@ -75,6 +80,7 @@ export interface ApiSettings {
   contextSettings?: ContextSettings;
   commitMessageSettings?: CommitMessageSettings;
   customProviders?: CustomProviderConfig[];
+  modeModelSettings?: Record<string, ModeModelSettings>;
 }
 
 export const DEFAULT_SETTINGS: ApiSettings = {

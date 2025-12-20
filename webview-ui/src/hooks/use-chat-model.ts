@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import type { ApiSettings, Provider } from '../types/api-settings';
+import type { ChatMode } from '../types/chat-mode';
 import { storageService } from '../utils/storage';
 
 interface ChatModelState {
@@ -10,10 +11,11 @@ interface ChatModelState {
 }
 
 /**
- * Hook to manage unified chat model selection
- * Uses a single global provider and model for all modes
+ * Hook to manage per-mode chat model selection
+ * Each mode can have its own provider and model configuration
+ * @param mode - The current chat mode to get/set model for
  */
-export function useChatModel(): ChatModelState {
+export function useChatModel(mode: ChatMode): ChatModelState {
   const [settings, setSettings] = useState<ApiSettings>(() => storageService.getSettings());
 
   useEffect(() => {
@@ -33,49 +35,25 @@ export function useChatModel(): ChatModelState {
     };
   }, []);
 
+  // Get mode-specific provider and model
+  const modeModel = useMemo(() => {
+    return storageService.getModeModel(mode);
+  }, [mode, settings]);
+
   const setActiveProviderAndModel = useCallback(
     (provider: Provider, model: string) => {
-      const currentSettings = storageService.getSettings();
+      // Use the mode-aware storage helper
+      storageService.setModeModel(mode, provider, model);
       
-      // Update global provider and model
-      const updated: ApiSettings = {
-        ...currentSettings,
-        provider,
-        model,
-      };
-
-      // Also update provider-specific model fields for compatibility
-      if (provider === 'anthropic') {
-        updated.anthropicModel = model;
-      } else if (provider === 'openai') {
-        updated.openaiModel = model;
-      } else if (provider === 'openai-compatible') {
-        updated.openaiCompatibleModel = model;
-      } else if (provider === 'megallm') {
-        updated.megallmModel = model;
-      } else if (provider === 'vscode-lm') {
-        updated.vscodeLmModel = model;
-      } else if (provider === 'qwen-code') {
-        updated.qwenCodeModel = model;
-      }
-
-      storageService.saveSettings(updated);
-
-      if (window.vscode) {
-        window.vscode.postMessage({
-          type: 'saveSettings',
-          settings: updated,
-        });
-      }
-
-      setSettings(updated);
+      // Update local state to trigger re-render
+      setSettings(storageService.getSettings());
     },
-    []
+    [mode]
   );
 
   return {
-    provider: settings.provider,
-    model: settings.model,
+    provider: modeModel.provider,
+    model: modeModel.model,
     settings,
     setActiveProviderAndModel,
   };

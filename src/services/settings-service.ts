@@ -10,7 +10,8 @@ const WORKSPACE_SPECIFIC_FIELDS: (keyof ApiSettings)[] = [
   'indexingSettings',
   'autocompleteSettings',
   'contextSettings',
-  'commitMessageSettings'
+  'commitMessageSettings',
+  'modeModelSettings'
 ];
 
 export class SettingsService {

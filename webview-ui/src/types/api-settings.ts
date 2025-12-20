@@ -1,7 +1,18 @@
+import type { ChatMode } from './chat-mode';
+
 export type BuiltInProvider = 'anthropic' | 'openai' | 'openai-compatible' | 'megallm' | 'vscode-lm' | 'qwen-code';
 
 // Extended provider type that includes custom providers with pattern custom-{id}
 export type Provider = BuiltInProvider | `custom-${string}`;
+
+/**
+ * Per-mode model configuration
+ * Each chat mode can have its own provider and model
+ */
+export interface ModeModelSettings {
+  provider: Provider;
+  model: string;
+}
 
 /**
  * Configuration for a custom OpenAI-compatible provider
@@ -66,7 +77,8 @@ export const DEFAULT_CONTEXT_SETTINGS: ContextSettings = {
   maxContextTokens: 128000,
 };
 
-export type ChatMode = 'agent' | 'plan' | 'ask' | 'general' | 'chat';
+// ChatMode is imported from './chat-mode' - re-export for convenience
+export type { ChatMode } from './chat-mode';
 
 export interface Tool {
   id: string;
@@ -118,6 +130,8 @@ export interface ApiSettings {
   contextSettings?: ContextSettings;
   commitMessageSettings?: CommitMessageSettings;
   customProviders?: CustomProvider[];
+  /** Per-mode model configuration - each mode can have its own provider/model */
+  modeModelSettings?: Partial<Record<ChatMode, ModeModelSettings>>;
 }
 
 export const DEFAULT_API_SETTINGS: ApiSettings = {

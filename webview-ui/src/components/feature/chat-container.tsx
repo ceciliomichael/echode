@@ -23,8 +23,8 @@ export function ChatContainer() {
   // Get current chat mode
   const { mode, handleModeChange, setHotkeyDisabled } = useChatMode();
   
-  // Unified model selection (same model for all modes)
-  const { provider, model, setActiveProviderAndModel } = useChatModel();
+  // Per-mode model selection (each mode can have its own model)
+  const { provider, model, setActiveProviderAndModel } = useChatModel(mode);
 
   const contentWidthClass = 'w-full max-w-3xl';
   const horizontalPaddingClass = 'px-4 sm:px-5 lg:px-6';
