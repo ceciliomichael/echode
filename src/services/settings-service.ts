@@ -5,6 +5,14 @@ import { ApiSettings, DEFAULT_SETTINGS } from '../types/api-settings';
 
 export { ApiSettings };
 
+// Fields that can be overridden per workspace
+const WORKSPACE_SPECIFIC_FIELDS: (keyof ApiSettings)[] = [
+  'indexingSettings',
+  'autocompleteSettings',
+  'contextSettings',
+  'commitMessageSettings'
+];
+
 export class SettingsService {
   private configDir: string;
   private settingsPath: string;
@@ -100,10 +108,22 @@ export class SettingsService {
     const workspaceId = this.generateWorkspaceId(workspacePath);
 
     if (globalSettings.workspaceSettings && globalSettings.workspaceSettings[workspaceId]) {
-      // Merge workspace-specific overrides on top of global settings
+      const workspaceOverrides = globalSettings.workspaceSettings[workspaceId];
+      const filteredOverrides: Partial<ApiSettings> = {};
+
+      // Only apply overrides that are strictly allowed as workspace-specific
+      // This ignores legacy data (like provider/model) that might exist in the JSON
+      // but should now be treated as global.
+      WORKSPACE_SPECIFIC_FIELDS.forEach(field => {
+        if (field in workspaceOverrides) {
+          // @ts-ignore
+          filteredOverrides[field] = workspaceOverrides[field];
+        }
+      });
+
       return {
         ...globalSettings,
-        ...globalSettings.workspaceSettings[workspaceId]
+        ...filteredOverrides
       };
     }
 
@@ -119,45 +139,16 @@ export class SettingsService {
     const globalSettings = this.getSettings();
     const workspaceId = this.generateWorkspaceId(workspacePath);
 
-    // 1. Identify model-related fields that should be workspace-specific
-    const workspaceSpecificFields: (keyof ApiSettings)[] = [
-      'provider',
-      'model',
-      'anthropicModel',
-      'openaiModel',
-      'openaiCompatibleModel',
-      'megallmModel',
-      'vscodeLmModel',
-      'qwenCodeModel',
-      'anthropicMaxTokens',
-      'openaiMaxTokens',
-      'openaiCompatibleMaxTokens',
-      'megallmMaxTokens',
-      'vscodeLmMaxTokens',
-      'qwenCodeMaxTokens',
-      'anthropicTemperature',
-      'openaiTemperature',
-      'openaiCompatibleTemperature',
-      'megallmTemperature',
-      'vscodeLmTemperature',
-      'qwenCodeTemperature',
-      'indexingSettings',
-      'autocompleteSettings',
-      'contextSettings',
-      'commitMessageSettings',
-      'modeModels'
-    ];
-
-    // 2. Prepare the workspace override object
+    // 1. Prepare the workspace override object
     const workspaceOverride: Partial<ApiSettings> = {};
-    workspaceSpecificFields.forEach(field => {
+    WORKSPACE_SPECIFIC_FIELDS.forEach(field => {
       if (field in newSettings) {
         // @ts-ignore
         workspaceOverride[field] = newSettings[field];
       }
     });
 
-    // 3. Prepare the updated global settings
+    // 2. Prepare the updated global settings
     // We update global settings with ONLY non-workspace-specific fields to ensure:
     // - API keys are saved globally
     // - Global defaults remain stable (don't jump around when changing local workspace models)
@@ -172,13 +163,13 @@ export class SettingsService {
     Object.keys(newSettings).forEach((key) => {
       const k = key as keyof ApiSettings;
       // Skip workspace-specific fields and the workspaceSettings map itself
-      if (!workspaceSpecificFields.includes(k) && k !== 'workspaceSettings') {
+      if (!WORKSPACE_SPECIFIC_FIELDS.includes(k) && k !== 'workspaceSettings') {
         // @ts-ignore
         updatedGlobal[k] = newSettings[k];
       }
     });
 
-    // 4. Save the workspace override if we are in a workspace
+    // 3. Save the workspace override if we are in a workspace
     if (workspacePath) {
       if (!updatedGlobal.workspaceSettings) {
         updatedGlobal.workspaceSettings = {};
@@ -187,7 +178,7 @@ export class SettingsService {
     } else {
       // If we are NOT in a workspace (global context), we SHOULD update the global defaults
       // for model fields, otherwise they can never be changed in a non-workspace window.
-      workspaceSpecificFields.forEach(field => {
+      WORKSPACE_SPECIFIC_FIELDS.forEach(field => {
         if (field in newSettings) {
           // @ts-ignore
           updatedGlobal[field] = newSettings[field];
@@ -199,35 +190,19 @@ export class SettingsService {
   }
 
   /**
-   * Get chat mode for a specific workspace
-   * Falls back to global chatMode or 'agent' default
+   * Get global chat mode
    */
-  getChatMode(workspacePath?: string): string {
+  getChatMode(): string {
     const settings = this.getSettings();
-    const workspaceId = this.generateWorkspaceId(workspacePath);
-    
-    // Check workspace-specific mode first
-    if (settings.workspaceModes && settings.workspaceModes[workspaceId]) {
-      return settings.workspaceModes[workspaceId];
-    }
-    
-    // Fall back to global chatMode or default
     return settings.chatMode || 'agent';
   }
 
   /**
-   * Set chat mode for a specific workspace
+   * Set global chat mode
    */
-  setChatMode(workspacePath: string | undefined, mode: string): void {
+  setChatMode(mode: string): void {
     const settings = this.getSettings();
-    const workspaceId = this.generateWorkspaceId(workspacePath);
-    
-    // Initialize workspaceModes if not exists
-    if (!settings.workspaceModes) {
-      settings.workspaceModes = {};
-    }
-    
-    settings.workspaceModes[workspaceId] = mode;
+    settings.chatMode = mode;
     this.saveSettings(settings);
   }
 

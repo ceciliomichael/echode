@@ -76,9 +76,11 @@ const ToolBlockComponent = ({
   );
 
   // Determine if toggling is allowed
-  // For apply_diff, disable toggle while executing - only allow after completion
+  // For file-modifying tools (apply_diff, write_to_file), disable toggle while executing
   const canToggle = useMemo(() => {
-    if (toolCall.toolName === 'apply_diff') {
+    const isFileModifyingTool = toolCall.toolName === 'apply_diff' || toolCall.toolName === 'write_to_file';
+    
+    if (isFileModifyingTool) {
       // Only allow toggle after the tool has completed with result data
       const isCompleted = toolCall.status === 'completed' && toolCall.result != null;
       return isCompleted;

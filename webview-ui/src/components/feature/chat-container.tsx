@@ -20,11 +20,11 @@ import { storageService } from '../../utils/storage';
 export function ChatContainer() {
   const { tasks, updateTodos, clearTodos } = useTodo();
   
-  // Get mode first - needed for per-mode model selection
+  // Get current chat mode
   const { mode, handleModeChange, setHotkeyDisabled } = useChatMode();
   
-  // Model selection is now per-mode
-  const { provider, model, setActiveProviderAndModel } = useChatModel(mode);
+  // Unified model selection (same model for all modes)
+  const { provider, model, setActiveProviderAndModel } = useChatModel();
 
   const contentWidthClass = 'w-full max-w-3xl';
   const horizontalPaddingClass = 'px-4 sm:px-5 lg:px-6';

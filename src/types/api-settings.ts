@@ -33,20 +33,6 @@ export interface ContextSettings {
   maxContextTokens: number;
 }
 
-export interface ModeModelConfig {
-  provider: string;
-  model: string;
-  settings?: ApiSettings;
-}
-
-export interface ModeModelSettings {
-  agent?: ModeModelConfig;
-  plan?: ModeModelConfig;
-  ask?: ModeModelConfig;
-  general?: ModeModelConfig;
-  chat?: ModeModelConfig;
-}
-
 export interface ApiSettings {
   provider: string;
   customBaseUrl?: string;
@@ -83,14 +69,12 @@ export interface ApiSettings {
   systemPrompt?: string;
   enabledTools?: unknown[];
   chatMode?: string;
-  workspaceModes?: Record<string, string>;
   workspaceSettings?: Record<string, Partial<ApiSettings>>;
   indexingSettings?: IndexingSettings;
   autocompleteSettings?: AutocompleteSettings;
   contextSettings?: ContextSettings;
   commitMessageSettings?: CommitMessageSettings;
   customProviders?: CustomProviderConfig[];
-  modeModels?: ModeModelSettings;
 }
 
 export const DEFAULT_SETTINGS: ApiSettings = {

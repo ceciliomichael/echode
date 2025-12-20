@@ -62,14 +62,13 @@ export async function handleClearApiSettings(
 }
 
 /**
- * Get chat mode for current workspace
+ * Get global chat mode
  */
 export async function handleGetChatMode(
   _data: SettingsData,
   webview: WebviewTarget
 ): Promise<void> {
-  const workspacePath = getWorkspacePath();
-  const chatMode = getSettingsService().getChatMode(workspacePath);
+  const chatMode = getSettingsService().getChatMode();
   webview.webview.postMessage({
     type: 'chatModeLoaded',
     mode: chatMode
@@ -77,15 +76,14 @@ export async function handleGetChatMode(
 }
 
 /**
- * Save chat mode for current workspace
+ * Save global chat mode
  */
 export async function handleSaveChatMode(
   data: SettingsData,
   webview: WebviewTarget
 ): Promise<void> {
-  const workspacePath = getWorkspacePath();
   if (data.mode) {
-    getSettingsService().setChatMode(workspacePath, data.mode);
+    getSettingsService().setChatMode(data.mode);
   }
   webview.webview.postMessage({ type: 'chatModeSaved' });
 }

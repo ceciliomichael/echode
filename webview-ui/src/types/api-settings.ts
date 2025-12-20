@@ -66,24 +66,7 @@ export const DEFAULT_CONTEXT_SETTINGS: ContextSettings = {
   maxContextTokens: 128000,
 };
 
-/**
- * Per-mode model configuration
- * Each mode can have its own provider and model
- */
-export interface ModeModelConfig {
-  provider: Provider;
-  model: string;
-}
-
 export type ChatMode = 'agent' | 'plan' | 'ask' | 'general' | 'chat';
-
-export interface ModeModelSettings {
-  agent?: ModeModelConfig;
-  plan?: ModeModelConfig;
-  ask?: ModeModelConfig;
-  general?: ModeModelConfig;
-  chat?: ModeModelConfig;
-}
 
 export interface Tool {
   id: string;
@@ -135,7 +118,6 @@ export interface ApiSettings {
   contextSettings?: ContextSettings;
   commitMessageSettings?: CommitMessageSettings;
   customProviders?: CustomProvider[];
-  modeModels?: ModeModelSettings;
 }
 
 export const DEFAULT_API_SETTINGS: ApiSettings = {

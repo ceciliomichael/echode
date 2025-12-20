@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { ApiSettings, ChatMode, ModeModelConfig, Provider } from '../types/api-settings';
+import type { ApiSettings, Provider } from '../types/api-settings';
 import { storageService } from '../utils/storage';
 
 interface ChatModelState {
@@ -10,28 +10,10 @@ interface ChatModelState {
 }
 
 /**
- * Get the provider and model for a specific mode
- * Falls back to legacy settings if no mode-specific config exists
+ * Hook to manage unified chat model selection
+ * Uses a single global provider and model for all modes
  */
-function getModeModel(settings: ApiSettings, mode: ChatMode): ModeModelConfig {
-  const modeConfig = settings.modeModels?.[mode];
-  
-  if (modeConfig?.provider && modeConfig?.model) {
-    return modeConfig;
-  }
-  
-  // Fallback to legacy global provider/model
-  return {
-    provider: settings.provider,
-    model: settings.model,
-  };
-}
-
-/**
- * Hook to manage chat model selection per mode
- * Each mode can have its own provider and model configuration
- */
-export function useChatModel(mode: ChatMode): ChatModelState {
+export function useChatModel(): ChatModelState {
   const [settings, setSettings] = useState<ApiSettings>(() => storageService.getSettings());
 
   useEffect(() => {
@@ -55,16 +37,11 @@ export function useChatModel(mode: ChatMode): ChatModelState {
     (provider: Provider, model: string) => {
       const currentSettings = storageService.getSettings();
       
-      // Update mode-specific model settings
+      // Update global provider and model
       const updated: ApiSettings = {
         ...currentSettings,
-        // Keep legacy fields updated for backwards compatibility
         provider,
         model,
-        modeModels: {
-          ...currentSettings.modeModels,
-          [mode]: { provider, model },
-        },
       };
 
       // Also update provider-specific model fields for compatibility
@@ -93,15 +70,12 @@ export function useChatModel(mode: ChatMode): ChatModelState {
 
       setSettings(updated);
     },
-    [mode]
+    []
   );
 
-  // Get mode-specific provider/model
-  const modeModel = getModeModel(settings, mode);
-
   return {
-    provider: modeModel.provider,
-    model: modeModel.model,
+    provider: settings.provider,
+    model: settings.model,
     settings,
     setActiveProviderAndModel,
   };

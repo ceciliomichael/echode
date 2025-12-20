@@ -273,7 +273,7 @@ export const storageService = {
     const settings = this.getSettings();
     settings.chatMode = mode;
     
-    // Send to backend for workspace-specific storage
+    // Save to backend (global setting)
     if (window.vscode) {
       window.vscode.postMessage({ type: 'saveChatMode', mode });
     }
@@ -281,11 +281,4 @@ export const storageService = {
     // Dispatch event for same-window listeners
     window.dispatchEvent(new CustomEvent('chatModeUpdated', { detail: mode }));
   },
-
-  requestChatMode(): void {
-    // Request workspace-specific chat mode from backend
-    if (window.vscode) {
-      window.vscode.postMessage({ type: 'getChatMode' });
-    }
-  }
 };

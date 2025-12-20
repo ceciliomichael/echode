@@ -36,12 +36,42 @@ function newName(x: number): number {
 >>>>>>> REPLACE
 \`\`\`
 
+EXAMPLE - Multiple Edits (Use multiple invokes):
+\`\`\`xml
+<function_calls>
+    <invoke name="apply_diff">
+        <parameter name="path">src/file.ts</parameter>
+        <parameter name="diff">
+<<<<<<< SEARCH
+:start_line:10
+-------
+const x = 1;
+=======
+const x = 10;
+>>>>>>> REPLACE
+        </parameter>
+    </invoke>
+    <invoke name="apply_diff">
+        <parameter name="path">src/file.ts</parameter>
+        <parameter name="diff">
+<<<<<<< SEARCH
+:start_line:20
+-------
+const y = 2;
+=======
+const y = 20;
+>>>>>>> REPLACE
+        </parameter>
+    </invoke>
+</function_calls>
+\`\`\`
+
 CRITICAL RULES:
 - MUST start with \`<<<<<<< SEARCH\` (7 less-than signs + space + SEARCH)
 - MUST include \`:start_line:N\` and \`-------\` before search content
 - MUST have \`=======\` separator between search and replace
 - MUST end with \`>>>>>>> REPLACE\` (7 greater-than signs + space + REPLACE)
-- For multi-edits, use multi <invoke> blocks, one per edit
+- MULTIPLE EDITS: Use separate <invoke> blocks for each edit. DO NOT put multiple SEARCH/REPLACE blocks in one diff.
 
 When to use:
 - Small, targeted changes

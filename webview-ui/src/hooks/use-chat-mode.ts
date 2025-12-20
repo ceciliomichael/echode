@@ -9,6 +9,10 @@ interface ChatModeState {
   setHotkeyDisabled: (disabled: boolean) => void;
 }
 
+/**
+ * Hook to manage unified chat mode
+ * Uses a single global mode stored in settings
+ */
 export function useChatMode(): ChatModeState {
   const [mode, setMode] = useState<ChatMode>(() => storageService.getChatMode());
   const isDisabledRef = useRef(false);
@@ -16,30 +20,6 @@ export function useChatMode(): ChatModeState {
   const handleModeChange = useCallback((newMode: ChatMode) => {
     setMode(newMode);
     storageService.setChatMode(newMode);
-  }, []);
-
-  // Request workspace-specific chat mode from backend on mount
-  useEffect(() => {
-    const handleChatModeLoaded = (event: MessageEvent) => {
-      const message = event.data;
-      if (message.type === 'chatModeLoaded' && message.mode) {
-        const loadedMode = message.mode as ChatMode;
-        // Validate the mode is a valid ChatMode
-        if (CHAT_MODE_OPTIONS.some(opt => opt.value === loadedMode)) {
-          setMode(loadedMode);
-          // Update local cache
-          const settings = storageService.getSettings();
-          settings.chatMode = loadedMode;
-        }
-      }
-    };
-
-    window.addEventListener('message', handleChatModeLoaded);
-
-    // Request workspace-specific mode from backend
-    storageService.requestChatMode();
-
-    return () => window.removeEventListener('message', handleChatModeLoaded);
   }, []);
 
   // Callback to update the disabled state from external components
