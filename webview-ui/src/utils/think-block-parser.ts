@@ -15,10 +15,8 @@ export function removeThinkBlocks(content: string): string {
   return content
     .replace(/<think>[\s\S]*?<\/think>/g, '')
     .replace(/<thinking>[\s\S]*?<\/thinking>/g, '')
-    .replace(/<reasoning_content>[\s\S]*?<\/reasoning_content>/g, '')
     .replace(/<think>[\s\S]*$/g, '') // Remove unclosed <think> at end
-    .replace(/<thinking>[\s\S]*$/g, '') // Remove unclosed <thinking> at end
-    .replace(/<reasoning_content>[\s\S]*$/g, ''); // Remove unclosed <reasoning_content> at end
+    .replace(/<thinking>[\s\S]*$/g, ''); // Remove unclosed <thinking> at end
 }
 
 /**
@@ -31,8 +29,7 @@ export function parseThinkBlocks(content: string): ParsedContent {
   // Process both <think> and <thinking> tags
   const tagPatterns = [
     { open: '<think>', close: '</think>', openLen: 7, closeLen: 8 },
-    { open: '<thinking>', close: '</thinking>', openLen: 10, closeLen: 11 },
-    { open: '<reasoning_content>', close: '</reasoning_content>', openLen: 19, closeLen: 20 }
+    { open: '<thinking>', close: '</thinking>', openLen: 10, closeLen: 11 }
   ];
 
   // Find all think/thinking blocks in order

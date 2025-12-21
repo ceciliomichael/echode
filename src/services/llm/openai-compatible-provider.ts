@@ -88,8 +88,8 @@ export class OpenAICompatibleProvider implements ILLMProvider {
     try {
       const stream = await this.createChatCompletionStream(client, messages, settings) as AsyncIterable<ChatCompletionChunkLike>;
 
-      // Track reasoning state
-      let isInReasoningBlock = false;
+      // Track reasoning/thinking state
+      let isInThinkingBlock = false;
 
       const processStream = async () => {
         for await (const chunk of stream) {
@@ -126,13 +126,13 @@ export class OpenAICompatibleProvider implements ILLMProvider {
               break;
             }
 
-            // Start reasoning block if not already in one
-            if (!isInReasoningBlock) {
-              isInReasoningBlock = true;
+            // Start thinking block if not already in one
+            if (!isInThinkingBlock) {
+              isInThinkingBlock = true;
               webview.webview.postMessage({
                 type: 'chatStreamChunk',
                 requestId,
-                chunk: '<reasoning_content>'
+                chunk: '<thinking>'
               });
             }
 
@@ -161,13 +161,13 @@ export class OpenAICompatibleProvider implements ILLMProvider {
               break;
             }
 
-            // Close reasoning block if we were in one
-            if (isInReasoningBlock) {
-              isInReasoningBlock = false;
+            // Close thinking block if we were in one
+            if (isInThinkingBlock) {
+              isInThinkingBlock = false;
               webview.webview.postMessage({
                 type: 'chatStreamChunk',
                 requestId,
-                chunk: '</reasoning_content>'
+                chunk: '</thinking>'
               });
             }
 
@@ -180,12 +180,12 @@ export class OpenAICompatibleProvider implements ILLMProvider {
           }
         }
 
-        // Close reasoning block if stream ends while in reasoning
-        if (isInReasoningBlock) {
+        // Close thinking block if stream ends while in thinking
+        if (isInThinkingBlock) {
           webview.webview.postMessage({
             type: 'chatStreamChunk',
             requestId,
-            chunk: '</reasoning_content>'
+            chunk: '</thinking>'
           });
         }
       };

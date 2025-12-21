@@ -21,19 +21,17 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
         // Check for think/thinking blocks, tool blocks, and mermaid blocks
         const thinkStart = content.indexOf('<think>', position);
         const thinkingStart = content.indexOf('<thinking>', position);
-        const reasoningStart = content.indexOf('<reasoning_content>', position);
         const toolStart = findNextToolStart(content, position);
         const mermaidStart = findNextMermaidStart(content, position);
 
         // Determine which comes first
         let nextBlockStart = -1;
-        let blockType: 'think' | 'thinking' | 'reasoning' | 'tool' | 'mermaid' | null = null;
+        let blockType: 'think' | 'thinking' | 'tool' | 'mermaid' | null = null;
 
         // Find the earliest block
         const candidates = [
             { pos: thinkStart, type: 'think' as const },
             { pos: thinkingStart, type: 'thinking' as const },
-            { pos: reasoningStart, type: 'reasoning' as const },
             { pos: toolStart, type: 'tool' as const },
             { pos: mermaidStart, type: 'mermaid' as const }
         ].filter(c => c.pos !== -1);
@@ -114,34 +112,7 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
                 break;
             }
         }
-        // Process reasoning_content block
-        else if (blockType === 'reasoning') {
-            const contentStart = reasoningStart + 19; // length of '<reasoning_content>'
-            const closeTag = content.indexOf('</reasoning_content>', contentStart);
 
-            if (closeTag !== -1) {
-                // Closed reasoning block
-                const thinkContent = content.slice(contentStart, closeTag);
-                tokens.push({
-                    type: 'think',
-                    content: thinkContent,
-                    index: tokenIndex++,
-                    isClosed: true
-                });
-                position = closeTag + 20; // Skip past '</reasoning_content>'
-            } else {
-                // Unclosed reasoning block (streaming)
-                const thinkContent = content.slice(contentStart);
-                tokens.push({
-                    type: 'think',
-                    content: thinkContent,
-                    index: tokenIndex++,
-                    isClosed: false
-                });
-                position = content.length;
-                break;
-            }
-        }
         // Process tool block
         else if (blockType === 'tool') {
             const openingTag = '<function_calls>';
