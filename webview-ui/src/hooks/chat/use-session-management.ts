@@ -127,9 +127,17 @@ export function useSessionManagement({
             msg.toolExecutions.map(([id, execution]) => {
               let fixedExecution = execution;
 
+              // Fix interrupted executions that have results
               if (fixedExecution.status === 'executing' && fixedExecution.result) {
                 const finalStatus = fixedExecution.result.success ? 'completed' : 'error';
                 fixedExecution = { ...fixedExecution, status: finalStatus };
+              }
+
+              // Fix plan tools that should be awaiting_user but were saved with wrong status
+              // This handles cases where the tool has awaitsUserAction but status wasn't updated
+              const resultData = fixedExecution.result?.data as { awaitsUserAction?: boolean } | undefined;
+              if (resultData?.awaitsUserAction === true && fixedExecution.status !== 'awaiting_user') {
+                fixedExecution = { ...fixedExecution, status: 'awaiting_user' };
               }
 
               return [id, fixedExecution];

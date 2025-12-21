@@ -4,36 +4,43 @@ import type { ToolExecutionState } from '../../types/tool';
 
 interface MessageActionsProps {
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  messagesRef: React.MutableRefObject<Message[]>;
 }
 
 /**
  * Hook for message update operations (update content, tool executions)
  */
-export function useMessageActions({ setMessages }: MessageActionsProps) {
+export function useMessageActions({ setMessages, messagesRef }: MessageActionsProps) {
   const updateMessage = useCallback((messageId: string, newContent: string) => {
-    setMessages(prev =>
-      prev.map(msg =>
+    setMessages(prev => {
+      const next = prev.map(msg =>
         msg.id === messageId ? { ...msg, content: newContent } : msg
-      )
-    );
-  }, [setMessages]);
+      );
+      // Synchronously update ref to avoid race conditions with saveSession
+      messagesRef.current = next;
+      return next;
+    });
+  }, [setMessages, messagesRef]);
 
   const updateToolExecution = useCallback((
     messageId: string,
     toolExecutionId: string,
     state: ToolExecutionState
   ) => {
-    setMessages(prev =>
-      prev.map(msg => {
+    setMessages(prev => {
+      const next = prev.map(msg => {
         if (msg.id === messageId) {
           const toolExecutions = new Map(msg.toolExecutions || []);
           toolExecutions.set(toolExecutionId, state);
           return { ...msg, toolExecutions };
         }
         return msg;
-      })
-    );
-  }, [setMessages]);
+      });
+      // Synchronously update ref to avoid race conditions with saveSession
+      messagesRef.current = next;
+      return next;
+    });
+  }, [setMessages, messagesRef]);
 
   const updateToolResultData = useCallback((
     toolName: string,

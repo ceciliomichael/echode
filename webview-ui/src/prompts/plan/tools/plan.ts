@@ -58,7 +58,7 @@ Parameters:
 - mode: "update_plan"
 - title: Plan title (optional, defaults to "Implementation Plan")
 - plan: Updated markdown content with the revised plan (required)
-- planFilePath: The EXACT path from the previous create_plan/update_plan result (required)
+- planFilePath: The path from the previous create_plan/update_plan result (optional - will auto-detect latest if omitted)
  
 Use when:
 - User provides feedback on the created plan instead of clicking "Verify Plan"
@@ -66,9 +66,9 @@ Use when:
 - Iterating on the plan before final verification
 
 CRITICAL RULES:
-1. The planFilePath MUST be the EXACT value from the previous tool result's "planFilePath" field
-2. DO NOT make up or guess the path - it contains a UUID like "plan-a1b2c3d4-e5f6-7890-abcd-ef1234567890.md"
-3. If you don't have the planFilePath from a previous result, use create_plan instead
+1. If you have the "planFilePath" from the previous result, provide it.
+2. If you DO NOT have the planFilePath (e.g. user replied without verifying), you can omit it. The system will automatically find the most recent plan.
+3. DO NOT make up or guess the path.
  
 Example (assuming previous create_plan returned planFilePath: "/workspace/.echode/plan-a1b2c3d4-e5f6-7890-abcd-ef1234567890.md"):
 \`\`\`xml

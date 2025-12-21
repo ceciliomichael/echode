@@ -161,7 +161,7 @@ export class PlanTool implements ITool {
   private async handleUpdatePlanMode(params: PlanToolParameters): Promise<ToolExecutionResult> {
     const planContent = params.plan;
     const title = params.title || 'Implementation Plan';
-    const existingPlanFilePath = params.planFilePath;
+    let existingPlanFilePath = params.planFilePath;
 
     if (!planContent || typeof planContent !== 'string' || planContent.trim().length === 0) {
       return {
@@ -170,14 +170,47 @@ export class PlanTool implements ITool {
       };
     }
 
-    if (!existingPlanFilePath || typeof existingPlanFilePath !== 'string') {
-      return {
-        success: false,
-        error: 'Update plan mode requires a valid "planFilePath" parameter from the previous create_plan result',
-      };
-    }
-
     try {
+      // If no path provided, try to find the latest plan file
+      if (!existingPlanFilePath || typeof existingPlanFilePath !== 'string') {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (workspaceFolders && workspaceFolders.length > 0) {
+          const workspaceRoot = workspaceFolders[0].uri.fsPath;
+          const echodeDir = path.join(workspaceRoot, '.echode');
+          const echodeDirUri = vscode.Uri.file(echodeDir);
+
+          try {
+            const files = await vscode.workspace.fs.readDirectory(echodeDirUri);
+            const planFiles = files.filter(([name]) => name.startsWith('plan-') && name.endsWith('.md'));
+
+            if (planFiles.length > 0) {
+              // Get stats for all plan files to find the most recent one
+              const fileStats = await Promise.all(
+                planFiles.map(async ([name]) => {
+                  const filePath = path.join(echodeDir, name);
+                  const stat = await vscode.workspace.fs.stat(vscode.Uri.file(filePath));
+                  return { path: filePath, mtime: stat.mtime };
+                })
+              );
+
+              // Sort by mtime descending (newest first)
+              fileStats.sort((a, b) => b.mtime - a.mtime);
+              existingPlanFilePath = fileStats[0].path;
+            }
+          } catch (error) {
+            // Ignore errors reading directory, fall back to validation error
+            console.error('Failed to search for plan files:', error);
+          }
+        }
+      }
+
+      if (!existingPlanFilePath || typeof existingPlanFilePath !== 'string') {
+        return {
+          success: false,
+          error: 'Update plan mode requires a valid "planFilePath" parameter. Could not automatically find an existing plan to update.',
+        };
+      }
+
       const fullContent = `# ${title}\n\n${planContent}`;
       
       // Check if the file exists

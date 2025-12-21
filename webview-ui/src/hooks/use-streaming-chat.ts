@@ -66,6 +66,7 @@ export function useStreamingChat(
     updateToolResultData,
   } = useMessageActions({
     setMessages: state.setMessages,
+    messagesRef: state.messagesRef,
   });
 
   // Tool execution hook

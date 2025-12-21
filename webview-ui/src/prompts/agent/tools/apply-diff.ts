@@ -71,7 +71,9 @@ CRITICAL RULES:
 - MUST include \`:start_line:N\` and \`-------\` before search content
 - MUST have \`=======\` separator between search and replace
 - MUST end with \`>>>>>>> REPLACE\` (7 greater-than signs + space + REPLACE)
-- MULTIPLE EDITS: Use separate <invoke> blocks for each edit. DO NOT put multiple SEARCH/REPLACE blocks in one diff.
+- ONE SEARCH/REPLACE block per apply_diff call - use multiple invokes for multiple edits
+- NEVER put multiple <<<<<<< SEARCH blocks in a single diff parameter
+- FOLLOW ALL INSTRUCTIONS EXACTLY as specified
 
 When to use:
 - Small, targeted changes
