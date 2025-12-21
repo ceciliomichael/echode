@@ -5,6 +5,7 @@ import { hasCompleteToolBlock, trimToFirstCompleteToolBlock, extractCompleteInvo
 import { generateToolExecutionId, createToolExecutionState, updateToolExecutionStatus } from '../../lib/tool-execution-tracker';
 import { isRetryableError } from './helpers';
 import { ToolExecutor } from '../../lib/tool-executor';
+import { formatToolResultForAI } from '../../utils/tool-execution-helpers';
 
 /**
  * Result of the streaming loop
@@ -111,10 +112,8 @@ async function executeToolInParallel(
     );
     updateToolExecution(assistantMessageId, execId, completedState);
 
-    // Format result string
-    const formattedResult = result.success
-      ? `Tool: ${block.toolName}\nResult: ${JSON.stringify(result.data, null, 2)}`
-      : `Tool: ${block.toolName}\nError: ${result.error}`;
+    // Format result string using shared formatter
+    const formattedResult = formatToolResultForAI(block.toolName, result);
 
     return {
       toolIndex,

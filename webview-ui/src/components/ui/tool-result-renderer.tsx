@@ -116,6 +116,7 @@ export function renderToolResult(
             oldContent={result.oldContent ?? null}
             newContent={result.newContent}
             fileName={fileName}
+            contextLines={3}
           />
         </div>
       );

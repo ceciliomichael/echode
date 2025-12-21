@@ -66,13 +66,37 @@ const y = 20;
 </function_calls>
 \`\`\`
 
+INCORRECT EXAMPLE - DO NOT DO THIS (Multiple blocks in one diff):
+\`\`\`xml
+<!-- ❌ WRONG: Do NOT put multiple search blocks in one parameter -->
+<invoke name="apply_diff">
+    <parameter name="path">src/file.ts</parameter>
+    <parameter name="diff">
+<<<<<<< SEARCH
+:start_line:10
+-------
+const x = 1;
+=======
+const x = 10;
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+:start_line:20
+-------
+const y = 2;
+=======
+const y = 20;
+>>>>>>> REPLACE
+    </parameter>
+</invoke>
+\`\`\`
+
 CRITICAL RULES:
+- ONE SEARCH/REPLACE block per apply_diff call - use multiple invokes for multiple edits (as shown in the correct example above)
+- NEVER put multiple <<<<<<< SEARCH blocks in a single diff parameter
 - MUST start with \`<<<<<<< SEARCH\` (7 less-than signs + space + SEARCH)
 - MUST include \`:start_line:N\` and \`-------\` before search content
 - MUST have \`=======\` separator between search and replace
 - MUST end with \`>>>>>>> REPLACE\` (7 greater-than signs + space + REPLACE)
-- ONE SEARCH/REPLACE block per apply_diff call - use multiple invokes for multiple edits
-- NEVER put multiple <<<<<<< SEARCH blocks in a single diff parameter
 - FOLLOW ALL INSTRUCTIONS EXACTLY as specified
 
 When to use:

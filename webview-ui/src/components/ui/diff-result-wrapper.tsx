@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { DiffViewer } from './diff-viewer';
 
 interface DiffResultWrapperProps {
@@ -9,15 +9,62 @@ interface DiffResultWrapperProps {
   viewOnly?: boolean;
 }
 
-const LARGE_DIFF_APPROX_LINE_THRESHOLD = 800;
+/**
+ * Threshold for showing the "large diff" warning.
+ * Based on actual changed lines, not total file size.
+ */
+const LARGE_DIFF_CHANGED_LINES_THRESHOLD = 500;
+
+/**
+ * Estimate the number of changed lines between old and new content.
+ * Uses a simple line-by-line comparison to count additions and removals.
+ */
+function estimateChangedLines(oldContent: string | null, newContent: string): number {
+  // New file: all lines are additions
+  if (!oldContent) {
+    return newContent.split('\n').length;
+  }
+
+  const oldLines = oldContent.split('\n');
+  const newLines = newContent.split('\n');
+
+  // Quick check: if contents are identical, no changes
+  if (oldContent === newContent) {
+    return 0;
+  }
+
+  // Create a Set of old lines for O(1) lookup
+  const oldLineSet = new Set(oldLines);
+  const newLineSet = new Set(newLines);
+
+  // Count lines that are in new but not in old (additions)
+  let changedCount = 0;
+  for (const line of newLines) {
+    if (!oldLineSet.has(line)) {
+      changedCount++;
+    }
+  }
+
+  // Count lines that are in old but not in new (removals)
+  for (const line of oldLines) {
+    if (!newLineSet.has(line)) {
+      changedCount++;
+    }
+  }
+
+  return changedCount;
+}
 
 export function DiffResultWrapper({ oldContent, newContent, fileName, contextLines, viewOnly }: DiffResultWrapperProps) {
   const [showFull, setShowFull] = useState(false);
 
-  const oldLines = oldContent ? oldContent.split('\n').length : 0;
-  const newLines = newContent ? newContent.split('\n').length : 0;
-  const approximateLines = Math.max(oldLines, newLines);
-  const isLarge = approximateLines > LARGE_DIFF_APPROX_LINE_THRESHOLD;
+  // Calculate changed lines count (memoized to avoid recalculation on re-renders)
+  const changedLines = useMemo(
+    () => estimateChangedLines(oldContent, newContent),
+    [oldContent, newContent]
+  );
+
+  const isLarge = changedLines > LARGE_DIFF_CHANGED_LINES_THRESHOLD;
 
   if (!isLarge || showFull) {
     return (
@@ -37,7 +84,7 @@ export function DiffResultWrapper({ oldContent, newContent, fileName, contextLin
         className="text-xs"
         style={{ color: 'var(--vscode-descriptionForeground)' }}
       >
-        Large diff detected (~{approximateLines} lines). Rendering the full diff may be slow.
+        Large diff detected (~{changedLines} changed lines). Rendering the full diff may be slow.
       </div>
       <button
         type="button"

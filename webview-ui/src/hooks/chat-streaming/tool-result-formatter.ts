@@ -60,23 +60,33 @@ export function formatToolExecutionResults(
           const files = data.files as Array<{ name: string }> | undefined;
           formattedResult = `Directory: ${data.path as string}\nDirectories: ${directories?.map(d => d.name).join(', ') || 'none'}\nFiles: ${files?.map(f => f.name).join(', ') || 'none'}`;
         } else if (execution.toolName === 'apply_diff' || execution.toolName === 'write_to_file') {
-          // For file modification tools, only send minimal info to AI
-          // The AI already knows what it wrote - no need to echo full content back
-          const message = (data.message as string) || `File ${execution.toolName === 'apply_diff' ? 'edited' : 'written'} successfully`;
-          const lineCount = data.lineCount as number | undefined;
+          // For file modification tools, send MINIMAL info to AI - it already knows what it wrote
+          const path = data.path as string;
           const action = data.action as string | undefined;
-          const largeFileReminder = data.largeFileReminder as string | undefined;
-
-          // Build concise result for AI
-          formattedResult = `${message}`;
-          if (action) {
-            formattedResult += ` (${action})`;
+          const diagnostics = data.diagnostics as Array<{ severity: string; message: string }> | undefined;
+          
+          // Ultra-concise format
+          if (execution.toolName === 'apply_diff') {
+            formattedResult = action === 'no_change' 
+              ? `${path} → NO CHANGES` 
+              : `${path} → APPLIED`;
+          } else {
+            formattedResult = action === 'created' 
+              ? `${path} → CREATED` 
+              : action === 'no_change'
+                ? `${path} → NO CHANGES`
+                : `${path} → MODIFIED`;
           }
-          if (lineCount) {
-            formattedResult += `\nLines: ${lineCount}`;
-          }
-          if (largeFileReminder) {
-            formattedResult += `\n${largeFileReminder}`;
+          
+          // Only include diagnostics if there are errors/warnings
+          if (diagnostics && diagnostics.length > 0) {
+            const errors = diagnostics.filter(d => d.severity === 'Error');
+            const warnings = diagnostics.filter(d => d.severity === 'Warning');
+            if (errors.length > 0) {
+              formattedResult += ` [${errors.length} error(s)]`;
+            } else if (warnings.length > 0) {
+              formattedResult += ` [${warnings.length} warning(s)]`;
+            }
           }
         } else {
           // For other tools, stringify the data

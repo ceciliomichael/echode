@@ -8,6 +8,7 @@
  */
 import { chatApi } from '../../services/chat-api';
 import { hasCompleteToolBlock, trimToFirstCompleteToolBlock, extractCompleteInvokeBlocksIncremental } from '../../lib/tool-parser';
+import { formatToolResultForAI } from '../../utils/tool-execution-helpers';
 import type { ChatMessage } from '../../types/chat-api';
 import type { ChatMode } from '../../types/chat-mode';
 import type { Message, ImageAttachment } from '../../types/chat';
@@ -164,10 +165,8 @@ async function executeToolInParallel(
     );
     updateToolExecution(assistantMessageId, execId, completedState);
 
-    // Format result string
-    const formattedResult = result.success
-      ? `Tool: ${block.toolName}\nResult: ${JSON.stringify(result.data, null, 2)}`
-      : `Tool: ${block.toolName}\nError: ${result.error}`;
+    // Format result string using shared formatter
+    const formattedResult = formatToolResultForAI(block.toolName, result);
 
     return {
       toolIndex,

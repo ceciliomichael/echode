@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import type { Message } from '../types/chat';
 import type { ContextSettings } from '../types/api-settings';
 import { DEFAULT_CONTEXT_SETTINGS } from '../types/api-settings';
+import { formatToolResultForAI } from '../utils/tool-execution-helpers';
 
 /**
  * Estimate token count from text using ~4 characters per token
@@ -70,11 +71,11 @@ export function useContextUsage({
           toolResultsTokens += estimateTokens(JSON.stringify(execution.parameters || {}));
 
           if (execution.result) {
-            if (execution.result.success && execution.result.data) {
-              toolResultsTokens += estimateTokens(JSON.stringify(execution.result.data));
-            } else if (execution.result.error) {
-              toolResultsTokens += estimateTokens(execution.result.error);
-            }
+            // Use the same formatter as the actual AI prompt to get accurate token counts
+            // This prevents massive over-estimation for file tools (apply_diff, write_to_file)
+            // which return full file content in the result object but truncate it for the AI
+            const formattedResult = formatToolResultForAI(execution.toolName, execution.result);
+            toolResultsTokens += estimateTokens(formattedResult);
           }
         });
       }

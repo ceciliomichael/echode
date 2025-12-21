@@ -50,21 +50,13 @@ ${content}
     case 'write_to_file': {
       const path = data.path as string;
       const action = data.action as string;
-
-      if (action === 'no_change') {
-        return `[write_to_file] ${path} → NO CHANGES NEEDED (file already matches desired content)`;
-      }
-      return `[write_to_file] ${path} → ${action === 'created' ? 'CREATED' : 'MODIFIED'} successfully`;
+      return `[write_to_file] ${path} → ${action === 'created' ? 'CREATED' : action === 'no_change' ? 'NO CHANGES' : 'MODIFIED'}`;
     }
 
     case 'apply_diff': {
       const path = data.path as string;
-      const message = data.message as string;
-
-      if (message?.includes('no_change') || message?.includes('NO_OP')) {
-        return `[apply_diff] ${path} → NO CHANGES (diff produced identical content)`;
-      }
-      return `[apply_diff] ${path} → APPLIED successfully`;
+      const action = data.action as string | undefined;
+      return `[apply_diff] ${path} → ${action === 'no_change' ? 'NO CHANGES' : 'APPLIED'}`;
     }
 
     case 'delete_file': {

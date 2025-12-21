@@ -3,6 +3,7 @@
  */
 
 import type { Message } from '../../types/chat';
+import { formatToolResultForAI } from '../tool-execution-helpers';
 
 /**
  * Estimate token count from text using ~4 characters per token
@@ -30,8 +31,9 @@ export function calculateContextTokens(
       msg.toolExecutions.forEach((execution) => {
         tokens += estimateTokens(execution.toolName);
         tokens += estimateTokens(JSON.stringify(execution.parameters || {}));
-        if (execution.result?.data) {
-          tokens += estimateTokens(JSON.stringify(execution.result.data));
+        if (execution.result) {
+          const formattedResult = formatToolResultForAI(execution.toolName, execution.result);
+          tokens += estimateTokens(formattedResult);
         }
       });
     }
