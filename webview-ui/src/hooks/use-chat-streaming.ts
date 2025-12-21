@@ -7,9 +7,10 @@ import type { Message, ImageAttachment } from '../types/chat';
 import { ToolExecutor } from '../lib/tool-executor';
 import { getToolsForMode } from '../lib/tool-config';
 import { getCurrentModel, isVisionCapableModel } from '../utils/vision-utils';
+import { storageService } from '../utils/storage';
 
 // Import modular helpers
-import type { ChatStreamingProps } from './chat-streaming/types';
+import type { ChatStreamingProps, LockedModelConfig } from './chat-streaming/types';
 import { buildChatHistoryWithToolResults } from './chat-streaming/chat-history-builder';
 import { handleForcedEchoSearch } from './chat-streaming/forced-echo-search';
 import { runStreamingLoop } from './chat-streaming/streaming-loop';
@@ -128,6 +129,16 @@ export function useChatStreaming({
 
       const messagesToSend = overrideMessages !== undefined ? overrideMessages : baseMessages;
 
+      // === LOCK MODEL CONFIG ===
+      // Capture the current provider/model at the START of streaming
+      // This ensures the same model is used throughout tool execution and continuation
+      // even if user changes the model while AI is working
+      const modeModel = storageService.getModeModel(currentMode);
+      const lockedConfig: LockedModelConfig = {
+        provider: modeModel.provider,
+        model: modeModel.model,
+      };
+
       // === MODEL CAPABILITIES ===
       const currentModel = getCurrentModel();
       const modelSupportsVision = isVisionCapableModel(currentModel);
@@ -167,6 +178,7 @@ export function useChatStreaming({
         attachments,
         assistantMessageId,
         mode: currentMode,
+        lockedConfig,
         isStoppingRef,
         abortControllerRef,
         hasStreamedContentRef,

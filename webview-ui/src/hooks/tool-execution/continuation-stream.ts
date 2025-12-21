@@ -7,6 +7,7 @@
  * Now supports PARALLEL tool execution just like the main streaming loop.
  */
 import { chatApi } from '../../services/chat-api';
+import type { LockedModelConfig } from '../../services/chat-api';
 import { hasCompleteToolBlock, trimToFirstCompleteToolBlock, extractCompleteInvokeBlocksIncremental } from '../../lib/tool-parser';
 import { formatToolResultForAI } from '../../utils/tool-execution-helpers';
 import type { ChatMessage } from '../../types/chat-api';
@@ -79,6 +80,7 @@ export interface ContinuationStreamConfig {
   getToolExecutor?: () => ToolExecutor;
   logPrefix?: string;
   mode: ChatMode;
+  lockedConfig?: LockedModelConfig;
 }
 
 /**
@@ -228,6 +230,7 @@ export async function runContinuationStream(config: ContinuationStreamConfig): P
     updateToolExecution,
     getToolExecutor,
     mode,
+    lockedConfig,
   } = config;
 
   let continuationContent = assistantContent;
@@ -263,7 +266,8 @@ export async function runContinuationStream(config: ContinuationStreamConfig): P
       for await (const chunk of chatApi.streamChat(
         continuationHistory,
         newAbortController.signal,
-        mode
+        mode,
+        lockedConfig
       )) {
         if (newAbortController.signal.aborted || isStoppingRef.current) {
           streamSuccess = true; // User aborted, don't retry

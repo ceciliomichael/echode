@@ -2,6 +2,16 @@ import type { Message, ImageAttachment } from '../../types/chat';
 import type { ChatMessage } from '../../types/chat-api';
 import type { ChatMode } from '../../types/chat-mode';
 import type { ToolExecutionState } from '../../types/tool';
+import type { Provider } from '../../types/api-settings';
+
+/**
+ * Locked model configuration - captured at the start of streaming
+ * to ensure the same model is used throughout tool execution and continuation
+ */
+export interface LockedModelConfig {
+  provider: Provider;
+  model: string;
+}
 
 /**
  * Props passed to useChatStreaming hook
@@ -25,7 +35,8 @@ export interface ChatStreamingProps {
     userContent: string,
     toolIndex?: number,
     userAttachments?: ImageAttachment[],
-    bufferedToolResults?: string[]
+    bufferedToolResults?: string[],
+    lockedConfig?: LockedModelConfig
   ) => Promise<void>;
   updateToolExecution: (messageId: string, toolExecutionId: string, state: ToolExecutionState) => void;
   isStoppingRef: React.MutableRefObject<boolean>;
@@ -71,6 +82,7 @@ export interface StreamingLoopContext {
   attachments: ImageAttachment[] | undefined;
   assistantMessageId: string;
   mode: ChatMode;
+  lockedConfig: LockedModelConfig;
   isStoppingRef: React.MutableRefObject<boolean>;
   abortControllerRef: React.MutableRefObject<AbortController | null>;
   hasStreamedContentRef: React.MutableRefObject<boolean>;

@@ -1,5 +1,6 @@
-import { useCallback, useEffect } from 'react';
-import type { ImageAttachment, Message } from '../../types/chat';
+import { useCallback, useEffect, useState, useRef } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+import type { ImageAttachment, Message, QueuedMessage } from '../../types/chat';
 import { MessageBubble } from '../ui/message-bubble';
 import { ChatInput } from '../ui/chat-input';
 import { ChatEmptyState } from '../ui/chat-empty-state';
@@ -25,6 +26,10 @@ export function ChatContainer() {
   
   // Per-mode model selection (each mode can have its own model)
   const { provider, model, setActiveProviderAndModel } = useChatModel(mode);
+
+  // Message queue state - allows users to queue messages while AI is working
+  const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>([]);
+  const isProcessingQueueRef = useRef(false);
 
   const contentWidthClass = 'w-full max-w-3xl';
   const horizontalPaddingClass = 'px-4 sm:px-5 lg:px-6';
@@ -81,22 +86,93 @@ export function ChatContainer() {
     setIsAutoScrollEnabled,
   } = useChatScroll(visibleMessages.length, lastMessageKey, isStreaming, isExecutingTool);
 
+  // Direct send function (bypasses queue, used for queue processing)
+  const sendMessageDirect = useCallback(async (
+    content: string,
+    attachments?: ImageAttachment[],
+    forceEchoSearch: boolean = false,
+    overrideMessages?: Message[]
+  ) => {
+    setIsAutoScrollEnabled(true);
+    sendMessage(content, attachments, overrideMessages, false, forceEchoSearch);
+    setTimeout(() => {
+      scrollToBottom({ behavior: 'smooth' });
+    }, 100);
+  }, [sendMessage, setIsAutoScrollEnabled, scrollToBottom]);
+
+  // Add message to queue
+  const addToQueue = useCallback((
+    content: string,
+    imageAttachments?: ImageAttachment[],
+    forceEchoSearch: boolean = false
+  ) => {
+    const queuedMessage: QueuedMessage = {
+      id: uuidv4(),
+      content,
+      imageAttachments,
+      forceEchoSearch,
+      timestamp: new Date(),
+    };
+    setQueuedMessages(prev => [...prev, queuedMessage]);
+  }, []);
+
+  // Remove message from queue
+  const removeFromQueue = useCallback((id: string) => {
+    setQueuedMessages(prev => prev.filter(msg => msg.id !== id));
+  }, []);
+
+  // Clear all queued messages (used for force send)
+  const clearQueue = useCallback(() => {
+    setQueuedMessages([]);
+  }, []);
+
+  // Process queue when AI finishes working
+  useEffect(() => {
+    const isAiWorking = isStreaming || isExecutingTool;
+    
+    // When AI stops working and we have queued messages, process the next one
+    if (!isAiWorking && queuedMessages.length > 0 && !isProcessingQueueRef.current) {
+      isProcessingQueueRef.current = true;
+      
+      // Small delay to ensure state is settled
+      const timeoutId = setTimeout(() => {
+        const [nextMessage, ...remainingMessages] = queuedMessages;
+        if (nextMessage) {
+          setQueuedMessages(remainingMessages);
+          sendMessageDirect(
+            nextMessage.content,
+            nextMessage.imageAttachments,
+            nextMessage.forceEchoSearch ?? false
+          );
+        }
+        isProcessingQueueRef.current = false;
+      }, 150);
+
+      return () => {
+        clearTimeout(timeoutId);
+        isProcessingQueueRef.current = false;
+      };
+    }
+  }, [isStreaming, isExecutingTool, queuedMessages, sendMessageDirect]);
+
+  // Main send handler - queues if AI is busy, sends directly otherwise
   const handleSendMessage = useCallback(async (
     content: string,
     attachments?: ImageAttachment[],
     forceEchoSearch: boolean = false,
     overrideMessages?: Message[]
   ) => {
-    // Enable auto-scroll when user sends a message
-    setIsAutoScrollEnabled(true);
-    // Attachments are now embedded in content as <attached_file> blocks
-    // Pass overrideMessages to bypass stale closure (e.g., for refactor flow)
-    sendMessage(content, attachments, overrideMessages, false, forceEchoSearch);
-    // Scroll after a brief delay to ensure assistant placeholder (loading dots) is rendered
-    setTimeout(() => {
-      scrollToBottom({ behavior: 'smooth' });
-    }, 100);
-  }, [sendMessage, setIsAutoScrollEnabled, scrollToBottom]);
+    const isAiWorking = isStreaming || isExecutingTool;
+    
+    // If AI is busy, queue the message (unless overrideMessages is provided for special flows)
+    if (isAiWorking && overrideMessages === undefined) {
+      addToQueue(content, attachments, forceEchoSearch);
+      return;
+    }
+    
+    // Otherwise send directly
+    sendMessageDirect(content, attachments, forceEchoSearch, overrideMessages);
+  }, [isStreaming, isExecutingTool, addToQueue, sendMessageDirect]);
 
   const onNewChat = useCallback(() => {
     // Persist the current session (if any messages) before starting a new chat
@@ -107,6 +183,7 @@ export function ChatContainer() {
     abortStream();
     clearChat();
     clearTodos();
+    setQueuedMessages([]); // Clear message queue on new chat
 
     // Also clear backend todos (they are stored separately in the extension)
     window.vscode.postMessage({ type: 'clearTodos' });
@@ -225,7 +302,9 @@ export function ChatContainer() {
               isStreaming={isStreaming}
               isExecutingTool={isExecutingTool}
               onStop={abortStream}
-              todos={tasks}
+              queuedMessages={queuedMessages}
+              onRemoveFromQueue={removeFromQueue}
+              onClearQueue={clearQueue}
               mode={mode}
               onModeChange={handleModeChange}
               provider={provider}

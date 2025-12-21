@@ -15,7 +15,7 @@ import { generateToolExecutionId } from '../../lib/tool-execution-tracker';
 import type { ToolExecutionState } from '../../types/tool';
 import { buildContinuationHistory } from '../../utils/continuation-builder';
 
-import type { ToolExecutionHookProps, ToolExecutionContext } from './types';
+import type { ToolExecutionHookProps, ToolExecutionContext, LockedModelConfig } from './types';
 import { executeSingleTool } from './single-executor';
 import { runContinuationStream } from './continuation-stream';
 
@@ -77,7 +77,8 @@ export function useToolExecution({
       userContent: string,
       toolIndex = 0,
       userAttachments?: ImageAttachment[],
-      bufferedToolResults?: string[]
+      bufferedToolResults?: string[],
+      lockedConfig?: LockedModelConfig
     ) => {
       if (!toolExecutorRef.current) {
         return;
@@ -127,7 +128,8 @@ export function useToolExecution({
             toolIndex,
             effectiveUserAttachments,
             context,
-            executeToolAndContinue
+            executeToolAndContinue,
+            lockedConfig
           );
           return;
         }
@@ -204,8 +206,10 @@ async function handleBufferedResults(
     userContent: string,
     toolIndex?: number,
     userAttachments?: ImageAttachment[],
-    bufferedToolResults?: string[]
-  ) => Promise<void>
+    bufferedToolResults?: string[],
+    lockedConfig?: LockedModelConfig
+  ) => Promise<void>,
+  lockedConfig?: LockedModelConfig
 ): Promise<void> {
 
   const toolResultText = bufferedToolResults.join('\n\n');
@@ -247,6 +251,7 @@ async function handleBufferedResults(
     getToolExecutor: context.getToolExecutor,
     logPrefix: '[ToolExecution:Buffered]',
     mode: context.mode,
+    lockedConfig,
   });
 }
 

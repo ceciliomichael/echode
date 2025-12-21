@@ -11,7 +11,6 @@ interface AttachmentSectionProps {
   onAttachmentClick: () => void;
   canAddMore: boolean;
   disabled?: boolean;
-  isStreaming?: boolean;
 }
 
 export function AttachmentSection({
@@ -22,7 +21,6 @@ export function AttachmentSection({
   onAttachmentClick,
   canAddMore,
   disabled = false,
-  isStreaming = false
 }: AttachmentSectionProps) {
   const hasAttachments = attachments.length > 0 || imageAttachments.length > 0;
 
@@ -33,7 +31,7 @@ export function AttachmentSection({
           <button
             type="button"
             onClick={onAttachmentClick}
-            disabled={disabled || isStreaming}
+            disabled={disabled}
             className="text-xs border border-dashed rounded-xl px-2 py-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
               color: 'var(--vscode-descriptionForeground)',
@@ -41,7 +39,7 @@ export function AttachmentSection({
               backgroundColor: 'transparent'
             }}
             onMouseEnter={(e) => {
-              if (!disabled && !isStreaming) {
+              if (!disabled) {
                 e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.4)';
                 e.currentTarget.style.boxShadow = '0 0 0 1px rgba(255, 255, 255, 0.3)';
                 e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
@@ -73,7 +71,7 @@ export function AttachmentSection({
               <button
                 type="button"
                 onClick={onAttachmentClick}
-                disabled={disabled || isStreaming}
+                disabled={disabled}
                 className="text-xs border border-dashed rounded-xl px-2 py-1 flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
                   color: 'var(--vscode-descriptionForeground)',
@@ -81,7 +79,7 @@ export function AttachmentSection({
                   backgroundColor: 'transparent'
                 }}
                 onMouseEnter={(e) => {
-                  if (!disabled && !isStreaming) {
+                  if (!disabled) {
                     e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.4)';
                     e.currentTarget.style.boxShadow = '0 0 0 1px rgba(255, 255, 255, 0.3)';
                     e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';

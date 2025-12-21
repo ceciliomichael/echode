@@ -22,6 +22,10 @@ export function useChatScroll(
   const lastScrollTopRef = useRef(0);
   const isAutoScrollEnabledRef = useRef(isAutoScrollEnabled);
   const lastMessageKeyRef = useRef(lastMessageKey);
+  // Track last known scrollHeight to detect content growth
+  const lastScrollHeightRef = useRef(0);
+  // Cooldown period after content grows to ignore scroll events
+  const contentGrowthCooldownRef = useRef(false);
   const bottomThresholdPx = 64;
 
   const scrollToBottom = useCallback((options?: { behavior?: 'auto' | 'smooth' }) => {
@@ -56,25 +60,50 @@ export function useChatScroll(
     const container = scrollContainerRef.current;
     if (!container) return;
 
-    const { scrollTop } = container;
+    const { scrollTop, scrollHeight } = container;
     const previousScrollTop = lastScrollTopRef.current;
-    const isScrollingUp = scrollTop < previousScrollTop;
+    const previousScrollHeight = lastScrollHeightRef.current;
     const nearBottom = isNearBottom();
 
+    // Detect if content just grew (big chunk added)
+    const contentJustGrew = scrollHeight > previousScrollHeight;
+    
+    // Update refs
     lastScrollTopRef.current = scrollTop;
+    lastScrollHeightRef.current = scrollHeight;
 
-    if (isScrollingUp) {
+    // If content just grew and we were auto-scrolling, set a brief cooldown
+    // to ignore scroll events that might be triggered by the layout shift
+    if (contentJustGrew && isAutoScrollEnabledRef.current) {
+      contentGrowthCooldownRef.current = true;
+      // Clear cooldown after a brief moment (allows layout to settle)
+      setTimeout(() => {
+        contentGrowthCooldownRef.current = false;
+      }, 50);
+      return;
+    }
+
+    // During cooldown, ignore scroll events (they're likely from content growth)
+    if (contentGrowthCooldownRef.current) {
+      return;
+    }
+
+    // Calculate scroll delta - use a threshold to filter out micro-movements
+    // and browser jitter that shouldn't disable auto-scroll
+    const scrollDelta = previousScrollTop - scrollTop;
+    const scrollUpThreshold = 5; // pixels - must scroll up at least this much to disable
+    const isIntentionalScrollUp = scrollDelta > scrollUpThreshold;
+
+    // Only disable auto-scroll for intentional upward scrolling
+    if (isIntentionalScrollUp) {
       if (isAutoScrollEnabledRef.current) {
         setIsAutoScrollEnabled(false);
       }
       return;
     }
 
-    if (!nearBottom) {
-      return;
-    }
-
-    if (!isAutoScrollEnabledRef.current) {
+    // Re-enable auto-scroll when user scrolls back to bottom
+    if (nearBottom && !isAutoScrollEnabledRef.current) {
       setIsAutoScrollEnabled(true);
     }
   }, [isNearBottom]);

@@ -6,14 +6,23 @@ import type { Provider } from '../types/api-settings';
 import { UnifiedChatService } from './unified-chat-service';
 import { getToolsForMode } from '../lib/tool-config';
 
+export interface LockedModelConfig {
+  provider: Provider;
+  model: string;
+}
+
 export class ChatApiService {
-  async *streamChat(messages: ChatMessage[], signal?: AbortSignal, mode: ChatMode = 'agent'): AsyncGenerator<string, void, unknown> {
+  async *streamChat(
+    messages: ChatMessage[],
+    signal?: AbortSignal,
+    mode: ChatMode = 'agent',
+    lockedConfig?: LockedModelConfig
+  ): AsyncGenerator<string, void, unknown> {
     const settings = storageService.getSettings();
 
-    // Get mode-specific provider and model
-    const modeModel = storageService.getModeModel(mode);
-    const activeProvider = modeModel.provider;
-    const activeModel = modeModel.model;
+    // Use locked config if provided (for continuations), otherwise get from storage
+    const activeProvider = lockedConfig?.provider ?? storageService.getModeModel(mode).provider;
+    const activeModel = lockedConfig?.model ?? storageService.getModeModel(mode).model;
 
     // Resolve effective per-provider configuration
     let effectiveApiKey = '';

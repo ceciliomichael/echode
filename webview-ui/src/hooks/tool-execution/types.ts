@@ -6,6 +6,16 @@ import type { ChatMessage } from '../../types/chat-api';
 import type { ChatMode } from '../../types/chat-mode';
 import type { ToolExecutionState } from '../../types/tool';
 import type { WorkspaceContext } from '../../types/workspace';
+import type { Provider } from '../../types/api-settings';
+
+/**
+ * Locked model configuration - captured at the start of streaming
+ * to ensure the same model is used throughout tool execution and continuation
+ */
+export interface LockedModelConfig {
+  provider: Provider;
+  model: string;
+}
 
 /**
  * Todo item structure
@@ -108,7 +118,8 @@ export type ExecuteToolAndContinueFn = (
   userContent: string,
   toolIndex?: number,
   userAttachments?: ImageAttachment[],
-  bufferedToolResults?: string[]
+  bufferedToolResults?: string[],
+  lockedConfig?: LockedModelConfig
 ) => Promise<void>;
 
 /**

@@ -1,18 +1,17 @@
-import type { FormEvent } from 'react';
+import type { FormEvent, KeyboardEvent } from 'react';
 import { useChatInput } from '../../../hooks/use-chat-input';
 import { useRefactorScan } from '../../../hooks/use-refactor-scan';
 import { buildRefactorMessage } from '../../../utils/message-builders';
-import { TodoBlock } from '../todo-block';
+import { QueueBlock } from './queue-block';
 import { ContextMenu } from '../context-menu';
 import { InputWithHighlights } from '../input-with-highlights';
 import { AttachmentSection } from './attachment-section';
 import { InputToolbar } from './input-toolbar';
 
 import type { ContextUsageResult } from '../../../hooks/use-context-usage';
-import type { TodoTask } from '../../../types/todo';
 import type { ChatMode } from '../../../types/chat-mode';
 import type { DocumentAttachment } from '../../../utils/document-utils';
-import type { ImageAttachment, Message } from '../../../types/chat';
+import type { ImageAttachment, Message, QueuedMessage } from '../../../types/chat';
 import type { Provider } from '../../../types/api-settings';
 
 interface ChatInputProps {
@@ -22,7 +21,9 @@ interface ChatInputProps {
   isStreaming?: boolean;
   isExecutingTool?: boolean;
   onStop?: () => void;
-  todos?: TodoTask[];
+  queuedMessages?: QueuedMessage[];
+  onRemoveFromQueue?: (id: string) => void;
+  onClearQueue?: () => void;
   mode?: ChatMode;
   onModeChange?: (mode: ChatMode) => void;
   provider: Provider;
@@ -41,7 +42,9 @@ export function ChatInput({
   isStreaming = false,
   isExecutingTool = false,
   onStop,
-  todos = [],
+  queuedMessages = [],
+  onRemoveFromQueue,
+  onClearQueue,
   mode,
   onModeChange,
   provider,
@@ -74,7 +77,6 @@ export function ChatInput({
   } = useChatInput({
     onSendMessage,
     disabled,
-    isStreaming,
     mode,
     restoredInput,
     restoredAttachments,
@@ -105,6 +107,40 @@ export function ChatInput({
     handleSubmit(e);
   };
 
+  // Wrapper to handle Ctrl+Enter force send when AI is working
+  const handleKeyDownWithForceSend = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    const isAiWorking = isStreaming || isExecutingTool;
+    
+    // Ctrl+Enter while AI is working: stop current work, clear queue, and force send immediately
+    // Note: Force send does NOT trigger echo search (that's only for Ctrl+Enter when AI is idle)
+    if (e.key === 'Enter' && !e.shiftKey && (e.ctrlKey || e.metaKey) && isAiWorking) {
+      e.preventDefault();
+      
+      // Only proceed if there's input to send
+      if (!input.trim()) return;
+      
+      // Stop current AI work
+      if (onStop) {
+        onStop();
+      }
+      
+      // Clear any queued messages
+      if (onClearQueue) {
+        onClearQueue();
+      }
+      
+      // Wait briefly for stop to take effect, then send normally (no echo search)
+      setTimeout(() => {
+        handleSubmit(e, false);
+      }, 200);
+      
+      return;
+    }
+    
+    // Default behavior for other key combinations
+    handleKeyDown(e);
+  };
+
   return (
     <div
       className="relative w-full"
@@ -114,9 +150,9 @@ export function ChatInput({
         backgroundColor: 'var(--vscode-sideBar-background)'
       }}
     >
-      {todos.length > 0 && (
+      {queuedMessages.length > 0 && onRemoveFromQueue && (
         <div className="mb-2">
-          <TodoBlock tasks={todos} />
+          <QueueBlock queuedMessages={queuedMessages} onRemove={onRemoveFromQueue} />
         </div>
       )}
 
@@ -147,7 +183,6 @@ export function ChatInput({
             onAttachmentClick={attachmentHandler.handleAttachmentClick}
             canAddMore={attachmentHandler.canAddMore}
             disabled={disabled}
-            isStreaming={isStreaming}
           />
 
           <div className="w-full relative rounded-xl">
@@ -168,10 +203,10 @@ export function ChatInput({
               ref={textareaRef}
               value={input}
               onChange={handleChange}
-              onKeyDown={handleKeyDown}
+              onKeyDown={handleKeyDownWithForceSend}
               onPaste={handlePaste}
               placeholder="Type your message..."
-              disabled={disabled || isStreaming}
+              disabled={disabled}
               rows={1}
               className="w-full px-1.5 py-1 rounded-xl bg-transparent text-sm leading-normal min-h-[36px] max-h-[100px] overflow-y-auto resize-none border-0 disabled:opacity-50 disabled:cursor-not-allowed placeholder:opacity-50 relative"
               style={{
@@ -197,7 +232,6 @@ export function ChatInput({
             onRefactorRequest={handleRefactorRequest}
             contextUsage={contextUsage}
             disabled={disabled}
-            isStreaming={isStreaming}
             showStopButton={showStopButton}
             hasInput={!!input.trim()}
             onStop={onStop}

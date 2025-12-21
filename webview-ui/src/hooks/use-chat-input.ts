@@ -11,7 +11,6 @@ import type { InputWithHighlightsRef } from '../components/ui/input-with-highlig
 interface UseChatInputOptions {
   onSendMessage: (message: string, attachments?: ImageAttachment[], forceEchoSearch?: boolean, overrideMessages?: Message[]) => void;
   disabled?: boolean;
-  isStreaming?: boolean;
   mode?: ChatMode;
   restoredInput?: string | null;
   restoredAttachments?: DocumentAttachment[] | null;
@@ -43,7 +42,6 @@ export interface UseChatInputReturn {
 export function useChatInput({
   onSendMessage,
   disabled = false,
-  isStreaming = false,
   mode,
   restoredInput,
   restoredAttachments,
@@ -52,11 +50,11 @@ export function useChatInput({
   const [input, setInput] = useState(restoredInput ?? '');
   const textareaRef = useRef<InputWithHighlightsRef | null>(null);
 
-  // Initialize attachment handler
+  // Initialize attachment handler (allow during streaming for queued messages)
   const attachmentHandler = useAttachmentHandler({
     initialAttachments: restoredAttachments ?? [],
     initialImageAttachments: restoredImageAttachments ?? [],
-    disabled: disabled || isStreaming
+    disabled
   });
 
   // Initialize context menu
@@ -66,13 +64,13 @@ export function useChatInput({
     textareaRef
   });
 
-  // Initialize paste handler
+  // Initialize paste handler (allow during streaming for queued messages)
   const { handlePaste } = usePasteHandler({
     attachmentsRef: attachmentHandler.attachmentsRef,
     setAttachments: attachmentHandler.setAttachments,
     imageAttachmentsRef: attachmentHandler.imageAttachmentsRef,
     setImageAttachments: attachmentHandler.setImageAttachments,
-    disabled: disabled || isStreaming
+    disabled
   });
 
   // Auto-resize textarea effect

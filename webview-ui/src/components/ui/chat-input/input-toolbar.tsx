@@ -32,7 +32,6 @@ interface InputToolbarProps {
   
   // State
   disabled?: boolean;
-  isStreaming?: boolean;
   showStopButton?: boolean;
   hasInput: boolean;
   
@@ -54,7 +53,6 @@ export function InputToolbar({
   onRefactorRequest,
   contextUsage,
   disabled = false,
-  isStreaming = false,
   showStopButton = false,
   hasInput,
   onStop
@@ -67,7 +65,7 @@ export function InputToolbar({
         <button
           type="button"
           onClick={onAttachmentClick}
-          disabled={disabled || isStreaming || isMaxAttachments}
+          disabled={disabled || isMaxAttachments}
           className="transition-opacity hover:opacity-70 p-1 disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ color: 'var(--vscode-foreground)' }}
           title={isMaxAttachments ? `Maximum ${maxAttachments} attachments` : 'Attach documents'}
@@ -78,14 +76,14 @@ export function InputToolbar({
           <ModeDropdown
             mode={mode}
             onModeChange={onModeChange}
-            disabled={disabled || isStreaming}
+            disabled={disabled}
           />
         )}
         <ChatModelSelector
           provider={provider}
           model={model}
           onChange={onModelChange}
-          disabled={disabled || isStreaming}
+          disabled={disabled}
           direction="up"
         />
       </div>

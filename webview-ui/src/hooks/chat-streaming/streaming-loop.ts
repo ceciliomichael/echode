@@ -165,6 +165,7 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
     attachments,
     assistantMessageId,
     mode,
+    lockedConfig,
     isStoppingRef,
     abortControllerRef,
     hasStreamedContentRef,
@@ -212,7 +213,7 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
       const parallelExecutions: Map<number, Promise<ParallelToolResult>> = new Map();
 
       console.log('[StreamingLoop] STARTING chatApi.streamChat call with PARALLEL tool execution');
-      for await (const chunk of chatApi.streamChat(finalChatHistory, abortController.signal, mode)) {
+      for await (const chunk of chatApi.streamChat(finalChatHistory, abortController.signal, mode, lockedConfig)) {
 
         if (isStoppingRef.current) {
           streamSuccess = true;
@@ -342,6 +343,7 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
             0,
             attachments,
             bufferedToolResults,
+            lockedConfig,
           );
           return { success: true, assistantContent, handledByToolExecution: true };
         }
@@ -380,6 +382,8 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
           content,
           0,
           attachments,
+          undefined,
+          lockedConfig,
         );
 
         return { success: true, assistantContent, handledByToolExecution: true };
