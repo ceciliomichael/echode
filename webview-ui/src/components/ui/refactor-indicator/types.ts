@@ -47,6 +47,8 @@ export interface TooltipBehaviorState {
 export interface TooltipBehaviorHandlers {
   handleMouseEnter: () => void;
   handleMouseLeave: () => void;
+  handleFocus: () => void;
+  handleBlur: (e: React.FocusEvent) => void;
   handleFileClick: (filePath: string) => void;
   handleConfirmRefactor: (e: React.MouseEvent) => void;
   handleCancelRefactor: (e: React.MouseEvent) => void;

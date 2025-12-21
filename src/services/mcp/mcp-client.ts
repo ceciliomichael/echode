@@ -129,7 +129,7 @@ export class MCPClient {
         },
       },
       clientInfo: {
-        name: "Echode",
+        name: "EchoDE",
         version: "1.0.0",
       },
     };

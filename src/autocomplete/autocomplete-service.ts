@@ -225,7 +225,7 @@ export class AutocompleteService {
   }
 
   private updateStatusBar(config: AutocompleteConfig): void {
-    this.statusBarItem.text = '$(zap) Echode';
+    this.statusBarItem.text = '$(zap) EchoDE';
     this.statusBarItem.tooltip = `Autocomplete: ${config.model}`;
     this.statusBarItem.show();
   }

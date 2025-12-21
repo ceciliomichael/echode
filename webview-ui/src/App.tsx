@@ -41,6 +41,7 @@ function App() {
 
         // Preserve active provider and model selection from the chat sidebar.
         // Settings panel is for API configuration only and should not change models.
+        // IMPORTANT: Also preserve modeModelSettings which stores per-mode model selections.
         const merged: ApiSettings = {
           ...incoming,
           provider: current.provider,
@@ -51,6 +52,7 @@ function App() {
           megallmModel: current.megallmModel,
           vscodeLmModel: current.vscodeLmModel,
           qwenCodeModel: current.qwenCodeModel,
+          modeModelSettings: current.modeModelSettings,
         };
 
         storageService.saveSettings(merged);

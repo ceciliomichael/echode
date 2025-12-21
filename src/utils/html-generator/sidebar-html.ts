@@ -20,7 +20,7 @@ export function getMainWebviewHtml(
     : null;
 
   return generateWebviewHtml(webview, extensionUri, {
-    title: 'Echode',
+    title: 'EchoDE',
     workspaceInfo,
   });
 }

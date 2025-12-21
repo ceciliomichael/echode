@@ -245,7 +245,7 @@ async function generateCommitMessage(diffResult: GitDiffResult): Promise<string 
   const settings = getChatStreamSettings(apiSettings);
 
   if (!settings.apiKey && settings.provider !== 'vscode-lm' && settings.provider !== 'qwen-code') {
-    vscode.window.showErrorMessage('Please configure API settings in Echode settings first.');
+    vscode.window.showErrorMessage('Please configure API settings in EchoDE settings first.');
     return null;
   }
 

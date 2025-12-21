@@ -103,7 +103,7 @@ export class WorkspaceManager {
           allFiles.push(...files);
         }
       } catch (error) {
-        console.error(`[Echode] Failed to scan files for workspace ${folder.name}:`, error);
+        console.error(`[EchoDE] Failed to scan files for workspace ${folder.name}:`, error);
       }
     }
 
@@ -164,7 +164,7 @@ export class WorkspaceManager {
     }
 
     const scriptPath = path.join(this._extensionPath, 'dist', 'scripts', 'scan-large-files.js');
-    console.log('[Echode] Spawning scan scripts for workspaces');
+    console.log('[EchoDE] Spawning scan scripts for workspaces');
     const startTime = Date.now();
 
     // Helper to scan a single workspace
@@ -209,7 +209,7 @@ export class WorkspaceManager {
     // Run scans in parallel
     Promise.all(workspaceFolders.map(scanWorkspace)).then(results => {
       const elapsed = Date.now() - startTime;
-      console.log(`[Echode] All scans completed in ${elapsed}ms`);
+      console.log(`[EchoDE] All scans completed in ${elapsed}ms`);
 
       this._refactorScanInProgress = false;
       this._refactorScanComplete = true;

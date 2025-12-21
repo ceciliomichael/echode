@@ -1,8 +1,8 @@
-# Echode
+# EchoDE
 
 **An autonomous coding agent that reads, understands, and writes code alongside you.**
 
-Most AI coding tools wait for you to explain what you need. Echode is different. It explores your codebase, understands the architecture, and takes action—all within VS Code.
+Most AI coding tools wait for you to explain what you need. EchoDE is different. It explores your codebase, understands the architecture, and takes action—all within VS Code.
 
 ---
 
@@ -10,13 +10,13 @@ Most AI coding tools wait for you to explain what you need. Echode is different.
 
 You paste code into a chat. You explain the context. You describe the file structure. You fix the hallucinated imports. Repeat.
 
-Echode eliminates this friction. It has direct access to your workspace and a suite of tools to navigate it. When you ask it to fix a bug, it finds the relevant files first. When you ask it to add a feature, it understands where that feature should live.
+EchoDE eliminates this friction. It has direct access to your workspace and a suite of tools to navigate it. When you ask it to fix a bug, it finds the relevant files first. When you ask it to add a feature, it understands where that feature should live.
 
 ---
 
 ## How It Works
 
-Echode operates as an **agent**, not just a text generator. It follows a structured workflow:
+EchoDE operates as an **agent**, not just a text generator. It follows a structured workflow:
 
 1. **Understand** — Searches and reads your codebase to gather context
 2. **Plan** — Creates a task list and outlines the approach
@@ -31,7 +31,7 @@ This loop happens transparently. You see what it reads, what it plans, and what 
 
 ### Agentic Tooling
 
-Echode can invoke tools to interact with your workspace:
+EchoDE can invoke tools to interact with your workspace:
 
 | Tool | Purpose |
 |------|---------|
@@ -45,7 +45,7 @@ Echode can invoke tools to interact with your workspace:
 | `get_diagnostics` | Collect linter and compiler errors |
 | `echo_search` | Intelligent code exploration sub-agent |
 
-These tools mean Echode doesn't guess. It knows.
+These tools mean EchoDE doesn't guess. It knows.
 
 ### Multi-Model Support
 
@@ -61,7 +61,7 @@ Configuration happens in the sidebar. No JSON files to edit.
 
 ### Intelligent Autocomplete
 
-Beyond chat, Echode provides inline code suggestions as you type.
+Beyond chat, EchoDE provides inline code suggestions as you type.
 
 | Keybinding | Action |
 |------------|--------|
@@ -73,7 +73,7 @@ Partial acceptance lets you take what you need without committing to the full su
 
 ### Auto-Diagnostics
 
-After every file edit, Echode automatically checks for errors.
+After every file edit, EchoDE automatically checks for errors.
 
 If it breaks something, it knows immediately—and attempts to fix it. This self-healing behavior reduces the back-and-forth of "you introduced a type error" messages.
 
@@ -88,7 +88,7 @@ Configuration options:
 
 ### Git Integration
 
-One-click commit message generation. Echode analyzes your staged changes and writes a conventional commit message. No more staring at a blank input field.
+One-click commit message generation. EchoDE analyzes your staged changes and writes a conventional commit message. No more staring at a blank input field.
 
 Access it from the Source Control panel or via command palette.
 
@@ -97,13 +97,13 @@ Access it from the Source Control panel or via command palette.
 ## Modes of Operation
 
 ### Agent Mode
-The default. Echode reads, writes, and modifies files. Best for implementation tasks.
+The default. EchoDE reads, writes, and modifies files. Best for implementation tasks.
 
 ### Plan Mode
-Echode explores and creates a detailed plan without making changes. Useful for understanding unfamiliar codebases or architecting before building.
+EchoDE explores and creates a detailed plan without making changes. Useful for understanding unfamiliar codebases or architecting before building.
 
 ### Ask Mode
-Read-only exploration. Echode can search and read files but cannot modify anything. Ideal for code review or learning.
+Read-only exploration. EchoDE can search and read files but cannot modify anything. Ideal for code review or learning.
 
 ### Chat Mode
 Pure conversation. No tools, no file access. Just discussion.
@@ -112,10 +112,10 @@ Pure conversation. No tools, no file access. Just discussion.
 
 ## Getting Started
 
-1. **Install** — Search "Echode" in the VS Code Extensions marketplace
-2. **Open the Sidebar** — Click the Echode icon in the Activity Bar
+1. **Install** — Search "EchoDE" in the VS Code Extensions marketplace
+2. **Open the Sidebar** — Click the EchoDE icon in the Activity Bar
 3. **Configure a Provider** — Open settings and add your API key
-4. **Start Coding** — Type your request and let Echode work
+4. **Start Coding** — Type your request and let EchoDE work
 
 No workspace configuration required. No `.echode` folders. It works out of the box.
 

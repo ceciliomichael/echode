@@ -25,7 +25,7 @@ export function RefactorIndicator({
   });
 
   const { showTooltip, isTopTooltip, tooltipPosition, selectedFile } = state;
-  const { handleMouseEnter, handleMouseLeave, handleFileClick, handleConfirmRefactor, handleCancelRefactor } = handlers;
+  const { handleMouseEnter, handleMouseLeave, handleFocus, handleBlur, handleFileClick, handleConfirmRefactor, handleCancelRefactor } = handlers;
   const { buttonRef, containerRef } = refs;
 
   const fileCount = largeFiles.length;
@@ -50,8 +50,8 @@ export function RefactorIndicator({
         ref={buttonRef}
         type="button"
         disabled={disabled}
-        onFocus={() => state.setShowTooltip(true)}
-        onBlur={() => state.setShowTooltip(false)}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
         className="py-1 rounded-xl transition-opacity hover:opacity-70 disabled:opacity-50 disabled:cursor-not-allowed"
         style={{ color: isEmpty ? 'var(--vscode-descriptionForeground)' : REFACTOR_COLOR }}
         aria-label={isScanning ? 'Scanning codebase...' : isEmpty ? 'No files need refactoring' : `${fileCount} files may need refactoring`}

@@ -1,6 +1,6 @@
 # Offline Installation & Build Guide
 
-This guide describes how to build and install Echode in environments without internet access.
+This guide describes how to build and install EchoDE in environments without internet access.
 
 ## Prerequisites
 

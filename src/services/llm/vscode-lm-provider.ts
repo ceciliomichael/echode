@@ -103,7 +103,7 @@ export class VSCodeLMProvider implements ILLMProvider {
       const request = await model.sendRequest(
         chatMessages,
         {
-          justification: 'Echode AI Assistant is generating a response to your query.',
+          justification: 'EchoDE AI Assistant is generating a response to your query.',
         },
         tokenSource.token
       );

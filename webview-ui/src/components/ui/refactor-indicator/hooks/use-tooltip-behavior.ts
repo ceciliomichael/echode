@@ -56,6 +56,35 @@ export function useTooltipBehavior({
     }, 150);
   }, []);
 
+  const handleFocus = useCallback(() => {
+    if (hideTimeoutRef.current !== null) {
+      window.clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
+    setTooltipPosition(calculatePosition());
+    if (!showTooltip) {
+      setSelectedFile(null);
+    }
+    setShowTooltip(true);
+  }, [calculatePosition, showTooltip]);
+
+  const handleBlur = useCallback((event: React.FocusEvent) => {
+    // Check if focus is moving to another element within the container
+    const relatedTarget = event.relatedTarget as Node | null;
+    if (relatedTarget && containerRef.current?.contains(relatedTarget)) {
+      // Focus is still within the component, don't close
+      return;
+    }
+    // Focus moved outside, close with a small delay
+    if (hideTimeoutRef.current !== null) {
+      window.clearTimeout(hideTimeoutRef.current);
+    }
+    hideTimeoutRef.current = window.setTimeout(() => {
+      setShowTooltip(false);
+      setSelectedFile(null);
+    }, 150);
+  }, []);
+
   const handleFileClick = useCallback((filePath: string) => {
     if (onFileClick) {
       onFileClick(filePath);
@@ -123,6 +152,8 @@ export function useTooltipBehavior({
     handlers: {
       handleMouseEnter,
       handleMouseLeave,
+      handleFocus,
+      handleBlur,
       handleFileClick,
       handleConfirmRefactor,
       handleCancelRefactor,

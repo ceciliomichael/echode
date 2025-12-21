@@ -9,7 +9,7 @@ export function getSettingsHtml(
   extensionUri: vscode.Uri
 ): string {
   return generateWebviewHtml(webview, extensionUri, {
-    title: 'Echode Settings',
+    title: 'EchoDE Settings',
     isSettingsPanel: true,
   });
 }

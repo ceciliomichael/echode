@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Echode Build Script
+# EchoDE Build Script
 
 echo "Starting build process..."
 

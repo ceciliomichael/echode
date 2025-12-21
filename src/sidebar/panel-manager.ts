@@ -40,7 +40,7 @@ export class PanelManager {
     // Create panel and immediately store reference to prevent race conditions
     this._settingsPanel = vscode.window.createWebviewPanel(
       'echodeSettings',
-      'Echode Settings',
+      'EchoDE Settings',
       vscode.ViewColumn.One,
       {
         enableScripts: true,

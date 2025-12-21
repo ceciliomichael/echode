@@ -1,8 +1,8 @@
 {
   "name": "echode",
-  "displayName": "Echode",
+  "displayName": "EchoDE",
   "description": "Agentic Coding",
-  "version": "1.0.1349",
+  "version": "1.0.1351",
   "publisher": "EchoSphere",
   "icon": "icon.png",
   "repository": {
@@ -24,7 +24,7 @@
       "activitybar": [
         {
           "id": "echode-sidebar",
-          "title": "Echode",
+          "title": "EchoDE",
           "icon": "icon.svg"
         }
       ]
@@ -57,15 +57,15 @@
       },
       {
         "command": "echode.triggerAutocomplete",
-        "title": "Echode: Trigger Autocomplete"
+        "title": "EchoDE: Trigger Autocomplete"
       },
       {
         "command": "echode.acceptNextWord",
-        "title": "Echode: Accept Next Word"
+        "title": "EchoDE: Accept Next Word"
       },
       {
         "command": "echode.acceptNextLine",
-        "title": "Echode: Accept Next Line"
+        "title": "EchoDE: Accept Next Line"
       },
       {
         "command": "echode.generateCommitMessage",
@@ -120,7 +120,7 @@
       ]
     },
     "configuration": {
-      "title": "Echode",
+      "title": "EchoDE",
       "properties": {
         "echode.diagnostics.enabled": {
           "type": "boolean",
