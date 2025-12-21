@@ -63,6 +63,7 @@ export function ChatContainer() {
   const contextUsage = useContextUsage({
     systemPrompt,
     messages,
+    mode,
     contextSettings: settings.contextSettings,
     revertPreviewMessageId,
   });
@@ -74,6 +75,7 @@ export function ChatContainer() {
 
   const {
     scrollContainerRef,
+    scrollContentRef,
     handleScroll,
     scrollToBottom,
     setIsAutoScrollEnabled,
@@ -174,7 +176,10 @@ export function ChatContainer() {
               <ChatEmptyState />
             </div>
           ) : (
-            <div className={`${contentWidthClass} mx-auto py-3 sm:py-4 lg:py-6 ${horizontalPaddingClass}`}>
+            <div
+              ref={scrollContentRef}
+              className={`${contentWidthClass} mx-auto py-3 sm:py-4 lg:py-6 ${horizontalPaddingClass}`}
+            >
               <div className="space-y-3">
                 {visibleMessages.map((message, index) => {
                   const isLastAssistantMessage = index === visibleMessages.length - 1 && message.role === 'assistant';

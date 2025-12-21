@@ -4,7 +4,7 @@
 
 import { DiffResult, DiffStrategy } from './types';
 import { validateMarkerSequencing } from './diff-validator';
-import { addLineNumbers, everyLineHasLineNumbers, stripLineNumbers } from './line-number-utils';
+import { everyLineHasLineNumbers, stripLineNumbers } from './line-number-utils';
 import { fuzzySearch, getSimilarity, BUFFER_LINES } from './fuzzy-search';
 
 /**
@@ -84,22 +84,6 @@ export class SearchReplaceDiffStrategy implements DiffStrategy {
 
         let startLine = startLineParam;
 
-        // Note: We don't use unescapeMarkers exactly as implemented in original because it had side effects or specific logic? 
-        // Original logic:
-        /*
-        private unescapeMarkers(content: string): string {
-            return content
-                .replace(/^\\<<<<<<</gm, "<<<<<<<")
-                .replace(/^\\=======/gm, "=======")
-                .replace(/^\\>>>>>>>/gm, ">>>>>>>")
-                .replace(/^\\-------/gm, "-------")
-                .replace(/^\\:end_line:/gm, ":end_line:")
-                .replace(/^\\:start_line:/gm, ":start_line:");
-        }
-        */
-        // I used < etc in my thought which was wrong. Reverting to original implementation logic
-        // But wait, I need to implement unescapeMarkers correctly inside the class or use the one I defined.
-        
         searchContent = searchContent
             .replace(/^\\<<<<<<</gm, "<<<<<<<")
             .replace(/^\\=======/gm, "=======")
@@ -121,7 +105,13 @@ export class SearchReplaceDiffStrategy implements DiffStrategy {
             (everyLineHasLineNumbers(searchContent) && replaceContent.trim() === "");
 
         if (hasAllLineNumbers && startLine === 0) {
-            startLine = parseInt(searchContent.split("\n")[0].split("|")[0]);
+            const firstLine = searchContent.split("\n")[0];
+            if (firstLine) {
+                 const possibleLine = parseInt(firstLine.split("|")[0]);
+                 if (!isNaN(possibleLine)) {
+                     startLine = possibleLine;
+                 }
+            }
         }
 
         if (hasAllLineNumbers) {

@@ -59,7 +59,7 @@ const CodeBlockComponent = ({ children, className }: CodeBlockProps) => {
 
   return (
     <div
-      className="my-2 rounded-xl overflow-hidden border"
+      className="my-2 rounded-xl overflow-hidden border min-w-0 max-w-full"
       style={{
         borderColor: 'var(--vscode-input-border)',
         backgroundColor: 'var(--vscode-editor-background)'
@@ -147,7 +147,7 @@ const CodeBlockComponent = ({ children, className }: CodeBlockProps) => {
         </div>
       ) : (
         <div
-          className="flex"
+          className="flex min-w-0"
           style={{ backgroundColor: 'var(--vscode-editor-background)' }}
         >
           <div

@@ -57,7 +57,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: Mark
     ),
     p: ({ ...props }) => (
       <p 
-        className="mb-4 leading-relaxed text-sm" 
+        className="mb-4 leading-relaxed text-sm break-words" 
         style={{ color: 'var(--vscode-editor-foreground)' }} 
         {...props} 
       />
@@ -78,7 +78,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: Mark
     ),
     li: ({ children, ...props }: { children?: React.ReactNode }) => (
       <li 
-        className="leading-relaxed text-sm pl-1" 
+        className="leading-relaxed text-sm pl-1 break-words" 
         style={{ color: 'var(--vscode-editor-foreground)' }} 
         {...props}
       >
@@ -114,7 +114,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: Mark
       if (isInline) {
         return (
           <code
-            className="px-1.5 py-0.5 text-xs font-mono border"
+            className="px-1.5 py-0.5 text-xs font-mono border whitespace-pre-wrap break-all"
             style={{
               backgroundColor: 'var(--vscode-textCodeBlock-background)',
               borderColor: 'var(--vscode-input-border)',

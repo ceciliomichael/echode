@@ -2,31 +2,30 @@ import type { ChatMode } from '../types/chat-mode';
 import { PLAN_MODE_TOOL_IDS, ASK_MODE_TOOL_IDS, GENERAL_MODE_TOOL_IDS } from '../lib/tool-config';
 
 /**
- * Tools available in Plan mode only
+ * Set of all standard built-in tools that we might want to filter.
+ * Mirrors STANDARD_TOOL_IDS in tool-config.ts
  */
-const PLAN_MODE_TOOLS = new Set<string>(PLAN_MODE_TOOL_IDS);
-
-const ASK_MODE_TOOLS = new Set<string>(ASK_MODE_TOOL_IDS);
-
-const GENERAL_MODE_TOOLS = new Set<string>(GENERAL_MODE_TOOL_IDS);
+const STANDARD_TOOLS = [
+  'read_file',
+  'write_to_file',
+  'list_files',
+  'grep_search',
+  'glob_search',
+  'delete_file',
+  'todo_write',
+  'todo_read',
+  'apply_diff',
+  'get_diagnostics',
+  'echo_search',
+  'plan',
+];
 
 /**
  * Check if a tool is available in the given mode
  */
 export function isToolAvailableInMode(toolName: string, mode: ChatMode): boolean {
-  if (mode === 'chat') {
-    return false; // Chat mode has no tools
-  }
-  if (mode === 'agent') {
-    return true; // Agent mode has access to all tools
-  }
-  if (mode === 'plan') {
-    return PLAN_MODE_TOOLS.has(toolName);
-  }
-  if (mode === 'general') {
-    return GENERAL_MODE_TOOLS.has(toolName);
-  }
-  return ASK_MODE_TOOLS.has(toolName);
+  const filtered = getFilteredToolsForMode(mode);
+  return !filtered.includes(toolName);
 }
 
 /**
@@ -35,30 +34,32 @@ export function isToolAvailableInMode(toolName: string, mode: ChatMode): boolean
  * to prevent the AI from seeing them and thinking they're available.
  */
 export function getFilteredToolsForMode(mode: ChatMode): string[] {
-  if (mode === 'agent') { return []; }
+  let allowedTools: Set<string>;
 
-  if (mode === 'chat') {
-    // Chat mode has no tools - all tools are filtered
-    return ['read_file', 'write_to_file', 'apply_diff', 'list_files', 'delete_file', 'grep_search', 'glob_search', 'echo_search', 'todo_write', 'todo_read', 'get_diagnostics', 'execute_command'];
+  switch (mode) {
+    case 'plan':
+      allowedTools = new Set(PLAN_MODE_TOOL_IDS);
+      break;
+    case 'ask':
+      allowedTools = new Set(ASK_MODE_TOOL_IDS);
+      break;
+    case 'general':
+      allowedTools = new Set(GENERAL_MODE_TOOL_IDS);
+      break;
+    case 'agent':
+      // Agent mode has all tools EXCEPT plan
+      // We explicitly exclude 'plan' to prevent the agent from trying to manage the plan lifecycle
+      allowedTools = new Set(STANDARD_TOOLS.filter(t => t !== 'plan'));
+      break;
+    case 'chat':
+    default:
+      // Chat mode has no standard tools (only MCP tools, which we don't filter here)
+      allowedTools = new Set([]);
+      break;
   }
 
-  if (mode === 'general') {
-    // General mode has file ops but no search tools
-    return ['grep_search', 'glob_search', 'echo_search', 'todo_write', 'todo_read', 'get_diagnostics', 'execute_command'];
-  }
-
-  if (mode === 'plan') {
-    // Plan mode is read-only - filter ALL editing and command tools
-    return ['write_to_file', 'apply_diff', 'delete_file', 'execute_command', 'get_diagnostics'];
-  }
-
-  if (mode === 'ask') {
-    // Ask mode is read-only - filter ALL editing, command, and planning tools
-    return ['write_to_file', 'apply_diff', 'delete_file', 'execute_command', 'get_diagnostics', 'todo_write', 'todo_read'];
-  }
-
-  // Default: filter editing tools
-  return ['write_to_file', 'apply_diff', 'delete_file'];
+  // Return all standard tools that are NOT in the allowed set
+  return STANDARD_TOOLS.filter(tool => !allowedTools.has(tool));
 }
 
 /**
@@ -67,12 +68,9 @@ export function getFilteredToolsForMode(mode: ChatMode): string[] {
  * and thinking it can use that tool in Plan/Ask mode.
  */
 export function stripUnavailableToolCalls(content: string, mode: ChatMode): string {
-  if (mode === 'agent') {
-    // Agent mode has all tools, no stripping needed
-    return content;
-  }
-
+  // Get list of tools to strip for this mode
   const unavailableTools = getFilteredToolsForMode(mode);
+  
   if (unavailableTools.length === 0) {
     return content;
   }
@@ -82,6 +80,7 @@ export function stripUnavailableToolCalls(content: string, mode: ChatMode): stri
   // Build regex pattern to match <invoke name="toolName">...</invoke> for each unavailable tool
   for (const toolName of unavailableTools) {
     // Match complete invoke blocks: <invoke name="toolName">...</invoke>
+    // Handles attributes and multiline content
     const invokePattern = new RegExp(
       `<invoke\\s+name=["']${toolName}["'][^>]*>[\\s\\S]*?</invoke>`,
       'gi'

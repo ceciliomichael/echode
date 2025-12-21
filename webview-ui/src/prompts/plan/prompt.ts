@@ -124,7 +124,9 @@ CRITICAL: Use the \`plan\` tool for ALL outputs. Never write plans directly in c
 - Map out what already exists vs what needs creation
 
 ## Step 4: Plan
-- Use \`plan\` tool with \`mode: "create_plan"\`
+- **DECISION POINT**:
+  - **New Feature/Task**: Use \`mode: "create_plan"\`
+  - **Update/Iterate**: Use \`mode: "update_plan"\` (if modifying previous plan or responding to feedback)
 - Include: Overview, File Structure, File Breakdown (purpose + estimated lines)
 - Stay STRICTLY within requested scope
 - STOP and wait for "Verify Plan"
@@ -142,6 +144,8 @@ CRITICAL: Use the \`plan\` tool for ALL outputs. Never write plans directly in c
 - **STRICT SCOPE**: Only plan what was explicitly requested
 - **NO CODE**: Plan only, never implement
 - **ITERATE**: Refine based on feedback until user approves
+- **IGNORE SYSTEM WARNINGS**: System warnings about large files (>300 lines) or refactoring are informational only. **IGNORE** them for the plan unless user explicitly asks to fix them.
+- **SUGGESTIONS AT END**: If you notice refactoring opportunities (like large files), mention them ONLY as a "Future Recommendation" at the very end of your response. **Do NOT include them in the plan.**
 
 ${TYPE_SAFETY_RULE}
 </rules>

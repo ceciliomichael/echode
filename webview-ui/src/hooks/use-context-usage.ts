@@ -1,8 +1,10 @@
 import { useMemo } from 'react';
 import type { Message } from '../types/chat';
+import type { ChatMode } from '../types/chat-mode';
 import type { ContextSettings } from '../types/api-settings';
 import { DEFAULT_CONTEXT_SETTINGS } from '../types/api-settings';
 import { formatToolResultForAI } from '../utils/tool-execution-helpers';
+import { stripUnavailableToolCalls, isToolAvailableInMode } from '../utils/tool-history-filter';
 
 /**
  * Estimate token count from text using ~4 characters per token
@@ -25,6 +27,7 @@ export interface ContextUsageResult {
 interface UseContextUsageOptions {
   systemPrompt: string;
   messages: Message[];
+  mode?: ChatMode;
   currentToolResultText?: string;
   contextSettings?: ContextSettings;
   revertPreviewMessageId?: string | null;
@@ -38,6 +41,7 @@ interface UseContextUsageOptions {
 export function useContextUsage({
   systemPrompt,
   messages,
+  mode = 'agent',
   currentToolResultText = '',
   contextSettings = DEFAULT_CONTEXT_SETTINGS,
   revertPreviewMessageId = null,
@@ -62,11 +66,18 @@ export function useContextUsage({
     let toolResultsTokens = 0;
 
     effectiveMessages.forEach((message) => {
-      historyTokens += estimateTokens(message.content);
+      // Apply filtering to content to match what is sent to LLM
+      const filteredContent = stripUnavailableToolCalls(message.content, mode);
+      historyTokens += estimateTokens(filteredContent);
 
       // Calculate tool results separately
       if (message.toolExecutions && message.toolExecutions.size > 0) {
         message.toolExecutions.forEach((execution) => {
+          // Skip tools that are not available in current mode
+          if (!isToolAvailableInMode(execution.toolName, mode)) {
+            return;
+          }
+
           toolResultsTokens += estimateTokens(execution.toolName);
           toolResultsTokens += estimateTokens(JSON.stringify(execution.parameters || {}));
 
@@ -96,5 +107,5 @@ export function useContextUsage({
       totalTokens,
       maxTokens,
     };
-  }, [systemPrompt, messages, currentToolResultText, contextSettings, revertPreviewMessageId]);
+  }, [systemPrompt, messages, mode, currentToolResultText, contextSettings, revertPreviewMessageId]);
 }

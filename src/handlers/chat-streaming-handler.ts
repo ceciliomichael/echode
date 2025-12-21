@@ -5,6 +5,7 @@ import { mergeSameRoleChatMessages } from '../utils/message-merger';
 import { processTodoReminders } from '../utils/todo-reminder';
 import { defaultRegistry } from '../services/tools/tool-registry';
 import { MCPToolAdapter } from '../services/mcp/mcp-tool-adapter';
+import { LLMValidator } from '../services/llm/llm-validator';
 
 interface ChatStreamRequest {
   requestId: number;
@@ -40,6 +41,9 @@ export async function handleChatStream(
   activeStreams.set(requestId, abortController);
 
   try {
+    // Validate settings before proceeding
+    LLMValidator.validateSettings(settings);
+
     // Clone messages for processing
     const processedMessages = messages.map(m => ({ ...m }));
 
@@ -117,6 +121,7 @@ export async function handleChatStream(
 
           const systemReminder = `\n\n<system_reminder>\nPlease remember:${toolsMessage}
 - Use only the XML format: <function_calls><invoke name="tool_name">...</invoke></function_calls>
+- For apply_diff: Use ONE search/replace block per invocation. Multiple blocks are strictly forbidden.
 - Avoid redundant file reads when you already have the necessary code in context, but if you are unsure or need to verify details, call the relevant tool again instead of guessing.
 - Do not nest tool XML inside parameters.
 - Keep tool syntax internal. Never show it to the user.

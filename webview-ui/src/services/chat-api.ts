@@ -10,10 +10,6 @@ export class ChatApiService {
   async *streamChat(messages: ChatMessage[], signal?: AbortSignal, mode: ChatMode = 'agent'): AsyncGenerator<string, void, unknown> {
     const settings = storageService.getSettings();
 
-    if (!storageService.hasSettings()) {
-      throw new Error('API configuration not available. Please configure your API settings in the header settings.');
-    }
-
     // Get mode-specific provider and model
     const modeModel = storageService.getModeModel(mode);
     const activeProvider = modeModel.provider;
@@ -85,6 +81,17 @@ export class ChatApiService {
       maxTokens = settings.vscodeLmMaxTokens;
       temperature = settings.vscodeLmTemperature;
       baseURL = '';
+    }
+
+    // Validate effective configuration to prevent premature failures
+    if (activeProvider === 'anthropic' && !effectiveApiKey) {
+      throw new Error('Anthropic API key is missing. Please configure it in the settings.');
+    }
+    if (activeProvider === 'openai' && !effectiveApiKey) {
+      throw new Error('OpenAI API key is missing. Please configure it in the settings.');
+    }
+    if ((activeProvider === 'openai-compatible' || activeProvider === 'megallm' || isCustomProvider(activeProvider)) && !baseURL) {
+      throw new Error('Base URL is missing for the provider. Please configure it in the settings.');
     }
 
     // Filter tools based on mode (plan mode gets restricted set, agent mode gets all)

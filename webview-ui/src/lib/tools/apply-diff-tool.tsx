@@ -26,7 +26,7 @@ registerToolPlugin({
 
 Parameters:
 - path: File path (relative to workspace)
-- diff: SEARCH/REPLACE block(s)
+- diff: Single SEARCH/REPLACE block (use multiple invocations for multiple changes)
 
 Format:
 <<<<<<< SEARCH

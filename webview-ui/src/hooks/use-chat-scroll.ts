@@ -2,6 +2,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 
 interface ChatScrollState {
   scrollContainerRef: React.RefObject<HTMLDivElement | null>;
+  scrollContentRef: React.RefObject<HTMLDivElement | null>;
   isAutoScrollEnabled: boolean;
   handleScroll: () => void;
   scrollToBottom: (options?: { behavior?: 'auto' | 'smooth' }) => void;
@@ -15,6 +16,7 @@ export function useChatScroll(
   isExecutingTool: boolean
 ): ChatScrollState {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const scrollContentRef = useRef<HTMLDivElement>(null);
   const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
   const lastMessageCountRef = useRef(0);
   const lastScrollTopRef = useRef(0);
@@ -88,8 +90,10 @@ export function useChatScroll(
     // and while streaming content (including loading dots)
     if (isAutoScrollEnabledRef.current && currentMessageCount > 0) {
       if (hasNewMessage) {
-        // New message: smooth scroll
-        scrollToBottom({ behavior: 'smooth' });
+        const isBulkLoad = currentMessageCount - previousMessageCount > 1 || previousMessageCount === 0;
+        // If loading history (bulk) or initial load, scroll instantly.
+        // Otherwise (single new message), scroll smoothly.
+        scrollToBottom({ behavior: isBulkLoad ? 'auto' : 'smooth' });
       } else if (hasNewContent && (isStreaming || isExecutingTool)) {
         // Streaming update: instant scroll to keep up with fast content
         scrollToBottom({ behavior: 'auto' });
@@ -109,32 +113,31 @@ export function useChatScroll(
       return;
     }
 
-    const container = scrollContainerRef.current;
-    if (!container) return;
+    // Observe the content wrapper, not the container, to detect size changes
+    const content = scrollContentRef.current;
+    if (!content) return;
 
-    let lastHeight = container.scrollHeight;
+    let lastHeight = content.scrollHeight;
 
     const observer = new ResizeObserver(() => {
-      const target = scrollContainerRef.current;
+      const target = scrollContentRef.current;
       if (!target) return;
 
-      const { scrollTop, scrollHeight, clientHeight } = target;
+      const { scrollHeight } = target;
       const heightGrew = scrollHeight > lastHeight;
       lastHeight = scrollHeight;
 
       // Only auto-scroll on height increase (not shrink)
       if (!heightGrew) return;
 
-      const distanceToBottom = scrollHeight - scrollTop - clientHeight;
-      const nearBottom = distanceToBottom <= bottomThresholdPx;
-
-      // Scroll if auto-scroll enabled AND (near bottom OR actively streaming/executing)
-      if (isAutoScrollEnabledRef.current && nearBottom) {
+      // If auto-scroll is enabled (user hasn't manually scrolled up),
+      // we must stay pinned to bottom even if a large chunk makes 'nearBottom' false temporarily.
+      if (isAutoScrollEnabledRef.current) {
         scrollToBottom({ behavior: 'auto' });
       }
     });
 
-    observer.observe(container);
+    observer.observe(content);
 
     return () => {
       observer.disconnect();
@@ -143,6 +146,7 @@ export function useChatScroll(
 
   return {
     scrollContainerRef,
+    scrollContentRef,
     isAutoScrollEnabled,
     handleScroll,
     scrollToBottom,
