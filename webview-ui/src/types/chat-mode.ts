@@ -1,4 +1,4 @@
-export type ChatMode = 'agent' | 'plan' | 'ask' | 'general' | 'chat';
+export type ChatMode = 'agent' | 'plan' | 'ask' | 'general' | 'chat' | 'review';
 
 export const DEFAULT_CHAT_MODE: ChatMode = 'agent';
 
@@ -19,6 +19,11 @@ export const CHAT_MODE_OPTIONS: ChatModeOption[] = [
     label: 'Plan',
     description: 'Echo can read and plan',
   },
+    {
+    value: 'review',
+    label: 'Review',
+    description: 'Code review & Audit',
+  },
   {
     value: 'ask',
     label: 'Ask',
@@ -33,5 +38,5 @@ export const CHAT_MODE_OPTIONS: ChatModeOption[] = [
     value: 'chat',
     label: 'Chat',
     description: 'Pure conversation, no tools',
-  },
+  }
 ];

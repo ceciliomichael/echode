@@ -12,7 +12,7 @@ export type ToolProgressCallback = (progress: unknown) => void;
 /**
  * Chat mode types for mode-specific tool behavior
  */
-export type ChatMode = 'agent' | 'plan' | 'ask' | 'general';
+export type ChatMode = 'agent' | 'plan' | 'ask' | 'general' | 'review';
 
 export interface ITool {
     name: string;

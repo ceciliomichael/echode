@@ -49,6 +49,17 @@ export const GENERAL_MODE_TOOL_IDS = [
   'delete_file',
 ] as const;
 
+/** Review mode: read-only exploration + publish_findings (exclusive tool) */
+export const REVIEW_MODE_TOOL_IDS = [
+  'read_file',
+  'list_files',
+  'grep_search',
+  'glob_search',
+  'echo_search',
+  'get_diagnostics',
+  'publish_findings',
+] as const;
+
 /**
  * Set of all standard built-in tools.
  * Used to identify remote/MCP tools (which are not in this list).
@@ -66,6 +77,7 @@ const STANDARD_TOOL_IDS = new Set([
   'get_diagnostics',
   'echo_search',
   'plan',
+  'publish_findings',
 ]);
 
 // ============================================================================
@@ -109,10 +121,18 @@ export function getToolsForMode(mode: ChatMode, defaultEnabled = true): Tool[] {
       // Chat mode: MCP tools only (no standard tools)
       return allTools.filter(t => !STANDARD_TOOL_IDS.has(t.id));
 
+    case 'review':
+      // Review mode: exploration tools + publish_findings (exclusive to Review mode)
+      // publish_findings is the mode-specific tool, similar to how 'plan' is exclusive to Plan mode
+      return allTools.filter(t =>
+        (REVIEW_MODE_TOOL_IDS as readonly string[]).includes(t.id) ||
+        !STANDARD_TOOL_IDS.has(t.id)
+      );
+
     case 'agent':
     default:
-      // Agent mode: all tools EXCEPT plan (plan is exclusive to Plan mode)
-      return allTools.filter(t => t.id !== 'plan');
+      // Agent mode: all tools EXCEPT plan and publish_findings (mode-exclusive tools)
+      return allTools.filter(t => t.id !== 'plan' && t.id !== 'publish_findings');
   }
 }
 
@@ -145,8 +165,21 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
 <tool_format>
 CRITICAL: You must strictly follow this XML structure. Valid XML is required.
 
+SEQUENTIAL EXECUTION:
 <function_calls>
     <invoke name="TOOL_NAME">
+        <parameter name="param1">value1</parameter>
+        <parameter name="param2">value2</parameter>
+    </invoke>
+</function_calls>
+
+PARALLEL EXECUTION:
+<function_calls>
+    <invoke name="TOOL_NAME">
+        <parameter name="param1">value1</parameter>
+        <parameter name="param2">value2</parameter>
+    </invoke>
+    <invoke name="TOOL_NAME_2">
         <parameter name="param1">value1</parameter>
         <parameter name="param2">value2</parameter>
     </invoke>

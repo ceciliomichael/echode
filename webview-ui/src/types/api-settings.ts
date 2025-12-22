@@ -133,7 +133,7 @@ export interface ApiSettings {
   streamingTimeout: number;
   systemPrompt?: string;
   enabledTools?: Tool[];
-  chatMode?: 'agent' | 'plan' | 'ask' | 'general' | 'chat';
+  chatMode?: 'agent' | 'plan' | 'ask' | 'general' | 'chat' | 'review';
   workspaceSettings?: Record<string, Partial<ApiSettings>>;
   indexingSettings?: IndexingSettings;
   autocompleteSettings?: AutocompleteSettings;

@@ -4,10 +4,11 @@ import * as crypto from 'crypto';
 import { ITool, ToolExecutionResult } from './tool.interface';
 
 /**
- * Generate a UUID v4 using Node's crypto module
+ * Generate a short 8-character ID using Node's crypto module
+ * Matches the format used by code review reports
  */
-function generateUUID(): string {
-  return crypto.randomUUID();
+function generateShortId(): string {
+  return crypto.randomUUID().slice(0, 8);
 }
 
 /**
@@ -107,18 +108,18 @@ export class PlanTool implements ITool {
       }
 
       const workspaceRoot = workspaceFolders[0].uri.fsPath;
-      const echodeDir = path.join(workspaceRoot, '.echode');
-      const planId = generateUUID();
+      const planDir = path.join(workspaceRoot, '.echode', 'plan');
+      const planId = generateShortId();
       const planFileName = `plan-${planId}.md`;
-      const planFilePath = path.join(echodeDir, planFileName);
+      const planFilePath = path.join(planDir, planFileName);
 
-      // Ensure .echode directory exists
-      const echodeDirUri = vscode.Uri.file(echodeDir);
+      // Ensure .echode/plan directory exists
+      const planDirUri = vscode.Uri.file(planDir);
       try {
-        await vscode.workspace.fs.stat(echodeDirUri);
+        await vscode.workspace.fs.stat(planDirUri);
       } catch {
-        // Directory doesn't exist, create it
-        await vscode.workspace.fs.createDirectory(echodeDirUri);
+        // Directory doesn't exist, create it (creates parent dirs too)
+        await vscode.workspace.fs.createDirectory(planDirUri);
       }
 
       // Write the plan file
@@ -139,7 +140,7 @@ export class PlanTool implements ITool {
         planTitle: title,
         planContent: fullContent,
         planFilePath: planFilePath, // Store path for undo/delete
-        message: `Plan "${title}" saved to .echode/${planFileName}. Click "Verify Plan" to continue.`,
+        message: `Plan "${title}" saved to .echode/plan/${planFileName}. Click "Verify Plan" to continue.`,
       };
 
       return {
@@ -176,18 +177,18 @@ export class PlanTool implements ITool {
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (workspaceFolders && workspaceFolders.length > 0) {
           const workspaceRoot = workspaceFolders[0].uri.fsPath;
-          const echodeDir = path.join(workspaceRoot, '.echode');
-          const echodeDirUri = vscode.Uri.file(echodeDir);
+          const planDir = path.join(workspaceRoot, '.echode', 'plan');
+          const planDirUri = vscode.Uri.file(planDir);
 
           try {
-            const files = await vscode.workspace.fs.readDirectory(echodeDirUri);
+            const files = await vscode.workspace.fs.readDirectory(planDirUri);
             const planFiles = files.filter(([name]) => name.startsWith('plan-') && name.endsWith('.md'));
 
             if (planFiles.length > 0) {
               // Get stats for all plan files to find the most recent one
               const fileStats = await Promise.all(
                 planFiles.map(async ([name]) => {
-                  const filePath = path.join(echodeDir, name);
+                  const filePath = path.join(planDir, name);
                   const stat = await vscode.workspace.fs.stat(vscode.Uri.file(filePath));
                   return { path: filePath, mtime: stat.mtime };
                 })

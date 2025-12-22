@@ -13,6 +13,7 @@ import { buildPlanPrompt } from './plan';
 import { buildAskPrompt } from './ask';
 import { buildGeneralPrompt } from './general';
 import { buildChatPrompt } from './chat';
+import { buildReviewPrompt } from './review';
 import { storageService } from '../utils/storage';
 import { getToolsForMode } from '../lib/tool-config';
 
@@ -84,6 +85,9 @@ export function getSystemPrompt(workspace: WorkspaceContext | null, mode: ChatMo
         case 'plan':
             return buildPlanPrompt({ workspace, enabledTools });
 
+        case 'review':
+            return buildReviewPrompt({ workspace, enabledTools });
+
         case 'agent':
         default:
             return buildAgentPrompt({ workspace, enabledTools });
@@ -96,3 +100,4 @@ export { buildPlanPrompt } from './plan';
 export { buildAskPrompt } from './ask';
 export { buildGeneralPrompt } from './general';
 export { buildChatPrompt } from './chat';
+export { buildReviewPrompt } from './review';

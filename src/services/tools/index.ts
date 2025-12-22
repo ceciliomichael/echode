@@ -11,3 +11,4 @@ export { ITool, ToolExecutionResult } from './tool.interface';
 export { GetDiagnosticsTool } from './get-diagnostics-tool';
 export { EchoSearchTool } from './echo-search-tool';
 export { PlanTool } from './plan-tool';
+export { PublishFindingsTool } from './publish-findings-tool';

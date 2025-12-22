@@ -22,6 +22,7 @@ import './tools/apply-diff-tool.tsx';
 import './tools/get-diagnostics-tool.tsx';
 import './tools/echo-search-tool.tsx';
 import './tools/plan-tool.tsx';
+import './tools/publish-findings-tool.tsx';
 
 /**
  * Tool status callback for mid-execution updates
