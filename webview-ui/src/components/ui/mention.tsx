@@ -6,8 +6,9 @@ interface MentionProps {
     withShadow?: boolean;
 }
 
-// Regex for parsing @[label](path) format - create new instance each time to avoid state issues
-const createMentionRegex = () => /@\[([^\]]+)\]\(([^)]+)\)/g;
+// Regex for parsing @[label](path) or @[label] format - create new instance each time to avoid state issues
+// The path part is optional to support manually typed mentions like @[filename]
+const createMentionRegex = () => /@\[([^\]]+)\](?:\(([^)]+)\))?/g;
 
 export const Mention: React.FC<MentionProps> = ({ text, withShadow = false }) => {
     if (!text) {
@@ -27,9 +28,12 @@ export const Mention: React.FC<MentionProps> = ({ text, withShadow = false }) =>
             parts.push(text.slice(lastIndex, match.index));
         }
 
-        const fullMatch = match[0]; // @[label](path)
+        const fullMatch = match[0]; // @[label](path) or @[label]
         const label = match[1];     // label
-        const path = match[2];      // path
+        const path = match[2];      // path (optional, undefined for manually typed)
+        
+        // Manual mentions (no path) are display-only, not clickable
+        const isClickable = Boolean(path);
 
         parts.push(
             <span
@@ -41,15 +45,14 @@ export const Mention: React.FC<MentionProps> = ({ text, withShadow = false }) =>
                     bg-blue-500/10 
                     text-blue-600 
                     dark:text-blue-400
-                    cursor-pointer
-                    hover:bg-blue-500/20
+                    ${isClickable ? "cursor-pointer hover:bg-blue-500/20" : ""}
                     transition-colors
                     ${withShadow ? "shadow-sm" : ""}
                 `}
-                onClick={() => {
+                onClick={isClickable ? () => {
                     vscode.postMessage({ type: "openMention", text: path });
-                }}
-                title={`Open ${path}`}
+                } : undefined}
+                title={isClickable ? `Open ${path}` : undefined}
             >
                 @{label}
             </span>

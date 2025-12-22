@@ -180,17 +180,99 @@ Configure in Settings > Context.
 
 ## Modes of Operation
 
+EchoDE operates in four distinct modes, each designed for specific workflows. Switch modes using the dropdown in the chat header.
+
 ### Agent Mode
-The default. EchoDE reads, writes, and modifies files. Best for implementation tasks.
+
+The default and most powerful mode. EchoDE has full read-write access to your workspace.
+
+**Available Tools:**
+- File operations: `read_file`, `write_to_file`, `apply_diff`, `delete_file`
+- Search: `grep_search`, `glob_search`, `list_files`, `echo_search`
+- Task management: `todo_write`, `todo_read`
+- Quality assurance: `get_diagnostics`
+
+**Workflow:**
+1. Receives your request
+2. Searches the codebase to gather context
+3. Creates a task list to track progress
+4. Makes targeted edits using `apply_diff` or `write_to_file`
+5. Runs diagnostics to catch and fix errors
+6. Continues until the task is complete
+
+**Best for:** Feature implementation, bug fixes, refactoring, code generation.
 
 ### Plan Mode
-EchoDE explores and creates a detailed plan without making changes. Useful for understanding unfamiliar codebases or architecting before building.
+
+Exploration and architecture mode. EchoDE analyzes your codebase and produces a detailed implementation plan without modifying any files.
+
+**Available Tools:**
+- Search: `grep_search`, `glob_search`, `list_files`, `echo_search`
+- Read-only: `read_file`
+- Planning: `plan`, `todo_write`, `todo_read`
+
+**Workflow:**
+1. Explores the codebase to understand structure
+2. Identifies relevant files and dependencies
+3. Produces a step-by-step implementation plan
+4. Outputs the plan using the `plan` tool for structured display
+
+**Best for:** Understanding unfamiliar codebases, architectural decisions, scoping work before implementation, onboarding to new projects.
 
 ### Ask Mode
-Read-only exploration. EchoDE can search and read files but cannot modify anything. Ideal for code review or learning.
+
+Read-only exploration mode. EchoDE can search and read your codebase but cannot modify anything.
+
+**Available Tools:**
+- Search: `grep_search`, `glob_search`, `list_files`, `echo_search`
+- Read-only: `read_file`
+
+**Workflow:**
+1. Receives your question
+2. Searches for relevant code
+3. Reads files to understand context
+4. Provides explanations and answers
+
+**Best for:** Code review, learning how something works, understanding dependencies, answering architectural questions.
 
 ### Chat Mode
-Pure conversation. No tools, no file access. Just discussion.
+
+Pure conversation mode. No tools, no file access. EchoDE responds based solely on its training and any context you provide in the message.
+
+**Available Tools:** None
+
+**Workflow:** Direct question-and-answer without workspace interaction.
+
+**Best for:** General programming questions, discussing concepts, brainstorming ideas, conversations unrelated to your current codebase.
+
+### Review Mode
+
+Code analysis mode. EchoDE reviews your codebase and publishes structured findings without making changes.
+
+**Available Tools:**
+- Search: `grep_search`, `glob_search`, `list_files`, `echo_search`
+- Read-only: `read_file`
+- Analysis: `get_diagnostics`, `publish_findings`
+
+**Workflow:**
+1. Analyzes specified files or directories
+2. Identifies issues, improvements, and patterns
+3. Publishes findings in a structured format
+
+**Best for:** Code audits, security reviews, identifying technical debt, quality assessments.
+
+---
+
+## Image Support
+
+Attach images to your messages for visual context:
+
+- **Screenshots:** Show UI bugs, error messages, or expected behavior
+- **Mockups:** Describe designs you want to implement
+- **Diagrams:** Explain architecture or data flow
+- **Code screenshots:** Reference code from external sources
+
+Supported by models with vision capabilities (Claude 3.5/4, GPT-4o, GPT-4 Turbo).
 
 ---
 
