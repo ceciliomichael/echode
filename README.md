@@ -44,8 +44,21 @@ EchoDE can invoke tools to interact with your workspace:
 | `delete_file` | Remove files safely |
 | `get_diagnostics` | Collect linter and compiler errors |
 | `echo_search` | Intelligent code exploration sub-agent |
+| `todo_write` | Create and manage task lists |
+| `todo_read` | Review current task progress |
+| `plan` | Create detailed implementation plans in Plan Mode |
 
 These tools mean EchoDE doesn't guess. It knows.
+
+### Echo Search
+
+A specialized sub-agent that iteratively searches your codebase to find relevant context. Unlike simple text search, Echo Search understands semantic relationships and can explore complex codebases intelligently.
+
+Configure in Settings > Echo Search:
+- Enable or disable the feature
+- Select which provider and model powers the sub-agent
+
+Best for architectural questions, understanding unfamiliar code, or exploring how components connect.
 
 ### Multi-Model Support
 
@@ -56,8 +69,49 @@ Choose the model that fits your workflow:
 - **Qwen** — Alibaba's Qwen models for cost-effective performance
 - **OpenAI-Compatible** — Any provider with OpenAI-compatible API (Groq, Together, local models)
 - **VS Code Language Model** — Use models provided by other VS Code extensions
+- **Custom Providers** — Define your own OpenAI-compatible endpoints
 
 Configuration happens in the sidebar. No JSON files to edit.
+
+### Custom Providers
+
+Add your own OpenAI-compatible providers for maximum flexibility:
+
+1. Open Settings > API Configuration
+2. Click "Add Custom Provider"
+3. Enter a name, base URL, and optional API key
+4. Select your custom provider from the dropdown
+
+Useful for self-hosted models, private endpoints, or providers not natively supported.
+
+### MCP (Model Context Protocol)
+
+EchoDE supports MCP servers, allowing you to extend the agent with external tools. MCP enables integration with databases, APIs, file systems, and custom services.
+
+Configuration:
+
+1. Open Settings > MCP Servers
+2. Click "Edit Configuration" to open the JSON config file
+3. Define your MCP servers (stdio or HTTP transport)
+4. Connect servers individually and toggle tools on/off
+
+Example configuration:
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/allowed/dir"]
+    },
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/mydb"]
+    }
+  }
+}
+```
+
+MCP tools appear alongside built-in tools and can be enabled or disabled per server.
 
 ### Intelligent Autocomplete
 
@@ -91,6 +145,36 @@ Configuration options:
 One-click commit message generation. EchoDE analyzes your staged changes and writes a conventional commit message. No more staring at a blank input field.
 
 Access it from the Source Control panel or via command palette.
+
+### Chat History
+
+All conversations are saved automatically. Access previous sessions through the History panel:
+
+- Search sessions by title
+- Load any previous conversation
+- Delete sessions you no longer need
+
+Sessions persist across VS Code restarts.
+
+### System Prompt Customization
+
+Define custom instructions that shape the AI's behavior:
+
+**Via Settings:**
+Open Settings > System Prompt and enter your custom instructions. These apply to all conversations.
+
+**Via AGENTS.md:**
+Create an `AGENTS.md` file in your workspace root. EchoDE automatically reads this file and incorporates its contents into the system prompt. Useful for project-specific coding standards, architectural guidelines, or team conventions.
+
+The file is excluded from workspace context display but remains accessible to the agent.
+
+### Context Management
+
+Control how much context is sent to the model:
+
+- **Max Context Tokens** — Set a custom limit for the context window (default: 128,000)
+
+Configure in Settings > Context.
 
 ---
 

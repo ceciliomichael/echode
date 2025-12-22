@@ -190,12 +190,15 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
           break;
         case 'searchFiles':
           // File and folder search handler
-          const query = data.query?.toLowerCase() || '';
+          // Preserve original case for glob pattern, use lowercase for filtering
+          const rawQuery = data.query || '';
+          const queryLower = rawQuery.toLowerCase();
           const searchType = data.searchType || 'file'; // 'file' or 'folder'
 
           if (searchType === 'folder' || searchType === 'all') {
             // Helper to get folder results
-            const folderPromise = vscode.workspace.findFiles(`**/*${query}*/**/*`, '**/node_modules/**', 50).then(uris => {
+            // Use case-insensitive glob pattern by searching for both original and lowercase
+            const folderPromise = vscode.workspace.findFiles(`**/*`, '**/node_modules/**', 200).then(uris => {
               const folderPaths = new Set<string>();
               uris.forEach(uri => {
                 const relativePath = vscode.workspace.asRelativePath(uri);
@@ -203,7 +206,8 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
                 let currentPath = '';
                 for (let i = 0; i < parts.length - 1; i++) {
                   currentPath = currentPath ? `${currentPath}/${parts[i]}` : parts[i];
-                  if (currentPath.toLowerCase().includes(query)) {
+                  // Case-insensitive matching for folder names
+                  if (currentPath.toLowerCase().includes(queryLower)) {
                     folderPaths.add(currentPath);
                   }
                 }
@@ -221,12 +225,19 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
               });
             } else {
               // searchType === 'all'
-              const filePromise = vscode.workspace.findFiles(`**/*${query}*`, '**/node_modules/**', 20).then(uris => {
-                return uris.map(uri => ({
-                  path: vscode.workspace.asRelativePath(uri),
-                  type: 'file' as const,
-                  label: uri.path.split('/').pop()
-                }));
+              // Fetch all files and filter case-insensitively
+              const filePromise = vscode.workspace.findFiles(`**/*`, '**/node_modules/**', 200).then(uris => {
+                return uris
+                  .filter(uri => {
+                    const filename = uri.path.split('/').pop() || '';
+                    return filename.toLowerCase().includes(queryLower);
+                  })
+                  .slice(0, 20)
+                  .map(uri => ({
+                    path: vscode.workspace.asRelativePath(uri),
+                    type: 'file' as const,
+                    label: uri.path.split('/').pop()
+                  }));
               });
 
               Promise.all([folderPromise, filePromise]).then(([folders, files]) => {
@@ -236,13 +247,19 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
               });
             }
           } else {
-            // Search for files (existing logic)
-            vscode.workspace.findFiles(`**/*${query}*`, '**/node_modules/**', 20).then(uris => {
-              const results = uris.map(uri => ({
-                path: vscode.workspace.asRelativePath(uri),
-                type: 'file' as const,
-                label: uri.path.split('/').pop()
-              }));
+            // Search for files - use case-insensitive filtering
+            vscode.workspace.findFiles(`**/*`, '**/node_modules/**', 200).then(uris => {
+              const results = uris
+                .filter(uri => {
+                  const filename = uri.path.split('/').pop() || '';
+                  return filename.toLowerCase().includes(queryLower);
+                })
+                .slice(0, 20)
+                .map(uri => ({
+                  path: vscode.workspace.asRelativePath(uri),
+                  type: 'file' as const,
+                  label: uri.path.split('/').pop()
+                }));
               webviewView.webview.postMessage({ type: 'fileSearchResults', results });
             });
           }
