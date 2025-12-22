@@ -1,5 +1,8 @@
 import type { IChatService, ChatServiceConfig, StreamChatParams } from './base-chat-service';
 import type { Provider } from '../types/api-settings';
+import type { Message } from '../types/chat';
+import { CompressionService } from './compression/compression-service';
+import type { CompressionConfig } from './compression/types';
 
 /**
  * Unified chat service that communicates with VSCode extension backend
@@ -17,10 +20,12 @@ export class UnifiedChatService implements IChatService {
     reject: (error: Error) => void;
   }>();
   private messageHandler: ((event: MessageEvent) => void) | null = null;
+  private compressionService: CompressionService;
 
   private constructor(config: ChatServiceConfig, provider: Provider = 'openai-compatible') {
     this.config = config;
     this.provider = provider;
+    this.compressionService = new CompressionService(this);
     this.setupMessageListener();
   }
 
@@ -106,12 +111,19 @@ export class UnifiedChatService implements IChatService {
   /**
    * Stream chat completion through VSCode extension backend
    */
-  async *streamChat({ messages, signal }: StreamChatParams): AsyncGenerator<string, void, unknown> {
+  async *streamChat({ messages, signal, configOverride }: StreamChatParams): AsyncGenerator<string, void, unknown> {
     if (typeof window === 'undefined' || !window.vscode) {
       throw new Error('VSCode API not available');
     }
 
     const requestId = ++this.requestCounter;
+
+    // Merge config with overrides
+    const effectiveConfig = {
+      ...this.config,
+      ...configOverride,
+    };
+    const effectiveProvider = configOverride?.provider || this.provider;
 
     // Create a ReadableStream for streaming chunks
     const stream = new ReadableStream<string>({
@@ -146,16 +158,16 @@ export class UnifiedChatService implements IChatService {
           requestId,
           messages,
           settings: {
-            provider: this.provider,
-            apiKey: this.config.apiKey,
-            model: this.config.model,
-            maxTokens: this.config.maxTokens,
-            temperature: this.config.temperature,
-            baseURL: this.config.baseURL,
-            qwenCodeOauthPath: this.config.qwenCodeOauthPath,
-            enabledTools: this.config.enabledTools,
-            chatMode: this.config.chatMode,
-            streamingTimeout: this.config.streamingTimeout,
+            provider: effectiveProvider as Provider,
+            apiKey: effectiveConfig.apiKey,
+            model: effectiveConfig.model,
+            maxTokens: effectiveConfig.maxTokens,
+            temperature: effectiveConfig.temperature,
+            baseURL: effectiveConfig.baseURL,
+            qwenCodeOauthPath: effectiveConfig.qwenCodeOauthPath,
+            enabledTools: effectiveConfig.enabledTools,
+            chatMode: effectiveConfig.chatMode,
+            streamingTimeout: effectiveConfig.streamingTimeout,
           }
         });
 
@@ -182,6 +194,21 @@ export class UnifiedChatService implements IChatService {
     } finally {
       reader.releaseLock();
     }
+  }
+
+  /**
+   * Compress chat history by summarizing it using the specified model
+   */
+  async compressHistory(
+    messages: Message[],
+    compressionConfig: CompressionConfig,
+    signal?: AbortSignal
+  ): Promise<string> {
+    if (typeof window === 'undefined' || !window.vscode) {
+      throw new Error('VSCode API not available');
+    }
+
+    return this.compressionService.compressHistory(messages, compressionConfig, signal);
   }
 
 }

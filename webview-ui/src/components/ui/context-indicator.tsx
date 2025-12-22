@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { Loader2, Archive, X } from 'lucide-react';
 import type { ChatMode } from '../../types/chat-mode';
 
 interface DashedProgressCircleProps {
@@ -72,6 +73,7 @@ function DashedProgressCircle({ percent, color, size = 16 }: DashedProgressCircl
 interface ContextUsage {
   systemPromptTokens: number;
   historyTokens: number;
+  compressedHistoryTokens: number;
   toolResultsTokens: number;
   totalTokens: number;
   maxTokens: number;
@@ -81,6 +83,9 @@ interface ContextIndicatorProps {
   usage: ContextUsage;
   disabled?: boolean;
   mode?: ChatMode;
+  onCompress?: () => void;
+  onCancelCompress?: () => void;
+  isCompressing?: boolean;
 }
 
 /**
@@ -119,7 +124,7 @@ function formatTokens(tokens: number): string {
   return tokens.toString();
 }
 
-export function ContextIndicator({ usage, disabled = false, mode }: ContextIndicatorProps) {
+export function ContextIndicator({ usage, disabled = false, mode, onCompress, onCancelCompress, isCompressing = false }: ContextIndicatorProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const [isTopTooltip, setIsTopTooltip] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState<'above' | 'below'>('above');
@@ -131,6 +136,10 @@ export function ContextIndicator({ usage, disabled = false, mode }: ContextIndic
     : 0;
 
   const color = getUsageColor(usagePercent, mode);
+  
+  // Show compress button when onCompress is available (user can compress anytime)
+  const shouldShowCompress = !!onCompress;
+  const isOverLimit = usage.totalTokens > usage.maxTokens;
 
   useEffect(() => {
     const handleTooltipHover = (event: Event) => {
@@ -251,6 +260,16 @@ export function ContextIndicator({ usage, disabled = false, mode }: ContextIndic
                 {formatTokens(usage.systemPromptTokens)}
               </span>
             </div>
+            {usage.compressedHistoryTokens > 0 && (
+              <div className="flex justify-between text-xs">
+                <span style={{ color: 'var(--vscode-descriptionForeground)' }}>
+                  Compressed History
+                </span>
+                <span style={{ color: 'var(--vscode-foreground)' }}>
+                  {formatTokens(usage.compressedHistoryTokens)}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between text-xs">
               <span style={{ color: 'var(--vscode-descriptionForeground)' }}>
                 Chat History
@@ -286,6 +305,70 @@ export function ContextIndicator({ usage, disabled = false, mode }: ContextIndic
               </span>
             </div>
           </div>
+
+          {/* Compress History Button */}
+          {shouldShowCompress && (
+            <div className="mt-1.5 pt-1.5 border-t" style={{ borderColor: 'var(--vscode-input-border)' }}>
+              {isCompressing ? (
+                <div className="flex gap-2">
+                  <div
+                    className="flex-1 px-3 py-2.5 text-xs font-medium rounded-xl border flex items-center justify-center gap-2"
+                    style={{
+                      backgroundColor: 'var(--vscode-input-background)',
+                      color: 'var(--vscode-descriptionForeground)',
+                      borderColor: 'var(--vscode-input-border)',
+                    }}
+                  >
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Compressing...</span>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onCancelCompress) {
+                        onCancelCompress();
+                      }
+                    }}
+                    className="px-3 py-2.5 text-xs font-medium rounded-xl border transition-all hover:opacity-80 flex items-center justify-center"
+                    style={{
+                      backgroundColor: 'var(--vscode-inputValidation-errorBackground)',
+                      color: 'var(--vscode-errorForeground)',
+                      borderColor: 'var(--vscode-inputValidation-errorBorder)',
+                    }}
+                    title="Cancel compression"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onCompress) {
+                      onCompress();
+                    }
+                  }}
+                  className="w-full px-3 py-2.5 text-xs font-medium rounded-xl border transition-all hover:opacity-90 flex items-center justify-center gap-2"
+                  style={{
+                    backgroundColor: 'var(--vscode-button-background)',
+                    color: 'var(--vscode-button-foreground)',
+                    borderColor: 'var(--vscode-button-border)',
+                  }}
+                >
+                  <Archive className="w-3.5 h-3.5" />
+                  <span>Compress & New Chat</span>
+                </button>
+              )}
+              {isOverLimit && (
+                <p
+                  className="text-xs mt-2 text-center"
+                  style={{ color: 'var(--vscode-errorForeground)', opacity: 0.9 }}
+                >
+                  Context limit exceeded
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

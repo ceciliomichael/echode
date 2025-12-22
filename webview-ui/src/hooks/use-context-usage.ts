@@ -20,6 +20,7 @@ function estimateTokens(text: string): number {
 export interface ContextUsageResult {
   systemPromptTokens: number;
   historyTokens: number;
+  compressedHistoryTokens: number;
   toolResultsTokens: number;
   totalTokens: number;
   maxTokens: number;
@@ -64,14 +65,21 @@ export function useContextUsage({
 
     // Calculate history tokens (messages without their tool executions)
     let historyTokens = 0;
+    let compressedHistoryTokens = 0;
     let toolResultsTokens = 0;
 
     effectiveMessages.forEach((message) => {
-      // Apply filtering to content to match what is sent to LLM
-      // Remove think blocks first, then strip unavailable tool calls (mirrors chat-history-builder.ts)
-      const contentWithoutThink = removeThinkBlocks(message.content);
-      const filteredContent = stripUnavailableToolCalls(contentWithoutThink, mode);
-      historyTokens += estimateTokens(filteredContent);
+      // Check for compressed history
+      if (message.content.includes('<compressed_history>')) {
+        const contentTokens = estimateTokens(message.content);
+        compressedHistoryTokens += contentTokens;
+      } else {
+        // Apply filtering to content to match what is sent to LLM
+        // Remove think blocks first, then strip unavailable tool calls (mirrors chat-history-builder.ts)
+        const contentWithoutThink = removeThinkBlocks(message.content);
+        const filteredContent = stripUnavailableToolCalls(contentWithoutThink, mode);
+        historyTokens += estimateTokens(filteredContent);
+      }
 
       // Calculate tool results separately
       if (message.toolExecutions && message.toolExecutions.size > 0) {
@@ -106,6 +114,7 @@ export function useContextUsage({
     return {
       systemPromptTokens,
       historyTokens,
+      compressedHistoryTokens,
       toolResultsTokens,
       totalTokens,
       maxTokens,

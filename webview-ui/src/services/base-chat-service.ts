@@ -23,6 +23,7 @@ export interface ChatServiceConfig {
 export interface StreamChatParams {
   messages: ChatMessage[];
   signal?: AbortSignal;
+  configOverride?: Partial<ChatServiceConfig> & { provider?: string };
 }
 
 /**

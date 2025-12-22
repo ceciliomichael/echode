@@ -33,6 +33,9 @@ interface ChatInputProps {
   restoredInput?: string | null;
   restoredAttachments?: DocumentAttachment[] | null;
   restoredImageAttachments?: ImageAttachment[] | null;
+  onCompress?: () => void;
+  onCancelCompress?: () => void;
+  isCompressing?: boolean;
 }
 
 export function ChatInput({
@@ -53,7 +56,10 @@ export function ChatInput({
   contextUsage,
   restoredInput,
   restoredAttachments,
-  restoredImageAttachments
+  restoredImageAttachments,
+  onCompress,
+  onCancelCompress,
+  isCompressing = false
 }: ChatInputProps) {
   // Show stop button when streaming OR executing a tool (like echo_search)
   const showStopButton = isStreaming || isExecutingTool;
@@ -231,6 +237,9 @@ export function ChatInput({
             isRefactorScanning={isRefactorScanning}
             onRefactorRequest={handleRefactorRequest}
             contextUsage={contextUsage}
+            onCompress={onCompress}
+            onCancelCompress={onCancelCompress}
+            isCompressing={isCompressing}
             disabled={disabled}
             showStopButton={showStopButton}
             hasInput={!!input.trim()}

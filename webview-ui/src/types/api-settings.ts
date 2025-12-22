@@ -71,10 +71,16 @@ export const DEFAULT_COMMIT_MESSAGE_SETTINGS: CommitMessageSettings = {
 
 export interface ContextSettings {
   maxContextTokens: number;
+  compressionThreshold?: number;
+  compressionProvider?: Provider;
+  compressionModel?: string;
 }
 
 export const DEFAULT_CONTEXT_SETTINGS: ContextSettings = {
   maxContextTokens: 128000,
+  compressionThreshold: 128000,
+  compressionProvider: 'anthropic',
+  compressionModel: '',
 };
 
 /**

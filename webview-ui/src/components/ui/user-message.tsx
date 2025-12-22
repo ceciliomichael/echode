@@ -2,6 +2,7 @@ import { useRef, useState, useEffect } from 'react';
 import { Undo2 } from 'lucide-react';
 import { MessageEditForm } from './message-edit-form/index';
 import { Mention } from './mention';
+import { CompressedBlock } from './compressed-block';
 
 import type { ChatMode } from '../../types/chat-mode';
 import type { Provider } from '../../types/api-settings';
@@ -29,6 +30,9 @@ interface UserMessageProps {
 }
 
 export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, attachments, imageAttachments, mode, onModeChange, provider, model, onModelChange, contextUsage }: UserMessageProps) {
+
+  // Check if this is a compressed history message
+  const isCompressedHistory = content.includes('<compressed_history>');
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -114,6 +118,15 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
           onModelChange={onModelChange}
           contextUsage={contextUsage}
         />
+      </div>
+    );
+  }
+
+  // Render CompressedBlock for compressed history messages
+  if (isCompressedHistory) {
+    return (
+      <div className="flex w-full" data-message-id={messageId}>
+        <CompressedBlock content={content} />
       </div>
     );
   }

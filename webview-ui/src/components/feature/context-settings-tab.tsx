@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import type { ContextSettings } from '../../types/api-settings';
+import type { ContextSettings, Provider } from '../../types/api-settings';
+import { SettingsModelSelector } from '../ui/settings-model-selector';
 
 interface ContextSettingsTabProps {
   contextSettings: ContextSettings;
@@ -89,6 +90,43 @@ export function ContextSettingsTab({ contextSettings, onChange }: ContextSetting
             style={{ color: 'var(--vscode-descriptionForeground)' }}
           >
             Maximum tokens for context window
+          </p>
+        </div>
+      </div>
+
+      {/* Compression Settings Section */}
+      <div className="space-y-4">
+        <h2
+          className="text-sm font-bold pb-2 border-b"
+          style={{
+            color: 'var(--vscode-foreground)',
+            borderColor: 'var(--vscode-panel-border)'
+          }}
+        >
+          History Compression
+        </h2>
+
+        <div className="space-y-2">
+          <label
+            className="block text-xs font-semibold"
+            style={{ color: 'var(--vscode-foreground)' }}
+          >
+            Compression Model
+          </label>
+          <SettingsModelSelector
+            provider={(contextSettings.compressionProvider as Provider) || 'anthropic'}
+            model={contextSettings.compressionModel || ''}
+            onChange={(provider, model) => onChange({ 
+              ...contextSettings, 
+              compressionProvider: provider,
+              compressionModel: model 
+            })}
+          />
+          <p
+            className="text-xs"
+            style={{ color: 'var(--vscode-descriptionForeground)' }}
+          >
+            Model used to compress chat history when context limit is reached
           </p>
         </div>
       </div>

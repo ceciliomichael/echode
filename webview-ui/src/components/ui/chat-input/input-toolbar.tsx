@@ -29,6 +29,9 @@ interface InputToolbarProps {
   
   // Context
   contextUsage?: ContextUsageResult;
+  onCompress?: () => void;
+  onCancelCompress?: () => void;
+  isCompressing?: boolean;
   
   // State
   disabled?: boolean;
@@ -52,6 +55,9 @@ export function InputToolbar({
   isRefactorScanning,
   onRefactorRequest,
   contextUsage,
+  onCompress,
+  onCancelCompress,
+  isCompressing = false,
   disabled = false,
   showStopButton = false,
   hasInput,
@@ -100,6 +106,9 @@ export function InputToolbar({
             usage={contextUsage}
             disabled={disabled}
             mode={mode}
+            onCompress={onCompress}
+            onCancelCompress={onCancelCompress}
+            isCompressing={isCompressing}
           />
         )}
         {showStopButton ? (

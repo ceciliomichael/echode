@@ -15,6 +15,7 @@ import { useExtensionMessages } from '../../hooks/use-extension-messages';
 import { useTodoExtraction } from '../../hooks/use-todo-extraction';
 import { useContextUsage } from '../../hooks/use-context-usage';
 import { useWorkspaceContext } from '../../hooks/use-workspace-context';
+import { useCompressionHandler } from '../../hooks/use-compression-handler';
 import { getSystemPrompt } from '../../utils/prompts';
 import { storageService } from '../../utils/storage';
 
@@ -189,6 +190,14 @@ export function ChatContainer() {
     window.vscode.postMessage({ type: 'clearTodos' });
   }, [abortStream, clearChat, clearTodos, messages, saveCurrentSession]);
 
+  // Compression handler
+  const { isCompressing, handleCompressHistory, handleCancelCompression } = useCompressionHandler({
+    messages,
+    onNewChat,
+    sendMessage: handleSendMessage,
+    saveCurrentSession,
+  });
+
   const {
     isHistoryOpen,
     closeHistory,
@@ -311,6 +320,9 @@ export function ChatContainer() {
               model={model}
               onModelChange={setActiveProviderAndModel}
               contextUsage={contextUsage}
+              onCompress={handleCompressHistory}
+              onCancelCompress={handleCancelCompression}
+              isCompressing={isCompressing}
               restoredInput={abortedUserInput ?? undefined}
               restoredAttachments={abortedAttachments ?? undefined}
               restoredImageAttachments={abortedImageAttachments ?? undefined}

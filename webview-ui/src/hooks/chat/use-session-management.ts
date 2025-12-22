@@ -135,8 +135,21 @@ export function useSessionManagement({
 
               // Fix plan tools that should be awaiting_user but were saved with wrong status
               // This handles cases where the tool has awaitsUserAction but status wasn't updated
-              const resultData = fixedExecution.result?.data as { awaitsUserAction?: boolean } | undefined;
-              if (resultData?.awaitsUserAction === true && fixedExecution.status !== 'awaiting_user') {
+              const resultData = fixedExecution.result?.data as any;
+              const isPlanTool = fixedExecution.toolName === 'plan';
+              const hasUserAction = !!resultData?.userAction;
+              
+              // Check if this is a plan tool in a mode that requires user action
+              const executionMode = resultData?.mode || fixedExecution.parameters?.mode;
+              const isInteractivePlanMode = isPlanTool && 
+                executionMode && 
+                ['create_plan', 'update_plan', 'handoff'].includes(executionMode);
+              
+              // Check if explicitly marked as awaiting user action
+              const explicitlyAwaitsUser = resultData?.awaitsUserAction === true;
+
+              // If it should await user action AND hasn't been acted upon yet, force status
+              if ((isInteractivePlanMode || explicitlyAwaitsUser) && !hasUserAction && fixedExecution.status !== 'awaiting_user') {
                 fixedExecution = { ...fixedExecution, status: 'awaiting_user' };
               }
 
