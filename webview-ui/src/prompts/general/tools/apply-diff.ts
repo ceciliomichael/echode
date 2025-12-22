@@ -4,50 +4,63 @@
 
 export function getApplyDiffInstructions(): string {
     return `## apply_diff
-Targeted edits to existing files. PREFERRED tool for edits.
+Targeted edits to existing files. PREFERRED over write_to_file for small changes.
 
 Parameters:
 - path: File path (required)
 - diff: The diff content (required)
 
-EXACT Format (markers must be on their own lines):
+### FORMAT TEMPLATE
 \`\`\`
 <<<<<<< SEARCH
 :start_line:N
 -------
-[exact content to find]
+[exact lines to find - COPY from read_file output]
 =======
-[replacement content]
+[new content to replace with]
 >>>>>>> REPLACE
 \`\`\`
 
-COMPLETE EXAMPLE - Changing a function name:
-\`\`\`
+### REQUIRED WORKFLOW
+1. **ALWAYS read_file first** to see current content with line numbers
+2. **COPY the exact lines** from read_file output for the SEARCH block (never type from memory)
+3. **Use the line number** shown in read_file output for :start_line:N
+4. Apply the diff
+
+### SINGLE EDIT EXAMPLE
+Changing a function name at line 15:
+\`\`\`xml
+<invoke name="apply_diff">
+    <parameter name="path">src/utils.ts</parameter>
+    <parameter name="diff">
 <<<<<<< SEARCH
 :start_line:15
 -------
-function oldName(x: number): number {
-    return x * 2;
+function calculateTotal(items) {
+  return items.reduce((sum, item) => sum + item.price, 0);
 }
 =======
-function newName(x: number): number {
-    return x * 2;
+function computeTotal(items) {
+  return items.reduce((sum, item) => sum + item.price, 0);
 }
 >>>>>>> REPLACE
+    </parameter>
+</invoke>
 \`\`\`
 
-EXAMPLE - Multiple Edits (Use multiple invokes):
+### MULTIPLE EDITS - Use separate invokes (PARALLEL OK)
 \`\`\`xml
+</function_calls>
 <function_calls>
     <invoke name="apply_diff">
         <parameter name="path">src/file.ts</parameter>
         <parameter name="diff">
 <<<<<<< SEARCH
-:start_line:10
+:start_line:5
 -------
-const x = 1;
+const DEBUG = false;
 =======
-const x = 10;
+const DEBUG = true;
 >>>>>>> REPLACE
         </parameter>
     </invoke>
@@ -57,25 +70,29 @@ const x = 10;
 <<<<<<< SEARCH
 :start_line:20
 -------
-const y = 2;
+console.log("old message");
 =======
-const y = 20;
+console.log("new message");
 >>>>>>> REPLACE
         </parameter>
     </invoke>
 </function_calls>
 \`\`\`
 
-CRITICAL RULES:
-- ONE SEARCH/REPLACE block per apply_diff call - use multiple invokes for multiple edits (as shown in the correct example above)
-- NEVER put multiple <<<<<<< SEARCH blocks in a single diff parameter
-- MUST start with \`<<<<<<< SEARCH\` (7 less-than signs + space + SEARCH)
-- MUST include \`:start_line:N\` and \`-------\` before search content
-- MUST have \`=======\` separator between search and replace
-- MUST end with \`>>>>>>> REPLACE\` (7 greater-than signs + space + REPLACE)
-- FOLLOW ALL INSTRUCTIONS EXACTLY as specified
+### RULES
+1. **ONE SEARCH/REPLACE per invoke** - never multiple blocks in one diff
+2. **SEARCH must match exactly** - copy/paste from read_file, preserve whitespace
+3. **Line number helps locate** - use :start_line from read_file output
+4. **Markers on own lines** - <<<<<<< SEARCH, =======, >>>>>>> REPLACE
 
-When to use:
-- Small, targeted changes
-- Editing <50% of file`;
+### IF DIFF FAILS
+1. Call read_file to get fresh content
+2. Copy the EXACT lines from output (don't retype)
+3. Retry with correct content
+4. If still failing after 2 attempts, use write_to_file instead
+
+### WHEN TO USE
+- Small changes (<50% of file modified)
+- Adding/removing/modifying specific sections
+- Prefer over write_to_file for existing files`;
 }

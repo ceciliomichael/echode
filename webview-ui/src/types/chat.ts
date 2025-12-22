@@ -1,4 +1,5 @@
 import type { ToolExecutionState } from './tool';
+import type { Provider } from './api-settings';
 
 export type MessageRole = 'user' | 'assistant' | 'system';
 
@@ -17,6 +18,8 @@ export interface Message {
   toolExecutions?: Map<string, ToolExecutionState>;
   hidden?: boolean;
   attachments?: ImageAttachment[];
+  provider?: Provider;
+  model?: string;
 }
 
 export interface QueuedMessage {

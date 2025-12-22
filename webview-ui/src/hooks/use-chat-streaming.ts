@@ -93,6 +93,21 @@ export function useChatStreaming({
     // Request fresh workspace info before sending message
     await requestWorkspaceInfo();
 
+    // === CONTEXT PREPARATION ===
+    const latestWorkspace = window.workspaceContext || workspace;
+    // Use ref to get the freshest mode (handles race condition where mode updates during async flow)
+    const currentMode = modeRef.current;
+    
+    // === LOCK MODEL CONFIG ===
+    // Capture the current provider/model at the START of streaming
+    // This ensures the same model is used throughout tool execution and continuation
+    // even if user changes the model while AI is working
+    const modeModel = storageService.getModeModel(currentMode);
+    const lockedConfig: LockedModelConfig = {
+      provider: modeModel.provider,
+      model: modeModel.model,
+    };
+
     // === MESSAGE CREATION ===
     const userMessage: Message = {
       id: uuidv4(),
@@ -101,6 +116,8 @@ export function useChatStreaming({
       timestamp: new Date(),
       attachments,
       hidden: isHidden,
+      provider: lockedConfig.provider,
+      model: lockedConfig.model,
     };
 
     const baseMessages = overrideMessages ?? messages;
@@ -117,27 +134,15 @@ export function useChatStreaming({
       role: 'assistant',
       content: '',
       timestamp: new Date(),
+      provider: lockedConfig.provider,
+      model: lockedConfig.model,
     };
     setMessages((prev) => [...prev, assistantMessage]);
 
     try {
-      // === CONTEXT PREPARATION ===
-      const latestWorkspace = window.workspaceContext || workspace;
-      // Use ref to get the freshest mode (handles race condition where mode updates during async flow)
-      const currentMode = modeRef.current;
       const systemPrompt = getSystemPrompt(latestWorkspace, currentMode);
 
       const messagesToSend = overrideMessages !== undefined ? overrideMessages : baseMessages;
-
-      // === LOCK MODEL CONFIG ===
-      // Capture the current provider/model at the START of streaming
-      // This ensures the same model is used throughout tool execution and continuation
-      // even if user changes the model while AI is working
-      const modeModel = storageService.getModeModel(currentMode);
-      const lockedConfig: LockedModelConfig = {
-        provider: modeModel.provider,
-        model: modeModel.model,
-      };
 
       // === MODEL CAPABILITIES ===
       const currentModel = getCurrentModel();
@@ -156,6 +161,7 @@ export function useChatStreaming({
           setMessages,
           setIsExecutingTool,
           executeToolAndContinue,
+          lockedConfig,
         });
         return; // Exit early, tool execution handles continuation
       }

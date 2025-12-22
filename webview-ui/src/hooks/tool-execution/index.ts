@@ -158,6 +158,7 @@ export function useToolExecution({
           toolExecutor: toolExecutorRef.current,
           context,
           executeToolAndContinue,
+          lockedConfig,
         });
       } catch (error) {
         console.error('[ToolExecution] Execution error:', error);

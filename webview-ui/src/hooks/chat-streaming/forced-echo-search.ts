@@ -18,7 +18,9 @@ export async function handleForcedEchoSearch(ctx: ForcedEchoSearchContext): Prom
     setMessages,
     setIsExecutingTool,
     executeToolAndContinue,
-  } = ctx;
+    lockedConfig,
+  } = ctx;
+
   // Create synthetic assistant content with echo_search tool block
   // Must match the expected format: <function_calls><invoke name="tool">...
   // Escape XML special characters to prevent breaking the tool block structure
@@ -62,7 +64,9 @@ export async function handleForcedEchoSearch(ctx: ForcedEchoSearchContext): Prom
     messagesToSend,
     content,
     0,
-    attachments
+    attachments,
+    undefined,
+    lockedConfig
   );
 
   return assistantContent;

@@ -26,6 +26,7 @@ export interface SingleExecutionParams {
   toolExecutor: ToolExecutor;
   context: ToolExecutionContext;
   executeToolAndContinue: ExecuteToolAndContinueFn;
+  lockedConfig?: { provider: import('../../types/api-settings').Provider; model: string };
 }
 
 /**
@@ -54,6 +55,7 @@ export async function executeSingleTool(
     toolExecutor,
     context,
     executeToolAndContinue,
+    lockedConfig,
   } = params;
 
   const {
@@ -203,6 +205,7 @@ export async function executeSingleTool(
     getToolExecutor: context.getToolExecutor,
     logPrefix: '[SingleExecutor]',
     mode,
+    lockedConfig,
   });
 
   return { wasStopped: false, isPlanningTool: false, continueExecution: true };

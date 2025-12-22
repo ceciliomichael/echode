@@ -388,7 +388,8 @@ export async function runContinuationStream(config: ContinuationStreamConfig): P
               userContent,
               nextToolIndex,
               userAttachments,
-              bufferedToolResults
+              bufferedToolResults,
+              lockedConfig
             );
             return true;
           }
@@ -409,7 +410,9 @@ export async function runContinuationStream(config: ContinuationStreamConfig): P
               messagesToSend,
               userContent,
               nextToolIndex,
-              userAttachments
+              userAttachments,
+              undefined,
+              lockedConfig
             );
             return true;
           }

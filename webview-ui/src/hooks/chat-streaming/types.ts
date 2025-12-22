@@ -70,6 +70,7 @@ export interface ForcedEchoSearchContext {
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   setIsExecutingTool: React.Dispatch<React.SetStateAction<boolean>>;
   executeToolAndContinue: ChatStreamingProps['executeToolAndContinue'];
+  lockedConfig?: LockedModelConfig;
 }
 
 /**
