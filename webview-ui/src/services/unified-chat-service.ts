@@ -163,6 +163,7 @@ export class UnifiedChatService implements IChatService {
             model: effectiveConfig.model,
             maxTokens: effectiveConfig.maxTokens,
             temperature: effectiveConfig.temperature,
+            reasoningEffort: effectiveConfig.reasoningEffort,
             baseURL: effectiveConfig.baseURL,
             qwenCodeOauthPath: effectiveConfig.qwenCodeOauthPath,
             enabledTools: effectiveConfig.enabledTools,

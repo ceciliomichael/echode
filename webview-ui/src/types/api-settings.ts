@@ -17,6 +17,8 @@ export interface ModeModelSettings {
 /**
  * Configuration for a custom OpenAI-compatible provider
  */
+export type ReasoningEffort = 'low' | 'medium' | 'high' | 'minimal' | 'extra_high';
+
 export interface CustomProvider {
   id: string;
   name: string;
@@ -25,6 +27,7 @@ export interface CustomProvider {
   model: string;
   maxTokens: number;
   temperature: number;
+  reasoningEffort?: ReasoningEffort;
 }
 
 export interface IndexingSettings {
@@ -121,6 +124,8 @@ export interface ApiSettings {
   anthropicModel?: string;
   openaiModel?: string;
   openaiCompatibleModel?: string;
+  openaiCompatibleReasoningEffort?: ReasoningEffort;
+  megallmReasoningEffort?: ReasoningEffort;
   megallmModel?: string;
   vscodeLmModel?: string;
   qwenCodeModel?: string;

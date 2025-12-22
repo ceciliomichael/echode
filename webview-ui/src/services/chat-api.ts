@@ -9,6 +9,7 @@ import { getToolsForMode } from '../lib/tool-config';
 export interface LockedModelConfig {
   provider: Provider;
   model: string;
+  mode: ChatMode;
 }
 
 export class ChatApiService {
@@ -30,6 +31,7 @@ export class ChatApiService {
     let maxTokens = 0;
     let temperature = 0;
     let baseURL = '';
+    let reasoningEffort: string | undefined;
     let qwenCodeOauthPath: string | undefined;
 
     // Check if it's a custom provider
@@ -42,6 +44,7 @@ export class ChatApiService {
         effectiveModel = activeModel || customProvider.model;
         maxTokens = customProvider.maxTokens;
         temperature = customProvider.temperature;
+        reasoningEffort = customProvider.reasoningEffort;
         baseURL = customProvider.baseUrl;
       } else {
         // Fallback to openai-compatible defaults if custom provider not found
@@ -49,6 +52,7 @@ export class ChatApiService {
         effectiveModel = activeModel || settings.openaiCompatibleModel || settings.model;
         maxTokens = settings.openaiCompatibleMaxTokens;
         temperature = settings.openaiCompatibleTemperature;
+        reasoningEffort = settings.openaiCompatibleReasoningEffort;
         baseURL = settings.openaiCompatibleCustomUrl?.trim() || getProviderDefaults('openai-compatible').baseUrl;
       }
     } else if (activeProvider === 'anthropic') {
@@ -68,12 +72,14 @@ export class ChatApiService {
       effectiveModel = activeModel || settings.openaiCompatibleModel || settings.model;
       maxTokens = settings.openaiCompatibleMaxTokens;
       temperature = settings.openaiCompatibleTemperature;
+      reasoningEffort = settings.openaiCompatibleReasoningEffort;
       baseURL = settings.openaiCompatibleCustomUrl?.trim() || getProviderDefaults('openai-compatible').baseUrl;
     } else if (activeProvider === 'megallm') {
       effectiveApiKey = settings.megallmApiKey || settings.apiKey || '';
       effectiveModel = activeModel || settings.megallmModel || settings.model;
       maxTokens = settings.megallmMaxTokens;
       temperature = settings.megallmTemperature;
+      reasoningEffort = settings.megallmReasoningEffort;
       baseURL = getProviderDefaults('megallm').baseUrl;
     } else if (activeProvider === 'qwen-code') {
       // Qwen Code: uses OAuth, no API key
@@ -104,14 +110,16 @@ export class ChatApiService {
     }
 
     // Filter tools based on mode (plan mode gets restricted set, agent mode gets all)
+    // Use locked mode if provided (for continuations), otherwise use the mode parameter
+    const activeMode = lockedConfig?.mode ?? mode;
     const savedEnabledTools = settings.enabledTools;
     const hasSavedEnabledTools = Array.isArray(savedEnabledTools) && savedEnabledTools.length > 0;
 
-    let modeTools = mode === 'plan'
+    let modeTools = activeMode === 'plan'
       ? getToolsForMode('plan', true)
-      : getToolsForMode(mode, true);
+      : getToolsForMode(activeMode, true);
 
-    if (mode === 'agent' && hasSavedEnabledTools) {
+    if (activeMode === 'agent' && hasSavedEnabledTools) {
       modeTools = modeTools.filter(tool => {
         // Find the tool in settings to check if it's enabled
         const settingsTool = savedEnabledTools!.find(t => t.id === tool.id);
@@ -136,10 +144,11 @@ export class ChatApiService {
       model: effectiveModel,
       maxTokens,
       temperature,
+      reasoningEffort,
       baseURL,
       qwenCodeOauthPath,
       enabledTools: enabledToolsForBackend,
-      chatMode: mode,
+      chatMode: activeMode,
       streamingTimeout: settings.streamingTimeout || 5000,
     }, activeProvider as Provider);
 

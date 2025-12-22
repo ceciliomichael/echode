@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Plus, Trash2, Edit2, Check } from 'lucide-react';
-import type { CustomProvider } from '../../types/api-settings';
+import type { CustomProvider, ReasoningEffort } from '../../types/api-settings';
 import { ApiKeyInput } from './api-key-input';
+import { ReasoningEffortDropdown } from './reasoning-effort-dropdown';
 
 interface CustomProviderManagerProps {
   customProviders: CustomProvider[];
@@ -14,12 +15,14 @@ interface ProviderFormData {
   name: string;
   baseUrl: string;
   apiKey: string;
+  reasoningEffort?: ReasoningEffort;
 }
 
 const INITIAL_FORM_DATA: ProviderFormData = {
   name: '',
   baseUrl: '',
   apiKey: '',
+  reasoningEffort: undefined,
 };
 
 function generateProviderId(): string {
@@ -58,6 +61,7 @@ export function CustomProviderManager({
       name: provider.name,
       baseUrl: provider.baseUrl,
       apiKey: provider.apiKey,
+      reasoningEffort: provider.reasoningEffort,
     });
   };
 
@@ -77,6 +81,7 @@ export function CustomProviderManager({
       name: formData.name.trim(),
       baseUrl: formData.baseUrl.trim(),
       apiKey: formData.apiKey,
+      reasoningEffort: formData.reasoningEffort,
       model: '',
       maxTokens: 4096,
       temperature: 0.7,
@@ -102,6 +107,7 @@ export function CustomProviderManager({
       name: formData.name.trim(),
       baseUrl: formData.baseUrl.trim(),
       apiKey: formData.apiKey,
+      reasoningEffort: formData.reasoningEffort,
     };
 
     onUpdateProvider(updatedProvider);
@@ -189,6 +195,11 @@ export function CustomProviderManager({
           onChange={(value) => setFormData({ ...formData, apiKey: value })}
         />
       </div>
+
+      <ReasoningEffortDropdown
+        value={formData.reasoningEffort}
+        onChange={(value) => setFormData({ ...formData, reasoningEffort: value })}
+      />
 
       <div className="flex items-center justify-end gap-2 pt-4 border-t" style={{ borderColor: 'var(--vscode-widget-border)' }}>
         <button

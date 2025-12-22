@@ -28,6 +28,7 @@ function initializeProviderStates(settings: ApiSettings): ProviderStateMap {
       model: settings.openaiCompatibleModel || '',
       maxTokens: settings.openaiCompatibleMaxTokens,
       temperature: settings.openaiCompatibleTemperature,
+      reasoningEffort: settings.openaiCompatibleReasoningEffort,
     },
     megallm: {
       customUrl: '',
@@ -35,6 +36,7 @@ function initializeProviderStates(settings: ApiSettings): ProviderStateMap {
       model: '',
       maxTokens: settings.megallmMaxTokens,
       temperature: settings.megallmTemperature,
+      reasoningEffort: settings.megallmReasoningEffort,
     },
     'vscode-lm': {
       customUrl: '',
@@ -102,6 +104,7 @@ export function useProviderState(initialSettings: ApiSettings) {
         model: currentCustomProvider.model || model,
         maxTokens: currentCustomProvider.maxTokens,
         temperature: currentCustomProvider.temperature,
+        reasoningEffort: currentCustomProvider.reasoningEffort,
       };
     }
 
@@ -114,6 +117,7 @@ export function useProviderState(initialSettings: ApiSettings) {
         model,
         maxTokens: state.maxTokens,
         temperature: state.temperature,
+        reasoningEffort: state.reasoningEffort,
         qwenCodeOauthPath: provider === 'qwen-code' ? qwenCodeOauthPath : undefined,
       };
     }
@@ -126,6 +130,7 @@ export function useProviderState(initialSettings: ApiSettings) {
       model,
       maxTokens: fallbackState.maxTokens,
       temperature: fallbackState.temperature,
+      reasoningEffort: fallbackState.reasoningEffort,
     };
   }, [provider, providerStates, model, qwenCodeOauthPath, currentCustomProvider]);
 

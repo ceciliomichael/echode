@@ -1,5 +1,6 @@
 import type { ToolExecutionState } from './tool';
 import type { Provider } from './api-settings';
+import type { ChatMode } from './chat-mode';
 
 export type MessageRole = 'user' | 'assistant' | 'system';
 
@@ -20,6 +21,7 @@ export interface Message {
   attachments?: ImageAttachment[];
   provider?: Provider;
   model?: string;
+  mode?: ChatMode;
 }
 
 export interface QueuedMessage {

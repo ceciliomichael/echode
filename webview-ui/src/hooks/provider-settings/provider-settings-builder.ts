@@ -33,6 +33,8 @@ export function buildApiSettings(
     anthropicApiKey: providerStates.anthropic.apiKey,
     openaiApiKey: providerStates.openai.apiKey,
     openaiCompatibleApiKey: providerStates['openai-compatible'].apiKey,
+    openaiCompatibleReasoningEffort: providerStates['openai-compatible'].reasoningEffort,
+    megallmReasoningEffort: providerStates.megallm.reasoningEffort,
     megallmApiKey: providerStates.megallm.apiKey,
     qwenCodeOauthPath,
     anthropicMaxTokens: providerStates.anthropic.maxTokens,

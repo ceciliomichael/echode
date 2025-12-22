@@ -9,12 +9,14 @@ import type { WorkspaceContext } from '../../types/workspace';
 import type { Provider } from '../../types/api-settings';
 
 /**
- * Locked model configuration - captured at the start of streaming
- * to ensure the same model is used throughout tool execution and continuation
+ * Locked configuration - captured at the start of streaming
+ * to ensure the same model AND mode are used throughout tool execution and continuation
+ * even if user changes settings while AI is working
  */
 export interface LockedModelConfig {
   provider: Provider;
   model: string;
+  mode: ChatMode;
 }
 
 /**

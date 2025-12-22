@@ -98,14 +98,15 @@ export function useChatStreaming({
     // Use ref to get the freshest mode (handles race condition where mode updates during async flow)
     const currentMode = modeRef.current;
     
-    // === LOCK MODEL CONFIG ===
-    // Capture the current provider/model at the START of streaming
-    // This ensures the same model is used throughout tool execution and continuation
-    // even if user changes the model while AI is working
+    // === LOCK CONFIG ===
+    // Capture the current provider/model/mode at the START of streaming
+    // This ensures the same settings are used throughout tool execution and continuation
+    // even if user changes settings while AI is working
     const modeModel = storageService.getModeModel(currentMode);
     const lockedConfig: LockedModelConfig = {
       provider: modeModel.provider,
       model: modeModel.model,
+      mode: currentMode,
     };
 
     // === MESSAGE CREATION ===
@@ -118,6 +119,7 @@ export function useChatStreaming({
       hidden: isHidden,
       provider: lockedConfig.provider,
       model: lockedConfig.model,
+      mode: lockedConfig.mode,
     };
 
     const baseMessages = overrideMessages ?? messages;
@@ -136,6 +138,7 @@ export function useChatStreaming({
       timestamp: new Date(),
       provider: lockedConfig.provider,
       model: lockedConfig.model,
+      mode: lockedConfig.mode,
     };
     setMessages((prev) => [...prev, assistantMessage]);
 

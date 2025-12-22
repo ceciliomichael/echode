@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { Provider, BuiltInProvider, CustomProvider } from '../../types/api-settings';
+import type { Provider, BuiltInProvider, CustomProvider, ReasoningEffort } from '../../types/api-settings';
 import { isBuiltInProvider, isCustomProvider } from '../../types/api-settings';
 import type { ProviderHandlers } from './types';
 
@@ -11,7 +11,7 @@ export function useProviderHandlers(
   provider: Provider,
   updateProviderState: (
     targetProvider: BuiltInProvider,
-    updates: Partial<{ customUrl: string; apiKey: string; maxTokens: number; temperature: number }>
+    updates: Partial<{ customUrl: string; apiKey: string; maxTokens: number; temperature: number; reasoningEffort: ReasoningEffort }>
   ) => void,
   customProviders: CustomProvider[],
   updateCustomProvider: (provider: CustomProvider) => void
@@ -78,6 +78,12 @@ export function useProviderHandlers(
               temperature: value
             });
           }
+        }
+      },
+
+      handleReasoningEffortChange: (value: ReasoningEffort | undefined) => {
+        if (provider === 'openai-compatible' || provider === 'megallm') {
+          updateProviderState(provider, { reasoningEffort: value });
         }
       },
     }),

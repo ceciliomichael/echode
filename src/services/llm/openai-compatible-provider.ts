@@ -254,6 +254,7 @@ export class OpenAICompatibleProvider implements ILLMProvider {
       })) as OpenAI.ChatCompletionMessageParam[],
       temperature: settings.temperature ?? 0.7,
       stream: true,
+      ...(settings.reasoningEffort ? { reasoning_effort: settings.reasoningEffort } : {}),
     };
 
     const maxTokensPayload = {

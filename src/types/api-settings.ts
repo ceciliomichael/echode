@@ -6,6 +6,7 @@ export interface CustomProviderConfig {
   model: string;
   maxTokens: number;
   temperature: number;
+  reasoningEffort?: 'low' | 'medium' | 'high' | 'minimal' | 'extra_high';
 }
 
 export interface IndexingSettings {
@@ -65,6 +66,8 @@ export interface ApiSettings {
   anthropicModel?: string;
   openaiModel?: string;
   openaiCompatibleModel?: string;
+  openaiCompatibleReasoningEffort?: 'low' | 'medium' | 'high' | 'minimal' | 'extra_high';
+  megallmReasoningEffort?: 'low' | 'medium' | 'high' | 'minimal' | 'extra_high';
   megallmModel?: string;
   vscodeLmModel?: string;
   qwenCodeModel?: string;

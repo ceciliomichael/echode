@@ -9,6 +9,7 @@ export interface ChatServiceConfig {
   maxTokens: number;
   temperature: number;
   baseURL: string;
+  reasoningEffort?: string;
   qwenCodeOauthPath?: string;
   enabledTools?: Array<{ id: string; enabled: boolean }>;
   /** Current chat mode for mode-specific behavior */

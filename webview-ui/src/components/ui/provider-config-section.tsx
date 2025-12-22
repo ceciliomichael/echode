@@ -1,16 +1,19 @@
 import { ApiKeyInput } from './api-key-input';
 import { ProviderDropdown } from './provider-dropdown';
-import { getProviderDefaults, isCustomProvider, type Provider, type CustomProvider } from '../../types/api-settings';
+import { ReasoningEffortDropdown } from './reasoning-effort-dropdown';
+import { getProviderDefaults, isCustomProvider, type Provider, type CustomProvider, type ReasoningEffort } from '../../types/api-settings';
 
 interface ProviderConfigSectionProps {
   provider: Provider;
   customBaseUrl: string;
   apiKey: string;
+  reasoningEffort?: ReasoningEffort;
   qwenCodeOauthPath?: string;
   customProviders?: CustomProvider[];
   onProviderChange: (value: Provider) => void;
   onCustomBaseUrlChange: (value: string) => void;
   onApiKeyChange: (value: string) => void;
+  onReasoningEffortChange?: (value: ReasoningEffort | undefined) => void;
   onQwenCodeOauthPathChange?: (value: string) => void;
 }
 
@@ -18,11 +21,13 @@ export function ProviderConfigSection({
   provider,
   customBaseUrl,
   apiKey,
+  reasoningEffort,
   qwenCodeOauthPath,
   customProviders = [],
   onProviderChange,
   onCustomBaseUrlChange,
   onApiKeyChange,
+  onReasoningEffortChange,
   onQwenCodeOauthPathChange
 }: ProviderConfigSectionProps) {
   // Check if current provider is a custom provider
@@ -140,6 +145,13 @@ export function ProviderConfigSection({
 
       {showApiKeyField && (
         <ApiKeyInput value={apiKey} onChange={onApiKeyChange} />
+      )}
+
+      {(provider === 'openai-compatible' || provider === 'megallm') && (
+        <ReasoningEffortDropdown
+          value={reasoningEffort}
+          onChange={(val) => onReasoningEffortChange?.(val)}
+        />
       )}
     </div>
   );

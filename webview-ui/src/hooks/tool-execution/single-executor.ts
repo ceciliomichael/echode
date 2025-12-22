@@ -5,7 +5,7 @@
  * Manages execution state and continuation for individual tools.
  */
 import type { Message, ImageAttachment } from '../../types/chat';
-import type { ToolBlock, ToolExecutionContext, ExecuteToolAndContinueFn } from './types';
+import type { ToolBlock, ToolExecutionContext, ExecuteToolAndContinueFn, LockedModelConfig } from './types';
 import { ToolExecutor } from '../../lib/tool-executor';
 import { createToolExecutionState, updateToolExecutionStatus, updateToolExecutionProgress, generateToolExecutionId } from '../../lib/tool-execution-tracker';
 import { buildContinuationHistory } from '../../utils/continuation-builder';
@@ -26,7 +26,7 @@ export interface SingleExecutionParams {
   toolExecutor: ToolExecutor;
   context: ToolExecutionContext;
   executeToolAndContinue: ExecuteToolAndContinueFn;
-  lockedConfig?: { provider: import('../../types/api-settings').Provider; model: string };
+  lockedConfig?: LockedModelConfig;
 }
 
 /**

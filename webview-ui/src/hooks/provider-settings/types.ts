@@ -1,4 +1,4 @@
-import type { ApiSettings, Provider, CustomProvider } from '../../types/api-settings';
+import type { ApiSettings, Provider, CustomProvider, ReasoningEffort } from '../../types/api-settings';
 
 /**
  * Settings specific to a single provider
@@ -9,6 +9,7 @@ export interface ProviderSettings {
   model: string;
   maxTokens: number;
   temperature: number;
+  reasoningEffort?: ReasoningEffort;
   qwenCodeOauthPath?: string;
 }
 
@@ -21,6 +22,7 @@ export interface ProviderState {
   model: string;
   maxTokens: number;
   temperature: number;
+  reasoningEffort?: ReasoningEffort;
 }
 
 /**
@@ -52,6 +54,7 @@ export interface ProviderHandlers {
   handleApiKeyChange: (value: string) => void;
   handleMaxTokensChange: (value: number) => void;
   handleTemperatureChange: (value: number) => void;
+  handleReasoningEffortChange: (value: ReasoningEffort | undefined) => void;
 }
 
 /**
@@ -67,6 +70,7 @@ export interface UseProviderSettingsReturn {
   handleMaxTokensChange: (value: number) => void;
   handleTemperatureChange: (value: number) => void;
   handleApiKeyChange: (value: string) => void;
+  handleReasoningEffortChange: (value: ReasoningEffort | undefined) => void;
   handleQwenCodeOauthPathChange: (value: string) => void;
   handleStreamingTimeoutChange: (value: number) => void;
   streamingTimeout: number;
@@ -88,6 +92,8 @@ export interface UseProviderSettingsReturn {
     anthropicApiKey: string;
     openaiApiKey: string;
     openaiCompatibleApiKey: string;
+    openaiCompatibleReasoningEffort?: ReasoningEffort;
+    megallmReasoningEffort?: ReasoningEffort;
     qwenCodeOauthPath: string;
     anthropicMaxTokens: number;
     openaiMaxTokens: number;
