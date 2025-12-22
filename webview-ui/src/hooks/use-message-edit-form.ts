@@ -175,7 +175,7 @@ export function useMessageEditForm({
       // Expand mentions to full format: @[label](path)
       let expandedContent = editContent.trim();
       expandedContent = expandedContent.replace(mentionRegex, (match, label, path) => {
-        if (path) return match;
+        if (path) {return match;}
         const storedPath = contextMenu.mentionPathMap.current.get(label);
         return storedPath ? `@[${label}](${storedPath})` : match;
       });

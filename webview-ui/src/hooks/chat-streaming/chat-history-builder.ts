@@ -59,7 +59,7 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
   // Add messages with tool results embedded
   for (const msg of contextMessages) {
     // Skip hidden messages
-    if (msg.hidden) continue;
+    if (msg.hidden) {continue;}
 
     // Strip <think> and <thinking> blocks from message content
     let processedContent = removeThinkBlocks(msg.content);

@@ -271,7 +271,9 @@ export class MCPServerManager {
    */
   private unregisterTools(serverId: string) {
     const server = this.servers.get(serverId);
-    if (!server) return;
+    if (!server) {
+      return;
+    }
     
     // Tools are registered with their name. 
     // If names collide, we have an issue, but standard MCP tools should be unique enough or namespaced.
@@ -343,7 +345,9 @@ export class MCPServerManager {
    */
   async toggleTool(serverId: string, toolName: string, enabled: boolean): Promise<void> {
     const server = this.servers.get(serverId);
-    if (!server) return;
+    if (!server) {
+      return;
+    }
 
     const config = server.config;
 

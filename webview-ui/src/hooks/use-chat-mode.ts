@@ -31,7 +31,7 @@ export function useChatMode(): ChatModeState {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Skip mode switching when AI is actively streaming or executing tools
-      if (isDisabledRef.current) return;
+      if (isDisabledRef.current) {return;}
 
       if (e.ctrlKey && e.key === '.') {
         e.preventDefault();

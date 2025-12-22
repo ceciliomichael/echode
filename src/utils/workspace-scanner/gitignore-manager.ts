@@ -31,7 +31,9 @@ export function shouldExclude(
   relativePath: string,
   contexts: GitignoreContext[]
 ): boolean {
-  if (name.toLowerCase() === '.git') return true;
+  if (name.toLowerCase() === '.git') {
+    return true;
+  }
 
   // Check against all active gitignore contexts
   for (const context of contexts) {

@@ -142,7 +142,7 @@ export function useContextMenu({
   }, [input, cursorPosition, setInput, textareaRef]);
 
   const handleContextMenuKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>): boolean => {
-    if (!showContextMenu) return false;
+    if (!showContextMenu) {return false;}
 
     if (e.key === 'Escape') {
       // If in submenu, go back to category menu; otherwise close

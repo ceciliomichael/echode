@@ -146,7 +146,7 @@ export function getToolsForMode(mode: ChatMode, defaultEnabled = true): Tool[] {
  */
 
 export function getToolSystemPrompt(enabledTools: Tool[]): string {
-  if (enabledTools.length === 0) return '';
+  if (enabledTools.length === 0) {return '';}
 
   const allMetadata = getAllToolMetadata();
   const toolIdsList = enabledTools.map(t => `\`${t.id}\``).join(', ');
@@ -155,7 +155,7 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
   const toolList = enabledTools
     .map((tool) => {
       const metadata = allMetadata.find((m) => m.id === tool.id);
-      if (!metadata) return '';
+      if (!metadata) {return '';}
       return `- ${metadata.id}: ${metadata.description}`;
     })
     .filter(Boolean)

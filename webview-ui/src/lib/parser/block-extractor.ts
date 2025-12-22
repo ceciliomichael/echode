@@ -35,7 +35,7 @@ export function extractFunctionCallsBlocks(content: string): FunctionCallsBlock[
 
   while (searchPos < content.length) {
     const openPos = content.indexOf(openTag, searchPos);
-    if (openPos === -1) break;
+    if (openPos === -1) {break;}
 
     // Skip if preceded by backtick (inside code block or inline code)
     if (openPos > 0 && content[openPos - 1] === '`') {

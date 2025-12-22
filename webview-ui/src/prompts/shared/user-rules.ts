@@ -19,7 +19,7 @@ ${customSystemPrompt}
 </custom_instructions>`);
     }
 
-    if (parts.length === 0) return '';
+    if (parts.length === 0) {return '';}
 
     return `<user_rules>
 ${parts.join('\n')}

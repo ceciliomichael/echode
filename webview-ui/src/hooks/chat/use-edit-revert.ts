@@ -46,7 +46,7 @@ export function useEditRevert({
     forceEchoSearch: boolean = false
   ) => {
     const messageIndex = messages.findIndex(msg => msg.id === messageId);
-    if (messageIndex === -1) return;
+    if (messageIndex === -1) {return;}
 
     // Step 1: Abort any ongoing API call
     if (abortAndReset()) {
@@ -150,7 +150,7 @@ export function useEditRevert({
   }, [currentSessionIdRef, setEditingMessageId]);
 
   const handleCancelRevert = useCallback(async () => {
-    if (!revertPreviewMessageId) return;
+    if (!revertPreviewMessageId) {return;}
 
     try {
       const messageIndex = messages.findIndex(msg => msg.id === revertPreviewMessageId);

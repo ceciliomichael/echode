@@ -91,12 +91,12 @@ export function useAttachmentHandler({
 
   const handleFileChange = useCallback(async (e: ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files || files.length === 0) return;
+    if (!files || files.length === 0) {return;}
 
     // Use refs to get current counts (avoids stale closure)
     const currentTotal = attachmentsRef.current.length + imageAttachmentsRef.current.length;
     const remainingSlots = maxAttachments - currentTotal;
-    if (remainingSlots <= 0) return;
+    if (remainingSlots <= 0) {return;}
 
     // Separate files into documents and images
     const filesArray = Array.from(files);

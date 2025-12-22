@@ -33,15 +33,15 @@ export function getToolFileInfo(
 
   // Helper to get icon based on state
   const getIcon = (defaultIcon: LucideIcon | IconType) => {
-    if (isAborted) return XCircle;
-    if (isExecuting) return Loader;
+    if (isAborted) {return XCircle;}
+    if (isExecuting) {return Loader;}
     return defaultIcon;
   };
 
   // Helper to get icon color based on state
   const getIconColor = (defaultColor: string) => {
-    if (isAborted) return 'var(--vscode-errorForeground)';
-    if (isExecuting) return 'var(--vscode-charts-blue)';
+    if (isAborted) {return 'var(--vscode-errorForeground)';}
+    if (isExecuting) {return 'var(--vscode-charts-blue)';}
     return defaultColor;
   };
 

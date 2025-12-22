@@ -71,7 +71,9 @@ export class StdioTransport implements MCPTransport {
 
     for (const line of lines) {
       const trimmed = line.trim();
-      if (!trimmed) continue;
+      if (!trimmed) {
+        continue;
+      }
 
       try {
         const message = JSON.parse(trimmed) as

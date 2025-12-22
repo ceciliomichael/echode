@@ -56,10 +56,10 @@ function getEnabledToolsForMode(mode: ChatMode): Tool[] {
     // 4. FINAL SAFETY CHECKS
     return baseTools.filter(tool => {
         // Must be enabled
-        if (!tool.enabled) return false;
+        if (!tool.enabled) {return false;}
 
         // Must be in the allowed ID set for this mode (Redundant but safe)
-        if (!allowedIds.has(tool.id)) return false;
+        if (!allowedIds.has(tool.id)) {return false;}
 
         return true;
     });

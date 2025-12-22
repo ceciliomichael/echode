@@ -42,7 +42,7 @@ export function useSessionManagement({
 
   const saveCurrentSession = useCallback((overrideMessages?: Message[]) => {
     const currentMessages = overrideMessages ?? messagesRef.current;
-    if (currentMessages.length === 0) return;
+    if (currentMessages.length === 0) {return;}
 
     const sessionId = ensureSessionId();
 

@@ -6,7 +6,7 @@ import { isToolAvailableInMode } from './tool-history-filter';
  * Truncate content with a clear indicator (used for terminal/search output)
  */
 function truncateContent(content: string, maxChars: number): string {
-  if (content.length <= maxChars) return content;
+  if (content.length <= maxChars) {return content;}
   return content.slice(0, maxChars) + '\n... [output truncated]';
 }
 

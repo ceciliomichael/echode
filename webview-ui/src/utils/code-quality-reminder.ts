@@ -67,7 +67,7 @@ export function injectCodeQualityReminder(history: ChatMessage[], mode: ChatMode
 
                 for (let j = 0; j < msg.content.length; j++) {
                     if (msg.content[j].type === 'text') {
-                        if (firstTextBlockIndex === -1) firstTextBlockIndex = j;
+                        if (firstTextBlockIndex === -1) {firstTextBlockIndex = j;}
                         lastTextBlockIndex = j;
                     }
                 }

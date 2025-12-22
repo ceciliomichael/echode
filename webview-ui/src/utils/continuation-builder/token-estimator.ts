@@ -10,7 +10,7 @@ import { formatToolResultForAI } from '../tool-execution-helpers';
  * This is a rough approximation suitable for context management decisions
  */
 export function estimateTokens(text: string): number {
-  if (!text) return 0;
+  if (!text) {return 0;}
   return Math.ceil(text.length / 4);
 }
 

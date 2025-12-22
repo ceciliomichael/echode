@@ -66,7 +66,7 @@ export async function executeToolViaExtension(
     };
 
     const handleAbort = () => {
-      if (isCompleted) return; // Already completed, ignore abort
+      if (isCompleted) {return;} // Already completed, ignore abort
       cleanup();
       // Send abort message to extension backend
       window.vscode.postMessage({

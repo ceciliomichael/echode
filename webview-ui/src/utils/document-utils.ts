@@ -88,7 +88,7 @@ const ATTACHED_FILE_BLOCK_REGEX = /<attached_file>\s*([\s\S]*?)<\/attached_file>
  */
 function getFileExtension(filename: string): string {
   const lastDot = filename.lastIndexOf('.');
-  if (lastDot === -1) return '';
+  if (lastDot === -1) {return '';}
   return filename.slice(lastDot).toLowerCase();
 }
 
@@ -221,7 +221,7 @@ ${attachment.content}
  * Build all <attached_file> blocks for multiple attachments
  */
 export function buildAllAttachedFileBlocks(attachments: DocumentAttachment[]): string {
-  if (attachments.length === 0) return '';
+  if (attachments.length === 0) {return '';}
   return '\n\n' + attachments.map(buildAttachedFileBlock).join('\n\n');
 }
 

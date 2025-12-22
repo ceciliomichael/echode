@@ -6,7 +6,6 @@ import type { ChatHistoryService } from '../../services/chat-history-service';
  * Handles all chat session CRUD operations and UI state management
  */
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SessionPayload = any;
 
 interface SessionData {

@@ -17,17 +17,17 @@ export function getAgentPrompt(workspace: WorkspaceContext | null, enabledTools:
 
   // Build dynamic tool list based on what's enabled
   const toolList: string[] = [];
-  if (enabledIds.has('read_file')) toolList.push('read_file');
-  if (enabledIds.has('apply_diff')) toolList.push('apply_diff');
-  if (enabledIds.has('write_to_file')) toolList.push('write_to_file');
-  if (enabledIds.has('delete_file')) toolList.push('delete_file');
-  if (enabledIds.has('echo_search')) toolList.push('echo_search');
-  if (enabledIds.has('grep_search')) toolList.push('grep_search');
-  if (enabledIds.has('glob_search')) toolList.push('glob_search');
-  if (enabledIds.has('list_files')) toolList.push('list_files');
-  if (enabledIds.has('get_diagnostics')) toolList.push('get_diagnostics');
-  if (enabledIds.has('todo_write')) toolList.push('todo_write');
-  if (enabledIds.has('todo_read')) toolList.push('todo_read');
+  if (enabledIds.has('read_file')) {toolList.push('read_file');}
+  if (enabledIds.has('apply_diff')) {toolList.push('apply_diff');}
+  if (enabledIds.has('write_to_file')) {toolList.push('write_to_file');}
+  if (enabledIds.has('delete_file')) {toolList.push('delete_file');}
+  if (enabledIds.has('echo_search')) {toolList.push('echo_search');}
+  if (enabledIds.has('grep_search')) {toolList.push('grep_search');}
+  if (enabledIds.has('glob_search')) {toolList.push('glob_search');}
+  if (enabledIds.has('list_files')) {toolList.push('list_files');}
+  if (enabledIds.has('get_diagnostics')) {toolList.push('get_diagnostics');}
+  if (enabledIds.has('todo_write')) {toolList.push('todo_write');}
+  if (enabledIds.has('todo_read')) {toolList.push('todo_read');}
 
   // =========================================================================
   // PROMPT TEMPLATE

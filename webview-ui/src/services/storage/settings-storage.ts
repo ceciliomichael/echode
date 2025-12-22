@@ -172,7 +172,7 @@ export class SettingsStorage {
    */
   hasSettings(): boolean {
     const settings = this.getSettings();
-    if (!settings.provider) return false;
+    if (!settings.provider) {return false;}
     
     // We delegate complex validation logic if needed, or keep simpler checks here.
     // Ideally, validation should be in a separate helper or simple check.

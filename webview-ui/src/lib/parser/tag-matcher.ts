@@ -26,7 +26,7 @@ export function isInsideParameterValue(content: string, position: number): boole
     const nextOpen = openMatch ? openMatch.index : -1;
     const nextClosePos = beforePos.indexOf(paramClose, searchPos);
 
-    if (nextOpen === -1 && nextClosePos === -1) break;
+    if (nextOpen === -1 && nextClosePos === -1) {break;}
 
     if (nextOpen !== -1 && (nextClosePos === -1 || nextOpen < nextClosePos)) {
       // Found opening tag
@@ -75,7 +75,7 @@ export function isInsideInvokeParameterValue(content: string, position: number):
     const nextOpen = openMatch ? openMatch.index : -1;
     const nextClosePos = beforePos.indexOf(paramClose, searchPos);
 
-    if (nextOpen === -1 && nextClosePos === -1) break;
+    if (nextOpen === -1 && nextClosePos === -1) {break;}
 
     if (nextOpen !== -1 && (nextClosePos === -1 || nextOpen < nextClosePos)) {
       // Found opening tag

@@ -33,7 +33,7 @@ function notifyCacheUpdate(cacheKey: string, models: string[]) {
 
 // Standalone prefetch function to populate cache at app startup
 export function prefetchAllModels(settings: ApiSettings) {
-  if (prefetchInitiated || !window.vscode) return;
+  if (prefetchInitiated || !window.vscode) {return;}
   prefetchInitiated = true;
 
   // For model fetching, only use provider-specific keys (no global fallback)
@@ -63,10 +63,10 @@ export function prefetchAllModels(settings: ApiSettings) {
     const isCustom = isCustomProvider(provider);
     const isOptionalKey = provider === 'vscode-lm' || provider === 'qwen-code' || provider === 'openai-compatible' || isCustom;
     
-    if (!isOptionalKey && !key) continue;
+    if (!isOptionalKey && !key) {continue;}
 
     const cacheKey = generateCacheKey(provider, url, key || 'no-key');
-    if (modelCache.has(cacheKey)) continue;
+    if (modelCache.has(cacheKey)) {continue;}
 
     const baseURL = url?.trim() || getProviderDefaults(provider).baseUrl;
     requestIdCounter += 1;

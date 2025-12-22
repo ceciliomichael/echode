@@ -114,8 +114,8 @@ export function parseParamValue(value: string, isRawString = false): unknown {
   }
 
   // Handle boolean values
-  if (trimmedValue === 'true') return true;
-  if (trimmedValue === 'false') return false;
+  if (trimmedValue === 'true') {return true;}
+  if (trimmedValue === 'false') {return false;}
 
   // Handle numeric values
   if (trimmedValue && !isNaN(Number(trimmedValue))) {
@@ -140,7 +140,7 @@ export function extractCompleteJsonObjects(partialArray: string): unknown[] {
     const char = content[i];
 
     if (char === '{') {
-      if (depth === 0) objStart = i;
+      if (depth === 0) {objStart = i;}
       depth++;
     } else if (char === '}') {
       depth--;

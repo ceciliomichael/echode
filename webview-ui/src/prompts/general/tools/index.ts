@@ -31,7 +31,7 @@ export function getGeneralToolInstructions(enabledTools: Tool[]): string {
         })
         .filter(Boolean);
 
-    if (instructions.length === 0) return '';
+    if (instructions.length === 0) {return '';}
 
     return `<tool_instructions>
 ${instructions.join('\n\n')}

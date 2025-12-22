@@ -50,7 +50,7 @@ export function useChatScroll(
   }, [scrollToBottom]);
 
   const isNearBottom = useCallback(() => {
-    if (!scrollContainerRef.current) return false;
+    if (!scrollContainerRef.current) {return false;}
     const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
     const distanceToBottom = scrollHeight - scrollTop - clientHeight;
     return distanceToBottom <= bottomThresholdPx;
@@ -58,7 +58,7 @@ export function useChatScroll(
 
   const handleScroll = useCallback(() => {
     const container = scrollContainerRef.current;
-    if (!container) return;
+    if (!container) {return;}
 
     const { scrollTop, scrollHeight } = container;
     const previousScrollTop = lastScrollTopRef.current;
@@ -144,20 +144,20 @@ export function useChatScroll(
 
     // Observe the content wrapper, not the container, to detect size changes
     const content = scrollContentRef.current;
-    if (!content) return;
+    if (!content) {return;}
 
     let lastHeight = content.scrollHeight;
 
     const observer = new ResizeObserver(() => {
       const target = scrollContentRef.current;
-      if (!target) return;
+      if (!target) {return;}
 
       const { scrollHeight } = target;
       const heightGrew = scrollHeight > lastHeight;
       lastHeight = scrollHeight;
 
       // Only auto-scroll on height increase (not shrink)
-      if (!heightGrew) return;
+      if (!heightGrew) {return;}
 
       // If auto-scroll is enabled (user hasn't manually scrolled up),
       // we must stay pinned to bottom even if a large chunk makes 'nearBottom' false temporarily.

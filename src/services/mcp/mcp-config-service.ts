@@ -78,7 +78,9 @@ export class MCPConfigService {
    */
   async saveConfig(config: MCPServerConfig): Promise<void> {
     await this.ensureConfigExists();
-    if (!this.configPath) return;
+    if (!this.configPath) {
+      return;
+    }
 
     const content = await fs.promises.readFile(this.configPath, 'utf8');
     let parsed: any = {};
@@ -102,7 +104,9 @@ export class MCPConfigService {
    * Delete MCP configuration
    */
   async deleteConfig(serverId: string): Promise<void> {
-    if (!this.configPath || !fs.existsSync(this.configPath)) return;
+    if (!this.configPath || !fs.existsSync(this.configPath)) {
+      return;
+    }
 
     const content = await fs.promises.readFile(this.configPath, 'utf8');
     const parsed = JSON.parse(content);
@@ -132,7 +136,9 @@ export class MCPConfigService {
    * Watch for changes to the config file
    */
   watchConfig(callback: () => void): vscode.Disposable {
-    if (!this.configPath) return { dispose: () => {} };
+    if (!this.configPath) {
+      return { dispose: () => {} };
+    }
 
     const watcher = vscode.workspace.createFileSystemWatcher(this.configPath);
     const disposable = watcher.onDidChange(() => callback());
@@ -199,11 +205,17 @@ export class MCPConfigService {
     if (config.type === 'stdio') {
       base.command = config.command;
       base.args = config.args;
-      if (config.env) base.env = config.env;
+      if (config.env) {
+        base.env = config.env;
+      }
     } else {
       base.url = config.url;
-      if (config.headers) base.headers = config.headers;
-      if (config.authorization_token) base.authorization_token = config.authorization_token;
+      if (config.headers) {
+        base.headers = config.headers;
+      }
+      if (config.authorization_token) {
+        base.authorization_token = config.authorization_token;
+      }
     }
 
     return base;

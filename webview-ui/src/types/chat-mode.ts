@@ -19,15 +19,15 @@ export const CHAT_MODE_OPTIONS: ChatModeOption[] = [
     label: 'Plan',
     description: 'Echo can read and plan',
   },
-    {
-    value: 'review',
-    label: 'Review',
-    description: 'Code review & Audit',
-  },
   {
     value: 'ask',
     label: 'Ask',
     description: 'Echo focuses on Q&A',
+  },
+    {
+    value: 'review',
+    label: 'Review',
+    description: 'Code review & Audit',
   },
   {
     value: 'general',

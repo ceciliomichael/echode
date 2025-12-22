@@ -154,11 +154,11 @@ export function trimToLastCompleteToolBlock(content: string): string {
 
     while (searchPos < content.length) {
       const openPos = content.indexOf(openTag, searchPos);
-      if (openPos === -1) break;
+      if (openPos === -1) {break;}
 
       const openTagEnd = openPos + openTag.length;
       const closePos = findMatchingClosingTag(content, openTagEnd, openTag, closingTag);
-      if (closePos === -1) break;
+      if (closePos === -1) {break;}
 
       lastClosePos = closePos + closingTag.length;
       searchPos = lastClosePos;

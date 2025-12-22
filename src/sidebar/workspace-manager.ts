@@ -200,7 +200,9 @@ export class WorkspaceManager {
         
         // Timeout for individual scan
         setTimeout(() => {
-          if (!child.killed) child.kill();
+          if (!child.killed) {
+            child.kill();
+          }
           resolve([]);
         }, 8000);
       });

@@ -4,7 +4,7 @@ import type { MermaidThemeConfig } from './types';
  * Helper to get computed CSS variable value
  */
 export const getCssVar = (varName: string, fallback: string): string => {
-  if (typeof document === 'undefined') return fallback;
+  if (typeof document === 'undefined') {return fallback;}
   const value = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
   return value || fallback;
 };

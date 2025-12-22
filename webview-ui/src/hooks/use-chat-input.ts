@@ -91,7 +91,7 @@ export function useChatInput({
       // Expand mentions to full format: @[label](path)
       let expandedContent = content;
       expandedContent = expandedContent.replace(mentionRegex, (match, label, path) => {
-        if (path) return match; // Already has path
+        if (path) {return match;} // Already has path
 
         const storedPath = contextMenu.mentionPathMap.current.get(label);
         if (storedPath) {

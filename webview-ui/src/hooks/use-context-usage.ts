@@ -12,7 +12,7 @@ import { removeThinkBlocks } from '../utils/think-block-parser';
  * This is a conservative estimate that works well for English/code
  */
 function estimateTokens(text: string): number {
-  if (!text) return 0;
+  if (!text) {return 0;}
   // ~4 characters per token is a reasonable estimate
   return Math.ceil(text.length / 4);
 }

@@ -1,7 +1,7 @@
 import typescriptEslint from "typescript-eslint";
 
 export default [{
-    ignores: ["dist/**", "**/dist/**", "out/**", "**/out/**"],
+    ignores: ["dist/**", "**/dist/**", "out/**", "**/out/**", "webview-ui/**"],
 }, {
     files: ["**/*.ts"],
 }, {

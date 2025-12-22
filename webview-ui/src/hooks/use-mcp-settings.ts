@@ -84,7 +84,7 @@ export function useMCPSettings() {
   const toggleTool = useCallback((serverId: string, toolName: string, enabled: boolean) => {
     // Optimistic update for immediate UI feedback (no loading state needed)
     setConfigs(prev => prev.map(config => {
-      if (config.id !== serverId) return config;
+      if (config.id !== serverId) {return config;}
       
       const currentDisabled = config.tool_configuration?.disabled_tools || [];
       const newDisabled = enabled
