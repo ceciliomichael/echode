@@ -137,6 +137,11 @@ interface GitDiffResult {
  * Check if this is the first commit (no HEAD exists)
  */
 async function isInitialCommit(repository: Repository): Promise<boolean> {
+  // Check state first (cheaper and more reliable for empty repos)
+  if (!repository.state.HEAD || !repository.state.HEAD.commit) {
+    return true;
+  }
+
   try {
     await repository.getCommit('HEAD');
     return false;
@@ -160,13 +165,23 @@ async function getInitialCommitContent(repository: Repository): Promise<string |
     return null;
   }
 
+  const MAX_FILES = 20;
+  const MAX_FILE_SIZE = 10 * 1024; // 10KB
+
   const fileContents: string[] = [];
+  const filesToProcess = changes.slice(0, MAX_FILES);
   
-  for (const change of changes) {
+  for (const change of filesToProcess) {
     try {
       const relativePath = vscode.workspace.asRelativePath(change.uri);
       
-      // Read file content
+      // Read file content with size check
+      const stat = await vscode.workspace.fs.stat(change.uri);
+      if (stat.size > MAX_FILE_SIZE) {
+        fileContents.push(`--- /dev/null\n+++ ${relativePath}\n@@ -0,0 +1,1 @@\n+ (File too large: ${stat.size} bytes. Skipped for summary.)`);
+        continue;
+      }
+
       const content = await vscode.workspace.fs.readFile(change.uri);
       const textContent = new TextDecoder().decode(content);
       
@@ -175,6 +190,10 @@ async function getInitialCommitContent(repository: Repository): Promise<string |
     } catch (err) {
       console.error(`[GitCommitGenerator] Error reading file ${change.uri.fsPath}:`, err);
     }
+  }
+
+  if (changes.length > MAX_FILES) {
+    fileContents.push(`\n... and ${changes.length - MAX_FILES} more files.`);
   }
 
   return fileContents.length > 0 ? fileContents.join('\n\n') : null;
@@ -215,10 +234,20 @@ async function getGitDiff(): Promise<GitDiffResult | null> {
     }
 
     // Try staged changes first
-    const stagedDiff = await repository.diff(true);
+    try {
+      const stagedDiff = await repository.diff(true);
 
-    if (stagedDiff && stagedDiff.trim() !== '') {
-      return { diff: stagedDiff, isStaged: true, isInitialCommit: false };
+      if (stagedDiff && stagedDiff.trim() !== '') {
+        return { diff: stagedDiff, isStaged: true, isInitialCommit: false };
+      }
+    } catch (error) {
+      // If diff fails, it might be because there is no HEAD yet (initial commit)
+      // Fall back to reading file contents directly
+      const content = await getInitialCommitContent(repository);
+      if (content) {
+        const hasStaged = repository.state.indexChanges.length > 0;
+        return { diff: content, isStaged: hasStaged, isInitialCommit: true };
+      }
     }
 
     // Fall back to unstaged changes
@@ -251,6 +280,12 @@ async function generateCommitMessage(diffResult: GitDiffResult): Promise<string 
 
   // Build system prompt with optional custom instructions
   let systemPrompt = COMMIT_MESSAGE_SYSTEM_PROMPT;
+
+  // Add specific context for initial commits
+  if (diffResult.isInitialCommit) {
+    systemPrompt += `\n\n## SPECIAL INSTRUCTION\nThis is the INITIAL COMMIT. The message should reflect that this is the project setup. Use a title like "feat: initial project setup" or "chore: initial commit". Summarize the core project structure briefly in the body if needed.`;
+  }
+
   if (settings.customPrompt && settings.customPrompt.trim()) {
     systemPrompt += `\n\nAdditional custom instructions:\n${settings.customPrompt.trim()}`;
   }
@@ -322,15 +357,31 @@ export async function generateGitCommitMessage(): Promise<void> {
       cancellable: false
     },
     async () => {
-      const diff = await getGitDiff();
-      if (!diff) {
-        return;
-      }
+      const timeoutPromise = new Promise<void>((_, reject) => {
+        setTimeout(() => reject(new Error('Commit message generation timed out')), 20000); // 20s timeout
+      });
 
-      const commitMessage = await generateCommitMessage(diff);
-      if (commitMessage) {
-        // Set the commit message in the SCM input box
-        repository.inputBox.value = commitMessage;
+      const generationTask = async () => {
+        const diff = await getGitDiff();
+        if (!diff) {
+          return;
+        }
+
+        const commitMessage = await generateCommitMessage(diff);
+        if (commitMessage) {
+          // Set the commit message in the SCM input box
+          repository.inputBox.value = commitMessage;
+        }
+      };
+
+      try {
+        await Promise.race([generationTask(), timeoutPromise]);
+      } catch (error) {
+        if (error instanceof Error && error.message === 'Commit message generation timed out') {
+          vscode.window.showErrorMessage('Commit message generation timed out. Please try again.');
+        } else {
+          console.error('[GitCommitGenerator] Error:', error);
+        }
       }
     }
   );
@@ -353,6 +404,7 @@ interface Change {
 interface RepositoryState {
   indexChanges: Change[];
   workingTreeChanges: Change[];
+  HEAD?: { commit?: string };
 }
 
 interface Repository {

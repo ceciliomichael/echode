@@ -10,6 +10,36 @@ export const WORKSPACE_CONTEXT_EXCLUDED_FILES = [
 ];
 
 /**
+ * Common binary file extensions that should not be read as text
+ */
+export const BINARY_FILE_EXTENSIONS = new Set([
+  // Java Archives
+  '.jar', '.war', '.ear',
+  // Executables/Libraries
+  '.exe', '.dll', '.so', '.dylib', '.bin', '.o', '.a', '.lib',
+  // Archives
+  '.zip', '.tar', '.gz', '.tgz', '.bz2', '.xz', '.rar', '.7z',
+  // Images
+  '.png', '.jpg', '.jpeg', '.gif', '.ico', '.webp',
+  // Audio/Video
+  '.mp3', '.wav', '.ogg', '.mp4', '.avi', '.mov', '.webm',
+  // Database
+  '.db', '.sqlite', '.sqlite3', '.mdb', '.accdb',
+  // Documents
+  '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+  // Compiled
+  '.class', '.pyc', '.pyd', '.wasm'
+]);
+
+/**
+ * Check if a file appears to be binary based on extension
+ */
+export function isBinaryFile(filePath: string): boolean {
+  const ext = path.extname(filePath).toLowerCase();
+  return BINARY_FILE_EXTENSIONS.has(ext);
+}
+
+/**
  * Check if a filename should be excluded from workspace context
  */
 export function isExcludedFromWorkspaceContext(filename: string): boolean {

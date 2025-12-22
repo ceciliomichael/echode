@@ -27,11 +27,6 @@ interface MessageBubbleProps {
 
 function MessageBubbleComponent({ message, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, isStreaming, isLastMessage, mode, onModeChange, provider, model, onModelChange, contextUsage }: MessageBubbleProps) {
 
-  // Prefer message-specific provider/model if available (for historical accuracy),
-  // otherwise fallback to current mode settings
-  const displayProvider = message.provider ?? provider;
-  const displayModel = message.model ?? model;
-
   if (message.role === 'user') {
     return (
       <UserMessage
@@ -46,8 +41,8 @@ function MessageBubbleComponent({ message, onEdit, onUpdate, isEditing, onEditSt
         imageAttachments={message.attachments}
         mode={mode}
         onModeChange={onModeChange}
-        provider={displayProvider}
-        model={displayModel}
+        provider={provider}
+        model={model}
         onModelChange={onModelChange}
         contextUsage={contextUsage}
       />

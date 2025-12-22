@@ -35,6 +35,17 @@ import {
   SiEslint,
   SiPrettier,
   SiNodedotjs,
+  SiSqlite,
+  SiPerl,
+  SiHaskell,
+  SiApachegroovy,
+  SiFsharp,
+  SiOcaml,
+  SiNim,
+  SiZig,
+  SiCmake,
+  SiNginx,
+  SiApache,
 } from 'react-icons/si';
 import { 
   VscFile,
@@ -47,6 +58,12 @@ import {
   VscShield,
   VscListFlat,
   VscTerminal,
+  VscArchive,
+  VscFileZip,
+  VscDatabase,
+  VscFileBinary,
+  VscTextSize,
+  VscPackage,
 } from 'react-icons/vsc';
 import { BsFileText, BsFiletypeCsv } from 'react-icons/bs';
 
@@ -200,6 +217,99 @@ export const LANGUAGE_ICONS: Record<string, FileIconConfig> = {
   dockerfile: { icon: SiDocker, color: '#2496ed', label: 'Dockerfile' },
   makefile: { icon: VscCode, color: '#6d6d6d', label: 'Makefile' },
   gradle: { icon: VscCode, color: '#02303a', label: 'Gradle' },
+  groovy: { icon: SiApachegroovy, color: '#4298b8', label: 'Groovy' },
+  cmake: { icon: SiCmake, color: '#064f8c', label: 'CMake' },
+
+  // Java Archives
+  jar: { icon: VscArchive, color: '#e42c2e', label: 'Java Archive' },
+  war: { icon: VscArchive, color: '#e42c2e', label: 'Web Archive' },
+  ear: { icon: VscArchive, color: '#e42c2e', label: 'Enterprise Archive' },
+
+  // General Archives
+  zip: { icon: VscFileZip, color: '#f1c40f', label: 'ZIP Archive' },
+  tar: { icon: VscFileZip, color: '#f39c12', label: 'TAR Archive' },
+  gz: { icon: VscFileZip, color: '#f39c12', label: 'GZip Archive' },
+  tgz: { icon: VscFileZip, color: '#f39c12', label: 'TGZ Archive' },
+  bz2: { icon: VscFileZip, color: '#f39c12', label: 'BZip2 Archive' },
+  xz: { icon: VscFileZip, color: '#f39c12', label: 'XZ Archive' },
+  rar: { icon: VscFileZip, color: '#8e44ad', label: 'RAR Archive' },
+  '7z': { icon: VscFileZip, color: '#3498db', label: '7-Zip Archive' },
+
+  // Database
+  db: { icon: VscDatabase, color: '#336791', label: 'Database' },
+  sqlite: { icon: SiSqlite, color: '#003b57', label: 'SQLite' },
+  sqlite3: { icon: SiSqlite, color: '#003b57', label: 'SQLite' },
+  mdb: { icon: VscDatabase, color: '#a4373a', label: 'Access Database' },
+  accdb: { icon: VscDatabase, color: '#a4373a', label: 'Access Database' },
+
+  // Executables/Binaries
+  exe: { icon: VscFileBinary, color: '#3a96dd', label: 'Executable' },
+  dll: { icon: VscFileBinary, color: '#3a96dd', label: 'Dynamic Library' },
+  so: { icon: VscFileBinary, color: '#e95420', label: 'Shared Object' },
+  dylib: { icon: VscFileBinary, color: '#999999', label: 'Dynamic Library' },
+  bin: { icon: VscFileBinary, color: '#6d6d6d', label: 'Binary' },
+  o: { icon: VscFileBinary, color: '#6d6d6d', label: 'Object File' },
+  a: { icon: VscFileBinary, color: '#6d6d6d', label: 'Static Library' },
+  lib: { icon: VscFileBinary, color: '#6d6d6d', label: 'Library' },
+  class: { icon: VscFileBinary, color: '#b07219', label: 'Java Class' },
+  pyc: { icon: VscFileBinary, color: '#3776ab', label: 'Python Compiled' },
+  pyd: { icon: VscFileBinary, color: '#3776ab', label: 'Python Extension' },
+  wasm: { icon: VscFileBinary, color: '#654ff0', label: 'WebAssembly' },
+
+  // Fonts
+  ttf: { icon: VscTextSize, color: '#ff69b4', label: 'TrueType Font' },
+  otf: { icon: VscTextSize, color: '#ff69b4', label: 'OpenType Font' },
+  woff: { icon: VscTextSize, color: '#ff69b4', label: 'Web Font' },
+  woff2: { icon: VscTextSize, color: '#ff69b4', label: 'Web Font 2' },
+  eot: { icon: VscTextSize, color: '#ff69b4', label: 'Embedded Font' },
+
+  // Packages
+  deb: { icon: VscPackage, color: '#a80030', label: 'Debian Package' },
+  rpm: { icon: VscPackage, color: '#ee0000', label: 'RPM Package' },
+  pkg: { icon: VscPackage, color: '#999999', label: 'Package' },
+  dmg: { icon: VscPackage, color: '#999999', label: 'Disk Image' },
+  msi: { icon: VscPackage, color: '#0078d4', label: 'Windows Installer' },
+  apk: { icon: VscPackage, color: '#3ddc84', label: 'Android Package' },
+  ipa: { icon: VscPackage, color: '#999999', label: 'iOS Package' },
+
+  // Additional Languages
+  pl: { icon: SiPerl, color: '#39457e', label: 'Perl' },
+  pm: { icon: SiPerl, color: '#39457e', label: 'Perl Module' },
+  hs: { icon: SiHaskell, color: '#5e5086', label: 'Haskell' },
+  lhs: { icon: SiHaskell, color: '#5e5086', label: 'Literate Haskell' },
+  fs: { icon: SiFsharp, color: '#378bba', label: 'F#' },
+  fsx: { icon: SiFsharp, color: '#378bba', label: 'F# Script' },
+  ml: { icon: SiOcaml, color: '#ec6813', label: 'OCaml' },
+  mli: { icon: SiOcaml, color: '#ec6813', label: 'OCaml Interface' },
+  nim: { icon: SiNim, color: '#ffe953', label: 'Nim' },
+  zig: { icon: SiZig, color: '#f7a41d', label: 'Zig' },
+
+  // Server configs
+  nginx: { icon: SiNginx, color: '#009639', label: 'Nginx' },
+  htaccess: { icon: SiApache, color: '#d22128', label: 'Apache Config' },
+
+  // Audio/Video
+  mp3: { icon: VscFileMedia, color: '#ff6b6b', label: 'MP3 Audio' },
+  wav: { icon: VscFileMedia, color: '#ff6b6b', label: 'WAV Audio' },
+  ogg: { icon: VscFileMedia, color: '#ff6b6b', label: 'OGG Audio' },
+  flac: { icon: VscFileMedia, color: '#ff6b6b', label: 'FLAC Audio' },
+  mp4: { icon: VscFileMedia, color: '#9b59b6', label: 'MP4 Video' },
+  mkv: { icon: VscFileMedia, color: '#9b59b6', label: 'MKV Video' },
+  avi: { icon: VscFileMedia, color: '#9b59b6', label: 'AVI Video' },
+  mov: { icon: VscFileMedia, color: '#9b59b6', label: 'MOV Video' },
+  webm: { icon: VscFileMedia, color: '#9b59b6', label: 'WebM Video' },
+
+  // Documents
+  pdf: { icon: VscFile, color: '#e74c3c', label: 'PDF Document' },
+  doc: { icon: VscFile, color: '#2b579a', label: 'Word Document' },
+  docx: { icon: VscFile, color: '#2b579a', label: 'Word Document' },
+  xls: { icon: VscFile, color: '#217346', label: 'Excel Spreadsheet' },
+  xlsx: { icon: VscFile, color: '#217346', label: 'Excel Spreadsheet' },
+  ppt: { icon: VscFile, color: '#d24726', label: 'PowerPoint' },
+  pptx: { icon: VscFile, color: '#d24726', label: 'PowerPoint' },
+  odt: { icon: VscFile, color: '#0066b3', label: 'OpenDocument Text' },
+  ods: { icon: VscFile, color: '#0066b3', label: 'OpenDocument Spreadsheet' },
+  odp: { icon: VscFile, color: '#0066b3', label: 'OpenDocument Presentation' },
 };
 
 /**

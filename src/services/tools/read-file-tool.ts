@@ -3,6 +3,7 @@ import * as path from 'path';
 import type { ITool, ToolExecutionResult, ChatMode } from './tool.interface';
 import { PathResolver } from '../path-resolver';
 import { addLineNumbers } from '../../utils/line-number-utils';
+import { isBinaryFile } from '../../constants/excluded-patterns';
 
 /**
  * Get mode-specific large file reminder
@@ -72,6 +73,14 @@ export class ReadFileTool implements ITool {
       }
 
       const { uri, absolutePath } = resolvedPath;
+
+      // Check if file is binary
+      if (isBinaryFile(absolutePath)) {
+        return {
+          success: false,
+          error: `Cannot read binary file '${filePath}'. Binary files (like .jar, .exe, .zip, images, etc.) are not readable as text.`,
+        };
+      }
 
       // Check if path is a directory
       try {
