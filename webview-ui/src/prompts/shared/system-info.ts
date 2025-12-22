@@ -46,6 +46,30 @@ function buildFileSection(workspace: WorkspaceContext): string {
 }
 
 /**
+ * Get current time context for the AI
+ * Returns formatted date/time string with timezone
+ */
+function getTimeContext(): string {
+    const now = new Date();
+    
+    // Format: "Monday, January 15, 2025 at 2:30 PM"
+    const dateOptions: Intl.DateTimeFormatOptions = {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+    };
+    
+    const formatted = now.toLocaleString('en-US', dateOptions);
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    
+    return `${formatted} (${timezone})`;
+}
+
+/**
  * Get system information section with workspace details
  * Used by modes that need workspace context (agent, plan, ask, general)
  */
@@ -56,12 +80,14 @@ export function getSystemInfo(workspace: WorkspaceContext | null): string {
 
     const workspaceMetadata = buildWorkspaceMetadata(workspace);
     const fileSection = buildFileSection(workspace);
+    const timeContext = getTimeContext();
 
     // Unified note - paths are always relative (folder prefix in multi-root acts as subdirectory)
     const note = `The file list shows relative paths. Use list_files or glob_search to explore further.`;
 
     return `<system_info>
 <os>Windows</os>
+<current_time>${timeContext}</current_time>
 ${workspaceMetadata}
 ${fileSection}
 <note>${note}</note>
@@ -72,10 +98,13 @@ ${fileSection}
  * Minimal system info for Chat mode (no file list, no workspace details)
  */
 export function getMinimalSystemInfo(): string {
+    const timeContext = getTimeContext();
+    
     return `====
 
 SYSTEM INFORMATION
 
 Operating System: Windows
+Current Time: ${timeContext}
 Mode: Conversational (no workspace access)`;
 }
