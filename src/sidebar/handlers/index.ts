@@ -35,3 +35,8 @@ export {
   handleOpenFileInTab,
   handleHistoryPanelClosed,
 } from './ui-handler';
+
+// Search handlers
+export {
+  handleSearchFiles,
+} from './search-handler';

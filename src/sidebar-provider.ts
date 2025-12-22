@@ -4,6 +4,7 @@ import { handleChatStream } from './handlers/chat-streaming-handler';
 import { handleModelFetch } from './handlers/model-fetching-handler';
 import { handleToolExecution, setFileModificationCallback } from './handlers/tool-execution-handler';
 import { handleMcpMessage } from './sidebar/handlers/mcp-handler';
+import { handleSearchFiles } from './sidebar/handlers/search-handler';
 import { getMainWebviewHtml } from './utils/html-generator';
 import { ChatHistoryService } from './services/chat-history-service';
 import { ToolHistoryService } from './services/tool-history';
@@ -189,80 +190,7 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
           await handleToolExecution(data, webviewView);
           break;
         case 'searchFiles':
-          // File and folder search handler
-          // Preserve original case for glob pattern, use lowercase for filtering
-          const rawQuery = data.query || '';
-          const queryLower = rawQuery.toLowerCase();
-          const searchType = data.searchType || 'file'; // 'file' or 'folder'
-
-          if (searchType === 'folder' || searchType === 'all') {
-            // Helper to get folder results
-            // Use case-insensitive glob pattern by searching for both original and lowercase
-            const folderPromise = vscode.workspace.findFiles(`**/*`, '**/node_modules/**', 200).then(uris => {
-              const folderPaths = new Set<string>();
-              uris.forEach(uri => {
-                const relativePath = vscode.workspace.asRelativePath(uri);
-                const parts = relativePath.split('/');
-                let currentPath = '';
-                for (let i = 0; i < parts.length - 1; i++) {
-                  currentPath = currentPath ? `${currentPath}/${parts[i]}` : parts[i];
-                  // Case-insensitive matching for folder names
-                  if (currentPath.toLowerCase().includes(queryLower)) {
-                    folderPaths.add(currentPath);
-                  }
-                }
-              });
-              return Array.from(folderPaths).slice(0, 20).map(folderPath => ({
-                path: folderPath,
-                type: 'folder' as const,
-                label: folderPath.split('/').pop()
-              }));
-            });
-
-            if (searchType === 'folder') {
-              folderPromise.then(results => {
-                webviewView.webview.postMessage({ type: 'fileSearchResults', results });
-              });
-            } else {
-              // searchType === 'all'
-              // Fetch all files and filter case-insensitively
-              const filePromise = vscode.workspace.findFiles(`**/*`, '**/node_modules/**', 200).then(uris => {
-                return uris
-                  .filter(uri => {
-                    const filename = uri.path.split('/').pop() || '';
-                    return filename.toLowerCase().includes(queryLower);
-                  })
-                  .slice(0, 20)
-                  .map(uri => ({
-                    path: vscode.workspace.asRelativePath(uri),
-                    type: 'file' as const,
-                    label: uri.path.split('/').pop()
-                  }));
-              });
-
-              Promise.all([folderPromise, filePromise]).then(([folders, files]) => {
-                // Interleave or just concat? Let's concat with files first (usually more relevant)
-                const results = [...files, ...folders].slice(0, 30);
-                webviewView.webview.postMessage({ type: 'fileSearchResults', results });
-              });
-            }
-          } else {
-            // Search for files - use case-insensitive filtering
-            vscode.workspace.findFiles(`**/*`, '**/node_modules/**', 200).then(uris => {
-              const results = uris
-                .filter(uri => {
-                  const filename = uri.path.split('/').pop() || '';
-                  return filename.toLowerCase().includes(queryLower);
-                })
-                .slice(0, 20)
-                .map(uri => ({
-                  path: vscode.workspace.asRelativePath(uri),
-                  type: 'file' as const,
-                  label: uri.path.split('/').pop()
-                }));
-              webviewView.webview.postMessage({ type: 'fileSearchResults', results });
-            });
-          }
+          await handleSearchFiles(data, webviewView);
           break;
       }
     });
