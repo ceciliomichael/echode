@@ -18,12 +18,35 @@ export function getWorkspaceFolderByName(name: string): vscode.WorkspaceFolder |
 }
 
 /**
+ * Get the workspace folder that contains the given file path
+ */
+export function getWorkspaceRootForPath(filePath: string): string | null {
+  const folders = getAllWorkspaceFolders();
+
+  // Normalize path for comparison
+  const normalizedFilePath = path.normalize(filePath);
+
+  // Find the folder that contains this path
+  // Sort by length descending to match the most specific (longest) path first
+  // (though in VS Code workspaces are usually distinct, but nested workspaces are possible)
+  const matchingFolder = [...folders]
+    .sort((a, b) => b.uri.fsPath.length - a.uri.fsPath.length)
+    .find(folder => {
+      const folderPath = path.normalize(folder.uri.fsPath);
+      // Check if file is inside folder (or is the folder itself)
+      return normalizedFilePath.startsWith(folderPath + path.sep) || normalizedFilePath === folderPath;
+    });
+
+  return matchingFolder ? matchingFolder.uri.fsPath : null;
+}
+
+/**
  * Check if a path is within the workspace root (prevents path traversal attacks)
  */
 export function isPathWithinWorkspace(absolutePath: string, workspaceRoot: string): boolean {
   const normalizedPath = path.normalize(absolutePath);
   const normalizedRoot = path.normalize(workspaceRoot);
-  
+
   // Ensure the path starts with the workspace root
   return normalizedPath.startsWith(normalizedRoot + path.sep) || normalizedPath === normalizedRoot;
 }
@@ -40,41 +63,71 @@ export function isPathWithinAnyWorkspace(absolutePath: string): boolean {
  * Resolve a path relative to workspace root, ensuring it stays within the workspace.
  * Returns workspaceRoot if the path would escape the workspace.
  */
-export function resolveAbsolutePath(filePath: string, workspaceRoot: string): string {
-  // If absolute path, validate it's within workspace
+export function resolveAbsolutePath(filePath: string, defaultWorkspaceRoot: string): string {
+  // If absolute path, validate it's within ANY workspace
   if (path.isAbsolute(filePath)) {
     const normalizedPath = path.normalize(filePath);
-    if (isPathWithinWorkspace(normalizedPath, workspaceRoot)) {
+
+    // Check if it's in any open workspace
+    if (isPathWithinAnyWorkspace(normalizedPath)) {
       return normalizedPath;
     }
-    // Path is outside workspace - return workspace root instead
+
+    // Path is outside all workspaces - return default workspace root
     console.warn(`[Security] Blocked path outside workspace: ${filePath}`);
-    return workspaceRoot;
+    return defaultWorkspaceRoot;
   }
-  
-  // For relative paths, resolve and validate
-  const resolved = path.normalize(path.join(workspaceRoot, filePath));
-  
+
+  // Check for Multi-Root Prefixes ("ProjectName/path/to/file")
+  // This aligns behavior with PathResolver and allows relative paths targeting specific workspaces
+  const folders = getAllWorkspaceFolders();
+  const parts = filePath.split(/[/\\]/);
+  const potentialPrefix = parts[0];
+
+  const matchedFolder = folders.find(f => f.name === potentialPrefix);
+  if (matchedFolder) {
+    // Strip the prefix and join with that folder's root
+    const relPath = parts.slice(1).join(path.sep);
+    // If relPath is empty (just "ProjectName"), it targets the root
+    const resolved = path.normalize(path.join(matchedFolder.uri.fsPath, relPath));
+
+    // Validate it's still within THAT workspace
+    if (isPathWithinWorkspace(resolved, matchedFolder.uri.fsPath)) {
+      return resolved;
+    }
+    // If it traversed out, block it
+    console.warn(`[Security] Blocked path traversal attempt in multi-root: ${filePath}`);
+    return matchedFolder.uri.fsPath;
+  }
+
+  // For standard relative paths, resolve against default workspace root
+  const resolved = path.normalize(path.join(defaultWorkspaceRoot, filePath));
+
   // Check for path traversal (e.g., "../../../etc/passwd")
-  if (!isPathWithinWorkspace(resolved, workspaceRoot)) {
+  // Since we resolved against defaultWorkspaceRoot, just check if it's within that one
+  if (!isPathWithinWorkspace(resolved, defaultWorkspaceRoot)) {
     console.warn(`[Security] Blocked path traversal attempt: ${filePath}`);
-    return workspaceRoot;
+    return defaultWorkspaceRoot;
   }
-  
+
   return resolved;
 }
 
 export async function getCreatedDirectories(
   filePath: string,
-  workspaceRoot: string
+  defaultWorkspaceRoot: string
 ): Promise<string[]> {
-  const absolutePath = resolveAbsolutePath(filePath, workspaceRoot);
+  const absolutePath = resolveAbsolutePath(filePath, defaultWorkspaceRoot);
   const dirPath = path.dirname(absolutePath);
   const createdDirs: string[] = [];
-  
+
+  // Determine the actual workspace root for this file to know when to stop
+  const actualRoot = getWorkspaceRootForPath(absolutePath) || defaultWorkspaceRoot;
+
   let currentPath = dirPath;
-  
-  while (currentPath !== workspaceRoot && currentPath.length > workspaceRoot.length) {
+
+  // Stop if we reach the workspace root or if path becomes shorter than root (outside)
+  while (currentPath !== actualRoot && currentPath.length > actualRoot.length) {
     try {
       const dirUri = vscode.Uri.file(currentPath);
       await vscode.workspace.fs.stat(dirUri);
@@ -84,6 +137,6 @@ export async function getCreatedDirectories(
       currentPath = path.dirname(currentPath);
     }
   }
-  
+
   return createdDirs.reverse();
 }
