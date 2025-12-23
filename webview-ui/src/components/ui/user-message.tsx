@@ -27,12 +27,13 @@ interface UserMessageProps {
   model: string;
   onModelChange: (provider: Provider, model: string) => void;
   contextUsage?: ContextUsageResult;
+  isFirstMessage?: boolean;
 }
 
-export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, attachments, imageAttachments, mode, onModeChange, provider, model, onModelChange, contextUsage }: UserMessageProps) {
+export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, attachments, imageAttachments, mode, onModeChange, provider, model, onModelChange, contextUsage, isFirstMessage = false }: UserMessageProps) {
 
-  // Check if this is a compressed history message
-  const isCompressedHistory = content.includes('<compressed_history>');
+  // Check if this is a compressed history message - ONLY if it's the first message
+  const isCompressedHistory = isFirstMessage && content.includes('<compressed_history>');
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);

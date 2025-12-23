@@ -36,6 +36,7 @@ interface ChatInputProps {
   onCompress?: () => void;
   onCancelCompress?: () => void;
   isCompressing?: boolean;
+  disableCompress?: boolean;
 }
 
 export function ChatInput({
@@ -59,7 +60,8 @@ export function ChatInput({
   restoredImageAttachments,
   onCompress,
   onCancelCompress,
-  isCompressing = false
+  isCompressing = false,
+  disableCompress = false
 }: ChatInputProps) {
   // Show stop button when streaming OR executing a tool (like echo_search)
   const showStopButton = isStreaming || isExecutingTool;
@@ -240,6 +242,7 @@ export function ChatInput({
             onCompress={onCompress}
             onCancelCompress={onCancelCompress}
             isCompressing={isCompressing}
+            disableCompress={disableCompress}
             disabled={disabled}
             showStopButton={showStopButton}
             hasInput={!!input.trim()}

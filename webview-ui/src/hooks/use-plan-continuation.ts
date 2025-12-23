@@ -163,10 +163,15 @@ export function usePlanContinuationHandler({
       // Wrap in <tool_result> tags so the AI recognizes it as a tool result continuation
       const messageContent = `<tool_result>\n${toolResultContent}\n</tool_result>`;
 
+      // Determine the mode for the next message
+      // If starting implementation, we MUST switch to agent mode
+      // Otherwise, keep the original mode (likely 'plan') for verification tasks
+      const nextMode = action === 'start_implementation' ? 'agent' : mode;
+
       // Send as a hidden message (user won't see it, but AI receives it as tool result)
       // Use a small delay to ensure state updates are processed
       setTimeout(() => {
-        sendMessageRef.current(messageContent, undefined, undefined, true, false, mode); // isHidden = true, forceEchoSearch = false, lockedMode = mode
+        sendMessageRef.current(messageContent, undefined, undefined, true, false, nextMode); // isHidden = true, forceEchoSearch = false, lockedMode = nextMode
       }, 100);
     };
 

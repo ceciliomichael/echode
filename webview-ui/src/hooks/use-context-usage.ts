@@ -63,9 +63,9 @@ function calculateContextUsage({
   let compressedHistoryTokens = 0;
   let toolResultsTokens = 0;
 
-  effectiveMessages.forEach((message) => {
-    // Check for compressed history
-    if (message.content.includes('<compressed_history>')) {
+  effectiveMessages.forEach((message, index) => {
+    // Check for compressed history - ONLY allowed in the very first message
+    if (index === 0 && message.content.includes('<compressed_history>')) {
       const contentTokens = estimateTokens(message.content);
       compressedHistoryTokens += contentTokens;
     } else {
@@ -122,22 +122,23 @@ function calculateContextUsage({
  */
 export function useContextUsage(options: UseContextUsageOptions): ContextUsageResult {
   const [result, setResult] = useState<ContextUsageResult>(() => calculateContextUsage(options));
-  const lastRun = useRef<number>(Date.now());
+  // Initialize to 0 so the first update (e.g. session load) runs immediately
+  const lastRun = useRef<number>(0);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mounted = useRef(true);
 
   // Track the latest options with a ref to avoid stale closures in setTimeout
   const optionsRef = useRef(options);
-  useEffect(() => {
-    optionsRef.current = options;
-  }, [options]);
-
+  
   useEffect(() => {
     mounted.current = true;
     return () => { mounted.current = false; };
   }, []);
 
   useEffect(() => {
+    // Update ref with latest options immediately
+    optionsRef.current = options;
+
     const THROTTLE_MS = 1000;
     const now = Date.now();
     const timeSinceLastRun = now - lastRun.current;
@@ -152,24 +153,23 @@ export function useContextUsage(options: UseContextUsageOptions): ContextUsageRe
 
     if (timeSinceLastRun >= THROTTLE_MS) {
       // If enough time passed, execute immediately
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
       execute();
     } else {
-      // Otherwise schedule it
-      // Clear existing timeout to reschedule with potentially newer closure/time (or just let it run)
-      // Actually, if we have a pending timeout, we DON'T need to reschedule if we rely on optionsRef.
-      // But we should ensure the timeout triggers eventually.
+      // Otherwise schedule it if not already scheduled
       if (!timeoutRef.current) {
         timeoutRef.current = setTimeout(execute, THROTTLE_MS - timeSinceLastRun);
       }
     }
 
     return () => {
-      // Don't clear timeout on deps change, we want the scheduled update to happen
-      // only on unmount (handled by mounted ref check mostly)
-      // But standard practice is cleanup. If we cleanup, we lose the pending update if deps changed fast.
-      // So we rely on the fact that the effect runs again.
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
     };
   }, [
     // We list individual fields to trigger the effect

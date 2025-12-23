@@ -82,6 +82,7 @@ export interface DocumentValidationResult {
 }
 
 const ATTACHED_FILE_BLOCK_REGEX = /<attached_file>\s*([\s\S]*?)<\/attached_file>/g;
+const COMPRESSED_HISTORY_BLOCK_REGEX = /<compressed_history>[\s\S]*?<\/compressed_history>/g;
 
 /**
  * Get file extension from filename (lowercase, with dot)
@@ -232,6 +233,23 @@ export function buildAllAttachedFileBlocks(attachments: DocumentAttachment[]): s
  */
 export function stripAttachedFileBlocks(content: string): string {
   return content.replace(ATTACHED_FILE_BLOCK_REGEX, '').trimEnd();
+}
+
+/**
+ * Strip all <compressed_history> blocks from a content string.
+ */
+export function stripCompressedHistoryBlocks(content: string): string {
+  return content.replace(COMPRESSED_HISTORY_BLOCK_REGEX, '').trimEnd();
+}
+
+/**
+ * Strip both <attached_file> and <compressed_history> blocks.
+ * Used for generating titles and previews.
+ */
+export function stripAllSpecialBlocks(content: string): string {
+  let result = stripAttachedFileBlocks(content);
+  result = stripCompressedHistoryBlocks(result);
+  return result.trim();
 }
 
 /**

@@ -198,6 +198,13 @@ export function ChatContainer() {
     saveCurrentSession,
   });
 
+  // Disable compression if chat only contains compressed history + AI response (essentially a new chat)
+  // This prevents users from compressing an already compressed chat with no new meaningful content
+  const shouldDisableCompress = messages.length <= 2 && 
+    messages.length > 0 && 
+    messages[0].role === 'user' && 
+    messages[0].content.includes('<compressed_history>');
+
   const {
     isHistoryOpen,
     closeHistory,
@@ -269,6 +276,7 @@ export function ChatContainer() {
               <div className="space-y-3">
                 {visibleMessages.map((message, index) => {
                   const isLastAssistantMessage = index === visibleMessages.length - 1 && message.role === 'assistant';
+                  const isFirstMessage = index === 0;
 
                   return (
                     <MessageBubble
@@ -282,6 +290,7 @@ export function ChatContainer() {
                       onRevert={handleRevert}
                       isStreaming={(isStreaming || isExecutingTool) && isLastAssistantMessage}
                       isLastMessage={isLastAssistantMessage}
+                      isFirstMessage={isFirstMessage}
                       mode={mode}
                       onModeChange={handleModeChange}
                       provider={provider}
@@ -323,6 +332,7 @@ export function ChatContainer() {
               onCompress={handleCompressHistory}
               onCancelCompress={handleCancelCompression}
               isCompressing={isCompressing}
+              disableCompress={shouldDisableCompress}
               restoredInput={abortedUserInput ?? undefined}
               restoredAttachments={abortedAttachments ?? undefined}
               restoredImageAttachments={abortedImageAttachments ?? undefined}

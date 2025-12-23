@@ -6,13 +6,14 @@ interface DashedProgressCircleProps {
   percent: number;
   color: string;
   size?: number;
+  isSpinning?: boolean;
 }
 
 /**
  * Custom dashed circle progress indicator
  * Shows progress by coloring individual dashes based on percentage
  */
-function DashedProgressCircle({ percent, color, size = 16 }: DashedProgressCircleProps) {
+function DashedProgressCircle({ percent, color, size = 16, isSpinning = false }: DashedProgressCircleProps) {
   const strokeWidth = 1.5;
   const radius = (size - strokeWidth) / 2;
   const cx = size / 2;
@@ -31,7 +32,7 @@ function DashedProgressCircle({ percent, color, size = 16 }: DashedProgressCircl
 
     // Calculate if this dash should be filled based on percentage
     const dashMidpoint = (i + 0.5) / dashCount * 100;
-    const isFilled = dashMidpoint <= percent;
+    const isFilled = isSpinning || dashMidpoint <= percent;
 
     // Convert angles to radians
     const startRad = (startAngle * Math.PI) / 180;
@@ -64,6 +65,7 @@ function DashedProgressCircle({ percent, color, size = 16 }: DashedProgressCircl
       width={size}
       height={size}
       viewBox={`0 0 ${size} ${size}`}
+      className={isSpinning ? 'animate-spin' : ''}
     >
       {dashes}
     </svg>
@@ -86,6 +88,7 @@ interface ContextIndicatorProps {
   onCompress?: () => void;
   onCancelCompress?: () => void;
   isCompressing?: boolean;
+  disableCompress?: boolean;
 }
 
 /**
@@ -124,7 +127,7 @@ function formatTokens(tokens: number): string {
   return tokens.toString();
 }
 
-export function ContextIndicator({ usage, disabled = false, mode, onCompress, onCancelCompress, isCompressing = false }: ContextIndicatorProps) {
+export function ContextIndicator({ usage, disabled = false, mode, onCompress, onCancelCompress, isCompressing = false, disableCompress = false }: ContextIndicatorProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const [isTopTooltip, setIsTopTooltip] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState<'above' | 'below'>('above');
@@ -203,7 +206,7 @@ export function ContextIndicator({ usage, disabled = false, mode, onCompress, on
         }}
         aria-label={`Context usage: ${usagePercent.toFixed(0)}%`}
       >
-        <DashedProgressCircle percent={usagePercent} color={color} size={16} />
+        <DashedProgressCircle percent={usagePercent} color={color} size={16} isSpinning={isCompressing} />
       </button>
 
       {showTooltip && (
@@ -344,16 +347,18 @@ export function ContextIndicator({ usage, disabled = false, mode, onCompress, on
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (onCompress) {
+                    if (onCompress && !disableCompress) {
                       onCompress();
                     }
                   }}
-                  className="w-full px-3 py-2.5 text-xs font-medium rounded-xl border transition-all hover:opacity-90 flex items-center justify-center gap-2"
+                  disabled={disableCompress}
+                  className="w-full px-3 py-2.5 text-xs font-medium rounded-xl border transition-all hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
                     backgroundColor: 'var(--vscode-button-background)',
                     color: 'var(--vscode-button-foreground)',
                     borderColor: 'var(--vscode-button-border)',
                   }}
+                  title={disableCompress ? 'Already a new chat session' : 'Compress chat history and start new chat'}
                 >
                   <Archive className="w-3.5 h-3.5" />
                   <span>Compress & New Chat</span>

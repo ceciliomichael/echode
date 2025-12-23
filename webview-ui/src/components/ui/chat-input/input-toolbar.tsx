@@ -32,6 +32,7 @@ interface InputToolbarProps {
   onCompress?: () => void;
   onCancelCompress?: () => void;
   isCompressing?: boolean;
+  disableCompress?: boolean;
   
   // State
   disabled?: boolean;
@@ -58,6 +59,7 @@ export function InputToolbar({
   onCompress,
   onCancelCompress,
   isCompressing = false,
+  disableCompress = false,
   disabled = false,
   showStopButton = false,
   hasInput,
@@ -109,6 +111,7 @@ export function InputToolbar({
             onCompress={onCompress}
             onCancelCompress={onCancelCompress}
             isCompressing={isCompressing}
+            disableCompress={disableCompress}
           />
         )}
         {showStopButton ? (

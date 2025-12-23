@@ -3,7 +3,7 @@ import type { ChatMode } from '../types/chat-mode';
 import { DEFAULT_CHAT_MODE } from '../types/chat-mode';
 import type { ChatSession } from '../types/chat-session';
 import type { Message } from '../types/chat';
-import { stripAttachedFileBlocks } from './document-utils';
+import { stripAllSpecialBlocks } from './document-utils';
 import { SettingsStorage } from '../services/storage/settings-storage';
 import { ModeHelpers } from '../services/storage/mode-helpers';
 
@@ -94,35 +94,48 @@ export const storageService = {
   // === Utility Functions ===
 
   generateTitle(messages: Message[]): string {
-    const firstUserMessage = messages.find(m => m.role === 'user');
-    if (!firstUserMessage) {
-      return 'New Chat';
+    // Find first user message with meaningful content (ignoring attachments/history)
+    for (const message of messages) {
+      if (message.role !== 'user') {
+        continue;
+      }
+
+      const content = stripAllSpecialBlocks(message.content).trim();
+      if (content.length > 0) {
+        const maxLength = 50;
+        if (content.length <= maxLength) {
+          return content;
+        }
+        return content.substring(0, maxLength).trim() + '...';
+      }
     }
 
-    const content = stripAttachedFileBlocks(firstUserMessage.content).trim();
-    const maxLength = 50;
-
-    if (content.length <= maxLength) {
-      return content;
+    // If we only found messages that were stripped away (e.g. just history/files)
+    const hasHistory = messages.some(m => m.content.includes('<compressed_history>'));
+    if (hasHistory) {
+      return 'Restored Session';
     }
 
-    return content.substring(0, maxLength).trim() + '...';
+    return 'New Chat';
   },
 
   getPreview(messages: Message[]): string {
-    const firstUserMessage = messages.find(m => m.role === 'user');
-    if (!firstUserMessage) {
-      return '';
+    for (const message of messages) {
+      if (message.role !== 'user') {
+        continue;
+      }
+
+      const content = stripAllSpecialBlocks(message.content).trim();
+      if (content.length > 0) {
+        const maxLength = 100;
+        if (content.length <= maxLength) {
+          return content;
+        }
+        return content.substring(0, maxLength).trim() + '...';
+      }
     }
 
-    const content = stripAttachedFileBlocks(firstUserMessage.content).trim();
-    const maxLength = 100;
-
-    if (content.length <= maxLength) {
-      return content;
-    }
-
-    return content.substring(0, maxLength).trim() + '...';
+    return '';
   },
 
   // === Mode Management (Delegated to ModeHelpers + SettingsStorage) ===

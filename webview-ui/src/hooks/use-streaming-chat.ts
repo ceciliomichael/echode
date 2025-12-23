@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, useRef } from 'react';
 import type { ChatMode } from '../types/chat-mode';
 import type { DocumentAttachment } from '../utils/document-utils';
 import type { ImageAttachment } from '../types/chat';
-import { extractTextAndAttachmentsFromContent } from '../utils/document-utils';
+import { extractTextAndAttachmentsFromContent, stripCompressedHistoryBlocks } from '../utils/document-utils';
 import { useToolExecution } from './use-tool-execution';
 import { useChatStreaming } from './use-chat-streaming';
 import { usePlanContinuationHandler } from './use-plan-continuation';
@@ -159,9 +159,20 @@ export function useStreamingChat(
         const prev = currentMessages[currentMessages.length - 2];
 
         if (last.role === 'assistant' && prev.role === 'user' && !prev.hidden) {
-          const { text, attachments } = extractTextAndAttachmentsFromContent(prev.content);
+          // If the message contains compressed history, do NOT restore it to input or remove it.
+          // Just stop the stream and keep the messages as is.
+          if (prev.content.includes('<compressed_history>')) {
+            state.abortAndReset();
+            return;
+          }
 
-          setAbortedUserInput(text);
+          const { text, attachments } = extractTextAndAttachmentsFromContent(prev.content);
+          
+          // Clean up compressed history from the text to be restored
+          const cleanedText = stripCompressedHistoryBlocks(text).trim();
+
+          // Only restore input if there's meaningful text left
+          setAbortedUserInput(cleanedText || null);
           setAbortedAttachments(attachments.length > 0 ? attachments : null);
           setAbortedImageAttachments(prev.attachments && prev.attachments.length > 0 ? prev.attachments : null);
           const updatedMessages = currentMessages.slice(0, currentMessages.length - 2);

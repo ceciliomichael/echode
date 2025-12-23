@@ -84,6 +84,9 @@ console.log("new message");
 2. **SEARCH must match exactly** - copy/paste from read_file, preserve whitespace
 3. **Line number helps locate** - use :start_line from read_file output
 4. **Markers on own lines** - <<<<<<< SEARCH, =======, >>>>>>> REPLACE
+5. **EXACTLY ONE of each marker** - one SEARCH, one separator (=======), one REPLACE
+   - ❌ WRONG: Two ======= markers will cause parsing errors
+   - ✓ CORRECT: Exactly one ======= between SEARCH and REPLACE sections
 
 ### IF DIFF FAILS
 1. Call read_file to get fresh content

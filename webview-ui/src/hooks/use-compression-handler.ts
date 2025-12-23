@@ -116,6 +116,13 @@ export function useCompressionHandler({
         abortControllerRef.current?.signal
       );
 
+      // Check if compression was cancelled during the await
+      // If abortControllerRef.current is null, it means handleCancelCompression was called
+      if (!abortControllerRef.current) {
+        console.log('Compression was cancelled, aborting new chat creation');
+        return;
+      }
+
       // Save current session before clearing
       saveCurrentSession(messages);
 
@@ -127,7 +134,7 @@ export function useCompressionHandler({
 ${compressedSummary}
 </compressed_history>
 
-This is the compressed history from the previous chat session. I understand the context and am ready to continue assisting you. Please let me know how I can help with your next task.`;
+Here is the compressed history from our previous session. Please acknowledge that you have loaded this context and are ready for the next request. (Note: Please wait for my specific instructions before generating any code or solutions.)`;
 
       // Send compressed message to start new chat
       // Delay needed: onNewChat() calls abortAndReset() which sets isStoppingRef=true
@@ -156,6 +163,7 @@ This is the compressed history from the previous chat session. I understand the 
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
       setIsCompressing(false);
+      // Don't create a new chat - just abort the compression
     }
   }, []);
 

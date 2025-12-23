@@ -308,35 +308,61 @@ export class ChatHistoryService {
   }
 
   generateTitle(messages: ChatSession['messages']): string {
-    const firstUserMessage = messages.find(m => m.role === 'user');
-    if (!firstUserMessage) {
-      return 'New Chat';
+    const ATTACHED_FILE_REGEX = /<attached_file>\s*([\s\S]*?)<\/attached_file>/g;
+    const COMPRESSED_HISTORY_REGEX = /<compressed_history>[\s\S]*?<\/compressed_history>/g;
+
+    for (const message of messages) {
+      if (message.role !== 'user') {
+        continue;
+      }
+
+      let content = message.content;
+      content = content.replace(ATTACHED_FILE_REGEX, '');
+      content = content.replace(COMPRESSED_HISTORY_REGEX, '');
+      content = content.trim();
+
+      if (content.length > 0) {
+        const maxLength = 50;
+        if (content.length <= maxLength) {
+          return content;
+        }
+        return content.substring(0, maxLength).trim() + '...';
+      }
     }
 
-    const content = firstUserMessage.content.trim();
-    const maxLength = 50;
-
-    if (content.length <= maxLength) {
-      return content;
+    // Fallback checks
+    const hasHistory = messages.some(m => m.content.includes('<compressed_history>'));
+    if (hasHistory) {
+      return 'Restored Session';
     }
 
-    return content.substring(0, maxLength).trim() + '...';
+    return 'New Chat';
   }
 
   getPreview(messages: ChatSession['messages']): string {
-    const firstUserMessage = messages.find(m => m.role === 'user');
-    if (!firstUserMessage) {
-      return '';
+    const ATTACHED_FILE_REGEX = /<attached_file>\s*([\s\S]*?)<\/attached_file>/g;
+    const COMPRESSED_HISTORY_REGEX = /<compressed_history>[\s\S]*?<\/compressed_history>/g;
+
+    for (const message of messages) {
+      if (message.role !== 'user') {
+        continue;
+      }
+
+      let content = message.content;
+      content = content.replace(ATTACHED_FILE_REGEX, '');
+      content = content.replace(COMPRESSED_HISTORY_REGEX, '');
+      content = content.trim();
+
+      if (content.length > 0) {
+        const maxLength = 100;
+        if (content.length <= maxLength) {
+          return content;
+        }
+        return content.substring(0, maxLength).trim() + '...';
+      }
     }
 
-    const content = firstUserMessage.content.trim();
-    const maxLength = 100;
-
-    if (content.length <= maxLength) {
-      return content;
-    }
-
-    return content.substring(0, maxLength).trim() + '...';
+    return '';
   }
 
   async getSessionUiState(sessionId: string): Promise<{ editingMessageId: string | null; revertPreviewMessageId: string | null } | null> {
