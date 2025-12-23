@@ -198,12 +198,12 @@ export function ChatContainer() {
     saveCurrentSession,
   });
 
-  // Disable compression if chat only contains compressed history + AI response (essentially a new chat)
-  // This prevents users from compressing an already compressed chat with no new meaningful content
-  const shouldDisableCompress = messages.length <= 2 && 
+  // Disable compression if chat is empty OR only contains compressed history + AI response (essentially a new chat)
+  // This prevents users from compressing an empty chat or an already compressed chat with no new meaningful content
+  const shouldDisableCompress = messages.length === 0 || (messages.length <= 2 && 
     messages.length > 0 && 
     messages[0].role === 'user' && 
-    messages[0].content.includes('<compressed_history>');
+    messages[0].content.includes('<compressed_history>'));
 
   const {
     isHistoryOpen,
