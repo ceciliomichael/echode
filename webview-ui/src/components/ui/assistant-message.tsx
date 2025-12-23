@@ -6,6 +6,7 @@ import { MermaidBlock } from './mermaid-block';
 import { StreamingText } from './streaming-text';
 import { tokenizeContent } from '../../utils/content-tokenizer';
 import type { ToolCall, ToolExecutionState } from '../../types/tool';
+import type { ChatMode } from '../../types/chat-mode';
 
 interface AssistantMessageProps {
   content: string;
@@ -13,6 +14,7 @@ interface AssistantMessageProps {
   isStreaming?: boolean;
   isLastMessage?: boolean;
   toolExecutions?: Map<string, ToolExecutionState>;
+  mode?: ChatMode;
 }
 
 function sanitizeAssistantText(content: string): string {
@@ -82,7 +84,7 @@ function sanitizeAssistantText(content: string): string {
   return result;
 }
 
-function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming = false, isLastMessage = true, toolExecutions }: AssistantMessageProps) {
+function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming = false, isLastMessage = true, toolExecutions, mode }: AssistantMessageProps) {
   // Allow text/think to span wider while staying slightly inset
   const contentMaxWidth = 'min(110ch, 100%)';
 
@@ -208,6 +210,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                             isStreaming={false}
                             messageId={messageId}
                             isLastMessage={isLastMessage}
+                            mode={mode}
                           />
                         </div>
                       );
@@ -240,6 +243,7 @@ function AssistantMessageComponent({ content, messageId = 'unknown', isStreaming
                   isStreaming={isStreaming && !token.isClosed}
                   messageId={messageId}
                   isLastMessage={isLastMessage}
+                  mode={mode}
                 />
               </div>
             );
@@ -425,5 +429,6 @@ export const AssistantMessage = memo(AssistantMessageComponent, (prev, next) => 
   return prev.content === next.content &&
     prev.messageId === next.messageId &&
     prev.isStreaming === next.isStreaming &&
+    prev.mode === next.mode &&
     toolExecutionsEqual;
 });

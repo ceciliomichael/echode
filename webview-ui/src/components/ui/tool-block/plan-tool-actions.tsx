@@ -2,11 +2,13 @@ import { CheckCircle, Rocket } from 'lucide-react';
 import type { ToolCall } from '../../../types/tool';
 import type { PlanToolResult } from '../../../lib/tools/plan-tool';
 import { usePlanContinuationEmitter } from '../../../hooks/use-plan-continuation';
+import type { ChatMode } from '../../../types/chat-mode';
 
 interface PlanToolActionsProps {
   toolCall: ToolCall;
   messageId: string;
   isLastMessage?: boolean;
+  mode?: ChatMode;
 }
 
 /**
@@ -23,6 +25,7 @@ export function PlanToolActions({
   toolCall, 
   messageId,
   isLastMessage = true,
+  mode,
 }: PlanToolActionsProps) {
   const { triggerContinuation } = usePlanContinuationEmitter();
 
@@ -52,7 +55,8 @@ export function PlanToolActions({
       'verify_plan',
       messageId,
       toolCall.toolExecutionId || '',
-      result.data
+      result.data,
+      mode
     );
   };
 
@@ -62,7 +66,8 @@ export function PlanToolActions({
       'start_implementation',
       messageId,
       toolCall.toolExecutionId || '',
-      result.data
+      result.data,
+      mode
     );
   };
 

@@ -8,6 +8,7 @@ import { ToolExecutor } from '../lib/tool-executor';
 import { getToolsForMode } from '../lib/tool-config';
 import { getCurrentModel, isVisionCapableModel } from '../utils/vision-utils';
 import { storageService } from '../utils/storage';
+import type { ChatMode } from '../types/chat-mode';
 
 // Import modular helpers
 import type { ChatStreamingProps, LockedModelConfig } from './chat-streaming/types';
@@ -50,9 +51,15 @@ export function useChatStreaming({
     toolExecutorRef.current = null;
   }, [mode]);
 
-  const getToolExecutor = () => {
-    if (!toolExecutorRef.current) {
-      const enabledTools = getToolsForMode(mode, false).map(t => t.id);
+  const getToolExecutor = (lockedMode?: ChatMode) => {
+    // Determine which mode we need tools for: lockedMode (if executing a specific plan/action) or current mode
+    const targetMode = lockedMode ?? modeRef.current;
+
+    // Check if we need to create a new executor (either none exists, or mode mismatch)
+    // We check toolExecutorRef.current.mode (which we exposed as public readonly)
+    if (!toolExecutorRef.current || toolExecutorRef.current.mode !== targetMode) {
+      const enabledTools = getToolsForMode(targetMode, false).map(t => t.id);
+      
       // Use toolAbortControllerRef (NOT abortControllerRef) for tool abort.
       // toolAbortControllerRef is only aborted when user clicks Stop, NOT when
       // stream is aborted for tool detection. This allows tools to complete
@@ -61,13 +68,13 @@ export function useChatStreaming({
         enabledTools,
         isStoppingRef,
         abortControllerRef: toolAbortControllerRef,
-        mode: modeRef.current,
+        mode: targetMode,
       });
     }
     return toolExecutorRef.current;
   };
 
-  const sendMessage = useCallback(async (content: string, attachments?: ImageAttachment[], overrideMessages?: Message[], isHidden: boolean = false, forceEchoSearch: boolean = false) => {
+  const sendMessage = useCallback(async (content: string, attachments?: ImageAttachment[], overrideMessages?: Message[], isHidden: boolean = false, forceEchoSearch: boolean = false, lockedMode?: ChatMode) => {
     // === GUARDS: Prevent concurrent operations ===
     if (isStreamingRef.current) {
       console.error('[sendMessage] BLOCKED: Already streaming');
@@ -95,8 +102,10 @@ export function useChatStreaming({
 
     // === CONTEXT PREPARATION ===
     const latestWorkspace = window.workspaceContext || workspace;
-    // Use ref to get the freshest mode (handles race condition where mode updates during async flow)
-    const currentMode = modeRef.current;
+    
+    // Determine current mode: prefer locked mode if provided (e.g. from plan continuation),
+    // otherwise use current mode ref (handles race condition where mode updates during async flow)
+    const currentMode = lockedMode ?? modeRef.current;
     
     // === LOCK CONFIG ===
     // Capture the current provider/model/mode at the START of streaming

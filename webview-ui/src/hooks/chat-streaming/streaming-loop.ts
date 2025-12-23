@@ -6,6 +6,7 @@ import { generateToolExecutionId, createToolExecutionState, updateToolExecutionS
 import { isRetryableError } from './helpers';
 import { ToolExecutor } from '../../lib/tool-executor';
 import { formatToolResultForAI } from '../../utils/tool-execution-helpers';
+import type { ChatMode } from '../../types/chat-mode';
 
 /**
  * Result of the streaming loop
@@ -37,11 +38,12 @@ async function executeToolInParallel(
   execId: string,
   executionState: ToolExecutionState,
   assistantMessageId: string,
-  getToolExecutor: () => ToolExecutor,
+  getToolExecutor: (mode?: ChatMode) => ToolExecutor,
   updateToolExecution: (messageId: string, toolExecutionId: string, state: ToolExecutionState) => void,
-  isStoppingRef: React.MutableRefObject<boolean>
+  isStoppingRef: React.MutableRefObject<boolean>,
+  mode?: ChatMode
 ): Promise<ParallelToolResult> {
-  const toolExecutor = getToolExecutor();
+  const toolExecutor = getToolExecutor(mode);
 
   try {
     // Check if stopped before execution
@@ -277,7 +279,8 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
               assistantMessageId,
               getToolExecutor,
               updateToolExecution,
-              isStoppingRef
+              isStoppingRef,
+              mode // Pass the current execution mode (locked mode)
             );
             parallelExecutions.set(toolIndex, executionPromise);
 

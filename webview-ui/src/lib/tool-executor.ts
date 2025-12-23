@@ -33,7 +33,7 @@ export class ToolExecutor {
   private enabledTools: string[];
   private isStoppingRef: { current: boolean };
   private abortControllerRef?: { current: AbortController | null };
-  private mode?: ChatMode;
+  public readonly mode?: ChatMode;
 
   constructor(options: ToolExecutorOptions) {
     this.enabledTools = options.enabledTools;

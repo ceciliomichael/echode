@@ -4,12 +4,14 @@ import { getToolStatusDisplay } from '../../../utils/tool-status-formatter';
 import { getToolFileInfo } from '../../../utils/tool-file-info';
 import { ToolBlockHeader } from './tool-block-header';
 import { ToolBlockContent } from './tool-block-content';
+import type { ChatMode } from '../../../types/chat-mode';
 
 interface ToolBlockProps {
   toolCall: ToolCall;
   isStreaming?: boolean;
   messageId?: string;
   isLastMessage?: boolean;
+  mode?: ChatMode;
 }
 
 const ToolBlockComponent = ({
@@ -17,6 +19,7 @@ const ToolBlockComponent = ({
   isStreaming = false,
   messageId = 'unknown',
   isLastMessage = true,
+  mode,
 }: ToolBlockProps) => {
   const isEchoSearch = toolCall.toolName === 'echo_search';
   const isPlanTool = toolCall.toolName === 'plan';
@@ -154,6 +157,7 @@ const ToolBlockComponent = ({
           isExpanded={isExpanded}
           messageId={messageId}
           isLastMessage={isLastMessage}
+          mode={mode}
         />
       </div>
 
@@ -186,6 +190,7 @@ export const ToolBlock = memo(ToolBlockComponent, (prevProps, nextProps) => {
     prevProps.toolCall.toolName === nextProps.toolCall.toolName &&
     prevProps.isStreaming === nextProps.isStreaming &&
     prevProps.isLastMessage === nextProps.isLastMessage &&
+    prevProps.mode === nextProps.mode &&
     JSON.stringify(prevProps.toolCall.parameters) ===
     JSON.stringify(nextProps.toolCall.parameters) &&
     JSON.stringify(prevProps.toolCall.result) === JSON.stringify(nextProps.toolCall.result) &&

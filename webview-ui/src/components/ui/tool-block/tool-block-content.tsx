@@ -5,6 +5,7 @@ import { EchoSearchProgressIndicator } from './echo-search-progress';
 import { PlanToolActions } from './plan-tool-actions';
 import type { ToolCall } from '../../../types/tool';
 import type { ToolFileInfo } from '../../../utils/tool-file-info';
+import type { ChatMode } from '../../../types/chat-mode';
 
 interface ToolBlockContentProps {
   toolCall: ToolCall;
@@ -12,9 +13,10 @@ interface ToolBlockContentProps {
   isExpanded: boolean;
   messageId: string;
   isLastMessage?: boolean;
+  mode?: ChatMode;
 }
 
-export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, isLastMessage = true }: ToolBlockContentProps) {
+export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, isLastMessage = true, mode }: ToolBlockContentProps) {
   const isAborted = toolCall.status === 'aborted';
   const isAwaitingUser = toolCall.status === 'awaiting_user';
   const isPlanTool = toolCall.toolName === 'plan';
@@ -78,7 +80,7 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, is
                   {/* Plan tool action buttons */}
                   {showPlanActions && (
                     <div className="px-3 pb-3">
-                      <PlanToolActions toolCall={toolCall} messageId={messageId} isLastMessage={isLastMessage} />
+                      <PlanToolActions toolCall={toolCall} messageId={messageId} isLastMessage={isLastMessage} mode={mode} />
                     </div>
                   )}
                 </div>

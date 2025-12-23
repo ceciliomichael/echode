@@ -13,6 +13,7 @@ export interface PlanContinuationEvent {
   messageId: string;
   toolExecutionId: string;
   toolResult: unknown;
+  mode?: ChatMode;
 }
 
 /**
@@ -44,13 +45,15 @@ export function usePlanContinuationEmitter() {
     action: PlanContinuationAction,
     messageId: string,
     toolExecutionId: string,
-    toolResult: unknown
+    toolResult: unknown,
+    mode?: ChatMode
   ) => {
     planContinuationEmitter.emit({
       action,
       messageId,
       toolExecutionId,
       toolResult,
+      mode,
     });
   }, []);
 
@@ -73,7 +76,7 @@ export function usePlanContinuationHandler({
 }: {
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   updateToolExecution: (messageId: string, toolExecutionId: string, state: ToolExecutionState) => void;
-  sendMessage: (content: string, attachments?: ImageAttachment[], overrideMessages?: Message[], isHidden?: boolean, forceEchoSearch?: boolean) => Promise<void>;
+  sendMessage: (content: string, attachments?: ImageAttachment[], overrideMessages?: Message[], isHidden?: boolean, forceEchoSearch?: boolean, lockedMode?: ChatMode) => Promise<void>;
   onModeChange?: (mode: ChatMode) => void;
 }) {
   const sendMessageRef = useRef(sendMessage);
@@ -91,9 +94,9 @@ export function usePlanContinuationHandler({
 
   useEffect(() => {
     const handleContinuation = (event: PlanContinuationEvent) => {
-      const { action, messageId, toolExecutionId, toolResult } = event;
+      const { action, messageId, toolExecutionId, toolResult, mode } = event;
 
-      console.log(`[PlanContinuation] Handling ${action} for message ${messageId}`);
+      console.log(`[PlanContinuation] Handling ${action} for message ${messageId} (mode: ${mode})`);
 
       // Get the plan result data
       const planData = toolResult as {
@@ -163,7 +166,7 @@ export function usePlanContinuationHandler({
       // Send as a hidden message (user won't see it, but AI receives it as tool result)
       // Use a small delay to ensure state updates are processed
       setTimeout(() => {
-        sendMessageRef.current(messageContent, undefined, undefined, true); // isHidden = true
+        sendMessageRef.current(messageContent, undefined, undefined, true, false, mode); // isHidden = true, forceEchoSearch = false, lockedMode = mode
       }, 100);
     };
 

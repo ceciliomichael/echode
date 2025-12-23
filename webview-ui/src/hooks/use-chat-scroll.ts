@@ -55,36 +55,41 @@ export function useChatScroll(
     const elem = scrollContainerRef.current;
     if (!elem) return;
 
-    const { scrollTop, scrollHeight, clientHeight } = elem;
-    const lastScrollHeight = lastScrollHeightRef.current;
-    const lastScrollTop = lastScrollTopRef.current;
+    // Use requestAnimationFrame to throttle scroll events and separate reads from writes
+    requestAnimationFrame(() => {
+      if (!elem) return; // Re-check existence inside RAF
+      
+      const { scrollTop, scrollHeight, clientHeight } = elem;
+      const lastScrollHeight = lastScrollHeightRef.current;
+      const lastScrollTop = lastScrollTopRef.current;
 
-    // Update refs immediately for next event
-    lastScrollHeightRef.current = scrollHeight;
-    lastScrollTopRef.current = scrollTop;
+      // Update refs immediately for next event
+      lastScrollHeightRef.current = scrollHeight;
+      lastScrollTopRef.current = scrollTop;
 
-    // Check if we are at the bottom (with a small tolerance)
-    const isAtBottom = Math.abs(scrollHeight - scrollTop - clientHeight) < 10;
-    
-    // Case 1: We are at the bottom. User is definitely caught up.
-    if (isAtBottom) {
-      setUserHasScrolled(false);
-      return;
-    }
+      // Check if we are at the bottom (with a small tolerance)
+      const isAtBottom = Math.abs(scrollHeight - scrollTop - clientHeight) < 10;
+      
+      // Case 1: We are at the bottom. User is definitely caught up.
+      if (isAtBottom) {
+        setUserHasScrolled(false);
+        return;
+      }
 
-    // Case 2: Content grew (and we aren't at bottom yet).
-    // This happens when new tokens arrive but ResizeObserver hasn't scrolled us down yet.
-    // We should NOT disable auto-scroll in this case.
-    if (scrollHeight > lastScrollHeight) {
-      return;
-    }
+      // Case 2: Content grew (and we aren't at bottom yet).
+      // This happens when new tokens arrive but ResizeObserver hasn't scrolled us down yet.
+      // We should NOT disable auto-scroll in this case.
+      if (scrollHeight > lastScrollHeight) {
+        return;
+      }
 
-    // Case 3: User scrolled UP.
-    // Only disable auto-scroll if the user explicitly moved the scrollbar UP.
-    // (Or if they are sitting in the middle of the chat while content is static).
-    if (scrollTop < lastScrollTop) {
-      setUserHasScrolled(true);
-    }
+      // Case 3: User scrolled UP.
+      // Only disable auto-scroll if the user explicitly moved the scrollbar UP.
+      // (Or if they are sitting in the middle of the chat while content is static).
+      if (scrollTop < lastScrollTop) {
+        setUserHasScrolled(true);
+      }
+    });
   }, []);
 
   // Reset scroll state when a new message is added.
