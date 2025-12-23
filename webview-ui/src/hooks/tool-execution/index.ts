@@ -80,7 +80,24 @@ export function useToolExecution({
       bufferedToolResults?: string[],
       lockedConfig?: LockedModelConfig
     ) => {
-      if (!toolExecutorRef.current) {
+      // Determine effective mode: prefer locked mode if available
+      const effectiveMode = lockedConfig?.mode ?? modeRef.current;
+
+      // Determine active tool executor
+      // If locked mode differs from current UI mode, create a temporary executor for the locked mode
+      let activeToolExecutor = toolExecutorRef.current;
+      
+      if (lockedConfig?.mode && lockedConfig.mode !== modeRef.current) {
+        const enabledTools = getToolsForMode(lockedConfig.mode, false).map(t => t.id);
+        activeToolExecutor = new ToolExecutor({
+          enabledTools,
+          isStoppingRef,
+          // No abortControllerRef - tools should not abort when stream is aborted
+          mode: lockedConfig.mode,
+        });
+      }
+
+      if (!activeToolExecutor) {
         return;
       }
 
@@ -111,8 +128,8 @@ export function useToolExecution({
         messagesRef,
         currentTodos,
         saveSession,
-        mode: modeRef.current,
-        getToolExecutor: () => toolExecutorRef.current!,
+        mode: effectiveMode,
+        getToolExecutor: () => activeToolExecutor!,
       };
 
       try {
@@ -155,7 +172,7 @@ export function useToolExecution({
           messagesToSend,
           userContent,
           userAttachments: effectiveUserAttachments,
-          toolExecutor: toolExecutorRef.current,
+          toolExecutor: activeToolExecutor,
           context,
           executeToolAndContinue,
           lockedConfig,
