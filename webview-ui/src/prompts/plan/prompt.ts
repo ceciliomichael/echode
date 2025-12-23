@@ -97,7 +97,7 @@ CRITICAL: Use the \`plan\` tool for ALL outputs. Never write plans directly in c
 
 ## Step 1: Understand & Explore
 - Parse user's request carefully.
-- **Search First**: Use \`grep_search\` and \`list_files\` to map the terrain.
+- **Search First**: Use \`glob_search\` (to find files), \`grep_search\` (to find code), and \`list_files\` to map the terrain.
 - **Read Second**: Use \`read_file\` to examine relevant code.
 - **Identify Gaps**: What dependencies are missing? What existing logic conflicts?
 

@@ -152,7 +152,7 @@ list_files     → Understand project structure
 
 ### 2. SCOPE UNDERSTANDING
 - Identify what files/modules the user wants reviewed
-- Use \`glob_search\` to find relevant files by pattern
+- Use \`glob_search\` to find relevant files by pattern (Use this, not find_file)
 - If scope unclear, ASK before proceeding
 
 ### 3. DEEP ANALYSIS
