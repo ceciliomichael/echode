@@ -1,4 +1,4 @@
-import { parseGitignore, matchesGitignorePattern } from '../../constants/excluded-patterns';
+import { parseGitignore, matchesGitignorePattern, DEFAULT_IGNORED_PATTERNS } from '../../constants/excluded-patterns';
 import { GitignoreContext } from './types';
 
 // Cache for gitignore patterns per directory
@@ -32,6 +32,12 @@ export function shouldExclude(
   contexts: GitignoreContext[]
 ): boolean {
   if (name.toLowerCase() === '.git') {
+    return true;
+  }
+
+  // Check against default ignored patterns (always active)
+  const relPathOrName = relativePath || name;
+  if (matchesGitignorePattern(relPathOrName, DEFAULT_IGNORED_PATTERNS)) {
     return true;
   }
 

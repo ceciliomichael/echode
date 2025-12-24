@@ -1,4 +1,4 @@
-import { ArrowUp, Paperclip, Square } from 'lucide-react';
+import { ArrowUp, Clock, Paperclip, Square } from 'lucide-react';
 import { ModeDropdown } from '../mode-dropdown';
 import { ChatModelSelector } from '../chat-model-selector';
 import { ContextIndicator } from '../context-indicator';
@@ -114,7 +114,7 @@ export function InputToolbar({
             disableCompress={disableCompress}
           />
         )}
-        {showStopButton ? (
+        {showStopButton && !hasInput ? (
           <button
             type="button"
             onClick={onStop}
@@ -136,8 +136,13 @@ export function InputToolbar({
               backgroundColor: '#ffffff',
               color: '#000000'
             }}
+            title={showStopButton ? "Add to queue" : "Send message"}
           >
-            <ArrowUp className="w-3.5 h-3.5" />
+            {showStopButton ? (
+              <Clock className="w-3.5 h-3.5" />
+            ) : (
+              <ArrowUp className="w-3.5 h-3.5" />
+            )}
           </button>
         )}
       </div>

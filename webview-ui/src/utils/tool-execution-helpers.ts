@@ -1,10 +1,11 @@
 import type { ToolExecutor } from '../lib/tool-executor';
-import type { ParsedToolBlock, EchoSearchProgress } from '../types/tool';
+import type { ParsedToolBlock } from '../types/tool';
+import type { ToolProgress } from '../lib/tool-utils';
 
 /**
- * Progress callback for echo_search tool iterations
+ * Progress callback for tools that support streaming progress (echo_search, run_terminal)
  */
-export type ToolProgressCallback = (progress: EchoSearchProgress) => void;
+export type ToolProgressCallback = (progress: ToolProgress) => void;
 
 /**
  * Format tool result for AI context - returns concise message for file modification tools

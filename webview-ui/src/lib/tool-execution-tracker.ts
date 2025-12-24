@@ -47,8 +47,17 @@ export function updateToolExecutionStatus(
  */
 export function updateToolExecutionProgress(
   state: ToolExecutionState,
-  progress: EchoSearchProgress
+  progress: EchoSearchProgress | string
 ): ToolExecutionState {
+  // If both are strings, append (for terminal streaming)
+  if (typeof progress === 'string' && typeof state.progress === 'string') {
+    return {
+      ...state,
+      progress: state.progress + progress,
+    };
+  }
+
+  // Otherwise replace (first chunk, or object update)
   return {
     ...state,
     progress,

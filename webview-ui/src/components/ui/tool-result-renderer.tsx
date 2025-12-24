@@ -145,6 +145,31 @@ export function renderToolResult(
     }
   }
 
+  // Special handling for run_terminal tool - show scrollable terminal output
+  if (toolName === 'run_terminal' && typeof data === 'string') {
+    return (
+      <div className="px-3 py-3">
+        <div className="space-y-2">
+          <div className="text-xs font-semibold opacity-70">
+            Terminal Output
+          </div>
+          <pre
+            className="text-xs font-mono whitespace-pre-wrap p-2 rounded"
+            style={{
+              backgroundColor: 'var(--vscode-textCodeBlock-background)',
+              color: 'var(--vscode-editor-foreground)',
+              maxHeight: '400px',
+              overflowY: 'auto',
+              overflowX: 'auto'
+            }}
+          >
+            {data}
+          </pre>
+        </div>
+      </div>
+    );
+  }
+
   // Special handling for MCP tools - show formatted result with word wrap
   if (toolName.startsWith('mcp_')) {
     return <McpToolResult toolName={toolName} data={data} />;

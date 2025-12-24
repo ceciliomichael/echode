@@ -17,6 +17,7 @@ export function ToolsTab({ enabledTools, onChange }: ToolsTabProps) {
     (metadata) => 
       metadata.id !== 'echo_search' && 
       metadata.id !== 'plan' &&
+      metadata.id !== 'publish_findings' &&
       !metadata.id.startsWith('mcp_')
   );
 

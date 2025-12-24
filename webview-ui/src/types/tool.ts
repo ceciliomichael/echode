@@ -18,7 +18,7 @@ export interface ToolCall {
   status: ToolStatus;
   result?: ToolExecutionResult;
   toolExecutionId?: string;
-  progress?: EchoSearchProgress;
+  progress?: EchoSearchProgress | string;
 }
 
 export interface ToolExecutionResult {
@@ -88,5 +88,5 @@ export interface ToolExecutionState {
   diagnosticAttempts?: number;
   diagnostics?: CapturedDiagnostic[];
   isFetchingDiagnostics?: boolean;
-  progress?: EchoSearchProgress;
+  progress?: EchoSearchProgress | string;
 }

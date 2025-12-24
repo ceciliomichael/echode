@@ -10,6 +10,33 @@ export const WORKSPACE_CONTEXT_EXCLUDED_FILES = [
 ];
 
 /**
+ * Default patterns to ignore during workspace scanning
+ * These apply regardless of .gitignore existence
+ */
+export const DEFAULT_IGNORED_PATTERNS = [
+  'node_modules',
+  'dist',
+  'out',
+  'build',
+  'coverage',
+  '.git',
+  '.idea',
+  '.vscode',
+  '.DS_Store',
+  '*.log',
+  'tmp',
+  'temp',
+  'vendor',
+  'target',
+  'bin',
+  'obj',
+  '__pycache__',
+  '.env',
+  '.env.local',
+  '.env.*',
+];
+
+/**
  * Common binary file extensions that should not be read as text
  */
 export const BINARY_FILE_EXTENSIONS = new Set([

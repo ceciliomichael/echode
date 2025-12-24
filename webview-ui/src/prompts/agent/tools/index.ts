@@ -17,6 +17,7 @@ import { getDeleteFileInstructions } from './delete-file';
 import { getGetDiagnosticsInstructions } from './get-diagnostics';
 import { getTodoWriteInstructions } from './todo-write';
 import { getTodoReadInstructions } from './todo-read';
+import { getRunTerminalInstructions } from './run-terminal';
 
 const TOOL_INSTRUCTION_MAP: Record<string, () => string> = {
     'read_file': getReadFileInstructions,
@@ -30,6 +31,7 @@ const TOOL_INSTRUCTION_MAP: Record<string, () => string> = {
     'get_diagnostics': getGetDiagnosticsInstructions,
     'todo_write': getTodoWriteInstructions,
     'todo_read': getTodoReadInstructions,
+    'run_terminal': getRunTerminalInstructions,
 };
 
 /**

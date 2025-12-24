@@ -1,5 +1,5 @@
 import { memo, useMemo, useState, useEffect } from 'react';
-import type { ToolCall } from '../../../types/tool';
+import type { ToolCall, EchoSearchProgress } from '../../../types/tool';
 import { getToolStatusDisplay } from '../../../utils/tool-status-formatter';
 import { getToolFileInfo } from '../../../utils/tool-file-info';
 import { ToolBlockHeader } from './tool-block-header';
@@ -22,10 +22,11 @@ const ToolBlockComponent = ({
   mode,
 }: ToolBlockProps) => {
   const isEchoSearch = toolCall.toolName === 'echo_search';
+  const isRunTerminal = toolCall.toolName === 'run_terminal';
   const isPlanTool = toolCall.toolName === 'plan';
 
-  // echo_search starts expanded by default to show progress
-  const [isExpanded, setIsExpanded] = useState(isEchoSearch);
+  // echo_search and run_terminal start expanded by default to show progress
+  const [isExpanded, setIsExpanded] = useState(isEchoSearch || isRunTerminal);
 
   // Auto-expand when awaiting user action (e.g. Plan tool) - only for the last message
   // This ensures the action buttons are visible when the state changes
@@ -179,24 +180,58 @@ const ToolBlockComponent = ({
 };
 
 export const ToolBlock = memo(ToolBlockComponent, (prevProps, nextProps) => {
-  // Compare tools arrays by content, not just length
-  const prevTools = prevProps.toolCall.progress?.tools || [];
-  const nextTools = nextProps.toolCall.progress?.tools || [];
-  const toolsEqual = prevTools.length === nextTools.length &&
-    prevTools.every((tool, i) => tool === nextTools[i]);
+  // Check basic props equality
+  if (
+    prevProps.toolCall.status !== nextProps.toolCall.status ||
+    prevProps.toolCall.toolName !== nextProps.toolCall.toolName ||
+    prevProps.isStreaming !== nextProps.isStreaming ||
+    prevProps.isLastMessage !== nextProps.isLastMessage ||
+    prevProps.mode !== nextProps.mode ||
+    JSON.stringify(prevProps.toolCall.parameters) !== JSON.stringify(nextProps.toolCall.parameters) ||
+    JSON.stringify(prevProps.toolCall.result) !== JSON.stringify(nextProps.toolCall.result)
+  ) {
+    return false;
+  }
 
-  return (
-    prevProps.toolCall.status === nextProps.toolCall.status &&
-    prevProps.toolCall.toolName === nextProps.toolCall.toolName &&
-    prevProps.isStreaming === nextProps.isStreaming &&
-    prevProps.isLastMessage === nextProps.isLastMessage &&
-    prevProps.mode === nextProps.mode &&
-    JSON.stringify(prevProps.toolCall.parameters) ===
-    JSON.stringify(nextProps.toolCall.parameters) &&
-    JSON.stringify(prevProps.toolCall.result) === JSON.stringify(nextProps.toolCall.result) &&
-    prevProps.toolCall.progress?.iteration === nextProps.toolCall.progress?.iteration &&
-    prevProps.toolCall.progress?.phase === nextProps.toolCall.progress?.phase &&
-    prevProps.toolCall.progress?.toolsIteration === nextProps.toolCall.progress?.toolsIteration &&
-    toolsEqual
-  );
+  // Check progress equality
+  const prevProgress = prevProps.toolCall.progress;
+  const nextProgress = nextProps.toolCall.progress;
+
+  if (prevProgress === nextProgress) {
+    return true;
+  }
+
+  // Handle string progress (run_terminal)
+  if (typeof prevProgress === 'string' && typeof nextProgress === 'string') {
+    return prevProgress === nextProgress;
+  }
+
+  // Handle object progress (echo_search)
+  if (
+    typeof prevProgress === 'object' && 
+    typeof nextProgress === 'object' && 
+    prevProgress !== null && 
+    nextProgress !== null &&
+    !Array.isArray(prevProgress) && // Ensure it's not an array (though unlikely given type)
+    !Array.isArray(nextProgress)
+  ) {
+    const p1 = prevProgress as EchoSearchProgress;
+    const p2 = nextProgress as EchoSearchProgress;
+
+    const prevTools = p1.tools || [];
+    const nextTools = p2.tools || [];
+    
+    const toolsEqual = prevTools.length === nextTools.length &&
+      prevTools.every((tool, i) => tool === nextTools[i]);
+
+    return (
+      p1.iteration === p2.iteration &&
+      p1.phase === p2.phase &&
+      p1.toolsIteration === p2.toolsIteration &&
+      p1.message === p2.message &&
+      toolsEqual
+    );
+  }
+
+  return false;
 });

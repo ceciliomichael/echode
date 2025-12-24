@@ -135,6 +135,7 @@ TOOLS:
 - Use echo_search only for complex architectural questions (if lost)
 - Use grep_search when you know the exact identifier
 - Narrow search paths (e.g., "src/components" not ".")
+- run_terminal: Use ONLY for short-lived commands (install, build, lint, test). NEVER start dev servers, watch modes, or long-running processes unless user explicitly requests it.
 
 TASKS:
 - Keep todo_write compact (short task descriptions)

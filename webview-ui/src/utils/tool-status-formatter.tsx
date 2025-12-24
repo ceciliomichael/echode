@@ -68,6 +68,8 @@ export function getToolStatusDisplay(
       executingText = 'Searching';
     } else if (toolName === 'plan') {
       executingText = 'Planning';
+    } else if (toolName === 'run_terminal') {
+      executingText = 'Running';
     }
 
     return renderWaveLabel(executingText);
@@ -205,6 +207,11 @@ export function getToolStatusDisplay(
       handoff: 'Handoff',
     };
     return mode ? modeDisplayNames[mode] : 'Plan';
+  }
+
+  // run_terminal: show "Successful" when completed
+  if (toolName === 'run_terminal') {
+    return 'Successful';
   }
 
   // Other tools: show tool name from metadata

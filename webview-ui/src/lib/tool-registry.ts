@@ -6,8 +6,8 @@
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Cable } from 'lucide-react';
-import type { Tool, ToolExecutionResult, EchoSearchProgress } from '../types/tool';
-import { type ChatMode, executeToolViaExtension } from './tool-utils';
+import type { Tool, ToolExecutionResult } from '../types/tool';
+import { type ChatMode, type ToolProgress, executeToolViaExtension } from './tool-utils';
 import { getAllToolPlugins } from './tools/tool-plugin';
 // Import tools to trigger auto-registration
 import './tools/read-file-tool.tsx';
@@ -23,6 +23,7 @@ import './tools/get-diagnostics-tool.tsx';
 import './tools/echo-search-tool.tsx';
 import './tools/plan-tool.tsx';
 import './tools/publish-findings-tool.tsx';
+import './tools/run-terminal-tool.tsx';
 
 /**
  * Tool status callback for mid-execution updates
@@ -30,9 +31,9 @@ import './tools/publish-findings-tool.tsx';
 export type ToolStatusCallback = (status: 'executing' | 'completed') => void;
 
 /**
- * Tool progress callback for streaming progress updates (e.g., echo_search iterations)
+ * Tool progress callback for streaming progress updates (e.g., echo_search iterations, terminal output)
  */
-export type ToolProgressCallback = (progress: EchoSearchProgress) => void;
+export type ToolProgressCallback = (progress: ToolProgress) => void;
 
 /**
  * Tool handler interface - abstracts tool execution logic
@@ -175,7 +176,7 @@ export function getAllTools(defaultEnabled = true): Tool[] {
     name: meta.name,
     description: meta.description,
     aiDescription: meta.aiDescription,
-    enabled: defaultEnabled,
+    enabled: meta.id === 'run_terminal' ? false : defaultEnabled,
   }));
 }
 

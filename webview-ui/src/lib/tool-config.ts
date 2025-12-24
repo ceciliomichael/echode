@@ -78,6 +78,7 @@ const STANDARD_TOOL_IDS = new Set([
   'echo_search',
   'plan',
   'publish_findings',
+  'run_terminal',
 ]);
 
 // ============================================================================

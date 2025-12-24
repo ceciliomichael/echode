@@ -1,11 +1,11 @@
 import type { StreamingLoopContext } from './types';
-import type { ToolExecutionState, ParsedToolBlock } from '../../types/tool';
+import type { ToolExecutionState, ParsedToolBlock, EchoSearchProgress } from '../../types/tool';
 import { chatApi } from '../../services/chat-api';
 import { hasCompleteToolBlock, trimToFirstCompleteToolBlock, extractCompleteInvokeBlocksIncremental } from '../../lib/tool-parser';
 import { generateToolExecutionId, createToolExecutionState, updateToolExecutionStatus } from '../../lib/tool-execution-tracker';
 import { isRetryableError } from './helpers';
 import { ToolExecutor } from '../../lib/tool-executor';
-import { formatToolResultForAI } from '../../utils/tool-execution-helpers';
+import { formatToolResultForAI, type ToolProgressCallback } from '../../utils/tool-execution-helpers';
 import type { ChatMode } from '../../types/chat-mode';
 
 /**
@@ -45,6 +45,32 @@ async function executeToolInParallel(
 ): Promise<ParallelToolResult> {
   const toolExecutor = getToolExecutor(mode);
 
+  // Track accumulated string progress for streaming tools (run_terminal)
+  let accumulatedStringProgress = '';
+
+  // Create progress callback for tools that support streaming (echo_search, run_terminal)
+  const isProgressTool = block.toolName === 'echo_search' || block.toolName === 'run_terminal';
+  const onProgress: ToolProgressCallback | undefined = isProgressTool ? (progress) => {
+    let updatedState: ToolExecutionState;
+    
+    if (typeof progress === 'string') {
+      // For string progress (terminal), accumulate in closure variable
+      accumulatedStringProgress += progress;
+      updatedState = {
+        ...executionState,
+        progress: accumulatedStringProgress,
+      };
+    } else {
+      // For object progress (echo_search), replace directly
+      updatedState = {
+        ...executionState,
+        progress: progress as EchoSearchProgress,
+      };
+    }
+    
+    updateToolExecution(assistantMessageId, execId, updatedState);
+  } : undefined;
+
   try {
     // Check if stopped before execution
     if (isStoppingRef.current) {
@@ -61,12 +87,17 @@ async function executeToolInParallel(
       };
     }
 
-    // Execute the tool
-    const result = await toolExecutor.execute({
-      toolName: block.toolName,
-      parameters: block.parameters,
-      status: 'executing',
-    });
+    // Execute the tool with progress callback for streaming tools
+    const result = await toolExecutor.execute(
+      {
+        toolName: block.toolName,
+        parameters: block.parameters,
+        status: 'executing',
+      },
+      undefined, // signal
+      undefined, // onStatusChange
+      onProgress // progress callback for echo_search and run_terminal
+    );
 
     // Check if stopped after execution
     if (isStoppingRef.current) {

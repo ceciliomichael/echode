@@ -5,7 +5,7 @@ import { ToolBlock } from './tool-block';
 import { MermaidBlock } from './mermaid-block';
 import { StreamingText } from './streaming-text';
 import { tokenizeContent } from '../../utils/content-tokenizer';
-import type { ToolCall, ToolExecutionState } from '../../types/tool';
+import type { ToolCall, ToolExecutionState, EchoSearchProgress } from '../../types/tool';
 import type { ChatMode } from '../../types/chat-mode';
 
 interface AssistantMessageProps {
@@ -412,18 +412,50 @@ export const AssistantMessage = memo(AssistantMessageComponent, (prev, next) => 
     (prev.toolExecutions?.size === next.toolExecutions?.size &&
       Array.from(prev.toolExecutions?.entries() || []).every(([key, value]) => {
         const nextValue = next.toolExecutions?.get(key);
-        // Compare tools array by content, not just length
-        const prevTools = value.progress?.tools || [];
-        const nextTools = nextValue?.progress?.tools || [];
-        const toolsEqual = prevTools.length === nextTools.length &&
-          prevTools.every((tool, i) => tool === nextTools[i]);
+        
+        // Check basic properties first
+        if (nextValue?.status !== value.status || nextValue?.result !== value.result) {
+          return false;
+        }
 
-        return nextValue?.status === value.status &&
-          nextValue?.result === value.result &&
-          nextValue?.progress?.iteration === value.progress?.iteration &&
-          nextValue?.progress?.phase === value.progress?.phase &&
-          nextValue?.progress?.toolsIteration === value.progress?.toolsIteration &&
-          toolsEqual;
+        // Compare progress
+        const prevProgress = value.progress;
+        const nextProgress = nextValue?.progress;
+
+        if (prevProgress === nextProgress) {
+          return true;
+        }
+
+        // Handle string progress (run_terminal)
+        if (typeof prevProgress === 'string' && typeof nextProgress === 'string') {
+          return prevProgress === nextProgress;
+        }
+
+        // Handle object progress (echo_search)
+        if (
+          typeof prevProgress === 'object' &&
+          typeof nextProgress === 'object' &&
+          prevProgress !== null &&
+          nextProgress !== null
+        ) {
+          const p1 = prevProgress as EchoSearchProgress;
+          const p2 = nextProgress as EchoSearchProgress;
+
+          const prevTools = p1.tools || [];
+          const nextTools = p2.tools || [];
+          const toolsEqual = prevTools.length === nextTools.length &&
+            prevTools.every((tool, i) => tool === nextTools[i]);
+
+          return (
+            p1.iteration === p2.iteration &&
+            p1.phase === p2.phase &&
+            p1.toolsIteration === p2.toolsIteration &&
+            p1.message === p2.message &&
+            toolsEqual
+          );
+        }
+
+        return false;
       }));
 
   return prev.content === next.content &&

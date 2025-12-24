@@ -97,18 +97,36 @@ export async function executeSingleTool(
   const toolAbortController = new AbortController();
   abortControllerRef.current = toolAbortController;
 
-  // Create progress callback for echo_search iterations
+  // Track accumulated progress for string-based streaming (run_terminal)
+  // This is needed because the callback captures executionState which doesn't update
+  let accumulatedStringProgress = '';
+
+  // Create progress callback for echo_search iterations and terminal streaming
   const onProgress: ToolProgressCallback = (progress) => {
-    const updatedState = updateToolExecutionProgress(executionState, progress);
+    let updatedState: typeof executionState;
+    
+    if (typeof progress === 'string') {
+      // For string progress (terminal), accumulate in closure variable
+      accumulatedStringProgress += progress;
+      updatedState = {
+        ...executionState,
+        progress: accumulatedStringProgress,
+      };
+    } else {
+      // For object progress (echo_search), replace directly
+      updatedState = updateToolExecutionProgress(executionState, progress);
+    }
+    
     updateToolExecution(assistantMessageId, toolExecutionId, updatedState);
   };
 
   // Execute the specific tool directly
+  const isProgressTool = toolBlock.toolName === 'echo_search' || toolBlock.toolName === 'run_terminal';
   const result = await executeToolWithStopCheck(
     toolExecutor,
     toolBlock,
     isStoppingRef,
-    toolBlock.toolName === 'echo_search' ? onProgress : undefined,
+    isProgressTool ? onProgress : undefined,
     toolAbortController.signal
   );
 

@@ -62,9 +62,33 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, is
               ) : toolCall.toolName === 'echo_search' ? (
                 <div className="px-3 py-3">
                   <EchoSearchProgressIndicator 
-                    progress={toolCall.progress || { iteration: 0, toolsIteration: 0, maxIterations: 4, phase: 'starting', tools: [], message: '' }} 
+                    progress={(toolCall.progress as any) || { iteration: 0, toolsIteration: 0, maxIterations: 4, phase: 'starting', tools: [], message: '' }} 
                     isAborted={isAborted} 
                   />
+                </div>
+              ) : toolCall.toolName === 'run_terminal' ? (
+                <div className="px-3 py-3">
+                  <div className="space-y-2">
+                    <div className="text-xs font-semibold opacity-70 flex items-center gap-1">
+                      <span>Terminal Output</span>
+                      {toolCall.status === 'executing' && !toolCall.progress && (
+                        <span className="ml-1 animate-pulse">•</span>
+                      )}
+                    </div>
+                    <pre
+                      className="text-xs font-mono whitespace-pre-wrap overflow-x-auto p-2 rounded"
+                      style={{
+                        backgroundColor: 'var(--vscode-textCodeBlock-background)',
+                        color: 'var(--vscode-editor-foreground)',
+                        maxHeight: '300px',
+                        overflowY: 'auto'
+                      }}
+                    >
+                      {typeof toolCall.progress === 'string' && toolCall.progress 
+                        ? toolCall.progress 
+                        : <span className="opacity-50 italic">Waiting for output...</span>}
+                    </pre>
+                  </div>
                 </div>
               ) : null}
             </>
