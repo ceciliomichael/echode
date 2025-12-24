@@ -3,13 +3,13 @@ export const getRunTerminalInstructions = (): string => `
 Execute shell commands with real-time streaming output.
 
 CRITICAL RESTRICTIONS:
-- Use this tool ONLY for short-lived commands that complete quickly.
+- Use this tool ONLY when absolutely necessary for short-lived commands that complete quickly.
 - ALLOWED: npm install, npm run build, npm run lint, pip install, cargo build, go build, dotnet build, composer install, bundle install, mvn package, gradle build, make, checking versions, running tests.
-- NEVER ALLOWED (unless user explicitly requests it in their message):
-  * Development servers: npm run dev, npm start, yarn dev, pnpm dev, python manage.py runserver, flask run, rails server, cargo run (for servers), go run (for servers), dotnet run, php artisan serve, hugo server, gatsby develop, vite, next dev, nuxt dev, remix dev, astro dev.
+- FORBIDDEN AND BLOCKED (The tool will reject these):
+  * Development servers: npm run dev, npm start, yarn dev, pnpm dev, python manage.py runserver, flask run, rails server, cargo run, go run, dotnet run, php artisan serve, etc.
   * Watch modes: npm run watch, tsc --watch, nodemon, webpack --watch, gulp watch.
   * Any command that runs indefinitely or waits for connections.
-- If unsure whether a command starts a server or runs indefinitely, DO NOT run it.
+- ACTION: If you need to test a server or watch mode, ASK THE USER to run it in their terminal. Do not attempt to run it yourself.
 
 Parameters:
 - command: Command to run (required)

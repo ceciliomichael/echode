@@ -1,5 +1,6 @@
 import { ITool, ToolExecutionResult, ToolProgressCallback, ChatMode } from './tool.interface';
 import { TerminalManager } from '../terminal/terminal-manager';
+import { CommandValidator } from './utils/command-validator';
 
 const DEFAULT_TIMEOUT_SECONDS = 5 * 60; // 5 minutes max
 
@@ -24,6 +25,9 @@ export class RunTerminalTool implements ITool {
                     error: 'Parameter "command" is required'
                 };
             }
+
+            // Validate command against forbidden patterns
+            CommandValidator.validate(command);
 
             // Command prompt prefix for display
             const commandPrefix = `$ ${command}\n`;
@@ -52,14 +56,22 @@ export class RunTerminalTool implements ITool {
                 }
                 return {
                     success: true,
-                    data: commandPrefix + result.output + timeoutMsg
+                    data: {
+                        command,
+                        output: result.output + timeoutMsg,
+                        exitCode: null
+                    }
                 };
             }
 
-            // Process finished normally - include command prefix in result
+            // Process finished normally
             return {
                 success: result.exitCode === 0 || result.exitCode === null,
-                data: commandPrefix + (result.output || '(No output)')
+                data: {
+                    command,
+                    output: result.output || '(No output)',
+                    exitCode: result.exitCode
+                }
             };
         } catch (error) {
             return {

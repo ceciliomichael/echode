@@ -11,6 +11,15 @@
   }
 }
 
+@keyframes wave-shine {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
 .animate-fade-in {
   animation: fadeIn 200ms ease-out forwards;
 }

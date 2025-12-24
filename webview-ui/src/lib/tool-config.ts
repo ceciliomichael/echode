@@ -164,7 +164,7 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
 
   return `<tools>
 <tool_format>
-CRITICAL: You must strictly follow this XML structure. Valid XML is required.
+CRITICAL: You must strictly follow this XML format structure. Valid XML is required.
 
 SEQUENTIAL EXECUTION:
 <function_calls>

@@ -19,7 +19,7 @@
  */
 
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState, useDeferredValue } from 'react';
 import { getThinkBlockDuration, setThinkBlockDuration } from '../../utils/think-block-storage';
 import { formatDuration } from '../../utils/format-duration';
 import { StreamingText } from './streaming-text';
@@ -148,20 +148,10 @@ const ThinkBlockComponent = ({
   }, [isStreaming, isClosed, messageId, content]);
 
 
+  const deferredContent = useDeferredValue(content);
+
   return (
     <div className="group/think">
-      <style>
-        {`
-          @keyframes wave-shine {
-            0% {
-              background-position: 200% 0;
-            }
-            100% {
-              background-position: -100% 0;
-            }
-          }
-        `}
-      </style>
       {/* Inline dropdown trigger - looks like text */}
       <div className="inline-flex items-center gap-2">
         <button
@@ -216,8 +206,11 @@ const ThinkBlockComponent = ({
             ? 'max-h-[5000px] opacity-100 mt-1'
             : 'max-h-0 opacity-0 mt-0'
         }`}
+        style={{
+          contentVisibility: isExpanded ? 'auto' : 'hidden',
+        }}
       >
-        <ThinkContent content={content} isStreaming={isStreaming} />
+        <ThinkContent content={deferredContent} isStreaming={isStreaming} />
       </div>
     </div>
   );
