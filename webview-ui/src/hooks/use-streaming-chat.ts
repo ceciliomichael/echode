@@ -104,6 +104,7 @@ export function useStreamingChat(
 
   // Plan continuation handler - listens for button clicks and sends user message
   usePlanContinuationHandler({
+    messages: state.messages,
     setMessages: state.setMessages,
     updateToolExecution,
     sendMessage,

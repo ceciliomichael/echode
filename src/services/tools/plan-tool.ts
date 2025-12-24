@@ -172,39 +172,6 @@ export class PlanTool implements ITool {
     }
 
     try {
-      // If no path provided, try to find the latest plan file
-      if (!existingPlanFilePath || typeof existingPlanFilePath !== 'string') {
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (workspaceFolders && workspaceFolders.length > 0) {
-          const workspaceRoot = workspaceFolders[0].uri.fsPath;
-          const planDir = path.join(workspaceRoot, '.echode', 'plan');
-          const planDirUri = vscode.Uri.file(planDir);
-
-          try {
-            const files = await vscode.workspace.fs.readDirectory(planDirUri);
-            const planFiles = files.filter(([name]) => name.startsWith('plan-') && name.endsWith('.md'));
-
-            if (planFiles.length > 0) {
-              // Get stats for all plan files to find the most recent one
-              const fileStats = await Promise.all(
-                planFiles.map(async ([name]) => {
-                  const filePath = path.join(planDir, name);
-                  const stat = await vscode.workspace.fs.stat(vscode.Uri.file(filePath));
-                  return { path: filePath, mtime: stat.mtime };
-                })
-              );
-
-              // Sort by mtime descending (newest first)
-              fileStats.sort((a, b) => b.mtime - a.mtime);
-              existingPlanFilePath = fileStats[0].path;
-            }
-          } catch (error) {
-            // Ignore errors reading directory, fall back to validation error
-            console.error('Failed to search for plan files:', error);
-          }
-        }
-      }
-
       if (!existingPlanFilePath || typeof existingPlanFilePath !== 'string') {
         return {
           success: false,
@@ -261,6 +228,11 @@ export class PlanTool implements ITool {
   /**
    * Handoff mode: Prepare to switch to agent mode
    * Shows "Start Implementation" button
+   * 
+   * Note: planContent and planFilePath come from the frontend which tracks them
+   * from the original create_plan/update_plan tool result in the conversation.
+   * The handoff tool itself doesn't need to look them up - they're passed through
+   * the tool result chain to maintain session-specific context.
    */
   private handleHandoffMode(params: PlanToolParameters): ToolExecutionResult {
     const summary = params.summary;

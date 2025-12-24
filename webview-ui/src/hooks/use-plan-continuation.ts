@@ -61,6 +61,67 @@ export function usePlanContinuationEmitter() {
 }
 
 /**
+ * Interface for plan data extracted from tool results
+ */
+interface PlanData {
+  planFilePath?: string;
+  planContent?: string;
+  planTitle?: string;
+}
+
+/**
+ * Find the latest plan (create_plan or update_plan) from conversation messages.
+ * Scans messages in reverse order to find the most recent plan tool result.
+ * This ensures session-scoped tracking - only plans from this conversation are considered.
+ */
+function findLatestPlanFromMessages(messages: Message[]): PlanData | undefined {
+  // Scan messages in reverse order (newest first)
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message.role !== 'assistant' || !message.toolExecutions) {
+      continue;
+    }
+
+    // toolExecutions is a Map<string, ToolExecutionState>
+    // Convert to array and check each execution
+    const toolExecArray = Array.from(message.toolExecutions.values());
+    
+    // Check tool executions in reverse order within the message
+    for (let j = toolExecArray.length - 1; j >= 0; j--) {
+      const toolExec = toolExecArray[j];
+      if (toolExec.toolName !== 'plan') {
+        continue;
+      }
+
+      const result = toolExec.result;
+      if (!result?.success || !result.data) {
+        continue;
+      }
+
+      const data = result.data as {
+        mode?: string;
+        planFilePath?: string;
+        planContent?: string;
+        planTitle?: string;
+      };
+
+      // Only consider create_plan or update_plan modes (not handoff)
+      if (data.mode === 'create_plan' || data.mode === 'update_plan') {
+        if (data.planFilePath || data.planContent) {
+          return {
+            planFilePath: data.planFilePath,
+            planContent: data.planContent,
+            planTitle: data.planTitle,
+          };
+        }
+      }
+    }
+  }
+
+  return undefined;
+}
+
+/**
  * Hook for handling plan continuation in the chat system
  * 
  * When a plan tool button is clicked:
@@ -69,16 +130,19 @@ export function usePlanContinuationEmitter() {
  * 3. For handoff: Also triggers mode change to 'agent'
  */
 export function usePlanContinuationHandler({
+  messages,
   setMessages,
   updateToolExecution,
   sendMessage,
   onModeChange,
 }: {
+  messages: Message[];
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   updateToolExecution: (messageId: string, toolExecutionId: string, state: ToolExecutionState) => void;
   sendMessage: (content: string, attachments?: ImageAttachment[], overrideMessages?: Message[], isHidden?: boolean, forceEchoSearch?: boolean, lockedMode?: ChatMode) => Promise<void>;
   onModeChange?: (mode: ChatMode) => void;
 }) {
+  const messagesRef = useRef(messages);
   const sendMessageRef = useRef(sendMessage);
   const setMessagesRef = useRef(setMessages);
   const updateToolExecutionRef = useRef(updateToolExecution);
@@ -86,11 +150,12 @@ export function usePlanContinuationHandler({
 
   // Keep refs up to date
   useEffect(() => {
+    messagesRef.current = messages;
     sendMessageRef.current = sendMessage;
     setMessagesRef.current = setMessages;
     updateToolExecutionRef.current = updateToolExecution;
     onModeChangeRef.current = onModeChange;
-  }, [sendMessage, setMessages, updateToolExecution, onModeChange]);
+  }, [messages, sendMessage, setMessages, updateToolExecution, onModeChange]);
 
   useEffect(() => {
     const handleContinuation = (event: PlanContinuationEvent) => {
@@ -104,6 +169,7 @@ export function usePlanContinuationHandler({
         planTitle?: string;
         summary?: string;
         planFilePath?: string;
+        planContent?: string;
       } | undefined;
 
       // Update tool execution state to 'completed'
@@ -138,11 +204,20 @@ export function usePlanContinuationHandler({
         };
       } else if (action === 'start_implementation') {
         const summary = planData?.summary || 'the planned implementation';
+        
+        // Find the latest plan from conversation messages (session-scoped)
+        // The handoff tool result doesn't contain plan details - we need to look them up
+        const latestPlan = findLatestPlanFromMessages(messagesRef.current);
+        const planContent = latestPlan?.planContent;
+        const planFilePath = latestPlan?.planFilePath;
+
         toolResultData = {
           userAction: 'start_implementation',
           approved: true,
           summary,
-          message: 'User approved starting implementation. Switch to Agent mode and begin development.',
+          planContent,
+          planFilePath,
+          message: 'User approved the plan. Begin implementation.',
         };
         
         // Switch to agent mode for handoff
