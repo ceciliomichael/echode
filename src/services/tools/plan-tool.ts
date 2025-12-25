@@ -282,11 +282,18 @@ export class PlanTool implements ITool {
    */
   private handleHandoffMode(params: PlanToolParameters): ToolExecutionResult {
     const summary = params.summary;
+    
+    // Auto-discover the latest plan file to pass to agent mode
+    let planFilePath: string | undefined;
+    if (PlanViewerManager.isInitialized) {
+      planFilePath = PlanViewerManager.instance.getCurrentPlanPath();
+    }
 
     const result: PlanToolResult = {
       mode: 'handoff',
       awaitsUserAction: true,
       actionType: 'start_implementation',
+      planFilePath, // Pass the tracked plan path to the agent
       summary,
       message: summary 
         ? `Ready to implement: ${summary}. Click "Start Implementation" to switch to Agent mode.`

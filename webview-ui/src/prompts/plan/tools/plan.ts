@@ -49,7 +49,7 @@ Implement JWT-based authentication with refresh tokens.
  
 The plan is saved to .echode/plan-{uuid}.md and opened in VS Code. User must click "Verify Plan" to continue.
 
-IMPORTANT: The tool result will contain "planFilePath" - you MUST save this exact path for use with update_plan mode.
+NOTE: The tool result contains "planFilePath", but the system automatically tracks this for future updates.
  
 ### Mode: update_plan
 Update an existing plan when user provides feedback instead of verifying.
@@ -58,24 +58,20 @@ Parameters:
 - mode: "update_plan"
 - title: Plan title (optional, defaults to "Implementation Plan")
 - plan: Updated markdown content with the revised plan (required)
-- planFilePath: The path from the previous create_plan/update_plan result (optional - will auto-detect latest if omitted)
+- planFilePath: (Optional) The system automatically tracks the active plan. Only provide this if you need to override the active plan.
  
 Use when:
 - User provides feedback on the created plan instead of clicking "Verify Plan"
 - Plan needs adjustments based on user's comments
 - Iterating on the plan before final verification
 
-CRITICAL RULES:
-1. If you have the "planFilePath" from the previous result, provide it.
-2. If you DO NOT have the planFilePath (e.g. user replied without verifying), you can omit it. The system will automatically find the most recent plan.
-3. DO NOT make up or guess the path.
+NOTE: You do not need to track the "planFilePath". The system remembers the last created or updated plan automatically.
  
-Example (assuming previous create_plan returned planFilePath: "/workspace/.echode/plan-a1b2c3d4-e5f6-7890-abcd-ef1234567890.md"):
+Example (system uses tracked plan):
 \`\`\`xml
 <invoke name="plan">
 <parameter name="mode">update_plan</parameter>
 <parameter name="title">Authentication System Implementation</parameter>
-<parameter name="planFilePath">/workspace/.echode/plan-a1b2c3d4-e5f6-7890-abcd-ef1234567890.md</parameter>
 <parameter name="plan">
 ## Overview
 Updated plan based on user feedback...
@@ -115,5 +111,5 @@ User must click "Start Implementation" to switch to Agent mode.
 - Do NOT continue generating content after plan tool execution
 - The user must click the appropriate button to proceed
 - When user provides feedback instead of verifying, use update_plan mode
-- ALWAYS use the EXACT planFilePath from the previous create_plan or update_plan result - NEVER make up a path`;
+- The system automatically tracks the active plan file, so you rarely need to handle file paths manually`;
 }

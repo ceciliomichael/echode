@@ -201,7 +201,7 @@ const ThinkBlockComponent = ({
 
       {/* Content - expands inline with smooth animation */}
       <div
-        className={`overflow-hidden transition-all duration-300 ease-in-out ${
+        className={`overflow-hidden transition-[max-height,opacity] duration-300 ease-in-out ${
           isExpanded
             ? 'max-h-[5000px] opacity-100 mt-1'
             : 'max-h-0 opacity-0 mt-0'

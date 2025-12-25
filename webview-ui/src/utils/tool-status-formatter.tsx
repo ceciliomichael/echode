@@ -67,7 +67,16 @@ export function getToolStatusDisplay(
     } else if (toolName === 'glob_search') {
       executingText = 'Searching';
     } else if (toolName === 'plan') {
-      executingText = 'Planning';
+      const mode = toolCall.parameters.mode as string;
+      if (mode === 'create_plan') {
+        executingText = 'Creating';
+      } else if (mode === 'update_plan') {
+        executingText = 'Updating';
+      } else if (mode === 'handoff') {
+        executingText = 'Finalizing';
+      } else {
+        executingText = 'Planning';
+      }
     } else if (toolName === 'run_terminal') {
       executingText = 'Running';
     }

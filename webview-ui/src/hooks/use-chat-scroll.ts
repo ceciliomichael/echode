@@ -9,128 +9,87 @@ interface ChatScrollState {
   setIsAutoScrollEnabled: (enabled: boolean) => void;
 }
 
+/**
+ * Simplified autoscroll hook based on Continue's implementation.
+ * Key improvements:
+ * - Simple binary state (at bottom or not)
+ * - No complex delta tracking
+ * - Observes all immediate children for granular resize detection
+ * - Only resets on new user messages (not all messages)
+ */
 export function useChatScroll(
-  messageCount: number,
-  _lastMessageKey: string,
-  _isStreaming: boolean,
-  _isExecutingTool: boolean
+  userMessageCount: number,
 ): ChatScrollState {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const scrollContentRef = useRef<HTMLDivElement>(null);
   
   // userHasScrolled is true if the user has manually scrolled up away from the bottom.
-  // It is false if the user is at the bottom or a new message has arrived.
+  // It is false if the user is at the bottom or a new user message has arrived.
   const [userHasScrolled, setUserHasScrolled] = useState(false);
-  
-  // Use a ref to access the latest state inside the ResizeObserver callback
-  // without needing to re-create the observer on every state change.
-  const userHasScrolledRef = useRef(false);
-  // Track last scroll metrics to distinguish user scrolls from content growth
-  const lastScrollTopRef = useRef(0);
-  // Track if a scroll event was initiated by code (auto-scroll) rather than user
-  const isProgrammaticScrollRef = useRef(false);
-  
-  useEffect(() => {
-    userHasScrolledRef.current = userHasScrolled;
-  }, [userHasScrolled]);
 
+  // Scroll to bottom helper
   const scrollToBottom = useCallback((options?: { behavior?: 'auto' | 'smooth' }) => {
     const elem = scrollContainerRef.current;
     if (elem) {
-      // Flag this as a programmatic scroll so handleScroll doesn't interpret it as user interaction
-      isProgrammaticScrollRef.current = true;
-
-      // Always use 'auto' (instant) scrolling to prevent race conditions with the 
-      // "sticky" logic. Smooth scrolling causes intermediate states where we are 
-      // not at the bottom, which falsely triggers userHasScrolled = true.
       elem.scrollTo({
         top: elem.scrollHeight,
         behavior: options?.behavior || 'auto'
       });
-      // When programmatically scrolling to bottom, we consider the user "caught up"
-      setUserHasScrolled(false);
-      // Update refs to prevent handleScroll from thinking this was a user scroll
-      lastScrollTopRef.current = elem.scrollHeight;
     }
   }, []);
 
+  // Handle scroll events - simple "at bottom" check
   const handleScroll = useCallback(() => {
     const elem = scrollContainerRef.current;
     if (!elem) return;
 
-    // If this scroll event was triggered by our own code, ignore it
-    if (isProgrammaticScrollRef.current) {
-      isProgrammaticScrollRef.current = false;
-      // Still update the tracking ref so we have the correct position for next time
-      lastScrollTopRef.current = elem.scrollTop;
-      return;
-    }
-
-    const { scrollTop, scrollHeight, clientHeight } = elem;
-    const lastScrollTop = lastScrollTopRef.current;
-
-    // Update refs immediately for next event
-    lastScrollTopRef.current = scrollTop;
-
-    // Check if we are at the bottom (with a small tolerance)
-    const isAtBottom = Math.abs(scrollHeight - scrollTop - clientHeight) < 10;
+    // Check if we are at the bottom (with a tight 1px tolerance)
+    const isAtBottom = Math.abs(elem.scrollHeight - elem.scrollTop - elem.clientHeight) < 1;
     
-    // Case 1: We are at the bottom. User is definitely caught up.
-    if (isAtBottom) {
-      setUserHasScrolled(false);
-      return;
-    }
-
-    // Case 2: User scrolled UP.
-    // Use a small threshold (2px) to avoid sub-pixel jitter triggering state changes
-    if (scrollTop < lastScrollTop - 2) {
-      setUserHasScrolled(true);
-    }
+    /**
+     * We stop auto scrolling if a user manually scrolled up.
+     * We resume auto scrolling if a user manually scrolled to the bottom.
+     */
+    setUserHasScrolled(!isAtBottom);
   }, []);
 
-  // Reset scroll state when a new message is added.
-  // This ensures that new messages always trigger a scroll to bottom,
-  // overriding any previous manual scroll position.
+  // Reset scroll state when a new USER message is added
+  // (not on every assistant message/tool call to avoid unwanted jumps)
   useEffect(() => {
     setUserHasScrolled(false);
-    // Force an immediate scroll to bottom to ensure we start in the correct position.
-    // This helps handle race conditions where layout updates might happen before the observer fires.
-    if (scrollContainerRef.current) {
-      isProgrammaticScrollRef.current = true;
-      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
-    }
-  }, [messageCount]);
+  }, [userMessageCount]);
 
   // Use ResizeObserver to keep the view pinned to the bottom when content grows
-  // (e.g. streaming tokens, tool outputs, or new messages).
-  // This only happens if the user hasn't manually scrolled up.
   useEffect(() => {
     const elem = scrollContainerRef.current;
     if (!elem) return;
 
-    const observer = new ResizeObserver(() => {
+    const resizeObserver = new ResizeObserver(() => {
       // If user hasn't scrolled up, keep pinned to bottom
-      if (!userHasScrolledRef.current && elem) {
-        // Use requestAnimationFrame to ensure we scroll after layout updates are fully propagated
+      if (!userHasScrolled && elem) {
         requestAnimationFrame(() => {
-          if (elem) {
-            isProgrammaticScrollRef.current = true;
-            elem.scrollTop = elem.scrollHeight;
-          }
+          elem.scrollTop = elem.scrollHeight;
         });
       }
     });
 
-    observer.observe(elem);
-    
-    // Also observe the content wrapper if it exists, as height changes often happen there
-    // (React sometimes updates children without changing container properties immediately)
-    if (scrollContentRef.current) {
-      observer.observe(scrollContentRef.current);
-    }
+    // Observe the container
+    resizeObserver.observe(elem);
 
-    return () => observer.disconnect();
-  }, [messageCount]);
+    // Observe all immediate children for granular resize detection
+    // This ensures we catch height changes from streaming text, thinking blocks, etc.
+    Array.from(elem.children).forEach((child) => {
+      resizeObserver.observe(child);
+    });
+
+    // Attach scroll event listener
+    elem.addEventListener('scroll', handleScroll);
+
+    return () => {
+      resizeObserver.disconnect();
+      elem.removeEventListener('scroll', handleScroll);
+    };
+  }, [userHasScrolled, handleScroll]);
 
   const setIsAutoScrollEnabled = useCallback((enabled: boolean) => {
     setUserHasScrolled(!enabled);

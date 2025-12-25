@@ -75,9 +75,10 @@ export function ChatContainer() {
   });
 
   const visibleMessages = messages.filter(msg => !msg.hidden);
-  const lastVisibleMessage = visibleMessages[visibleMessages.length - 1];
-  const lastMessageKey = lastVisibleMessage ? `${lastVisibleMessage.id}:${lastVisibleMessage.content.length}` : '';
-
+  
+  // Count user messages only for autoscroll reset trigger
+  // (matches Continue's pattern - only reset on new user messages, not all messages)
+  const userMessageCount = visibleMessages.filter(msg => msg.role === 'user').length;
 
   const {
     scrollContainerRef,
@@ -85,7 +86,7 @@ export function ChatContainer() {
     handleScroll,
     scrollToBottom,
     setIsAutoScrollEnabled,
-  } = useChatScroll(visibleMessages.length, lastMessageKey, isStreaming, isExecutingTool);
+  } = useChatScroll(userMessageCount);
 
   // Direct send function (bypasses queue, used for queue processing)
   const sendMessageDirect = useCallback(async (
