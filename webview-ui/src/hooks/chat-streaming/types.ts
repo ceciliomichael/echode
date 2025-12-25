@@ -25,6 +25,8 @@ export interface ChatStreamingProps {
   setIsExecutingTool: React.Dispatch<React.SetStateAction<boolean>>;
   isStreamingRef: React.MutableRefObject<boolean>;
   isExecutingToolRef: React.MutableRefObject<boolean>;
+  isStreaming: boolean;
+  isExecutingTool: boolean;
   sendingMessageRef: React.MutableRefObject<boolean>;
   abortControllerRef: React.MutableRefObject<AbortController | null>;
   toolAbortControllerRef: React.MutableRefObject<AbortController>;

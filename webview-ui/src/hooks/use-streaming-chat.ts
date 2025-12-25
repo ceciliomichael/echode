@@ -89,6 +89,8 @@ export function useStreamingChat(
     setMessages: state.setMessages,
     setIsStreaming: state.setIsStreaming,
     setIsExecutingTool: state.setIsExecutingTool,
+    isStreaming: state.isStreaming,
+    isExecutingTool: state.isExecutingTool,
     isStreamingRef: state.isStreamingRef,
     isExecutingToolRef: state.isExecutingToolRef,
     sendingMessageRef: state.sendingMessageRef,

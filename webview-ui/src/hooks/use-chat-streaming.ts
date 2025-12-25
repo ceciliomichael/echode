@@ -24,6 +24,8 @@ export function useChatStreaming({
   setMessages,
   setIsStreaming,
   setIsExecutingTool,
+  isStreaming,
+  isExecutingTool,
   isStreamingRef,
   isExecutingToolRef,
   sendingMessageRef,
@@ -51,6 +53,15 @@ export function useChatStreaming({
     // Also reset tool executor when mode changes to ensure we get fresh tools
     toolExecutorRef.current = null;
   }, [mode]);
+
+  // Auto-save session when streaming or tool execution finishes
+  // This ensures we save the FINAL state including all tool results and React updates
+  useEffect(() => {
+    // Only save if we are not streaming, not executing a tool, and we have actually streamed something
+    if (!isStreaming && !isExecutingTool && hasStreamedContentRef.current) {
+      saveSession(messagesRef.current);
+    }
+  }, [isStreaming, isExecutingTool, saveSession, hasStreamedContentRef, messagesRef]);
 
   const getToolExecutor = (lockedMode?: ChatMode) => {
     // Determine which mode we need tools for: lockedMode (if executing a specific plan/action) or current mode
@@ -152,10 +163,6 @@ export function useChatStreaming({
     };
     setMessages((prev) => [...prev, assistantMessage]);
 
-    // Track the latest content locally to ensure we save the most up-to-date version
-    // even if state updates haven't propagated to refs yet
-    let latestAssistantContent = '';
-
     try {
       const systemPrompt = getSystemPrompt(latestWorkspace, currentMode);
 
@@ -212,9 +219,6 @@ export function useChatStreaming({
         getToolExecutor,
       });
 
-      // Capture the final content from the stream result
-      latestAssistantContent = streamResult.assistantContent;
-
       // If tool execution handled continuation, we're done
       if (streamResult.handledByToolExecution) {
         return;
@@ -226,7 +230,6 @@ export function useChatStreaming({
       // Only overwrite content with an error if nothing was ever streamed
       if (!hasStreamedContentRef.current) {
         const errorContent = `Error: ${errorMessage}`;
-        latestAssistantContent = errorContent;
         
         setMessages((prev) =>
           prev.map((msg) =>
@@ -244,27 +247,6 @@ export function useChatStreaming({
         abortControllerRef.current = null;
       }
       sendingMessageRef.current = false;
-
-      // Save session after stream completion with the LATEST content
-      // We manually construct the messages array to ensure we capture the very last chunk/state
-      // even if React state updates haven't propagated to messagesRef yet
-      const messagesToSave = messagesRef.current.map(msg => 
-        msg.id === assistantMessageId 
-          ? { ...msg, content: latestAssistantContent || msg.content } 
-          : msg
-      );
-      
-      // If for some reason the assistant message isn't in ref yet (rare race condition),
-      // we should add it (but messagesRef is usually up to date structure-wise)
-      const assistantMsgExists = messagesToSave.some(m => m.id === assistantMessageId);
-      if (!assistantMsgExists) {
-        messagesToSave.push({
-          ...assistantMessage,
-          content: latestAssistantContent
-        });
-      }
-
-      saveSession(messagesToSave);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, workspace, executeToolAndContinue, setMessages, setIsStreaming, setIsExecutingTool, isStreamingRef, isExecutingToolRef, sendingMessageRef, abortControllerRef, hasStreamedContentRef, saveSession, mode, updateToolExecution]);
