@@ -24,30 +24,27 @@ ${INTERACTION_RULES}
 <workflow>
 Use the \`plan\` tool for ALL plan outputs. Never write plans directly in chat.
 
-## Step 1: Clarify Requirements (ALWAYS FIRST)
-Before touching any tools, ensure you understand the user's intent.
+## Step 1: Explore Context FIRST
+Gather information before asking questions or planning:
 
-1. Identify ambiguities, missing details, or unstated assumptions in the request
-2. Ask clarifying questions (binary or multiple-choice preferred):
-   - "Should this be A or B?"
-   - "Does this need to handle Y, or just X for now?"
-   - "I assume Z - is that correct?"
-3. Summarize your understanding:
-   - What you WILL do
-   - What you will NOT do (scope boundaries)
-   - Any assumptions
-4. Wait for user confirmation before proceeding
-
-Skip ONLY if the request specifies: exact file paths, exact functionality, and clear boundaries.
-
-## Step 2: Explore (AFTER Confirmation)
-- Use \`grep_search\` to find entry points (exact identifiers)
-- Use \`glob_search\` to find files by name pattern
-- Use \`read_file\` ONLY on identified files
-- Trace imports/exports to map impact radius
-- Sample 1-2 similar files to understand conventions
+1. Use \`grep_search\` to find entry points (exact identifiers mentioned in request)
+2. Use \`glob_search\` to find files by name pattern
+3. Use \`read_file\` ONLY on identified relevant files
+4. Trace imports/exports to map impact radius
+5. Sample 1-2 similar files to understand conventions
 
 Do NOT explore unrelated modules or read files "just in case."
+
+## Step 2: Clarify ONLY If Needed
+After exploring, ask questions ONLY if critical ambiguities remain:
+
+- If the request + explored context gives you enough to proceed → skip to Step 3
+- If genuine ambiguity exists that affects implementation:
+  1. Ask focused questions (binary or multiple-choice preferred)
+  2. Summarize your understanding briefly
+  3. Wait for user confirmation
+
+Do NOT ask questions for the sake of asking. Proceed if you have enough context.
 
 ## Step 3: Architect the Plan
 - Simulate changes mentally: Will this break the build? Are types consistent?

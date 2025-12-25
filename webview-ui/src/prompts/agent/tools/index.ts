@@ -19,6 +19,7 @@ import { getTodoWriteInstructions } from './todo-write';
 import { getTodoReadInstructions } from './todo-read';
 import { getRunTerminalInstructions } from './run-terminal';
 
+/** Standard tool instructions that take no parameters */
 const TOOL_INSTRUCTION_MAP: Record<string, () => string> = {
     'read_file': getReadFileInstructions,
     'apply_diff': getApplyDiffInstructions,
@@ -31,15 +32,30 @@ const TOOL_INSTRUCTION_MAP: Record<string, () => string> = {
     'get_diagnostics': getGetDiagnosticsInstructions,
     'todo_write': getTodoWriteInstructions,
     'todo_read': getTodoReadInstructions,
-    'run_terminal': getRunTerminalInstructions,
 };
+
+export interface ToolInstructionOptions {
+    /** Enable full terminal access (bypass command restrictions) */
+    fullTerminalAccess?: boolean;
+}
 
 /**
  * Get tool instructions for Agent mode based on enabled tools
+ * @param enabledTools - List of enabled tools
+ * @param options - Additional options for tool instructions
  */
-export function getAgentToolInstructions(enabledTools: Tool[]): string {
+export function getAgentToolInstructions(
+    enabledTools: Tool[],
+    options: ToolInstructionOptions = {}
+): string {
+    const { fullTerminalAccess = false } = options;
+
     const instructions = enabledTools
         .map(tool => {
+            // Handle run_terminal specially since it needs the fullAccess parameter
+            if (tool.id === 'run_terminal') {
+                return getRunTerminalInstructions(fullTerminalAccess);
+            }
             const getInstructions = TOOL_INSTRUCTION_MAP[tool.id];
             return getInstructions ? getInstructions() : '';
         })

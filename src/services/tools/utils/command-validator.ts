@@ -63,9 +63,16 @@ export class CommandValidator {
 
     /**
      * Validates if a command is allowed to be executed.
-     * Returns true if allowed, throws error if forbidden.
+     * Throws error if command is forbidden (unless bypassed).
+     * @param command - The command to validate
+     * @param bypassValidation - If true, skip all validation checks
      */
-    static validate(command: string): void {
+    static validate(command: string, bypassValidation: boolean = false): void {
+        // Skip validation if full terminal access is enabled
+        if (bypassValidation) {
+            return;
+        }
+
         const normalizedCommand = command.trim();
 
         for (const pattern of this.FORBIDDEN_PATTERNS) {

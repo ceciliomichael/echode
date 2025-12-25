@@ -44,6 +44,7 @@ export interface ChatStreamingProps {
   isStoppingRef: React.MutableRefObject<boolean>;
   saveSession: (overrideMessages?: Message[]) => void;
   mode: ChatMode;
+  messagesRef: React.MutableRefObject<Message[]>;
 }
 
 /**

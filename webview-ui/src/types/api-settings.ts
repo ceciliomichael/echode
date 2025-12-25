@@ -96,6 +96,17 @@ export interface McpServerOverride {
 
 export type McpServerOverrides = Record<string, McpServerOverride>;
 
+/**
+ * Miscellaneous settings for advanced configuration
+ */
+export interface MiscellaneousSettings {
+  enableFullTerminalAccess: boolean;
+}
+
+export const DEFAULT_MISCELLANEOUS_SETTINGS: MiscellaneousSettings = {
+  enableFullTerminalAccess: false,
+};
+
 // ChatMode is imported from './chat-mode' - re-export for convenience
 export type { ChatMode } from './chat-mode';
 
@@ -161,6 +172,8 @@ export interface ApiSettings {
   modeModelSettings?: Partial<Record<ChatMode, ModeModelSettings>>;
   /** Per-workspace MCP server overrides */
   mcpServerOverrides?: McpServerOverrides;
+  /** Miscellaneous settings */
+  miscellaneousSettings?: MiscellaneousSettings;
 }
 
 export const DEFAULT_API_SETTINGS: ApiSettings = {

@@ -49,6 +49,10 @@ export interface McpServerOverride {
 
 export type McpServerOverrides = Record<string, McpServerOverride>;
 
+export interface MiscellaneousSettings {
+  enableFullTerminalAccess: boolean;
+}
+
 export interface ApiSettings {
   provider: string;
   customBaseUrl?: string;
@@ -95,6 +99,7 @@ export interface ApiSettings {
   customProviders?: CustomProviderConfig[];
   modeModelSettings?: Record<string, ModeModelSettings>;
   mcpServerOverrides?: McpServerOverrides;
+  miscellaneousSettings?: MiscellaneousSettings;
 }
 
 export const DEFAULT_SETTINGS: ApiSettings = {

@@ -10,11 +10,12 @@ import { AutocompleteTab } from './autocomplete-tab';
 import { ContextSettingsTab } from './context-settings-tab';
 import { CommitMessageTab } from './commit-message-tab';
 import { MCPTab } from './mcp-tab';
+import { MiscellaneousTab } from './miscellaneous-tab';
 
 import { useProviderSettings } from '../../hooks/provider-settings';
 import { getAllTools } from '../../lib/tool-config';
-import type { ApiSettings, Tool, IndexingSettings, AutocompleteSettings, ContextSettings, CommitMessageSettings } from '../../types/api-settings';
-import { DEFAULT_INDEXING_SETTINGS, DEFAULT_AUTOCOMPLETE_SETTINGS, DEFAULT_CONTEXT_SETTINGS, DEFAULT_COMMIT_MESSAGE_SETTINGS } from '../../types/api-settings';
+import type { ApiSettings, Tool, IndexingSettings, AutocompleteSettings, ContextSettings, CommitMessageSettings, MiscellaneousSettings } from '../../types/api-settings';
+import { DEFAULT_INDEXING_SETTINGS, DEFAULT_AUTOCOMPLETE_SETTINGS, DEFAULT_CONTEXT_SETTINGS, DEFAULT_COMMIT_MESSAGE_SETTINGS, DEFAULT_MISCELLANEOUS_SETTINGS } from '../../types/api-settings';
 
 interface SetupPageProps {
   initialSettings: ApiSettings;
@@ -39,7 +40,10 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
   const [commitMessageSettings, setCommitMessageSettings] = useState<CommitMessageSettings>(
     initialSettings.commitMessageSettings || DEFAULT_COMMIT_MESSAGE_SETTINGS
   );
-  const [activeTab, setActiveTab] = useState<'api' | 'system' | 'tools' | 'indexing' | 'autocomplete' | 'context' | 'commit-message' | 'mcp'>('api');
+  const [miscellaneousSettings, setMiscellaneousSettings] = useState<MiscellaneousSettings>(
+    initialSettings.miscellaneousSettings || DEFAULT_MISCELLANEOUS_SETTINGS
+  );
+  const [activeTab, setActiveTab] = useState<'api' | 'system' | 'tools' | 'indexing' | 'autocomplete' | 'context' | 'commit-message' | 'mcp' | 'miscellaneous'>('api');
   const [showDropdown, setShowDropdown] = useState(false);
 
   const {
@@ -71,6 +75,7 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
       setAutocompleteSettings(initialSettings.autocompleteSettings || DEFAULT_AUTOCOMPLETE_SETTINGS);
       setContextSettings(initialSettings.contextSettings || DEFAULT_CONTEXT_SETTINGS);
       setCommitMessageSettings(initialSettings.commitMessageSettings || DEFAULT_COMMIT_MESSAGE_SETTINGS);
+      setMiscellaneousSettings(initialSettings.miscellaneousSettings || DEFAULT_MISCELLANEOUS_SETTINGS);
     }, 0);
     return () => clearTimeout(timeoutId);
   }, [initialSettings]);
@@ -90,9 +95,10 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
       autocompleteSettings,
       contextSettings,
       commitMessageSettings,
+      miscellaneousSettings,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autocompleteSettings, contextSettings, commitMessageSettings]);
+  }, [autocompleteSettings, contextSettings, commitMessageSettings, miscellaneousSettings]);
 
   // Auto-save other settings with debounce
   useEffect(() => {
@@ -105,11 +111,12 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
         autocompleteSettings,
         contextSettings,
         commitMessageSettings,
+        miscellaneousSettings,
       });
     }, 500);
     return () => clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [provider, currentSettings, systemPrompt, enabledTools, indexingSettings, contextSettings, commitMessageSettings, streamingTimeout, customProviders]);
+  }, [provider, currentSettings, systemPrompt, enabledTools, indexingSettings, contextSettings, commitMessageSettings, miscellaneousSettings, streamingTimeout, customProviders]);
 
   return (
     <div
@@ -137,7 +144,7 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
             className="text-sm sm:text-base font-semibold"
             style={{ color: 'var(--vscode-foreground)' }}
           >
-            {activeTab === 'api' ? 'API Configuration' : activeTab === 'system' ? 'System Prompt' : activeTab === 'tools' ? 'Tool Configuration' : activeTab === 'indexing' ? 'Indexing / Code Search' : activeTab === 'autocomplete' ? 'Autocomplete' : activeTab === 'context' ? 'Context Management' : activeTab === 'commit-message' ? 'Commit Message' : activeTab === 'mcp' ? 'MCP Servers' : ''}
+            {activeTab === 'api' ? 'API Configuration' : activeTab === 'system' ? 'System Prompt' : activeTab === 'tools' ? 'Tool Configuration' : activeTab === 'indexing' ? 'Indexing / Code Search' : activeTab === 'autocomplete' ? 'Autocomplete' : activeTab === 'context' ? 'Context Management' : activeTab === 'commit-message' ? 'Commit Message' : activeTab === 'mcp' ? 'MCP Servers' : activeTab === 'miscellaneous' ? 'Miscellaneous' : ''}
           </h1>
         </div>
 
@@ -207,6 +214,14 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
 
           {activeTab === 'mcp' && (
             <MCPTab />
+          )}
+
+          {activeTab === 'miscellaneous' && (
+            <MiscellaneousTab
+              miscellaneousSettings={miscellaneousSettings}
+              enabledTools={enabledTools}
+              onChange={setMiscellaneousSettings}
+            />
           )}
         </div>
       </div>

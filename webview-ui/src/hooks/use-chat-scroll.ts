@@ -26,28 +26,31 @@ export function useChatScroll(
   // without needing to re-create the observer on every state change.
   const userHasScrolledRef = useRef(false);
   // Track last scroll metrics to distinguish user scrolls from content growth
-  const lastScrollHeightRef = useRef(0);
   const lastScrollTopRef = useRef(0);
+  // Track if a scroll event was initiated by code (auto-scroll) rather than user
+  const isProgrammaticScrollRef = useRef(false);
   
   useEffect(() => {
     userHasScrolledRef.current = userHasScrolled;
   }, [userHasScrolled]);
 
-  const scrollToBottom = useCallback((_options?: { behavior?: 'auto' | 'smooth' }) => {
+  const scrollToBottom = useCallback((options?: { behavior?: 'auto' | 'smooth' }) => {
     const elem = scrollContainerRef.current;
     if (elem) {
+      // Flag this as a programmatic scroll so handleScroll doesn't interpret it as user interaction
+      isProgrammaticScrollRef.current = true;
+
       // Always use 'auto' (instant) scrolling to prevent race conditions with the 
       // "sticky" logic. Smooth scrolling causes intermediate states where we are 
       // not at the bottom, which falsely triggers userHasScrolled = true.
       elem.scrollTo({
         top: elem.scrollHeight,
-        behavior: 'auto'
+        behavior: options?.behavior || 'auto'
       });
       // When programmatically scrolling to bottom, we consider the user "caught up"
       setUserHasScrolled(false);
       // Update refs to prevent handleScroll from thinking this was a user scroll
       lastScrollTopRef.current = elem.scrollHeight;
-      lastScrollHeightRef.current = elem.scrollHeight;
     }
   }, []);
 
@@ -55,12 +58,18 @@ export function useChatScroll(
     const elem = scrollContainerRef.current;
     if (!elem) return;
 
+    // If this scroll event was triggered by our own code, ignore it
+    if (isProgrammaticScrollRef.current) {
+      isProgrammaticScrollRef.current = false;
+      // Still update the tracking ref so we have the correct position for next time
+      lastScrollTopRef.current = elem.scrollTop;
+      return;
+    }
+
     const { scrollTop, scrollHeight, clientHeight } = elem;
-    const lastScrollHeight = lastScrollHeightRef.current;
     const lastScrollTop = lastScrollTopRef.current;
 
     // Update refs immediately for next event
-    lastScrollHeightRef.current = scrollHeight;
     lastScrollTopRef.current = scrollTop;
 
     // Check if we are at the bottom (with a small tolerance)
@@ -72,17 +81,9 @@ export function useChatScroll(
       return;
     }
 
-    // Case 2: Content grew (and we aren't at bottom yet).
-    // This happens when new tokens arrive but ResizeObserver hasn't scrolled us down yet.
-    // We should NOT disable auto-scroll in this case.
-    if (scrollHeight > lastScrollHeight) {
-      return;
-    }
-
-    // Case 3: User scrolled UP.
-    // Only disable auto-scroll if the user explicitly moved the scrollbar UP.
-    // (Or if they are sitting in the middle of the chat while content is static).
-    if (scrollTop < lastScrollTop) {
+    // Case 2: User scrolled UP.
+    // Use a small threshold (2px) to avoid sub-pixel jitter triggering state changes
+    if (scrollTop < lastScrollTop - 2) {
       setUserHasScrolled(true);
     }
   }, []);
@@ -95,6 +96,7 @@ export function useChatScroll(
     // Force an immediate scroll to bottom to ensure we start in the correct position.
     // This helps handle race conditions where layout updates might happen before the observer fires.
     if (scrollContainerRef.current) {
+      isProgrammaticScrollRef.current = true;
       scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
     }
   }, [messageCount]);
@@ -109,7 +111,13 @@ export function useChatScroll(
     const observer = new ResizeObserver(() => {
       // If user hasn't scrolled up, keep pinned to bottom
       if (!userHasScrolledRef.current && elem) {
-        elem.scrollTop = elem.scrollHeight;
+        // Use requestAnimationFrame to ensure we scroll after layout updates are fully propagated
+        requestAnimationFrame(() => {
+          if (elem) {
+            isProgrammaticScrollRef.current = true;
+            elem.scrollTop = elem.scrollHeight;
+          }
+        });
       }
     });
 

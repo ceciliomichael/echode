@@ -71,6 +71,10 @@ function getEnabledToolsForMode(mode: ChatMode): Tool[] {
  */
 export function getSystemPrompt(workspace: WorkspaceContext | null, mode: ChatMode = 'agent'): string {
     const enabledTools = getEnabledToolsForMode(mode);
+    const settings = storageService.getSettings();
+    
+    // Get miscellaneous settings for terminal access
+    const fullTerminalAccess = settings.miscellaneousSettings?.enableFullTerminalAccess ?? false;
 
     switch (mode) {
         case 'chat':
@@ -90,7 +94,7 @@ export function getSystemPrompt(workspace: WorkspaceContext | null, mode: ChatMo
 
         case 'agent':
         default:
-            return buildAgentPrompt({ workspace, enabledTools });
+            return buildAgentPrompt({ workspace, enabledTools, fullTerminalAccess });
     }
 }
 

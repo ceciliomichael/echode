@@ -1,4 +1,63 @@
-export const getRunTerminalInstructions = (): string => `
+/**
+ * Get run_terminal tool instructions
+ * @param fullAccessEnabled - If true, show unrestricted mode instructions
+ */
+export const getRunTerminalInstructions = (fullAccessEnabled: boolean = false): string => {
+  if (fullAccessEnabled) {
+    return getUnrestrictedInstructions();
+  }
+  return getRestrictedInstructions();
+};
+
+/**
+ * Unrestricted mode - all commands allowed
+ */
+function getUnrestrictedInstructions(): string {
+  return `
+## run_terminal
+Execute shell commands with real-time streaming output.
+
+MODE: UNRESTRICTED (Full Terminal Access enabled)
+- All commands are allowed, including dev servers and long-running processes.
+- Be aware that long-running processes will block until timeout.
+
+Parameters:
+- command: Command to run (required)
+- id: Session ID for multiple concurrent sessions (optional, default: "default")
+- timeout: Max execution time in seconds (optional, default: 300 = 5 minutes)
+
+Behavior:
+- Executes the command and streams output in real-time
+- Waits for command to complete or timeout
+- Automatically terminates process if it exceeds timeout
+- Returns full output when done
+
+Example (installing dependencies):
+\`\`\`xml
+<function_calls>
+    <invoke name="run_terminal">
+        <parameter name="command">npm install</parameter>
+    </invoke>
+</function_calls>
+\`\`\`
+
+Example (running a build):
+\`\`\`xml
+<function_calls>
+    <invoke name="run_terminal">
+        <parameter name="command">npm run build</parameter>
+        <parameter name="timeout">60</parameter>
+    </invoke>
+</function_calls>
+\`\`\`
+`;
+}
+
+/**
+ * Restricted mode - dev servers and long-running processes blocked
+ */
+function getRestrictedInstructions(): string {
+  return `
 ## run_terminal
 Execute shell commands with real-time streaming output.
 
@@ -41,3 +100,4 @@ Example (running a build):
 </function_calls>
 \`\`\`
 `;
+}

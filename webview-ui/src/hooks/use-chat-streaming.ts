@@ -35,6 +35,7 @@ export function useChatStreaming({
   isStoppingRef,
   saveSession,
   mode,
+  messagesRef,
 }: ChatStreamingProps) {
   const workspace = useWorkspaceContext();
 
@@ -151,6 +152,10 @@ export function useChatStreaming({
     };
     setMessages((prev) => [...prev, assistantMessage]);
 
+    // Track the latest content locally to ensure we save the most up-to-date version
+    // even if state updates haven't propagated to refs yet
+    let latestAssistantContent = '';
+
     try {
       const systemPrompt = getSystemPrompt(latestWorkspace, currentMode);
 
@@ -207,6 +212,9 @@ export function useChatStreaming({
         getToolExecutor,
       });
 
+      // Capture the final content from the stream result
+      latestAssistantContent = streamResult.assistantContent;
+
       // If tool execution handled continuation, we're done
       if (streamResult.handledByToolExecution) {
         return;
@@ -217,10 +225,13 @@ export function useChatStreaming({
 
       // Only overwrite content with an error if nothing was ever streamed
       if (!hasStreamedContentRef.current) {
+        const errorContent = `Error: ${errorMessage}`;
+        latestAssistantContent = errorContent;
+        
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === assistantMessageId
-              ? { ...msg, content: `Error: ${errorMessage}` }
+              ? { ...msg, content: errorContent }
               : msg
           )
         );
@@ -234,8 +245,26 @@ export function useChatStreaming({
       }
       sendingMessageRef.current = false;
 
-      // Save session after stream completion
-      saveSession();
+      // Save session after stream completion with the LATEST content
+      // We manually construct the messages array to ensure we capture the very last chunk/state
+      // even if React state updates haven't propagated to messagesRef yet
+      const messagesToSave = messagesRef.current.map(msg => 
+        msg.id === assistantMessageId 
+          ? { ...msg, content: latestAssistantContent || msg.content } 
+          : msg
+      );
+      
+      // If for some reason the assistant message isn't in ref yet (rare race condition),
+      // we should add it (but messagesRef is usually up to date structure-wise)
+      const assistantMsgExists = messagesToSave.some(m => m.id === assistantMessageId);
+      if (!assistantMsgExists) {
+        messagesToSave.push({
+          ...assistantMessage,
+          content: latestAssistantContent
+        });
+      }
+
+      saveSession(messagesToSave);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, workspace, executeToolAndContinue, setMessages, setIsStreaming, setIsExecutingTool, isStreamingRef, isExecutingToolRef, sendingMessageRef, abortControllerRef, hasStreamedContentRef, saveSession, mode, updateToolExecution]);

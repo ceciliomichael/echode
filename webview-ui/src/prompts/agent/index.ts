@@ -8,18 +8,21 @@ import type { Tool } from '../../types/tool';
 import { getUserRules, getSystemInfo } from '../shared';
 import { getAgentPrompt } from './prompt';
 import { getAgentToolInstructions } from './tools';
+import type { ToolInstructionOptions } from './tools';
 import { getToolSystemPrompt } from '../../lib/tool-config';
 
 export interface AgentPromptOptions {
     workspace: WorkspaceContext | null;
     enabledTools: Tool[];
+    /** Enable full terminal access (bypass command restrictions) */
+    fullTerminalAccess?: boolean;
 }
 
 /**
  * Build the complete Agent mode system prompt
  */
 export function buildAgentPrompt(options: AgentPromptOptions): string {
-    const { workspace, enabledTools } = options;
+    const { workspace, enabledTools, fullTerminalAccess = false } = options;
 
     // Tool format section (generic XML format)
     const toolsSection = enabledTools.length > 0
@@ -28,8 +31,13 @@ export function buildAgentPrompt(options: AgentPromptOptions): string {
 No tools are currently enabled.
 </tool_status>`;
 
+    // Build tool instruction options
+    const toolOptions: ToolInstructionOptions = {
+        fullTerminalAccess,
+    };
+
     // Mode-specific tool instructions
-    const toolInstructions = getAgentToolInstructions(enabledTools);
+    const toolInstructions = getAgentToolInstructions(enabledTools, toolOptions);
 
     // Monolithic prompt (cognitive workflow + rules + mode description)
     const prompt = getAgentPrompt(workspace, enabledTools);
@@ -51,3 +59,4 @@ No tools are currently enabled.
 
 // Re-export components
 export { getAgentToolInstructions } from './tools';
+export type { ToolInstructionOptions } from './tools';

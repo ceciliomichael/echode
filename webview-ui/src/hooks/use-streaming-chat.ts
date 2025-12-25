@@ -100,6 +100,7 @@ export function useStreamingChat(
     isStoppingRef: state.isStoppingRef,
     saveSession: saveCurrentSession,
     mode,
+    messagesRef: state.messagesRef,
   });
 
   // Plan continuation handler - listens for button clicks and sends user message

@@ -1,6 +1,7 @@
 import { ITool, ToolExecutionResult, ToolProgressCallback, ChatMode } from './tool.interface';
 import { TerminalManager } from '../terminal/terminal-manager';
 import { CommandValidator } from './utils/command-validator';
+import { SettingsManager } from '../settings/settings-manager';
 
 const DEFAULT_TIMEOUT_SECONDS = 5 * 60; // 5 minutes max
 
@@ -26,8 +27,13 @@ export class RunTerminalTool implements ITool {
                 };
             }
 
-            // Validate command against forbidden patterns
-            CommandValidator.validate(command);
+            // Check if full terminal access is enabled in settings
+            const settingsManager = new SettingsManager();
+            const settings = settingsManager.getSettings();
+            const bypassValidation = settings.miscellaneousSettings?.enableFullTerminalAccess ?? false;
+
+            // Validate command against forbidden patterns (unless bypassed)
+            CommandValidator.validate(command, bypassValidation);
 
             // Command prompt prefix for display
             const commandPrefix = `$ ${command}\n`;

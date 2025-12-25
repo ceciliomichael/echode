@@ -240,8 +240,9 @@ export function usePlanContinuationHandler({
 
       // Determine the mode for the next message
       // If starting implementation, we MUST switch to agent mode
-      // Otherwise, keep the original mode (likely 'plan') for verification tasks
-      const nextMode = action === 'start_implementation' ? 'agent' : mode;
+      // If verifying plan, we MUST ensure we are in plan mode (even if user is in agent mode)
+      // Otherwise, keep the original mode
+      const nextMode = action === 'start_implementation' ? 'agent' : (action === 'verify_plan' ? 'plan' : mode);
 
       // Send as a hidden message (user won't see it, but AI receives it as tool result)
       // Use a small delay to ensure state updates are processed
