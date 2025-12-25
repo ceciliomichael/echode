@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import type { IToolHistoryHandler } from './handler.interface';
 import type { ToolHistoryResult, ToolDataRecord } from '../types';
+import { PlanViewerManager } from '../../plan-viewer/plan-viewer-manager';
 
 /**
  * Handler for plan tool operations
@@ -93,12 +94,11 @@ export class PlanOperationsHandler implements IToolHistoryHandler {
       // Write the plan file
       await vscode.workspace.fs.writeFile(uri, Buffer.from(planContent, 'utf-8'));
       
-      // Open the file in editor
-      const document = await vscode.workspace.openTextDocument(uri);
-      await vscode.window.showTextDocument(document, {
-        preview: false,
-        preserveFocus: true,
-      });
+      // Open plan in custom viewer
+      if (PlanViewerManager.isInitialized) {
+        const planTitle = (data.planTitle as string) || 'Implementation Plan';
+        PlanViewerManager.instance.openPlan(planTitle, planContent, planFilePath);
+      }
 
       console.log(`[PlanOperationsHandler] Recreated plan file: ${planFilePath}`);
 

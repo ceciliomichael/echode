@@ -141,9 +141,13 @@ export function useSessionManagement({
               
               // Check if this is a plan tool in a mode that requires user action
               const executionMode = resultData?.mode || fixedExecution.parameters?.mode;
-              const isInteractivePlanMode = isPlanTool && 
-                executionMode && 
-                ['create_plan', 'update_plan', 'handoff'].includes(executionMode);
+              const actionType = resultData?.actionType;
+              
+              // Check both mode and actionType to be more robust
+              const isInteractivePlanMode = isPlanTool && (
+                (executionMode && ['create_plan', 'update_plan', 'handoff'].includes(executionMode)) ||
+                (actionType && ['verify_plan', 'start_implementation'].includes(actionType))
+              );
               
               // Check if explicitly marked as awaiting user action
               const explicitlyAwaitsUser = resultData?.awaitsUserAction === true;

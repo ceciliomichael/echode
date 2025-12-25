@@ -4,6 +4,8 @@ import * as fs from 'fs';
 export interface WebviewHtmlOptions {
   title: string;
   isSettingsPanel?: boolean;
+  isPlanViewer?: boolean;
+  planContent?: string;
   workspaceInfo?: {
     path: string;
     name: string;
@@ -66,6 +68,13 @@ export function generateWebviewHtml(
 
   if (options.isSettingsPanel) {
     scriptContent += '\n    window.isSettingsPanel = true;';
+  }
+
+  if (options.isPlanViewer) {
+    scriptContent += '\n    window.isPlanViewer = true;';
+    if (options.planContent) {
+      scriptContent += `\n    window.planContent = ${JSON.stringify(options.planContent)};`;
+    }
   }
 
   if (options.workspaceInfo) {

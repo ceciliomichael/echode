@@ -2,7 +2,7 @@
   "name": "echode",
   "displayName": "EchoDE",
   "description": "Agentic Coding",
-  "version": "1.0.1535",
+  "version": "1.0.1555",
   "publisher": "EchoSphere",
   "icon": "icon.png",
   "repository": {
@@ -71,9 +71,20 @@
         "command": "echode.generateCommitMessage",
         "title": "Generate Commit Message",
         "icon": "icon.svg"
+      },
+      {
+        "command": "echode.openPlanPreview",
+        "title": "Open Plan Preview",
+        "icon": "icon.svg"
       }
     ],
     "keybindings": [
+      {
+        "command": "echode.openPlanPreview",
+        "key": "ctrl+shift+v",
+        "mac": "cmd+shift+v",
+        "when": "editorTextFocus && editorLangId == markdown"
+      },
       {
         "command": "echode.triggerAutocomplete",
         "key": "ctrl+shift+space",

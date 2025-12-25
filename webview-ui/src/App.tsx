@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { SetupPage } from './components/feature/setup-page';
 import { ChatContainer } from './components/feature/chat-container';
+import { PlanViewer } from './components/feature/plan-viewer';
 import { storageService, initializeSettings } from './utils/storage';
 import { prefetchAllModels } from './hooks/use-model-fetcher';
 import { useMcpToolSync } from './hooks/use-mcp-tool-sync';
@@ -10,6 +11,8 @@ import { DEFAULT_API_SETTINGS } from './types/api-settings';
 declare global {
   interface Window {
     isSettingsPanel?: boolean;
+    isPlanViewer?: boolean;
+    planContent?: string;
   }
 }
 
@@ -86,6 +89,11 @@ function App() {
       setShowSetup(false);
     }
   };
+
+  // Plan Viewer mode - render plan content directly
+  if (window.isPlanViewer) {
+    return <PlanViewer />;
+  }
 
   // Show nothing while loading settings from backend
   if (isLoading) {

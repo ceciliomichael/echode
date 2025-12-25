@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import { ITool, ToolExecutionResult } from './tool.interface';
+import { PlanViewerManager } from '../plan-viewer/plan-viewer-manager';
 
 /**
  * Generate a short 8-character ID using Node's crypto module
@@ -126,12 +127,10 @@ export class PlanTool implements ITool {
       const planFileUri = vscode.Uri.file(planFilePath);
       await vscode.workspace.fs.writeFile(planFileUri, Buffer.from(fullContent, 'utf-8'));
 
-      // Open the saved plan file in editor
-      const document = await vscode.workspace.openTextDocument(planFileUri);
-      await vscode.window.showTextDocument(document, {
-        preview: false,
-        preserveFocus: true, // Keep focus on sidebar
-      });
+      // Open plan in custom viewer
+      if (PlanViewerManager.isInitialized) {
+        PlanViewerManager.instance.openPlan(title, fullContent, planFilePath);
+      }
 
       const result: PlanToolResult = {
         mode: 'create_plan',
@@ -172,6 +171,55 @@ export class PlanTool implements ITool {
     }
 
     try {
+      // Auto-discover the latest plan file if path is not provided
+      if (!existingPlanFilePath || typeof existingPlanFilePath !== 'string') {
+        // First check if we have a tracked plan in the viewer manager (persistent across reloads)
+        if (PlanViewerManager.isInitialized) {
+          const trackedPath = PlanViewerManager.instance.getCurrentPlanPath();
+          if (trackedPath) {
+            existingPlanFilePath = trackedPath;
+          }
+        }
+      }
+
+      // If still not found, try to find the latest file in the directory
+      if (!existingPlanFilePath || typeof existingPlanFilePath !== 'string') {
+        try {
+          const workspaceFolders = vscode.workspace.workspaceFolders;
+          if (workspaceFolders && workspaceFolders.length > 0) {
+            const workspaceRoot = workspaceFolders[0].uri.fsPath;
+            const planDir = path.join(workspaceRoot, '.echode', 'plan');
+            const planDirUri = vscode.Uri.file(planDir);
+            
+            // Read directory to find .md files
+            const files = await vscode.workspace.fs.readDirectory(planDirUri);
+            const mdFiles = files.filter(([name, type]) => type === vscode.FileType.File && name.endsWith('.md'));
+            
+            if (mdFiles.length > 0) {
+              // Find the most recently modified file
+              let latestFile = '';
+              let latestMtime = 0;
+              
+              for (const [name] of mdFiles) {
+                const filePath = path.join(planDir, name);
+                const stat = await vscode.workspace.fs.stat(vscode.Uri.file(filePath));
+                if (stat.mtime > latestMtime) {
+                  latestMtime = stat.mtime;
+                  latestFile = filePath;
+                }
+              }
+              
+              if (latestFile) {
+                existingPlanFilePath = latestFile;
+              }
+            }
+          }
+        } catch (error) {
+          // Ignore errors during auto-discovery (e.g., directory doesn't exist)
+          console.error('Failed to auto-discover plan file:', error);
+        }
+      }
+
       if (!existingPlanFilePath || typeof existingPlanFilePath !== 'string') {
         return {
           success: false,
@@ -195,12 +243,10 @@ export class PlanTool implements ITool {
       // Update the existing plan file
       await vscode.workspace.fs.writeFile(planFileUri, Buffer.from(fullContent, 'utf-8'));
 
-      // Open the updated plan file in editor
-      const document = await vscode.workspace.openTextDocument(planFileUri);
-      await vscode.window.showTextDocument(document, {
-        preview: false,
-        preserveFocus: true,
-      });
+      // Open plan in custom viewer
+      if (PlanViewerManager.isInitialized) {
+        PlanViewerManager.instance.openPlan(title, fullContent, existingPlanFilePath);
+      }
 
       const planFileName = path.basename(existingPlanFilePath);
       const result: PlanToolResult = {
