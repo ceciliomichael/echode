@@ -25,18 +25,25 @@ const ToolBlockComponent = ({
   const isRunTerminal = toolCall.toolName === 'run_terminal';
   const isPlanTool = toolCall.toolName === 'plan';
 
+  // Check if this tool has an error (either error status or failed result)
+  const hasError = toolCall.status === 'error' || toolCall.result?.success === false;
+
   // echo_search and run_terminal start expanded by default to show progress
-  const [isExpanded, setIsExpanded] = useState(isEchoSearch || isRunTerminal);
+  // BUT keep collapsed if there's an error (especially when loading from history)
+  const [isExpanded, setIsExpanded] = useState(
+    (isEchoSearch || isRunTerminal) && !hasError
+  );
 
   // Auto-expand when awaiting user action (e.g. Plan tool) - only for the last message
   // This ensures the action buttons are visible when the state changes
+  // Don't auto-expand if there's an error
   useEffect(() => {
-    if (toolCall.status === 'awaiting_user' && isLastMessage) {
+    if (toolCall.status === 'awaiting_user' && isLastMessage && !hasError) {
       setTimeout(() => {
         setIsExpanded(true);
       }, 0);
     }
-  }, [toolCall.status, isLastMessage]);
+  }, [toolCall.status, isLastMessage, hasError]);
 
   // Auto-collapse echo_search when completed or aborted
   useEffect(() => {

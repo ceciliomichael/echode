@@ -83,7 +83,7 @@ export class PlanViewerManager {
   private createPanel(title: string, content: string): void {
     this.panel = vscode.window.createWebviewPanel(
       'echode.planViewer',
-      `📋 ${title}`,
+      `${title}`,
       {
         viewColumn: vscode.ViewColumn.Active,
         preserveFocus: false,
@@ -114,7 +114,7 @@ export class PlanViewerManager {
   private updatePanelContent(title: string, content: string): void {
     if (!this.panel) return;
 
-    this.panel.title = `📋 ${title}`;
+    this.panel.title = `${title}`;
     this.panel.webview.html = generateWebviewHtml(
       this.panel.webview,
       this.context.extensionUri,

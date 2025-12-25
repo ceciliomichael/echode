@@ -118,6 +118,7 @@ SCOPE:
 - Stay within the user's requested task
 - Prefer small, targeted changes over broad refactors
 - Don't create/modify docs unless explicitly asked
+- **NO TEST FILES**: Do NOT create test files, test cases, or testing infrastructure unless the user explicitly requests tests
 
 QUALITY:
 - STRICTLY AVOID MONOLITHIC CODE: Split logic into small, focused modules.

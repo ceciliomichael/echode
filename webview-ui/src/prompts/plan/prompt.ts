@@ -77,6 +77,7 @@ ${PRESERVATION_PRINCIPLES}
 - Plan ONLY what was explicitly requested and confirmed
 - Do not add unrequested features or "nice-to-haves"
 - Be thorough within scope: handle edge cases, errors, types related to the request
+- **NO TEST FILES**: Do NOT plan test files, test cases, or testing infrastructure unless the user explicitly requests tests
 
 ## Technical Specificity
 Plans must be precise and actionable:
