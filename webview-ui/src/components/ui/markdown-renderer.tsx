@@ -120,10 +120,6 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: Mark
               borderColor: 'var(--vscode-input-border)',
               color: 'var(--vscode-textLink-foreground)',
               borderRadius: '4px',
-              // box-decoration-break: clone ensures each wrapped line fragment
-              // gets the full box styling (background, border, padding, border-radius)
-              WebkitBoxDecorationBreak: 'clone',
-              boxDecorationBreak: 'clone',
             } as React.CSSProperties}
             {...props}
           >

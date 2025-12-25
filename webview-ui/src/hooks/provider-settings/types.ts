@@ -11,6 +11,7 @@ export interface ProviderSettings {
   temperature: number;
   reasoningEffort?: ReasoningEffort;
   qwenCodeOauthPath?: string;
+  zaiThinking?: boolean;
 }
 
 /**
@@ -23,6 +24,7 @@ export interface ProviderState {
   maxTokens: number;
   temperature: number;
   reasoningEffort?: ReasoningEffort;
+  zaiThinking?: boolean;
 }
 
 /**
@@ -35,6 +37,7 @@ export interface ProviderStateMap {
   megallm: ProviderState;
   'vscode-lm': ProviderState;
   'qwen-code': ProviderState;
+  zai: ProviderState;
 }
 
 /**
@@ -55,6 +58,7 @@ export interface ProviderHandlers {
   handleMaxTokensChange: (value: number) => void;
   handleTemperatureChange: (value: number) => void;
   handleReasoningEffortChange: (value: ReasoningEffort | undefined) => void;
+  handleZaiThinkingChange: (value: boolean) => void;
 }
 
 /**
@@ -71,6 +75,7 @@ export interface UseProviderSettingsReturn {
   handleTemperatureChange: (value: number) => void;
   handleApiKeyChange: (value: string) => void;
   handleReasoningEffortChange: (value: ReasoningEffort | undefined) => void;
+  handleZaiThinkingChange: (value: boolean) => void;
   handleQwenCodeOauthPathChange: (value: string) => void;
   handleStreamingTimeoutChange: (value: number) => void;
   streamingTimeout: number;
@@ -84,14 +89,17 @@ export interface UseProviderSettingsReturn {
     anthropicCustomUrl: string;
     openaiCustomUrl: string;
     openaiCompatibleCustomUrl: string;
+    zaiCustomUrl: string;
     anthropicModel: string;
     openaiModel: string;
     openaiCompatibleModel: string;
     vscodeLmModel: string;
     qwenCodeModel: string;
+    zaiModel: string;
     anthropicApiKey: string;
     openaiApiKey: string;
     openaiCompatibleApiKey: string;
+    zaiApiKey: string;
     openaiCompatibleReasoningEffort?: ReasoningEffort;
     megallmReasoningEffort?: ReasoningEffort;
     qwenCodeOauthPath: string;
@@ -100,10 +108,13 @@ export interface UseProviderSettingsReturn {
     openaiCompatibleMaxTokens: number;
     vscodeLmMaxTokens: number;
     qwenCodeMaxTokens: number;
+    zaiMaxTokens: number;
     anthropicTemperature: number;
     openaiTemperature: number;
     openaiCompatibleTemperature: number;
     vscodeLmTemperature: number;
     qwenCodeTemperature: number;
+    zaiTemperature: number;
+    zaiThinking: boolean;
   };
 }

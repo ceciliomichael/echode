@@ -14,7 +14,7 @@ export interface ChatMessage {
 }
 
 export interface ChatStreamSettings {
-  provider: 'anthropic' | 'openai' | 'openai-compatible' | 'megallm' | 'vscode-lm' | 'qwen-code';
+  provider: 'anthropic' | 'openai' | 'openai-compatible' | 'megallm' | 'vscode-lm' | 'qwen-code' | 'zai';
   apiKey: string;
   model: string;
   maxTokens: number;
@@ -23,6 +23,7 @@ export interface ChatStreamSettings {
   reasoningEffort?: string;
   qwenCodeOauthPath?: string;
   enabledTools?: Array<{ id: string; enabled: boolean }>;
+  zaiThinking?: boolean;
   /** Current chat mode for mode-specific behavior */
   chatMode?: 'agent' | 'plan' | 'ask' | 'general' | 'chat';
   /** Timeout in ms before retry if no streaming data received (default: 10000) */

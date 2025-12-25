@@ -52,6 +52,14 @@ function initializeProviderStates(settings: ApiSettings): ProviderStateMap {
       maxTokens: settings.qwenCodeMaxTokens,
       temperature: settings.qwenCodeTemperature,
     },
+    zai: {
+      customUrl: settings.zaiCustomUrl || '',
+      apiKey: settings.zaiApiKey || '',
+      model: settings.zaiModel || '',
+      maxTokens: settings.zaiMaxTokens,
+      temperature: settings.zaiTemperature,
+      zaiThinking: settings.zaiThinking ?? false,
+    },
   };
 }
 
@@ -119,6 +127,7 @@ export function useProviderState(initialSettings: ApiSettings) {
         temperature: state.temperature,
         reasoningEffort: state.reasoningEffort,
         qwenCodeOauthPath: provider === 'qwen-code' ? qwenCodeOauthPath : undefined,
+        zaiThinking: provider === 'zai' ? state.zaiThinking : undefined,
       };
     }
 

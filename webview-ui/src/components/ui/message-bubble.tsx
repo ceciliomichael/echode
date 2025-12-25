@@ -17,7 +17,6 @@ interface MessageBubbleProps {
   onRevert?: (messageId: string) => void;
   isStreaming?: boolean;
   isLastMessage?: boolean;
-  isFirstMessage?: boolean;
   mode?: ChatMode;
   onModeChange?: (mode: ChatMode) => void;
   provider: Provider;
@@ -26,7 +25,7 @@ interface MessageBubbleProps {
   contextUsage?: ContextUsageResult;
 }
 
-function MessageBubbleComponent({ message, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, isStreaming, isLastMessage, isFirstMessage, mode, onModeChange, provider, model, onModelChange, contextUsage }: MessageBubbleProps) {
+function MessageBubbleComponent({ message, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, isStreaming, isLastMessage, mode, onModeChange, provider, model, onModelChange, contextUsage }: MessageBubbleProps) {
 
   if (message.role === 'user') {
     return (
@@ -46,7 +45,6 @@ function MessageBubbleComponent({ message, onEdit, onUpdate, isEditing, onEditSt
         model={model}
         onModelChange={onModelChange}
         contextUsage={contextUsage}
-        isFirstMessage={isFirstMessage}
       />
     );
   }
@@ -67,49 +65,4 @@ function MessageBubbleComponent({ message, onEdit, onUpdate, isEditing, onEditSt
   );
 }
 
-export const MessageBubble = memo(MessageBubbleComponent, (prev, next) => {
-  // 1. Check critical UI flags
-  if (
-    prev.isEditing !== next.isEditing ||
-    prev.isStreaming !== next.isStreaming ||
-    prev.isLastMessage !== next.isLastMessage ||
-    prev.isFirstMessage !== next.isFirstMessage ||
-    prev.mode !== next.mode
-  ) {
-    return false;
-  }
-
-  // 2. Check message identity and content
-  if (
-    prev.message.id !== next.message.id ||
-    prev.message.content !== next.message.content ||
-    prev.message.role !== next.message.role ||
-    prev.message.mode !== next.message.mode
-  ) {
-    return false;
-  }
-
-  // 3. Check tool executions (reference equality is usually sufficient for immutable state)
-  if (prev.message.toolExecutions !== next.message.toolExecutions) {
-    return false;
-  }
-
-  // 4. Role-specific checks
-  if (prev.message.role === 'user') {
-    // User messages use these extra props
-    if (
-      prev.provider !== next.provider ||
-      prev.model !== next.model ||
-      prev.contextUsage !== next.contextUsage ||
-      prev.message.attachments !== next.message.attachments
-    ) {
-      return false;
-    }
-  }
-
-  // For assistant messages, we can IGNORE contextUsage, provider, model, and handlers
-  // as they are not used in the render output of AssistantMessage.
-  // This prevents all assistant messages from re-rendering when token counts update.
-
-  return true;
-});
+export const MessageBubble = memo(MessageBubbleComponent);

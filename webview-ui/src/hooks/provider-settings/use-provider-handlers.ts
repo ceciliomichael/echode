@@ -11,7 +11,7 @@ export function useProviderHandlers(
   provider: Provider,
   updateProviderState: (
     targetProvider: BuiltInProvider,
-    updates: Partial<{ customUrl: string; apiKey: string; maxTokens: number; temperature: number; reasoningEffort: ReasoningEffort }>
+    updates: Partial<{ customUrl: string; apiKey: string; maxTokens: number; temperature: number; reasoningEffort: ReasoningEffort; zaiThinking: boolean }>
   ) => void,
   customProviders: CustomProvider[],
   updateCustomProvider: (provider: CustomProvider) => void
@@ -23,7 +23,8 @@ export function useProviderHandlers(
         if (
           provider === 'anthropic' ||
           provider === 'openai' ||
-          provider === 'openai-compatible'
+          provider === 'openai-compatible' ||
+          provider === 'zai'
         ) {
           updateProviderState(provider, { customUrl: value });
         }
@@ -35,7 +36,8 @@ export function useProviderHandlers(
           provider === 'anthropic' ||
           provider === 'openai' ||
           provider === 'openai-compatible' ||
-          provider === 'megallm'
+          provider === 'megallm' ||
+          provider === 'zai'
         ) {
           updateProviderState(provider, { apiKey: value });
         }
@@ -84,6 +86,12 @@ export function useProviderHandlers(
       handleReasoningEffortChange: (value: ReasoningEffort | undefined) => {
         if (provider === 'openai-compatible' || provider === 'megallm') {
           updateProviderState(provider, { reasoningEffort: value });
+        }
+      },
+
+      handleZaiThinkingChange: (value: boolean) => {
+        if (provider === 'zai') {
+          updateProviderState('zai', { zaiThinking: value });
         }
       },
     }),

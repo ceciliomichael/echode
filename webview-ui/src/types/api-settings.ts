@@ -1,6 +1,6 @@
 import type { ChatMode } from './chat-mode';
 
-export type BuiltInProvider = 'anthropic' | 'openai' | 'openai-compatible' | 'megallm' | 'vscode-lm' | 'qwen-code';
+export type BuiltInProvider = 'anthropic' | 'openai' | 'openai-compatible' | 'megallm' | 'vscode-lm' | 'qwen-code' | 'zai';
 
 // Extended provider type that includes custom providers with pattern custom-{id}
 export type Provider = BuiltInProvider | `custom-${string}`;
@@ -114,11 +114,13 @@ export interface ApiSettings {
   openaiCustomUrl?: string;
   openaiCompatibleCustomUrl?: string;
   megallmCustomUrl?: string;
+  zaiCustomUrl?: string;
   apiKey: string;
   anthropicApiKey?: string;
   openaiApiKey?: string;
   openaiCompatibleApiKey?: string;
   megallmApiKey?: string;
+  zaiApiKey?: string;
   qwenCodeOauthPath?: string;
   model: string;
   anthropicModel?: string;
@@ -127,18 +129,22 @@ export interface ApiSettings {
   openaiCompatibleReasoningEffort?: ReasoningEffort;
   megallmReasoningEffort?: ReasoningEffort;
   megallmModel?: string;
+  zaiModel?: string;
   vscodeLmModel?: string;
   qwenCodeModel?: string;
   anthropicMaxTokens: number;
   openaiMaxTokens: number;
   openaiCompatibleMaxTokens: number;
   megallmMaxTokens: number;
+  zaiMaxTokens: number;
   vscodeLmMaxTokens: number;
   qwenCodeMaxTokens: number;
   anthropicTemperature: number;
   openaiTemperature: number;
   openaiCompatibleTemperature: number;
   megallmTemperature: number;
+  zaiTemperature: number;
+  zaiThinking: boolean;
   vscodeLmTemperature: number;
   qwenCodeTemperature: number;
   streamingTimeout: number;
@@ -164,23 +170,28 @@ export const DEFAULT_API_SETTINGS: ApiSettings = {
   openaiCustomUrl: '',
   openaiCompatibleCustomUrl: '',
   megallmCustomUrl: '',
+  zaiCustomUrl: '',
   apiKey: '',
   anthropicApiKey: '',
   openaiApiKey: '',
   openaiCompatibleApiKey: '',
   megallmApiKey: '',
+  zaiApiKey: '',
   qwenCodeOauthPath: '',
   model: '',
   anthropicMaxTokens: 8192,
   openaiMaxTokens: 4096,
   openaiCompatibleMaxTokens: 4096,
   megallmMaxTokens: 4096,
+  zaiMaxTokens: 4096,
   vscodeLmMaxTokens: 4096,
   qwenCodeMaxTokens: 65536,
   anthropicTemperature: 0.0,
   openaiTemperature: 0.0,
   openaiCompatibleTemperature: 0.0,
   megallmTemperature: 0.0,
+  zaiTemperature: 0.0,
+  zaiThinking: false,
   vscodeLmTemperature: 1.0,
   qwenCodeTemperature: 0.0,
   streamingTimeout: 5000,
@@ -216,6 +227,11 @@ export const PROVIDER_DEFAULTS = {
   'qwen-code': {
     baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     maxTokens: 65536,
+    temperature: 0.0,
+  },
+  zai: {
+    baseUrl: 'https://api.z.ai/api/paas/v4',
+    maxTokens: 4096,
     temperature: 0.0,
   },
 } as const;

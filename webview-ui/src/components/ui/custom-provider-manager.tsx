@@ -84,7 +84,7 @@ export function CustomProviderManager({
       reasoningEffort: formData.reasoningEffort,
       model: '',
       maxTokens: 4096,
-      temperature: 0.7,
+      temperature: 0,
     };
 
     onAddProvider(newProvider);

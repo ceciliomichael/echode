@@ -11,6 +11,9 @@ const INTERNAL_BLOCK_TAGS = [
   'available_tools',
   'file_operations',
   'system_reminder',
+  // Corrupted AI hallucinations - should never display
+  'tool_call',
+  'tool_code',
 ];
 
 /**
@@ -24,6 +27,15 @@ export function sanitizeAssistantText(content: string): string {
 
   const sanitizeSegment = (segment: string): string => {
     let sanitized = segment;
+
+    // Clean corrupted hybrid tool call formats first
+    // Pattern: <tool_call>function_calls> -> remove entirely
+    sanitized = sanitized.replace(/<tool_call>function_calls>/gi, '');
+    // Pattern: <|tool|> or <|tool_call|> -> remove
+    sanitized = sanitized.replace(/<\|tool\|>/gi, '');
+    sanitized = sanitized.replace(/<\|tool_call\|>/gi, '');
+    sanitized = sanitized.replace(/<\|\/tool\|>/gi, '');
+    sanitized = sanitized.replace(/<\|\/tool_call\|>/gi, '');
 
     for (const tag of INTERNAL_BLOCK_TAGS) {
       const blockRegex = new RegExp(`<${tag}[^>]*>[\\s\\S]*?<\\/${tag}>`, 'g');

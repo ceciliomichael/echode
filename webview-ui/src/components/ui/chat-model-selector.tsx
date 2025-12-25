@@ -13,6 +13,7 @@ const PROVIDER_OPTIONS: { value: Provider; label: string }[] = [
   { value: 'megallm', label: 'MEGALLM' },
   { value: 'vscode-lm', label: 'VS Code LM (Copilot)' },
   { value: 'qwen-code', label: 'Qwen Code' },
+  { value: 'zai', label: 'Z.ai' },
 ];
 
 interface ChatModelSelectorProps {
@@ -58,6 +59,7 @@ function ChatModelSelectorComponent({ provider: activeProvider, model: activeMod
   const openaiKey = settings.openaiApiKey || '';
   const openaiCompatibleKey = settings.openaiCompatibleApiKey || '';
   const megallmKey = settings.megallmApiKey || '';
+  const zaiKey = settings.zaiApiKey || '';
 
   const {
     models: anthropicModels,
@@ -95,6 +97,12 @@ function ChatModelSelectorComponent({ provider: activeProvider, model: activeMod
     fetchModels: fetchQwenCode,
   } = useModelFetcher('qwen-code', undefined, '');
 
+  const {
+    models: zaiModels,
+    loadingModels: loadingZai,
+    fetchModels: fetchZai,
+  } = useModelFetcher('zai', settings.zaiCustomUrl, zaiKey);
+
   const anyLoading =
     loadingAnthropic ||
     loadingOpenai ||
@@ -102,6 +110,7 @@ function ChatModelSelectorComponent({ provider: activeProvider, model: activeMod
     loadingMegallm ||
     loadingVscodeLm ||
     loadingQwenCode ||
+    loadingZai ||
     Object.values(customModels).some(m => m.loading);
 
   const handleCustomModelsFetched = useCallback((provider: Provider, models: string[], loading: boolean) => {
@@ -125,7 +134,8 @@ function ChatModelSelectorComponent({ provider: activeProvider, model: activeMod
     fetchMegallm();
     fetchVscodeLm();
     fetchQwenCode();
-  }, [fetchAnthropic, fetchOpenai, fetchOpenaiCompatible, fetchMegallm, fetchVscodeLm, fetchQwenCode]);
+    fetchZai();
+  }, [fetchAnthropic, fetchOpenai, fetchOpenaiCompatible, fetchMegallm, fetchVscodeLm, fetchQwenCode, fetchZai]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -136,7 +146,8 @@ function ChatModelSelectorComponent({ provider: activeProvider, model: activeMod
     fetchMegallm();
     fetchVscodeLm();
     fetchQwenCode();
-  }, [isOpen, fetchAnthropic, fetchOpenai, fetchOpenaiCompatible, fetchMegallm, fetchVscodeLm, fetchQwenCode]);
+    fetchZai();
+  }, [isOpen, fetchAnthropic, fetchOpenai, fetchOpenaiCompatible, fetchMegallm, fetchVscodeLm, fetchQwenCode, fetchZai]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -190,6 +201,7 @@ function ChatModelSelectorComponent({ provider: activeProvider, model: activeMod
     if (megallmModels) models.push(...megallmModels.map(m => ({ provider: 'megallm' as Provider, providerLabel: 'MEGALLM', model: m })));
     if (vscodeLmModels) models.push(...vscodeLmModels.map(m => ({ provider: 'vscode-lm' as Provider, providerLabel: 'VS Code LM (Copilot)', model: m })));
     if (qwenCodeModels) models.push(...qwenCodeModels.map(m => ({ provider: 'qwen-code' as Provider, providerLabel: 'Qwen Code', model: m })));
+    if (zaiModels) models.push(...zaiModels.map(m => ({ provider: 'zai' as Provider, providerLabel: 'Z.ai', model: m })));
 
     // Add custom provider models
     if (settings.customProviders) {
@@ -207,7 +219,7 @@ function ChatModelSelectorComponent({ provider: activeProvider, model: activeMod
     }
 
     return models;
-  }, [anthropicModels, openaiModels, openaiCompatibleModels, megallmModels, vscodeLmModels, qwenCodeModels, customModels, settings.customProviders]);
+  }, [anthropicModels, openaiModels, openaiCompatibleModels, megallmModels, vscodeLmModels, qwenCodeModels, zaiModels, customModels, settings.customProviders]);
 
   const searchValue = search.trim().toLowerCase();
   const hasSearch = searchValue.length > 0;

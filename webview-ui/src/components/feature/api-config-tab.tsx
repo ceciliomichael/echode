@@ -10,6 +10,7 @@ interface ApiConfigTabProps {
   apiKey: string;
   qwenCodeOauthPath?: string;
   openaiCompatibleReasoningEffort?: ReasoningEffort;
+  zaiThinking?: boolean;
   maxTokens: number;
   temperature: number;
   streamingTimeout: number;
@@ -19,6 +20,7 @@ interface ApiConfigTabProps {
   onApiKeyChange: (value: string) => void;
   onQwenCodeOauthPathChange?: (value: string) => void;
   onOpenaiCompatibleReasoningEffortChange?: (value: ReasoningEffort | undefined) => void;
+  onZaiThinkingChange?: (value: boolean) => void;
   onMaxTokensChange: (value: number) => void;
   onTemperatureChange: (value: number) => void;
   onStreamingTimeoutChange: (value: number) => void;
@@ -33,6 +35,7 @@ export function ApiConfigTab({
   apiKey,
   qwenCodeOauthPath,
   openaiCompatibleReasoningEffort,
+  zaiThinking,
   maxTokens,
   temperature,
   streamingTimeout,
@@ -42,6 +45,7 @@ export function ApiConfigTab({
   onApiKeyChange,
   onQwenCodeOauthPathChange,
   onOpenaiCompatibleReasoningEffortChange,
+  onZaiThinkingChange,
   onMaxTokensChange,
   onTemperatureChange,
   onStreamingTimeoutChange,
@@ -57,12 +61,14 @@ export function ApiConfigTab({
         apiKey={apiKey}
         qwenCodeOauthPath={qwenCodeOauthPath}
         reasoningEffort={openaiCompatibleReasoningEffort}
+        zaiThinking={zaiThinking}
         customProviders={customProviders}
         onProviderChange={onProviderChange}
         onCustomBaseUrlChange={onCustomBaseUrlChange}
         onApiKeyChange={onApiKeyChange}
         onQwenCodeOauthPathChange={onQwenCodeOauthPathChange}
         onReasoningEffortChange={onOpenaiCompatibleReasoningEffortChange}
+        onZaiThinkingChange={onZaiThinkingChange}
       />
 
       <CustomProviderManager

@@ -4,7 +4,7 @@ import OpenAI from 'openai';
 
 interface ModelFetchRequest {
   requestId: number;
-  provider: 'anthropic' | 'openai' | 'openai-compatible' | 'megallm' | 'vscode-lm' | 'qwen-code';
+  provider: 'anthropic' | 'openai' | 'openai-compatible' | 'megallm' | 'vscode-lm' | 'qwen-code' | 'zai';
   apiKey: string;
   baseURL: string;
 }
@@ -45,6 +45,8 @@ export async function handleModelFetch(
       models = await fetchVSCodeLMModels();
     } else if (provider === 'qwen-code') {
       models = await fetchQwenCodeModels();
+    } else if (provider === 'zai') {
+      models = await fetchZaiModels(apiKey, baseURL);
     } else {
       throw new Error(`Unknown provider: ${provider}`);
     }
@@ -154,4 +156,22 @@ async function fetchVSCodeLMModels(): Promise<string[]> {
  */
 async function fetchQwenCodeModels(): Promise<string[]> {
   return ['qwen3-coder-plus', 'qwen3-coder-flash'];
+}
+
+/**
+ * Fetch available Z.ai models from API
+ */
+async function fetchZaiModels(apiKey: string, baseURL: string): Promise<string[]> {
+  // Use the provided baseURL directly without appending /v1, as Z.ai URLs usually include the version
+  const client = new OpenAI({
+    apiKey,
+    baseURL,
+  });
+
+  try {
+    const response = await client.models.list();
+    return response.data.map(m => m.id);
+  } catch (error) {
+    throw new Error(`Z.ai API Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }

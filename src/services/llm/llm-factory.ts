@@ -4,6 +4,7 @@ import { OpenAIProvider } from './openai-provider';
 import { OpenAICompatibleProvider } from './openai-compatible-provider';
 import { VSCodeLMProvider } from './vscode-lm-provider';
 import { QwenProvider } from './qwen-provider';
+import { ZaiProvider } from './zai-provider';
 
 /**
  * Check if a provider is a custom provider (starts with 'custom-')
@@ -31,6 +32,8 @@ export class LLMFactory {
         return new VSCodeLMProvider();
       case 'qwen-code':
         return new QwenProvider();
+      case 'zai':
+        return new ZaiProvider();
       default:
         throw new Error(`Unknown provider: ${providerName}`);
     }

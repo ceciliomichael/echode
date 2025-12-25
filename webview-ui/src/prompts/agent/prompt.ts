@@ -26,6 +26,7 @@ export function getAgentPrompt(workspace: WorkspaceContext | null, enabledTools:
   if (enabledIds.has('glob_search')) {toolList.push('glob_search');}
   if (enabledIds.has('list_files')) {toolList.push('list_files');}
   if (enabledIds.has('get_diagnostics')) {toolList.push('get_diagnostics');}
+  if (enabledIds.has('run_terminal')) {toolList.push('run_terminal');}
   if (enabledIds.has('todo_write')) {toolList.push('todo_write');}
   if (enabledIds.has('todo_read')) {toolList.push('todo_read');}
 
@@ -104,11 +105,42 @@ CONTEXT AWARENESS:
 - ONE write_to_file operation per response (unless rewriting multiple files)
 
 COMPLETION (MANDATORY):
-After finishing all edits, you MUST run get_diagnostics to check for errors:
+After finishing all edits, you MUST perform automatic cleanup and verification:
+
+STEP 1 - Diagnostics Check:
 1. Call get_diagnostics on modified files or directories
-2. If errors found: fix them immediately before concluding
+2. If errors found: fix them immediately before proceeding
 3. If warnings found: fix if straightforward, otherwise note them
-4. Only conclude the task when diagnostics pass or remaining issues are intentional
+
+STEP 2 - Automated Build & Lint (PROACTIVE):
+After diagnostics, AUTOMATICALLY run these commands if they exist in the project:
+- npm run lint or npm run lint:fix (to auto-fix linting issues)
+- npm run build (to verify build passes)
+- npm test or npm run test (if tests exist, run them to verify)
+- python -m pytest (for Python projects with tests)
+- cargo check or cargo build (for Rust projects)
+- go build (for Go projects)
+- mvn compile (for Java/Maven projects)
+- gradle build (for Java/Gradle projects)
+
+STEP 3 - Dependency Installation:
+If commands fail due to missing dependencies, install them automatically:
+- npm install or pnpm install or yarn install (Node.js projects)
+- pip install -r requirements.txt (Python projects)
+- cargo build (automatically fetches Rust dependencies)
+- go mod tidy (Go projects)
+
+STEP 4 - Final Verification:
+1. Re-run get_diagnostics to ensure all issues are resolved
+2. Re-run build commands to verify everything compiles
+3. Only conclude when: diagnostics pass AND build succeeds AND (if applicable) tests pass
+
+IMPORTANT:
+- Use run_terminal for ALL short-lived commands (install, build, lint, test)
+- NEVER start dev servers or watch modes (npm run dev, npm start, etc.)
+- Ask the user to run long-running processes if needed
+- Only skip automated commands if they don't exist in the project
+- Be PROACTIVE: Fix issues automatically without asking unless truly necessary
 </workflow>
 
 <rules>

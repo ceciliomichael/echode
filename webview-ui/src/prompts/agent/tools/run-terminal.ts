@@ -24,16 +24,20 @@ Behavior:
 
 Example (installing dependencies):
 \`\`\`xml
-<invoke name="run_terminal">
-    <parameter name="command">npm install</parameter>
-</invoke>
+<function_calls>
+    <invoke name="run_terminal">
+        <parameter name="command">npm install</parameter>
+    </invoke>
+</function_calls>
 \`\`\`
 
 Example (running a build):
 \`\`\`xml
-<invoke name="run_terminal">
-    <parameter name="command">npm run build</parameter>
-    <parameter name="timeout">60</parameter>
-</invoke>
+<function_calls>
+    <invoke name="run_terminal">
+        <parameter name="command">npm run build</parameter>
+        <parameter name="timeout">60</parameter>
+    </invoke>
+</function_calls>
 \`\`\`
 `;

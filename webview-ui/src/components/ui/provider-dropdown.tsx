@@ -15,6 +15,7 @@ const BUILT_IN_PROVIDER_OPTIONS: { value: BuiltInProvider; label: string }[] = [
   { value: 'megallm', label: 'MEGALLM' },
   { value: 'vscode-lm', label: 'VS Code LM (Copilot)' },
   { value: 'qwen-code', label: 'Qwen Code' },
+  { value: 'zai', label: 'Z.ai' },
 ];
 
 export function ProviderDropdown({ value, onChange, customProviders = [] }: ProviderDropdownProps) {

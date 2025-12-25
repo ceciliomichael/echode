@@ -51,6 +51,7 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
     handleTemperatureChange,
     handleApiKeyChange,
     handleReasoningEffortChange,
+    handleZaiThinkingChange,
     handleQwenCodeOauthPathChange,
     handleStreamingTimeoutChange,
     streamingTimeout,
@@ -148,6 +149,7 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
               apiKey={currentSettings.apiKey}
               qwenCodeOauthPath={currentSettings.qwenCodeOauthPath}
               openaiCompatibleReasoningEffort={currentSettings.reasoningEffort}
+              zaiThinking={currentSettings.zaiThinking}
               maxTokens={currentSettings.maxTokens}
               temperature={currentSettings.temperature}
               streamingTimeout={streamingTimeout}
@@ -157,6 +159,7 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
               onApiKeyChange={handleApiKeyChange}
               onQwenCodeOauthPathChange={handleQwenCodeOauthPathChange}
               onOpenaiCompatibleReasoningEffortChange={handleReasoningEffortChange}
+              onZaiThinkingChange={handleZaiThinkingChange}
               onMaxTokensChange={handleMaxTokensChange}
               onTemperatureChange={handleTemperatureChange}
               onStreamingTimeoutChange={handleStreamingTimeoutChange}

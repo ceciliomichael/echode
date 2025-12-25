@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useMemo } from 'react';
 import type { Message } from '../types/chat';
 import type { ChatMode } from '../types/chat-mode';
 import type { ContextSettings } from '../types/api-settings';
@@ -24,7 +24,6 @@ export interface ContextUsageResult {
   toolResultsTokens: number;
   totalTokens: number;
   maxTokens: number;
-  isCalculating?: boolean;
 }
 
 interface UseContextUsageOptions {
@@ -36,7 +35,12 @@ interface UseContextUsageOptions {
   revertPreviewMessageId?: string | null;
 }
 
-function calculateContextUsage({
+/**
+ * Hook to calculate current context usage in tokens
+ * When revertPreviewMessageId is set, calculates usage for the effective messages
+ * that will remain after revert
+ */
+export function useContextUsage({
   systemPrompt,
   messages,
   mode = 'agent',
@@ -44,142 +48,76 @@ function calculateContextUsage({
   contextSettings = DEFAULT_CONTEXT_SETTINGS,
   revertPreviewMessageId = null,
 }: UseContextUsageOptions): ContextUsageResult {
-  // Calculate effective messages based on revert preview state
-  let effectiveMessages = messages;
+  return useMemo(() => {
+    // Calculate effective messages based on revert preview state
+    let effectiveMessages = messages;
 
-  if (revertPreviewMessageId) {
-    const revertIndex = messages.findIndex(msg => msg.id === revertPreviewMessageId);
-    if (revertIndex !== -1) {
-      // Slice to get messages that will remain after revert
-      effectiveMessages = messages.slice(0, revertIndex);
-    }
-  }
-
-  // Calculate system prompt tokens
-  const systemPromptTokens = estimateTokens(systemPrompt);
-
-  // Calculate history tokens (messages without their tool executions)
-  let historyTokens = 0;
-  let compressedHistoryTokens = 0;
-  let toolResultsTokens = 0;
-
-  effectiveMessages.forEach((message, index) => {
-    // Check for compressed history - ONLY allowed in the very first message
-    if (index === 0 && message.content.includes('<compressed_history>')) {
-      const contentTokens = estimateTokens(message.content);
-      compressedHistoryTokens += contentTokens;
-    } else {
-      // Apply filtering to content to match what is sent to LLM
-      // Remove think blocks first, then strip unavailable tool calls (mirrors chat-history-builder.ts)
-      const contentWithoutThink = removeThinkBlocks(message.content);
-      const filteredContent = stripUnavailableToolCalls(contentWithoutThink, mode);
-      historyTokens += estimateTokens(filteredContent);
+    if (revertPreviewMessageId) {
+      const revertIndex = messages.findIndex(msg => msg.id === revertPreviewMessageId);
+      if (revertIndex !== -1) {
+        // Slice to get messages that will remain after revert
+        effectiveMessages = messages.slice(0, revertIndex);
+      }
     }
 
-    // Calculate tool results separately
-    if (message.toolExecutions && message.toolExecutions.size > 0) {
-      message.toolExecutions.forEach((execution) => {
-        // Skip tools that are not available in current mode
-        if (!isToolAvailableInMode(execution.toolName, mode)) {
-          return;
-        }
+    // Calculate system prompt tokens
+    const systemPromptTokens = estimateTokens(systemPrompt);
 
-        toolResultsTokens += estimateTokens(execution.toolName);
-        toolResultsTokens += estimateTokens(JSON.stringify(execution.parameters || {}));
+    // Calculate history tokens (messages without their tool executions)
+    let historyTokens = 0;
+    let compressedHistoryTokens = 0;
+    let toolResultsTokens = 0;
 
-        if (execution.result) {
-          // Use the same formatter as the actual AI prompt to get accurate token counts
-          // This prevents massive over-estimation for file tools (apply_diff, write_to_file)
-          // which return full file content in the result object but truncate it for the AI
-          const formattedResult = formatToolResultForAI(execution.toolName, execution.result);
-          toolResultsTokens += estimateTokens(formattedResult);
-        }
-      });
+    effectiveMessages.forEach((message) => {
+      // Check for compressed history
+      if (message.content.includes('<compressed_history>')) {
+        const contentTokens = estimateTokens(message.content);
+        compressedHistoryTokens += contentTokens;
+      } else {
+        // Apply filtering to content to match what is sent to LLM
+        // Remove think blocks first, then strip unavailable tool calls (mirrors chat-history-builder.ts)
+        const contentWithoutThink = removeThinkBlocks(message.content);
+        const filteredContent = stripUnavailableToolCalls(contentWithoutThink, mode);
+        historyTokens += estimateTokens(filteredContent);
+      }
+
+      // Calculate tool results separately
+      if (message.toolExecutions && message.toolExecutions.size > 0) {
+        message.toolExecutions.forEach((execution) => {
+          // Skip tools that are not available in current mode
+          if (!isToolAvailableInMode(execution.toolName, mode)) {
+            return;
+          }
+
+          toolResultsTokens += estimateTokens(execution.toolName);
+          toolResultsTokens += estimateTokens(JSON.stringify(execution.parameters || {}));
+
+          if (execution.result) {
+            // Use the same formatter as the actual AI prompt to get accurate token counts
+            // This prevents massive over-estimation for file tools (apply_diff, write_to_file)
+            // which return full file content in the result object but truncate it for the AI
+            const formattedResult = formatToolResultForAI(execution.toolName, execution.result);
+            toolResultsTokens += estimateTokens(formattedResult);
+          }
+        });
+      }
+    });
+
+    // Add current tool result text if any
+    if (currentToolResultText) {
+      toolResultsTokens += estimateTokens(currentToolResultText);
     }
-  });
 
-  // Add current tool result text if any
-  if (currentToolResultText) {
-    toolResultsTokens += estimateTokens(currentToolResultText);
-  }
+    const totalTokens = systemPromptTokens + historyTokens + toolResultsTokens;
+    const maxTokens = contextSettings.maxContextTokens;
 
-  const totalTokens = systemPromptTokens + historyTokens + toolResultsTokens;
-  const maxTokens = contextSettings.maxContextTokens;
-
-  return {
-    systemPromptTokens,
-    historyTokens,
-    compressedHistoryTokens,
-    toolResultsTokens,
-    totalTokens,
-    maxTokens,
-  };
-}
-
-/**
- * Hook to calculate current context usage in tokens
- * Throttled to prevent UI blocking during high-frequency updates (streaming)
- */
-export function useContextUsage(options: UseContextUsageOptions): ContextUsageResult {
-  const [result, setResult] = useState<ContextUsageResult>(() => calculateContextUsage(options));
-  // Initialize to 0 so the first update (e.g. session load) runs immediately
-  const lastRun = useRef<number>(0);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const mounted = useRef(true);
-
-  // Track the latest options with a ref to avoid stale closures in setTimeout
-  const optionsRef = useRef(options);
-  
-  useEffect(() => {
-    mounted.current = true;
-    return () => { mounted.current = false; };
-  }, []);
-
-  useEffect(() => {
-    // Update ref with latest options immediately
-    optionsRef.current = options;
-
-    const THROTTLE_MS = 1000;
-    const now = Date.now();
-    const timeSinceLastRun = now - lastRun.current;
-
-    const execute = () => {
-      if (!mounted.current) return;
-      // Use the LATEST options from the ref
-      setResult(calculateContextUsage(optionsRef.current));
-      lastRun.current = Date.now();
-      timeoutRef.current = null;
+    return {
+      systemPromptTokens,
+      historyTokens,
+      compressedHistoryTokens,
+      toolResultsTokens,
+      totalTokens,
+      maxTokens,
     };
-
-    if (timeSinceLastRun >= THROTTLE_MS) {
-      // If enough time passed, execute immediately
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-      execute();
-    } else {
-      // Otherwise schedule it if not already scheduled
-      if (!timeoutRef.current) {
-        timeoutRef.current = setTimeout(execute, THROTTLE_MS - timeSinceLastRun);
-      }
-    }
-
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-    };
-  }, [
-    // We list individual fields to trigger the effect
-    options.systemPrompt,
-    options.messages,
-    options.mode,
-    options.currentToolResultText,
-    options.contextSettings,
-    options.revertPreviewMessageId
-  ]);
-
-  return result;
+  }, [systemPrompt, messages, mode, currentToolResultText, contextSettings, revertPreviewMessageId]);
 }

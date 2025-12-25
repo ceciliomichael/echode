@@ -39,25 +39,39 @@ Usage: Always use "execute" then "read" with timeout to get streaming output.`,
         execute: executeRunTerminal,
     },
     renderer: (data: unknown) => {
+        // Backend returns { command, output, exitCode } object
+        let command = '';
+        let output = '';
+        
         if (typeof data === 'string') {
-            return (
-                <div className="space-y-2">
-                    <div className="text-xs font-semibold opacity-70 flex items-center gap-1">
-                        <Terminal size={12} />
-                        <span>Terminal Output</span>
-                    </div>
-                    <pre
-                        className="text-xs font-mono whitespace-pre-wrap overflow-x-auto p-2 rounded"
-                        style={{
-                            backgroundColor: 'var(--vscode-textCodeBlock-background)',
-                            color: 'var(--vscode-editor-foreground)',
-                        }}
-                    >
-                        {data}
-                    </pre>
-                </div>
-            );
+            output = data;
+        } else if (typeof data === 'object' && data !== null) {
+            const result = data as { command?: string; output?: string; exitCode?: number };
+            command = result.command || '';
+            output = result.output || '';
         }
-        return <div className="text-xs opacity-70">Command executed successfully</div>;
+        
+        // Prepend command to output for visibility
+        const displayContent = command ? `$ ${command}\n${output}` : output;
+        
+        return (
+            <div className="space-y-2">
+                <div className="text-xs font-semibold opacity-70 flex items-center gap-1">
+                    <Terminal size={12} />
+                    <span>Terminal Output</span>
+                </div>
+                <pre
+                    className="text-xs font-mono whitespace-pre-wrap overflow-x-auto p-2 rounded"
+                    style={{
+                        backgroundColor: 'var(--vscode-textCodeBlock-background)',
+                        color: 'var(--vscode-editor-foreground)',
+                        maxHeight: '400px',
+                        overflowY: 'auto',
+                    }}
+                >
+                    {displayContent || '(No output)'}
+                </pre>
+            </div>
+        );
     },
 });

@@ -221,7 +221,7 @@ export class OpenAIProvider implements ILLMProvider {
         role: m.role,
         content: m.content
       })) as OpenAI.ChatCompletionMessageParam[],
-      temperature: settings.temperature ?? 0.7,
+      temperature: settings.temperature ?? 0,
       stream: true,
     };
 

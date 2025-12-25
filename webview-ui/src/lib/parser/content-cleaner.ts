@@ -11,6 +11,33 @@ export function cleanToolCallContent(content: string): string {
   let cleaned = content;
   let hadErrors = false;
 
+  // Fix corrupted tool call formats (AI hallucinations)
+  // Pattern: <tool_call>function_calls> or similar hybrid formats
+  const corruptedPatterns = [
+    // <tool_call>function_calls> -> <function_calls>
+    { pattern: /<tool_call>function_calls>/gi, replacement: '<function_calls>' },
+    // <tool_call> -> <function_calls>
+    { pattern: /<tool_call>/gi, replacement: '<function_calls>' },
+    // </tool_call> -> </function_calls>
+    { pattern: /<\/tool_call>/gi, replacement: '</function_calls>' },
+    // <tool_code> -> <function_calls>
+    { pattern: /<tool_code>/gi, replacement: '<function_calls>' },
+    // </tool_code> -> </function_calls>
+    { pattern: /<\/tool_code>/gi, replacement: '</function_calls>' },
+    // <|tool|> or <|tool_call|> -> <function_calls>
+    { pattern: /<\|tool\|>/gi, replacement: '<function_calls>' },
+    { pattern: /<\|tool_call\|>/gi, replacement: '<function_calls>' },
+    { pattern: /<\|\/tool\|>/gi, replacement: '</function_calls>' },
+    { pattern: /<\|\/tool_call\|>/gi, replacement: '</function_calls>' },
+  ];
+
+  for (const { pattern, replacement } of corruptedPatterns) {
+    if (pattern.test(cleaned)) {
+      hadErrors = true;
+      cleaned = cleaned.replace(pattern, replacement);
+    }
+  }
+
   // Remove duplicate opening <function_calls> tags
   const duplicateOpenings = cleaned.match(/<function_calls>\s*<function_calls>/g);
   if (duplicateOpenings) {

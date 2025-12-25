@@ -32,6 +32,7 @@ export class ChatApiService {
     let temperature = 0;
     let baseURL = '';
     let reasoningEffort: string | undefined;
+    let zaiThinking: boolean | undefined;
     let qwenCodeOauthPath: string | undefined;
 
     // Check if it's a custom provider
@@ -89,6 +90,13 @@ export class ChatApiService {
       temperature = settings.qwenCodeTemperature;
       baseURL = getProviderDefaults('qwen-code').baseUrl;
       qwenCodeOauthPath = settings.qwenCodeOauthPath || '~/.qwen/oauth_creds.json';
+    } else if (activeProvider === 'zai') {
+      effectiveApiKey = settings.zaiApiKey || settings.apiKey || '';
+      effectiveModel = activeModel || settings.zaiModel || settings.model;
+      maxTokens = settings.zaiMaxTokens;
+      temperature = settings.zaiTemperature;
+      baseURL = settings.zaiCustomUrl?.trim() || getProviderDefaults('zai').baseUrl;
+      zaiThinking = settings.zaiThinking;
     } else {
       // VS Code LM: no apiKey/baseURL, provider-specific model/maxTokens
       effectiveApiKey = '';
@@ -104,6 +112,9 @@ export class ChatApiService {
     }
     if (activeProvider === 'openai' && !effectiveApiKey) {
       throw new Error('OpenAI API key is missing. Please configure it in the settings.');
+    }
+    if (activeProvider === 'zai' && !effectiveApiKey) {
+      throw new Error('Z.ai API key is missing. Please configure it in the settings.');
     }
     if ((activeProvider === 'openai-compatible' || activeProvider === 'megallm' || isCustomProvider(activeProvider)) && !baseURL) {
       throw new Error('Base URL is missing for the provider. Please configure it in the settings.');
@@ -147,6 +158,7 @@ export class ChatApiService {
       reasoningEffort,
       baseURL,
       qwenCodeOauthPath,
+      zaiThinking,
       enabledTools: enabledToolsForBackend,
       chatMode: activeMode,
       streamingTimeout: settings.streamingTimeout || 5000,

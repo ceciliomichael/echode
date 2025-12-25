@@ -175,8 +175,6 @@ export const PlanMarkdownRenderer = memo(function PlanMarkdownRenderer({ content
               borderColor: 'var(--vscode-input-border)',
               color: 'var(--vscode-textLink-foreground)',
               borderRadius: '4px',
-              WebkitBoxDecorationBreak: 'clone',
-              boxDecorationBreak: 'clone',
             } as React.CSSProperties}
             {...props}
           >

@@ -84,9 +84,14 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, is
                         overflowY: 'auto'
                       }}
                     >
-                      {typeof toolCall.progress === 'string' && toolCall.progress 
-                        ? toolCall.progress 
-                        : <span className="opacity-50 italic">Waiting for output...</span>}
+                      {typeof toolCall.progress === 'string' && toolCall.progress ? (
+                        toolCall.progress
+                      ) : (
+                        <>
+                          <div>$ {String(toolCall.parameters.command || '')}</div>
+                          <span className="opacity-50 italic">Waiting for output...</span>
+                        </>
+                      )}
                     </pre>
                   </div>
                 </div>

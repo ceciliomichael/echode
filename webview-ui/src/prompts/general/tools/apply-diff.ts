@@ -50,7 +50,6 @@ function computeTotal(items) {
 
 ### MULTIPLE EDITS - Use separate invokes (PARALLEL OK)
 \`\`\`xml
-</function_calls>
 <function_calls>
     <invoke name="apply_diff">
         <parameter name="path">src/file.ts</parameter>

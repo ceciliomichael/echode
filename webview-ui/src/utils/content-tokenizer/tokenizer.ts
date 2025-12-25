@@ -8,21 +8,51 @@ import {
 import { extractAllInvokeBlocks, parseXMLParameters } from './xml-parser';
 
 /**
+ * Preprocess content to fix corrupted AI tool call formats
+ * This ensures the tokenizer can properly recognize tool blocks
+ */
+function preprocessToolTags(content: string): string {
+    let processed = content;
+
+    // Fix corrupted hybrid formats
+    // <tool_call>function_calls> -> <function_calls>
+    processed = processed.replace(/<tool_call>function_calls>/gi, '<function_calls>');
+    // <tool_call> -> <function_calls>
+    processed = processed.replace(/<tool_call>/gi, '<function_calls>');
+    // </tool_call> -> </function_calls>
+    processed = processed.replace(/<\/tool_call>/gi, '</function_calls>');
+    // <tool_code> -> <function_calls>
+    processed = processed.replace(/<tool_code>/gi, '<function_calls>');
+    // </tool_code> -> </function_calls>
+    processed = processed.replace(/<\/tool_code>/gi, '</function_calls>');
+    // <|tool|> variants
+    processed = processed.replace(/<\|tool\|>/gi, '<function_calls>');
+    processed = processed.replace(/<\|tool_call\|>/gi, '<function_calls>');
+    processed = processed.replace(/<\|\/tool\|>/gi, '</function_calls>');
+    processed = processed.replace(/<\|\/tool_call\|>/gi, '</function_calls>');
+
+    return processed;
+}
+
+/**
  * Tokenize content into stable segments (think blocks, tool blocks, and text)
  * Process sequentially to avoid parsing content inside think blocks
  */
 export function tokenizeContent(content: string, messageId: string = 'unknown'): ContentToken[] {
+    // Preprocess to fix corrupted tool call formats
+    const processedContent = preprocessToolTags(content);
+
     const tokens: ContentToken[] = [];
     let position = 0;
     let tokenIndex = 0;
     let toolIndex = 0;
 
-    while (position < content.length) {
+    while (position < processedContent.length) {
         // Check for think/thinking blocks, tool blocks, and mermaid blocks
-        const thinkStart = content.indexOf('<think>', position);
-        const thinkingStart = content.indexOf('<thinking>', position);
-        const toolStart = findNextToolStart(content, position);
-        const mermaidStart = findNextMermaidStart(content, position);
+        const thinkStart = processedContent.indexOf('<think>', position);
+        const thinkingStart = processedContent.indexOf('<thinking>', position);
+        const toolStart = findNextToolStart(processedContent, position);
+        const mermaidStart = findNextMermaidStart(processedContent, position);
 
         // Determine which comes first
         let nextBlockStart = -1;
@@ -44,7 +74,7 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
 
         // Add text before next block
         if (nextBlockStart !== -1 && nextBlockStart > position) {
-            const textContent = content.slice(position, nextBlockStart);
+            const textContent = processedContent.slice(position, nextBlockStart);
 
             if (textContent) {
                 tokens.push({
@@ -59,11 +89,11 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
         // Process think block
         if (blockType === 'think') {
             const contentStart = thinkStart + 7; // length of '<think>'
-            const closeTag = content.indexOf('</think>', contentStart);
+            const closeTag = processedContent.indexOf('</think>', contentStart);
 
             if (closeTag !== -1) {
                 // Closed think block
-                const thinkContent = content.slice(contentStart, closeTag);
+                const thinkContent = processedContent.slice(contentStart, closeTag);
                 tokens.push({
                     type: 'think',
                     content: thinkContent,
@@ -73,25 +103,25 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
                 position = closeTag + 8; // Skip past '</think>'
             } else {
                 // Unclosed think block (streaming)
-                const thinkContent = content.slice(contentStart);
+                const thinkContent = processedContent.slice(contentStart);
                 tokens.push({
                     type: 'think',
                     content: thinkContent,
                     index: tokenIndex++,
                     isClosed: false
                 });
-                position = content.length;
+                position = processedContent.length;
                 break;
             }
         }
         // Process thinking block
         else if (blockType === 'thinking') {
             const contentStart = thinkingStart + 10; // length of '<thinking>'
-            const closeTag = content.indexOf('</thinking>', contentStart);
+            const closeTag = processedContent.indexOf('</thinking>', contentStart);
 
             if (closeTag !== -1) {
                 // Closed thinking block
-                const thinkContent = content.slice(contentStart, closeTag);
+                const thinkContent = processedContent.slice(contentStart, closeTag);
                 tokens.push({
                     type: 'think',
                     content: thinkContent,
@@ -101,14 +131,14 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
                 position = closeTag + 11; // Skip past '</thinking>'
             } else {
                 // Unclosed thinking block (streaming)
-                const thinkContent = content.slice(contentStart);
+                const thinkContent = processedContent.slice(contentStart);
                 tokens.push({
                     type: 'think',
                     content: thinkContent,
                     index: tokenIndex++,
                     isClosed: false
                 });
-                position = content.length;
+                position = processedContent.length;
                 break;
             }
         }
@@ -120,13 +150,13 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
 
             const contentStart = toolStart + openingTag.length;
             // Use balanced matching to find the correct closing tag
-            const closeMarker = findMatchingFunctionCallsClose(content, contentStart);
+            const closeMarker = findMatchingFunctionCallsClose(processedContent, contentStart);
 
             if (closeMarker !== -1) {
                 // Closed tool block - extract ALL invoke blocks from this function_calls
-                const innerContent = content.slice(contentStart, closeMarker);
+                const innerContent = processedContent.slice(contentStart, closeMarker);
                 const closingTagLength = closingTag.length;
-                const rawContent = content.slice(toolStart, closeMarker + closingTagLength);
+                const rawContent = processedContent.slice(toolStart, closeMarker + closingTagLength);
 
                 try {
                     // Extract ALL invoke blocks using balanced matching
@@ -182,8 +212,8 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
                 }
             } else {
                 // Unclosed tool block (streaming) - extract all complete invoke blocks + partial last one
-                const innerContent = content.slice(contentStart);
-                const rawContent = content.slice(toolStart);
+                const innerContent = processedContent.slice(contentStart);
+                const rawContent = processedContent.slice(toolStart);
 
                 try {
                     // Extract all invoke blocks (complete ones + partial last one)
@@ -232,18 +262,18 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
                 } catch {
                     // XML parsing failed during streaming. Skip this block.
                 }
-                position = content.length;
+                position = processedContent.length;
                 break;
             }
         }
         // Process mermaid block
         else if (blockType === 'mermaid') {
             const contentStart = mermaidStart + 10; // length of '```mermaid'
-            const closeTag = findMermaidClose(content, contentStart);
+            const closeTag = findMermaidClose(processedContent, contentStart);
 
             if (closeTag !== -1) {
                 // Closed mermaid block
-                const mermaidContent = content.slice(contentStart, closeTag).trim();
+                const mermaidContent = processedContent.slice(contentStart, closeTag).trim();
                 tokens.push({
                     type: 'mermaid',
                     content: mermaidContent,
@@ -252,25 +282,25 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
                 });
                 position = closeTag + 3; // Skip past '```'
                 // Skip trailing newline after closing ``` if present
-                if (position < content.length && content[position] === '\n') {
+                if (position < processedContent.length && processedContent[position] === '\n') {
                     position++;
                 }
             } else {
                 // Unclosed mermaid block (streaming)
-                const mermaidContent = content.slice(contentStart).trim();
+                const mermaidContent = processedContent.slice(contentStart).trim();
                 tokens.push({
                     type: 'mermaid',
                     content: mermaidContent,
                     index: tokenIndex++,
                     isClosed: false
                 });
-                position = content.length;
+                position = processedContent.length;
                 break;
             }
         }
         // No more blocks
         else {
-            let remainingText = content.slice(position);
+            let remainingText = processedContent.slice(position);
 
             // Hide incomplete function_calls tag markers during streaming (e.g., "<", "<f", "<func", "<function_", etc.)
             // This prevents flashing when AI is still typing the opening tag
@@ -309,7 +339,7 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
                     index: tokenIndex++
                 });
             }
-            position = content.length;
+            position = processedContent.length;
         }
     }
 

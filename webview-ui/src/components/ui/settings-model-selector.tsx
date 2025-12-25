@@ -103,6 +103,7 @@ export function SettingsModelSelector({
   const openaiKey = settings.openaiApiKey || '';
   const openaiCompatibleKey = settings.openaiCompatibleApiKey || '';
   const megallmKey = settings.megallmApiKey || '';
+  const zaiKey = settings.zaiApiKey || '';
 
   const {
     models: anthropicModels,
@@ -140,6 +141,12 @@ export function SettingsModelSelector({
     fetchModels: fetchQwenCode,
   } = useModelFetcher('qwen-code', undefined, '');
 
+  const {
+    models: zaiModels,
+    loadingModels: loadingZai,
+    fetchModels: fetchZai,
+  } = useModelFetcher('zai', settings.zaiCustomUrl, zaiKey);
+
   const anyLoading =
     loadingAnthropic ||
     loadingOpenai ||
@@ -147,6 +154,7 @@ export function SettingsModelSelector({
     loadingMegallm ||
     loadingVscodeLm ||
     loadingQwenCode ||
+    loadingZai ||
     Object.values(customModels).some(m => m.loading);
 
   const handleCustomModelsFetched = useCallback((provider: Provider, models: string[], loading: boolean) => {
@@ -173,7 +181,8 @@ export function SettingsModelSelector({
     fetchMegallm();
     fetchVscodeLm();
     fetchQwenCode();
-  }, [isOpen, fetchAnthropic, fetchOpenai, fetchOpenaiCompatible, fetchMegallm, fetchVscodeLm, fetchQwenCode]);
+    fetchZai();
+  }, [isOpen, fetchAnthropic, fetchOpenai, fetchOpenaiCompatible, fetchMegallm, fetchVscodeLm, fetchQwenCode, fetchZai]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -206,6 +215,7 @@ export function SettingsModelSelector({
     if (megallmModels) models.push(...megallmModels.map(m => ({ provider: 'megallm' as Provider, providerLabel: 'MEGALLM', model: m })));
     if (vscodeLmModels) models.push(...vscodeLmModels.map(m => ({ provider: 'vscode-lm' as Provider, providerLabel: 'VS Code LM (Copilot)', model: m })));
     if (qwenCodeModels) models.push(...qwenCodeModels.map(m => ({ provider: 'qwen-code' as Provider, providerLabel: 'Qwen Code', model: m })));
+    if (zaiModels) models.push(...zaiModels.map(m => ({ provider: 'zai' as Provider, providerLabel: 'Z.ai', model: m })));
 
     // Add custom provider models
     if (settings.customProviders) {
@@ -223,7 +233,7 @@ export function SettingsModelSelector({
     }
 
     return models;
-  }, [anthropicModels, openaiModels, openaiCompatibleModels, megallmModels, vscodeLmModels, qwenCodeModels, customModels, settings.customProviders]);
+  }, [anthropicModels, openaiModels, openaiCompatibleModels, megallmModels, vscodeLmModels, qwenCodeModels, zaiModels, customModels, settings.customProviders]);
 
   const searchValue = search.trim().toLowerCase();
   const hasSearch = searchValue.length > 0;

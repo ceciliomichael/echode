@@ -276,7 +276,6 @@ export function ChatContainer() {
               <div className="space-y-3">
                 {visibleMessages.map((message, index) => {
                   const isLastAssistantMessage = index === visibleMessages.length - 1 && message.role === 'assistant';
-                  const isFirstMessage = index === 0;
 
                   return (
                     <MessageBubble
@@ -290,7 +289,6 @@ export function ChatContainer() {
                       onRevert={handleRevert}
                       isStreaming={(isStreaming || isExecutingTool) && isLastAssistantMessage}
                       isLastMessage={isLastAssistantMessage}
-                      isFirstMessage={isFirstMessage}
                       mode={mode}
                       onModeChange={handleModeChange}
                       provider={provider}

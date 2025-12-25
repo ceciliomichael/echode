@@ -106,7 +106,7 @@ export function getToolsForMode(mode: ChatMode, defaultEnabled = true): Tool[] {
 
     case 'ask':
       // Ask mode: allowed exploration tools + MCP tools
-      return allTools.filter(t => 
+      return allTools.filter(t =>
         (ASK_MODE_TOOL_IDS as readonly string[]).includes(t.id) ||
         !STANDARD_TOOL_IDS.has(t.id)
       );
@@ -147,7 +147,7 @@ export function getToolsForMode(mode: ChatMode, defaultEnabled = true): Tool[] {
  */
 
 export function getToolSystemPrompt(enabledTools: Tool[]): string {
-  if (enabledTools.length === 0) {return '';}
+  if (enabledTools.length === 0) { return ''; }
 
   const allMetadata = getAllToolMetadata();
   const toolIdsList = enabledTools.map(t => `\`${t.id}\``).join(', ');
@@ -156,7 +156,7 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
   const toolList = enabledTools
     .map((tool) => {
       const metadata = allMetadata.find((m) => m.id === tool.id);
-      if (!metadata) {return '';}
+      if (!metadata) { return ''; }
       return `- ${metadata.id}: ${metadata.description}`;
     })
     .filter(Boolean)
@@ -192,6 +192,23 @@ FORMAT RULES:
 3. Parameters must be strictly inside <parameter> tags.
 4. XML tags must be properly closed.
 </tool_format>
+
+<invalid_formats>
+CRITICAL: The following formats are STRICTLY FORBIDDEN. NEVER use them:
+
+1. DO NOT use <tool_call> or <tool_code> tags.
+2. DO NOT use <|tool|> or <|tool_call|> syntax.
+3. DO NOT use [TOOL] or [call] prefixes.
+4. DO NOT use JSON objects for tools (except inside param values).
+5. DO NOT use Markdown code blocks for tools.
+
+CORRECT FORMAT ONLY:
+<function_calls>
+    <invoke name="...">
+        ...
+    </invoke>
+</function_calls>
+</invalid_formats>
 
 <available_tools>
 Available: ${toolIdsList}

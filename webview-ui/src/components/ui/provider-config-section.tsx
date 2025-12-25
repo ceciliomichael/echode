@@ -1,6 +1,8 @@
 import { ApiKeyInput } from './api-key-input';
 import { ProviderDropdown } from './provider-dropdown';
 import { ReasoningEffortDropdown } from './reasoning-effort-dropdown';
+import { ZaiUrlDropdown } from './zai-url-dropdown';
+import { ZaiThinkingDropdown } from './zai-thinking-dropdown';
 import { getProviderDefaults, isCustomProvider, type Provider, type CustomProvider, type ReasoningEffort } from '../../types/api-settings';
 
 interface ProviderConfigSectionProps {
@@ -8,12 +10,14 @@ interface ProviderConfigSectionProps {
   customBaseUrl: string;
   apiKey: string;
   reasoningEffort?: ReasoningEffort;
+  zaiThinking?: boolean;
   qwenCodeOauthPath?: string;
   customProviders?: CustomProvider[];
   onProviderChange: (value: Provider) => void;
   onCustomBaseUrlChange: (value: string) => void;
   onApiKeyChange: (value: string) => void;
   onReasoningEffortChange?: (value: ReasoningEffort | undefined) => void;
+  onZaiThinkingChange?: (value: boolean) => void;
   onQwenCodeOauthPathChange?: (value: string) => void;
 }
 
@@ -22,12 +26,14 @@ export function ProviderConfigSection({
   customBaseUrl,
   apiKey,
   reasoningEffort,
+  zaiThinking,
   qwenCodeOauthPath,
   customProviders = [],
   onProviderChange,
   onCustomBaseUrlChange,
   onApiKeyChange,
   onReasoningEffortChange,
+  onZaiThinkingChange,
   onQwenCodeOauthPathChange
 }: ProviderConfigSectionProps) {
   // Check if current provider is a custom provider
@@ -37,7 +43,8 @@ export function ProviderConfigSection({
   const showBaseUrlField = !isCurrentCustomProvider &&
     provider !== 'vscode-lm' &&
     provider !== 'qwen-code' &&
-    provider !== 'megallm';
+    provider !== 'megallm' &&
+    provider !== 'zai';
 
   // Show API key for non-vscode-lm, non-qwen-code providers (including custom providers)
   const showApiKeyField = provider !== 'vscode-lm' && provider !== 'qwen-code' && !isCurrentCustomProvider;
@@ -91,6 +98,13 @@ export function ProviderConfigSection({
             }}
           />
         </div>
+      )}
+
+      {provider === 'zai' && (
+        <ZaiUrlDropdown
+          value={customBaseUrl}
+          onChange={onCustomBaseUrlChange}
+        />
       )}
 
       {provider === 'qwen-code' && (
@@ -151,6 +165,13 @@ export function ProviderConfigSection({
         <ReasoningEffortDropdown
           value={reasoningEffort}
           onChange={(val) => onReasoningEffortChange?.(val)}
+        />
+      )}
+
+      {provider === 'zai' && (
+        <ZaiThinkingDropdown
+          value={zaiThinking ?? false}
+          onChange={(val) => onZaiThinkingChange?.(val)}
         />
       )}
     </div>
