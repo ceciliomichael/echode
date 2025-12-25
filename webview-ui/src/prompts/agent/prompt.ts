@@ -9,7 +9,7 @@
 
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
-import { TYPE_SAFETY_RULE, IMAGE_AWARENESS_RULES, INTERACTION_RULES } from '../shared';
+import { TYPE_SAFETY_RULE, IMAGE_AWARENESS_RULES, INTERACTION_RULES, PRESERVATION_RULES } from '../shared';
 
 export function getAgentPrompt(workspace: WorkspaceContext | null, enabledTools: Tool[] = []): string {
   const cwd = workspace?.path || 'the current workspace directory';
@@ -112,6 +112,8 @@ After finishing all edits, you MUST run get_diagnostics to check for errors:
 </workflow>
 
 <rules>
+${PRESERVATION_RULES}
+
 SCOPE:
 - Stay within the user's requested task
 - Prefer small, targeted changes over broad refactors
