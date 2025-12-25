@@ -39,20 +39,30 @@ Usage: Always use "execute" then "read" with timeout to get streaming output.`,
         execute: executeRunTerminal,
     },
     renderer: (data: unknown) => {
-        // Backend returns { command, output, exitCode } object
-        let command = '';
-        let output = '';
+        // Determine display content - prefer progress (streamed output) over result data
+        let displayContent = '';
         
         if (typeof data === 'string') {
-            output = data;
+            // Direct string data
+            displayContent = data;
         } else if (typeof data === 'object' && data !== null) {
-            const result = data as { command?: string; output?: string; exitCode?: number };
-            command = result.command || '';
-            output = result.output || '';
+            const result = data as { 
+                command?: string; 
+                output?: string; 
+                exitCode?: number;
+                progress?: string;  // Streamed progress passed from tool-block-content
+            };
+            
+            // Prefer progress (contains full streamed output with command prefix)
+            if (typeof result.progress === 'string' && result.progress) {
+                displayContent = result.progress;
+            } else {
+                // Fallback to result data
+                const command = result.command || '';
+                const output = result.output || '';
+                displayContent = command ? `$ ${command}\n${output}` : output;
+            }
         }
-        
-        // Prepend command to output for visibility
-        const displayContent = command ? `$ ${command}\n${output}` : output;
         
         return (
             <div className="space-y-2">

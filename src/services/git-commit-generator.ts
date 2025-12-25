@@ -30,7 +30,30 @@ Consolidated error responses and removed redundant try-catch blocks.
 Generate ONLY the commit message. No markdown, no explanations.`;
 
 /**
- * Interface for commit message settings stored in API settings
+ * Sanitize commit message by removing markdown code blocks and extra formatting
+ */
+function sanitizeCommitMessage(message: string): string {
+  let cleaned = message.trim();
+  
+  // Remove markdown code blocks (```...``` or ```language\n...\n```)
+  cleaned = cleaned.replace(/^```[\w]*\n?/gm, '').replace(/\n?```$/gm, '');
+  
+  // Remove inline code backticks if wrapping entire message
+  if (cleaned.startsWith('`') && cleaned.endsWith('`') && !cleaned.slice(1, -1).includes('`')) {
+    cleaned = cleaned.slice(1, -1);
+  }
+  
+  // Remove leading/trailing quotes if present
+  if ((cleaned.startsWith('"') && cleaned.endsWith('"')) || 
+      (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
+    cleaned = cleaned.slice(1, -1);
+  }
+  
+  return cleaned.trim();
+}
+
+/**
+ *  Interface for commit message settings stored in API settings
  */
 interface CommitMessageSettings {
   provider: string;
@@ -323,7 +346,7 @@ async function generateCommitMessage(diffResult: GitDiffResult): Promise<string 
       abortController.signal
     );
 
-    return response.trim();
+    return sanitizeCommitMessage(response);
   } catch (error) {
     console.error('[GitCommitGenerator] Error generating commit message:', error);
     vscode.window.showErrorMessage(`Failed to generate commit message: ${error instanceof Error ? error.message : 'Unknown error'}`);

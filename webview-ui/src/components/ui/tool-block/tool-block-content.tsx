@@ -84,14 +84,9 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, is
                         overflowY: 'auto'
                       }}
                     >
-                      {typeof toolCall.progress === 'string' && toolCall.progress ? (
-                        toolCall.progress
-                      ) : (
-                        <>
-                          <div>$ {String(toolCall.parameters.command || '')}</div>
-                          <span className="opacity-50 italic">Waiting for output...</span>
-                        </>
-                      )}
+                      {typeof toolCall.progress === 'string' && toolCall.progress 
+                        ? toolCall.progress 
+                        : <span className="opacity-50 italic">Waiting for output...</span>}
                     </pre>
                   </div>
                 </div>
@@ -104,7 +99,16 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, is
             <div className="overflow-x-auto">
               {toolCall.result.success ? (
                 <div style={{ color: 'var(--vscode-editor-foreground)' }}>
-                  {renderToolResult(toolCall.toolName, toolCall.result.data, fileInfo.displayName)}
+                  {/* For run_terminal, pass progress to renderer for complete output */}
+                  {toolCall.toolName === 'run_terminal' ? (
+                    renderToolResult(
+                      toolCall.toolName,
+                      { ...toolCall.result.data as object, progress: toolCall.progress },
+                      fileInfo.displayName
+                    )
+                  ) : (
+                    renderToolResult(toolCall.toolName, toolCall.result.data, fileInfo.displayName)
+                  )}
                   
                   {/* Plan tool action buttons */}
                   {showPlanActions && (

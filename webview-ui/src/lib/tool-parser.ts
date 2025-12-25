@@ -154,11 +154,11 @@ export function trimToLastCompleteToolBlock(content: string): string {
 
     while (searchPos < content.length) {
       const openPos = content.indexOf(openTag, searchPos);
-      if (openPos === -1) {break;}
+      if (openPos === -1) { break; }
 
       const openTagEnd = openPos + openTag.length;
       const closePos = findMatchingClosingTag(content, openTagEnd, openTag, closingTag);
-      if (closePos === -1) {break;}
+      if (closePos === -1) { break; }
 
       lastClosePos = closePos + closingTag.length;
       searchPos = lastClosePos;
@@ -280,16 +280,7 @@ export function extractCompleteInvokeBlocksIncremental(content: string): {
   pendingBlocks: PendingInvokeBlock[];
   hasFunctionCallsClose: boolean;
 } {
-  const fenceMatches = content.match(/```/g);
-  const fenceCount = fenceMatches ? fenceMatches.length : 0;
-
-  // If there is an unmatched markdown code fence (odd number of ```),
-  // we must NOT execute tools yet. This covers streaming cases where
-  // ```xml has been opened but the closing ``` has not arrived.
-  if (fenceCount % 2 === 1) {
-    return { blocks: [], pendingBlocks: [], hasFunctionCallsClose: false };
-  }
-
+  // Note: Fence detection removed - it caused issues with writing content containing ```
   const preprocessed = preprocessContent(content);
   const blocks: ParsedToolBlock[] = [];
   const pendingBlocks: PendingInvokeBlock[] = [];

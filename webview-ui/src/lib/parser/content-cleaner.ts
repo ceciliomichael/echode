@@ -124,22 +124,10 @@ export function removeThinkBlocks(content: string): string {
 }
 
 /**
- * Remove markdown code blocks from content
- * Code blocks should not be parsed as executable tool calls
- * Handles fenced code blocks: ```language ... ```
+ * Remove markdown code blocks from content OUTSIDE of function_calls blocks.
+ * Content INSIDE function_calls (including ```) is preserved as-is.
  */
 export function removeCodeBlocks(content: string): string {
-  // Streaming-safe implementation using a simple scanner instead of regex.
-  // Any content between matching ``` fences is treated as non-executable
-  // and completely removed from the string that the tool parser sees.
-  //
-  // Behavior:
-  // - When an opening ``` (with optional language, e.g. ```xml) is seen,
-  //   we enter a fenced block and skip ALL characters until the closing ```.
-  // - While inside a fence, <function_calls> XML is invisible to the parser.
-  // - If the closing ``` never arrives (streaming/incomplete block), the
-  //   rest of the content is treated as code and ignored for tool parsing.
-
   let result = '';
   let i = 0;
   let inFence = false;
@@ -149,38 +137,42 @@ export function removeCodeBlocks(content: string): string {
   const closeTag = '</function_calls>';
 
   while (i < content.length) {
-    if (!inFence) {
-      if (content.startsWith(openTag, i)) {
-        inFunctionCalls = true;
-        result += openTag;
-        i += openTag.length;
-        continue;
-      }
-
-      if (content.startsWith(closeTag, i)) {
-        inFunctionCalls = false;
-        result += closeTag;
-        i += closeTag.length;
-        continue;
-      }
+    // Check for function_calls tags
+    if (content.startsWith(openTag, i)) {
+      inFunctionCalls = true;
+      result += openTag;
+      i += openTag.length;
+      continue;
     }
 
-    // Detect a triple-backtick fence at the current position
-    if (!inFunctionCalls && content.startsWith('```', i)) {
+    if (content.startsWith(closeTag, i)) {
+      inFunctionCalls = false;
+      result += closeTag;
+      i += closeTag.length;
+      continue;
+    }
+
+    // Inside function_calls: preserve EVERYTHING including ```
+    if (inFunctionCalls) {
+      result += content[i];
+      i++;
+      continue;
+    }
+
+    // Outside function_calls: handle code block fencing
+    if (content.startsWith('```', i)) {
       inFence = !inFence;
       i += 3;
-
-      // On opening fence, skip optional language identifier up to newline
+      // Skip language identifier on opening fence
       if (inFence) {
         while (i < content.length && content[i] !== '\n' && content[i] !== '\r') {
           i++;
         }
       }
-
-      // Do not include the fence or language in the result used for parsing
       continue;
     }
 
+    // Outside function_calls and outside fence: add to result
     if (!inFence) {
       result += content[i];
     }

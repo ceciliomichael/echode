@@ -95,14 +95,20 @@ export class WriteFileTool implements ITool {
     const isMarkdownLike = ext ? this.MARKDOWN_LIKE_EXTENSIONS.has(ext) : false;
 
     // Strip surrounding code fences if present (```), similar to Roo Code behavior.
-    // IMPORTANT: Do NOT apply this to markdown-like files, where trailing ``` is
-    // usually a legitimate fenced code block (e.g., mermaid diagrams at EOF).
-    if (!isMarkdownLike && content.startsWith('```')) {
-      content = content.split('\n').slice(1).join('\n');
-    }
+    // IMPORTANT: Only strip if content looks like it was wrapped in markdown code block
+    // (starts with ```language\n and ends with \n```). Don't strip if user intentionally
+    // wants to write ``` as content.
+    if (!isMarkdownLike) {
+      // Only strip if it looks like a markdown code block wrapper:
+      // - Starts with ``` followed by optional language then newline
+      // - Ends with newline then ```
+      const startsWithFence = /^```[a-zA-Z]*\r?\n/.test(content);
+      const endsWithFence = /\r?\n```$/.test(content);
 
-    if (!isMarkdownLike && content.endsWith('```')) {
-      content = content.split('\n').slice(0, -1).join('\n');
+      if (startsWithFence && endsWithFence) {
+        // Strip both fences together (it's a wrapper)
+        content = content.split('\n').slice(1, -1).join('\n');
+      }
     }
 
     // Unescape HTML entities (smart quotes, etc.) for non-Claude models
