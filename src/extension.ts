@@ -84,12 +84,13 @@ export function activate(context: vscode.ExtensionContext) {
 
       const document = editor.document;
       const filePath = document.uri.fsPath;
+      const normalizedPath = filePath.replace(/\\/g, '/');
       
-      // Check if this is an EchoDE plan file
-      // We check if the path contains .echode/plan, normalizing separators just in case
-      const isPlanFile = filePath.replace(/\\/g, '/').includes('/.echode/plan/');
+      // Check if this is an EchoDE plan or review file
+      const isPlanFile = normalizedPath.includes('/.echode/plan/');
+      const isReviewFile = normalizedPath.includes('/.echode/codereview/');
 
-      if (isPlanFile && PlanViewerManager.isInitialized) {
+      if ((isPlanFile || isReviewFile) && PlanViewerManager.isInitialized) {
         const content = document.getText();
         // Extract title from first line (e.g. "# Title") or use filename
         const firstLine = content.split('\n')[0].trim();
@@ -97,9 +98,10 @@ export function activate(context: vscode.ExtensionContext) {
           ? firstLine.replace(/^#+\s*/, '') 
           : path.basename(filePath);
 
-        PlanViewerManager.instance.openPlan(title, content, filePath);
+        const docType = isReviewFile ? 'Review' : 'Plan';
+        PlanViewerManager.instance.openPlan(title, content, filePath, docType);
       } else {
-        // Fallback to default markdown preview for non-plan files
+        // Fallback to default markdown preview for non-plan/review files
         await vscode.commands.executeCommand('markdown.showPreview', document.uri);
       }
     })

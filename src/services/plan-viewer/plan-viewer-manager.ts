@@ -43,21 +43,25 @@ export class PlanViewerManager {
   }
 
   /**
-   * Open a plan in the custom viewer.
+   * Open a plan or review in the custom viewer.
    * Creates a new panel or reveals/updates the existing one.
+   * @param title - The display title for the document
+   * @param content - The markdown content to display
+   * @param filePath - Optional file path for workspace state tracking
+   * @param docType - The document type label (defaults to 'Plan')
    */
-  openPlan(title: string, content: string, filePath?: string): void {
+  openPlan(title: string, content: string, filePath?: string, docType: string = 'Plan'): void {
     if (filePath) {
       this.context.workspaceState.update('echode.currentPlanPath', filePath);
     }
 
     if (this.panel) {
       // Panel exists - update content and reveal
-      this.updatePanelContent(title, content);
+      this.updatePanelContent(title, content, docType);
       this.panel.reveal(vscode.ViewColumn.Active, false);
     } else {
       // Create new panel
-      this.createPanel(title, content);
+      this.createPanel(title, content, docType);
     }
   }
 
@@ -80,7 +84,7 @@ export class PlanViewerManager {
     return this.context.workspaceState.get<string>('echode.currentPlanPath');
   }
 
-  private createPanel(title: string, content: string): void {
+  private createPanel(title: string, content: string, docType: string = 'Plan'): void {
     this.panel = vscode.window.createWebviewPanel(
       'echode.planViewer',
       `${title}`,
@@ -98,7 +102,7 @@ export class PlanViewerManager {
     );
 
     // Set initial HTML content
-    this.updatePanelContent(title, content);
+    this.updatePanelContent(title, content, docType);
 
     // Handle panel disposal
     this.panel.onDidDispose(() => {
@@ -111,7 +115,7 @@ export class PlanViewerManager {
     });
   }
 
-  private updatePanelContent(title: string, content: string): void {
+  private updatePanelContent(title: string, content: string, docType: string = 'Plan'): void {
     if (!this.panel) return;
 
     this.panel.title = `${title}`;
@@ -119,7 +123,7 @@ export class PlanViewerManager {
       this.panel.webview,
       this.context.extensionUri,
       {
-        title: `Plan: ${title}`,
+        title: `${docType}: ${title}`,
         isPlanViewer: true,
         planContent: content,
       }

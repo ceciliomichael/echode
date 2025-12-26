@@ -160,7 +160,7 @@ export function getToolFileInfo(
     const truncatedCommand = command && command.length > 50 
       ? command.substring(0, 50) + '...' 
       : command;
-    const displayName = truncatedCommand ? `$ ${truncatedCommand}` : 'Terminal';
+    const displayName = truncatedCommand || 'Terminal';
     return {
       displayName,
       fullPath: '',

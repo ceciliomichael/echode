@@ -4,6 +4,36 @@ import { registerToolPlugin } from './tool-plugin';
 import { executeToolViaExtension, type ChatMode } from '../tool-utils';
 
 /**
+ * Publish Findings Tool Result Types
+ */
+export interface PublishFindingsResult {
+  awaitsUserAction: boolean;
+  actionType: string;
+  message: string;
+  reviewId: string;
+  path: string;
+  absolutePath: string;
+  title: string;
+  timestamp: string;
+  lineCount: number;
+  reviewContent?: string;
+  scope?: string;
+  userAction?: string;
+}
+
+/**
+ * Check if a result is a publish findings result
+ */
+export function isPublishFindingsResult(data: unknown): data is PublishFindingsResult {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'reviewId' in data &&
+    'path' in data
+  );
+}
+
+/**
  * Publish Findings Tool - Exclusive to Review Mode
  * 
  * Creates comprehensive code review reports in .echode/codereview/
@@ -57,21 +87,70 @@ Overall code quality is good with some areas for improvement.
     execute: executePublishFindings,
   },
   renderer: (data: unknown) => {
-    if (typeof data === 'object' && data !== null && 'path' in data) {
-      const result = data as { path: string; reviewId?: string; title?: string };
+    if (!isPublishFindingsResult(data)) {
       return (
-        <div className="space-y-1">
-          <div className="text-xs font-semibold text-green-400">
-            ✓ Code Review Published
-          </div>
-          <div className="text-xs opacity-70">
-            {result.title && <span className="font-medium">{result.title}</span>}
-            {result.reviewId && <span className="ml-2 text-[10px] opacity-50">ID: {result.reviewId}</span>}
-          </div>
-          <div className="text-xs opacity-60">{result.path}</div>
+        <div className="text-sm" style={{ color: 'var(--vscode-errorForeground)' }}>
+          Invalid publish findings result
         </div>
       );
     }
-    return <div className="text-xs text-green-400">✓ Review published successfully</div>;
+
+    return <ReviewPublishedRenderer result={data} />;
   },
 });
+
+/**
+ * Truncates content by maximum number of lines
+ */
+function truncateByLines(content: string, maxLines: number = 5): string {
+  if (!content) return '';
+  const lines = content.split('\n');
+  if (lines.length <= maxLines) {
+    return content;
+  }
+  return lines.slice(0, maxLines).join('\n');
+}
+
+/**
+ * Review Content Snippet - Shows truncated review content by lines
+ */
+function ReviewContentSnippet({ content }: { content?: string }) {
+  if (!content) return null;
+  
+  const truncated = truncateByLines(content);
+  
+  return (
+    <div
+      className="py-2 px-3 rounded-lg font-mono text-xs whitespace-pre-wrap overflow-hidden"
+      style={{ 
+        backgroundColor: 'var(--vscode-textBlockQuote-background)',
+        color: 'var(--vscode-input-foreground)',
+        maxHeight: '200px',
+      }}
+    >
+      {truncated}
+    </div>
+  );
+}
+
+/**
+ * Review Published Renderer - Shows review was published with content snippet
+ */
+function ReviewPublishedRenderer({ result }: { result: PublishFindingsResult }) {
+  return (
+    <div className="text-sm space-y-3">
+      {/* Title */}
+      {result.title && (
+        <div
+          className="font-medium"
+          style={{ color: 'var(--vscode-input-foreground)' }}
+        >
+          {result.title}
+        </div>
+      )}
+
+      {/* Content Preview */}
+      <ReviewContentSnippet content={result.reviewContent} />
+    </div>
+  );
+}

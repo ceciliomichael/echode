@@ -122,17 +122,23 @@ ${rawContent}
 
       console.log('[PUBLISH_FINDINGS] Report written successfully:', absolutePath);
 
-      // Open the report in editor for visibility
+      // Open the report in markdown preview mode (Ctrl+Shift+V equivalent)
       try {
-        const doc = await vscode.workspace.openTextDocument(uri);
-        await vscode.window.showTextDocument(doc, { 
-          preview: false, 
-          preserveFocus: true,
-          viewColumn: vscode.ViewColumn.Beside
-        });
-        console.log('[PUBLISH_FINDINGS] Report opened in editor');
+        await vscode.commands.executeCommand('markdown.showPreview', uri);
+        console.log('[PUBLISH_FINDINGS] Report opened in markdown preview');
       } catch (openError) {
-        console.warn('[PUBLISH_FINDINGS] Could not open report in editor:', openError);
+        console.warn('[PUBLISH_FINDINGS] Could not open report in preview:', openError);
+        // Fallback: try opening in editor if preview fails
+        try {
+          const doc = await vscode.workspace.openTextDocument(uri);
+          await vscode.window.showTextDocument(doc, { 
+            preview: true, 
+            preserveFocus: true,
+            viewColumn: vscode.ViewColumn.Beside
+          });
+        } catch {
+          // Ignore if both fail
+        }
       }
 
       console.log('[PUBLISH_FINDINGS] ==================== SUCCESS ====================');
@@ -140,6 +146,9 @@ ${rawContent}
       return {
         success: true,
         data: {
+          // Signal frontend to wait for user action before continuing
+          awaitsUserAction: true,
+          actionType: 'review_complete',
           message: `Code review published successfully: ${relativePath}`,
           reviewId,
           path: relativePath,
@@ -147,6 +156,9 @@ ${rawContent}
           title: reportTitle,
           timestamp,
           lineCount: fullContent.split('\n').length,
+          // Include raw content for preview snippet in UI
+          reviewContent: rawContent,
+          scope,
         },
       };
     } catch (error) {

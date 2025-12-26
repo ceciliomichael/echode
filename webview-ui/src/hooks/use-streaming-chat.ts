@@ -6,6 +6,7 @@ import { extractTextAndAttachmentsFromContent, stripCompressedHistoryBlocks } fr
 import { useToolExecution } from './use-tool-execution';
 import { useChatStreaming } from './use-chat-streaming';
 import { usePlanContinuationHandler } from './use-plan-continuation';
+import { usePublishFindingsContinuationHandler } from './use-publish-findings-continuation';
 import { storageService } from '../utils/storage';
 import {
   useChatState,
@@ -107,6 +108,15 @@ export function useStreamingChat(
 
   // Plan continuation handler - listens for button clicks and sends user message
   usePlanContinuationHandler({
+    messages: state.messages,
+    setMessages: state.setMessages,
+    updateToolExecution,
+    sendMessage,
+    onModeChange,
+  });
+
+  // Publish findings continuation handler - listens for Fix/Skip button clicks
+  usePublishFindingsContinuationHandler({
     messages: state.messages,
     setMessages: state.setMessages,
     updateToolExecution,

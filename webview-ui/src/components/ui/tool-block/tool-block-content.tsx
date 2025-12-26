@@ -3,6 +3,7 @@ import { DiffViewer } from '../diff-viewer';
 import { renderToolResult } from '../tool-result-renderer';
 import { EchoSearchProgressIndicator } from './echo-search-progress';
 import { PlanToolActions } from './plan-tool-actions';
+import { PublishFindingsActions } from './publish-findings-actions';
 import type { ToolCall } from '../../../types/tool';
 import type { ToolFileInfo } from '../../../utils/tool-file-info';
 import type { ChatMode } from '../../../types/chat-mode';
@@ -20,6 +21,7 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, is
   const isAborted = toolCall.status === 'aborted';
   const isAwaitingUser = toolCall.status === 'awaiting_user';
   const isPlanTool = toolCall.toolName === 'plan';
+  const isPublishFindingsTool = toolCall.toolName === 'publish_findings';
   
   // Check if we have streamed content to preserve
   const hasStreamedContent = 
@@ -35,8 +37,16 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, is
   const hasPlanUserAction = !!planResult?.userAction;
   const showPlanActions = isPlanTool && (isAwaitingUser || (toolCall.status === 'completed' && hasPlanUserAction));
 
+  // Check for publish_findings tool - show actions when awaiting_user or completed (no user action yet)
+  const publishFindingsResult = isPublishFindingsTool ? toolCall.result?.data as { userAction?: string } | undefined : undefined;
+  const hasPublishFindingsUserAction = !!publishFindingsResult?.userAction;
+  const isPublishFindingsAwaitingUser = isPublishFindingsTool && toolCall.status === 'awaiting_user';
+  const isPublishFindingsCompletedWithAction = isPublishFindingsTool && toolCall.status === 'completed' && hasPublishFindingsUserAction;
+  const showPublishFindingsActions = (isPublishFindingsAwaitingUser || isPublishFindingsCompletedWithAction) && toolCall.result?.success;
+
   // Plan tool with awaiting_user status or completed with action should always show content
-  const shouldRenderInnerContent = isExpanded || isStreamingPhase || showPlanActions;
+  // Also show content for publish_findings when actions are available
+  const shouldRenderInnerContent = isExpanded || isStreamingPhase || showPlanActions || showPublishFindingsActions;
 
   return (
     <div
@@ -114,6 +124,13 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, is
                   {showPlanActions && (
                     <div className="px-3 pb-3">
                       <PlanToolActions toolCall={toolCall} messageId={messageId} isLastMessage={isLastMessage} mode={mode} />
+                    </div>
+                  )}
+
+                  {/* Publish findings action buttons */}
+                  {showPublishFindingsActions && (
+                    <div className="px-3 pb-3">
+                      <PublishFindingsActions toolCall={toolCall} messageId={messageId} isLastMessage={isLastMessage} mode={mode} />
                     </div>
                   )}
                 </div>

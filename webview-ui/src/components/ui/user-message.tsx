@@ -104,7 +104,7 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
 
   if (isEditing) {
     return (
-      <div ref={containerRef} data-message-id={messageId} className="relative">
+      <div ref={containerRef} data-message-id={messageId} className="relative z-50">
         <MessageEditForm
           initialContent={content}
           onSubmit={handleSubmit}
