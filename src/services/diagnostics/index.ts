@@ -414,3 +414,53 @@ export async function getFileDiagnosticsAfterEdit(
 
     return '';
 }
+
+/**
+ * Get diagnostics for all currently open files in the workspace.
+ * This is used by the @problems mention to inject current errors/warnings into chat context.
+ */
+export async function getOpenFilesDiagnostics(cwd: string, maxMessages: number = 100): Promise<string> {
+    // Get all open text documents (filters out closed and non-file schemes)
+    const openDocuments = vscode.workspace.textDocuments.filter(
+        doc => !doc.isClosed && doc.uri.scheme === 'file'
+    );
+
+    if (openDocuments.length === 0) {
+        return '(No files currently open)';
+    }
+
+    // Collect diagnostics for all open files
+    const allDiagnostics = vscode.languages.getDiagnostics();
+    const openFileUris = new Set(openDocuments.map(doc => doc.uri.toString()));
+    
+    // Filter to only include diagnostics from open files
+    const openFileDiagnostics: [vscode.Uri, vscode.Diagnostic[]][] = [];
+    for (const [uri, diagnostics] of allDiagnostics) {
+        if (openFileUris.has(uri.toString()) && diagnostics.length > 0) {
+            openFileDiagnostics.push([uri, diagnostics]);
+        }
+    }
+
+    if (openFileDiagnostics.length === 0) {
+        return '(No problems detected in open files)';
+    }
+
+    // Format diagnostics - include errors, warnings, and info
+    const problemsString = await diagnosticsToProblemsString(
+        openFileDiagnostics,
+        [
+            vscode.DiagnosticSeverity.Error,
+            vscode.DiagnosticSeverity.Warning,
+            vscode.DiagnosticSeverity.Information,
+        ],
+        cwd,
+        true,
+        maxMessages
+    );
+
+    if (problemsString.length > 0) {
+        return `Current problems in open files:\n${problemsString}`;
+    }
+
+    return '(No problems detected in open files)';
+}

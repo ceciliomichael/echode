@@ -122,8 +122,12 @@ export function getToolFileInfo(
   // Get diagnostics -> Use Stethoscope icon
   if (toolName === 'get_diagnostics') {
     const targetPath = path || (parameters.file_pattern as string) || 'workspace';
+    const maxLength = 50;
+    const displayPath = targetPath.length > maxLength
+      ? '.../' + targetPath.slice(-(maxLength - 4))
+      : targetPath;
     return {
-      displayName: `${targetPath}`,
+      displayName: displayPath,
       fullPath: path || '',
       icon: getIcon(Stethoscope),
       iconColor: getIconColor('var(--vscode-editorWarning-foreground)'),

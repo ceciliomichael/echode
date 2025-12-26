@@ -6,6 +6,8 @@ import { processTodoReminders } from '../utils/todo-reminder';
 import { defaultRegistry } from '../services/tools/tool-registry';
 import { MCPToolAdapter } from '../services/mcp/mcp-tool-adapter';
 import { LLMValidator } from '../services/llm/llm-validator';
+import { getOpenFilesDiagnostics } from '../services/diagnostics';
+import { getWorkspaceRoot } from '../services/tools/utils/workspace-utils';
 
 interface ChatStreamRequest {
   requestId: number;
@@ -54,6 +56,9 @@ export async function handleChatStream(
     const messagesWithTodos = chatMode !== 'chat'
       ? processTodoReminders(processedMessages)
       : processedMessages;
+
+    // Resolve @[problems](__problems__) mentions with actual diagnostics
+    await resolveProblemsMemntions(messagesWithTodos);
 
     if (messagesWithTodos.length > 0) {
       const lastMessage = messagesWithTodos[messagesWithTodos.length - 1];
@@ -167,5 +172,41 @@ export async function handleChatStream(
   } finally {
     // Clean up
     activeStreams.delete(requestId);
+  }
+}
+
+/**
+ * Resolve @[problems](__problems__) mentions in messages with actual diagnostics.
+ * This mutates the messages array in place.
+ */
+async function resolveProblemsMemntions(messages: ChatMessage[]): Promise<void> {
+  const problemsMentionPattern = /@\[problems\]\(__problems__\)/gi;
+  const cwd = getWorkspaceRoot() || '';
+
+  for (const message of messages) {
+    if (message.role !== 'user') continue;
+
+    // Handle string content
+    if (typeof message.content === 'string') {
+      if (problemsMentionPattern.test(message.content)) {
+        const diagnostics = await getOpenFilesDiagnostics(cwd);
+        message.content = message.content.replace(
+          problemsMentionPattern,
+          `\n<problems_context>\n${diagnostics}\n</problems_context>\n`
+        );
+      }
+    } 
+    // Handle multimodal content (array of text/image parts)
+    else if (Array.isArray(message.content)) {
+      for (const part of message.content) {
+        if (part.type === 'text' && part.text && problemsMentionPattern.test(part.text)) {
+          const diagnostics = await getOpenFilesDiagnostics(cwd);
+          part.text = part.text.replace(
+            problemsMentionPattern,
+            `\n<problems_context>\n${diagnostics}\n</problems_context>\n`
+          );
+        }
+      }
+    }
   }
 }

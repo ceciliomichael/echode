@@ -71,6 +71,11 @@ export function useContextMenu({
   // Trigger file/folder search when query or type changes
   useEffect(() => {
     if (showContextMenu) {
+      // Skip search for Problems - it's a static option
+      if (selectedMenuType === ContextMenuOptionType.Problems) {
+        return;
+      }
+      
       if (selectedMenuType !== null) {
         vscode.postMessage({
           type: 'searchFiles',
@@ -104,6 +109,7 @@ export function useContextMenu({
       // Reset to categories if query is cleared, regardless of current mode
       if (query.length === 0) {
         setSelectedMenuType(null);
+        setFileSearchResults([]); // Clear stale results to show category menu
       }
     } else {
       setShowContextMenu(false);
@@ -113,10 +119,39 @@ export function useContextMenu({
 
   const handleMentionSelect = useCallback((type: ContextMenuOptionType, value?: string) => {
     // If this is a category selection (File or Folder without a value), enter that category
+    // and reset the input text to just "@" for a clean search
     if ((type === ContextMenuOptionType.File || type === ContextMenuOptionType.Folder) && !value) {
+      // Reset input to just "@" by removing the partial query (e.g., "@fi" -> "@")
+      const lastAtIndex = input.lastIndexOf('@', cursorPosition - 1);
+      if (lastAtIndex !== -1) {
+        const beforeAt = input.slice(0, lastAtIndex);
+        const afterCursor = input.slice(cursorPosition);
+        const resetValue = beforeAt + '@' + afterCursor;
+        setInput(resetValue);
+        
+        // Update cursor position to be right after the @
+        const newCursor = lastAtIndex + 1;
+        setCursorPosition(newCursor);
+        setSearchQuery('');
+        
+        // Set cursor in textarea
+        setTimeout(() => {
+          if (textareaRef.current) {
+            textareaRef.current.setSelectionRange(newCursor, newCursor);
+            textareaRef.current.focus();
+          }
+        }, 0);
+      }
+      
       setSelectedMenuType(type);
       setSelectedMenuIndex(0);
       return;
+    }
+
+    // Problems category: directly insert the mention (single-click behavior)
+    // Auto-set the value so it falls through to the insertion logic
+    if (type === ContextMenuOptionType.Problems && !value) {
+      value = '__problems__';
     }
 
     // Otherwise, complete the mention selection
@@ -124,14 +159,18 @@ export function useContextMenu({
     setSelectedMenuType(null);
 
     if (value) {
-      const basename = value.split('/').pop() || value;
+      // Determine the display label
+      // For Problems, use "problems" as label (not the internal "__problems__" value)
+      const label = type === ContextMenuOptionType.Problems 
+        ? "problems" 
+        : (value.split('/').pop() || value);
 
-      // Always use the basename as label, overwrite any previous mapping
-      mentionPathMap.current.set(basename, value);
+      // Map the display label to the internal value/path
+      mentionPathMap.current.set(label, value);
 
-      const { newValue, mentionIndex } = insertMention(input, cursorPosition, value, basename);
+      const { newValue, mentionIndex } = insertMention(input, cursorPosition, value, label);
       setInput(newValue);
-      const newCursorPos = newValue.indexOf(' ', mentionIndex + basename.length + 2) + 1;
+      const newCursorPos = newValue.indexOf(' ', mentionIndex + label.length + 2) + 1;
       setTimeout(() => {
         if (textareaRef.current) {
           textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);

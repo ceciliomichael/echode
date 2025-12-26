@@ -40,7 +40,8 @@ export interface PlanToolResult {
   actionType: 'verify_plan' | 'start_implementation';
   planTitle?: string;
   planContent?: string;
-  planFilePath?: string;     // Path to saved plan file for undo/delete
+  planFilePath?: string;           // Path to saved plan file for undo/delete
+  previousPlanContent?: string;    // Previous content for undo (update_plan mode only)
   summary?: string;
   message: string;
 }
@@ -229,10 +230,12 @@ export class PlanTool implements ITool {
 
       const fullContent = `# ${title}\n\n${planContent}`;
       
-      // Check if the file exists
+      // Check if the file exists and read previous content for undo support
       const planFileUri = vscode.Uri.file(existingPlanFilePath);
+      let previousPlanContent: string | undefined;
       try {
-        await vscode.workspace.fs.stat(planFileUri);
+        const existingContent = await vscode.workspace.fs.readFile(planFileUri);
+        previousPlanContent = Buffer.from(existingContent).toString('utf-8');
       } catch {
         return {
           success: false,
@@ -256,6 +259,7 @@ export class PlanTool implements ITool {
         planTitle: title,
         planContent: fullContent,
         planFilePath: existingPlanFilePath,
+        previousPlanContent,  // Store previous content for undo support
         message: `Plan "${title}" updated at .echode/${planFileName}. Click "Verify Plan" to continue.`,
       };
 

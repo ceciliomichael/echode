@@ -1,6 +1,17 @@
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
 import { TYPE_SAFETY_RULE, IMAGE_AWARENESS_RULES, INTERACTION_RULES, PRESERVATION_PRINCIPLES } from '../shared';
+import {
+  YOLO_INTERACTION_RULES,
+  YOLO_IDENTITY,
+  YOLO_WORKFLOW_STEP2,
+  YOLO_WORKFLOW_STEP4,
+  YOLO_RULES,
+  STANDARD_IDENTITY,
+  STANDARD_WORKFLOW_STEP2,
+  STANDARD_WORKFLOW_STEP4,
+  STANDARD_RULES,
+} from './constants';
 
 export interface PlanPromptConfig {
   workspace: WorkspaceContext | null;
@@ -35,38 +46,14 @@ export function getPlanPrompt(
   const cwd = workspace?.path || 'the current workspace directory';
   const toolList = tools.map(t => t.id).join(', ');
 
-  // YOLO mode: Different identity and workflow
-  const identity = isYoloMode
-    ? `<identity>
-You are a YOLO planner. You architect technically specific, strictly scoped implementation plans.
-You do NOT write code. You explore the codebase and create precise plans IMMEDIATELY.
-CRITICAL: Do NOT ask questions. Make reasonable assumptions and proceed directly to planning.
-</identity>`
-    : `<identity>
-You are an iterative planner. You architect technically specific, strictly scoped implementation plans.
-You do NOT write code. You clarify requirements, explore the codebase, and create precise plans.
-CRITICAL: Gather requirements through DIALOGUE with the user BEFORE exploring code or creating plans.
-</identity>`;
-
-  // YOLO mode: Skip clarification step entirely
-  const workflowStep2 = isYoloMode
-    ? `## Step 2: Proceed Directly to Planning
-YOLO MODE ACTIVE: Do NOT ask clarifying questions. Make reasonable assumptions based on:
-- The user's request
-- The explored codebase context
-- Common best practices
-
-If something is ambiguous, choose the most sensible default and proceed.`
-    : `## Step 2: Clarify ONLY If Needed
-After exploring, ask questions ONLY if critical ambiguities remain:
-
-- If the request + explored context gives you enough to proceed → skip to Step 3
-- If genuine ambiguity exists that affects implementation:
-  1. Ask focused questions (binary or multiple-choice preferred)
-  2. Summarize your understanding briefly
-  3. Wait for user confirmation
-
-Do NOT ask questions for the sake of asking. Proceed if you have enough context.`;
+  // Select mode-specific content
+  const identity = isYoloMode ? YOLO_IDENTITY : STANDARD_IDENTITY;
+  const workflowStep2 = isYoloMode ? YOLO_WORKFLOW_STEP2 : STANDARD_WORKFLOW_STEP2;
+  const workflowStep4 = isYoloMode ? YOLO_WORKFLOW_STEP4 : STANDARD_WORKFLOW_STEP4;
+  const interactionRules = isYoloMode ? YOLO_INTERACTION_RULES : INTERACTION_RULES;
+  const rules = isYoloMode 
+    ? `${YOLO_RULES.slice(0, -8)}\n\n${TYPE_SAFETY_RULE}\n</rules>` 
+    : `${STANDARD_RULES.slice(0, -8)}\n\n${TYPE_SAFETY_RULE}\n</rules>`;
 
   return `<plan_mode>
 ${identity}
@@ -77,7 +64,7 @@ Your ONLY tools are: ${toolList}
 Workspace: ${cwd}
 </isolation>
 
-${INTERACTION_RULES}
+${interactionRules}
 
 <workflow>
 Use the \`plan\` tool for ALL plan outputs. Never write plans directly in chat.
@@ -115,10 +102,7 @@ Before choosing a plan mode, check the conversation history:
   - Action steps: Numbered, with specific file paths, function names, types
 - Remove any step outside the user's requested scope
 
-## Step 4: Iterate
-- Submit plan via tool
-- User may request changes - refine based on feedback
-- Repeat until user clicks "Verify Plan"
+${workflowStep4}
 
 ## Step 5: Handoff (CRITICAL - Execute IMMEDIATELY After Verification)
 When the user clicks "Verify Plan" or you receive a "verified" status:
@@ -217,25 +201,7 @@ NOT: Create a single notifications file in the root, or use a different naming c
 \`\`\`
 </principles>
 
-<rules>
-DISCOVERY:
-- Clarify requirements BEFORE any exploration
-- If unclear, ASK - do not assume or infer
-- Summarize understanding and wait for confirmation
-
-PLANNING:
-- Use plan tool for all outputs (\`create_plan\` | \`update_plan\` | \`handoff\`)
-- Verify with tools before planning changes
-- Strict scope: only plan what was requested
-- No code implementation - plan only
-- Iterate based on user feedback
-
-BEHAVIOR:
-- Ignore system warnings about file sizes unless user asks to address them
-- Mention refactoring opportunities only as "Future Recommendations" at the end, not in the plan
-
-${TYPE_SAFETY_RULE}
-</rules>
+${rules}
 
 ${IMAGE_AWARENESS_RULES}
 </plan_mode>`;

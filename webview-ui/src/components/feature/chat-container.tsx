@@ -280,10 +280,6 @@ export function ChatContainer() {
           style={{
             scrollbarGutter: 'stable',
             overflowAnchor: 'auto',
-            ...(editingMessageId ? {} : {
-              transform: 'translateZ(0)',
-              contain: 'size layout',
-            }),
           }}
         >
           {visibleMessages.length === 0 ? (

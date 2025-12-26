@@ -2,6 +2,7 @@ import type { ToolCall, ToolExecutionResult } from '../types/tool';
 import { getToolHandler, type ToolStatusCallback, type ToolProgressCallback, isToolRegistered } from './tool-registry';
 import { extractFirstToolBlock } from './tool-parser';
 import { type ChatMode, executeToolViaExtension } from './tool-utils';
+import type { PlanToolResult } from './tools/plan-tool';
 
 /**
  * Check if a tool is an MCP (Model Context Protocol) tool
@@ -192,6 +193,35 @@ export class ToolExecutor {
           toolResults,
           wasStopped: true,
         };
+      }
+
+      // YOLO Mode: Auto-verify plan creation/update to prevent loops
+      // This intercepts the plan tool result and simulates user verification
+      // so the agent can proceed immediately to handoff without waiting for UI
+      if (
+        this.mode === 'yolo' &&
+        toolBlock.toolName === 'plan' &&
+        result.success &&
+        result.data
+      ) {
+        // Cast to extended type that includes dynamic properties added during auto-verification
+        const planData = result.data as PlanToolResult & { 
+          userAction?: string; 
+          autoVerified?: boolean; 
+        };
+        
+        // Only auto-verify create_plan and update_plan (NOT handoff)
+        // Handoff requires the frontend to trigger mode switch to 'agent'
+        if (
+          planData.awaitsUserAction &&
+          (planData.mode === 'create_plan' || planData.mode === 'update_plan')
+        ) {
+          // Mutate the result to simulate user verification
+          planData.awaitsUserAction = false;
+          planData.userAction = 'verify_plan';
+          planData.autoVerified = true;
+          planData.message = `[YOLO Mode] Plan "${planData.planTitle || 'Implementation Plan'}" auto-verified. Proceeding to handoff immediately.`;
+        }
       }
 
       // Update tool call with result

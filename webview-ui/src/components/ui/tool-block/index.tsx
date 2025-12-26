@@ -24,6 +24,7 @@ const ToolBlockComponent = ({
   const isEchoSearch = toolCall.toolName === 'echo_search';
   const isRunTerminal = toolCall.toolName === 'run_terminal';
   const isPlanTool = toolCall.toolName === 'plan';
+  const isPublishFindingsTool = toolCall.toolName === 'publish_findings';
 
   // Check if this tool has an error (either error status or failed result)
   const hasError = toolCall.status === 'error' || toolCall.result?.success === false;
@@ -75,6 +76,27 @@ const ToolBlockComponent = ({
       setIsExpanded(false);
     }
   }, [isPlanTool, toolCall.result, isLastMessage]);
+
+  // Auto-collapse publish_findings tool when:
+  // 1. User clicked a button (Fix Issues or Skip)
+  // 2. This is no longer the last message
+  useEffect(() => {
+    if (!isPublishFindingsTool) return;
+    
+    const findingsResult = toolCall.result?.data as { userAction?: string } | undefined;
+    const hasUserAction = !!findingsResult?.userAction;
+    
+    // User clicked an action button (Fix Issues or Skip)
+    if (hasUserAction) {
+      setIsExpanded(false);
+      return;
+    }
+    
+    // This is no longer the last message
+    if (!isLastMessage) {
+      setIsExpanded(false);
+    }
+  }, [isPublishFindingsTool, toolCall.result, isLastMessage]);
 
   // Get status display
   const statusConfig = useMemo(
@@ -135,7 +157,11 @@ const ToolBlockComponent = ({
 
   // Check for plan tool completion with user action for the message below
   const planResult = isPlanTool ? toolCall.result?.data as { userAction?: string } | undefined : undefined;
-  const userAction = planResult?.userAction;
+  const planUserAction = planResult?.userAction;
+
+  // Check for publish_findings tool completion with user action
+  const findingsResult = isPublishFindingsTool ? toolCall.result?.data as { userAction?: string } | undefined : undefined;
+  const findingsUserAction = findingsResult?.userAction;
 
   return (
     <>
@@ -169,15 +195,29 @@ const ToolBlockComponent = ({
         />
       </div>
 
-      {isPlanTool && userAction && (
+      {isPlanTool && planUserAction && (
         <div 
           className="mt-4 mb-2 flex items-center justify-center gap-3 select-none w-full"
           style={{ color: 'var(--vscode-descriptionForeground)' }}
         >
           <div className="h-[1px] flex-1" style={{ backgroundColor: 'currentColor', opacity: 0.2 }} />
           <span className="text-xs font-medium uppercase tracking-widest opacity-80 flex-shrink-0">
-            {userAction === 'verify_plan' ? 'Plan Verified' : 
-             userAction === 'start_implementation' ? 'Implementation Started' : ''}
+            {planUserAction === 'verify_plan' ? 'Plan Verified' : 
+             planUserAction === 'start_implementation' ? 'Implementation Started' : ''}
+          </span>
+          <div className="h-[1px] flex-1" style={{ backgroundColor: 'currentColor', opacity: 0.2 }} />
+        </div>
+      )}
+
+      {isPublishFindingsTool && findingsUserAction && (
+        <div 
+          className="mt-4 mb-2 flex items-center justify-center gap-3 select-none w-full"
+          style={{ color: 'var(--vscode-descriptionForeground)' }}
+        >
+          <div className="h-[1px] flex-1" style={{ backgroundColor: 'currentColor', opacity: 0.2 }} />
+          <span className="text-xs font-medium uppercase tracking-widest opacity-80 flex-shrink-0">
+            {findingsUserAction === 'fix_issues' ? 'Fixes Planned' : 
+             findingsUserAction === 'skip_fixes' ? 'Review Skipped' : ''}
           </span>
           <div className="h-[1px] flex-1" style={{ backgroundColor: 'currentColor', opacity: 0.2 }} />
         </div>

@@ -61,8 +61,14 @@ export function PlanToolActions({
     hasAutoTriggeredRef.current = false;
   }
 
+  // In YOLO mode, we bypass the isLastMessage check to ensure reliable auto-execution
+  // This handles race conditions where hidden messages might temporarily affect isLastMessage
   const handleVerifyPlan = useCallback(() => {
-    if (!isButtonActive) return;
+    // For YOLO mode, only check isAwaitingUser (not isLastMessage)
+    // For non-YOLO, require full isButtonActive (isAwaitingUser && isLastMessage)
+    const canExecute = mode === 'yolo' ? isAwaitingUser : isButtonActive;
+    if (!canExecute) return;
+    
     triggerContinuation(
       'verify_plan',
       messageId,
@@ -70,10 +76,14 @@ export function PlanToolActions({
       result.data,
       mode
     );
-  }, [isButtonActive, triggerContinuation, messageId, toolCall.toolExecutionId, result.data, mode]);
+  }, [mode, isAwaitingUser, isButtonActive, triggerContinuation, messageId, toolCall.toolExecutionId, result.data]);
 
   const handleStartImplementation = useCallback(() => {
-    if (!isButtonActive) return;
+    // For YOLO mode, only check isAwaitingUser (not isLastMessage)
+    // For non-YOLO, require full isButtonActive (isAwaitingUser && isLastMessage)
+    const canExecute = mode === 'yolo' ? isAwaitingUser : isButtonActive;
+    if (!canExecute) return;
+    
     triggerContinuation(
       'start_implementation',
       messageId,
@@ -81,11 +91,14 @@ export function PlanToolActions({
       result.data,
       mode
     );
-  }, [isButtonActive, triggerContinuation, messageId, toolCall.toolExecutionId, result.data, mode]);
+  }, [mode, isAwaitingUser, isButtonActive, triggerContinuation, messageId, toolCall.toolExecutionId, result.data]);
 
   // YOLO Mode: Auto-verify when plan is ready
+  // Note: With ToolExecutor auto-verification for create_plan/update_plan,
+  // this effect mainly serves as a fallback safety net
   useEffect(() => {
-    if (mode !== 'yolo' || !isButtonActive || actionType !== 'verify_plan') {
+    // For YOLO, we only need isAwaitingUser (not isLastMessage)
+    if (mode !== 'yolo' || !isAwaitingUser || actionType !== 'verify_plan') {
       return;
     }
     
@@ -99,14 +112,16 @@ export function PlanToolActions({
     
     const timer = setTimeout(() => {
       handleVerifyPlan();
-    }, 100); // Reduced delay for faster response
+    }, 50); // Very short delay - just enough for React state to settle
     
     return () => clearTimeout(timer);
-  }, [mode, isButtonActive, actionType, handleVerifyPlan]);
+  }, [mode, isAwaitingUser, actionType, handleVerifyPlan]);
 
-  // YOLO Mode: Auto-start implementation when ready
+  // YOLO Mode: Auto-start implementation when ready (Handoff)
+  // This is CRITICAL - it triggers the mode switch to 'agent' for implementation
   useEffect(() => {
-    if (mode !== 'yolo' || !isButtonActive || actionType !== 'start_implementation') {
+    // For YOLO, we only need isAwaitingUser (not isLastMessage)
+    if (mode !== 'yolo' || !isAwaitingUser || actionType !== 'start_implementation') {
       return;
     }
     
@@ -120,10 +135,10 @@ export function PlanToolActions({
     
     const timer = setTimeout(() => {
       handleStartImplementation();
-    }, 100); // Reduced delay for faster response
+    }, 50); // Very short delay - just enough for React state to settle
     
     return () => clearTimeout(timer);
-  }, [mode, isButtonActive, actionType, handleStartImplementation]);
+  }, [mode, isAwaitingUser, actionType, handleStartImplementation]);
 
   // After user clicks, show muted style
   const isClicked = isCompletedWithAction;

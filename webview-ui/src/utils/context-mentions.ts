@@ -13,6 +13,7 @@ export interface SearchResult {
 export const ContextMenuOptionType = {
     File: "file",
     Folder: "folder",
+    Problems: "problems",
     NoResults: "noResults",
     SectionHeader: "sectionHeader",
 } as const;
@@ -79,9 +80,36 @@ export function getContextMenuOptions(
             }));
         }
 
-        return [
+        // Define base categories
+        const categories: ContextMenuQueryItem[] = [
             { type: ContextMenuOptionType.File, label: "File", description: "Search for files" },
             { type: ContextMenuOptionType.Folder, label: "Folder", description: "Search for folders" },
+            { type: ContextMenuOptionType.Problems, label: "Problems", description: "Current errors in open files" },
+        ];
+
+        // Filter categories based on query (e.g., @prob -> Problems)
+        if (query.length > 0) {
+            const lowerQuery = query.toLowerCase();
+            const filtered = categories.filter(c => 
+                c.label?.toLowerCase().includes(lowerQuery)
+            );
+            return filtered.length > 0 
+                ? filtered 
+                : [{ type: ContextMenuOptionType.NoResults, label: "No matching options" }];
+        }
+
+        return categories;
+    }
+
+    // Handle Problems selection - return static item immediately
+    if (selectedType === ContextMenuOptionType.Problems) {
+        return [
+            { 
+                type: ContextMenuOptionType.Problems, 
+                label: "Problems", 
+                value: "__problems__", 
+                description: "Insert diagnostics from open files" 
+            }
         ];
     }
 
