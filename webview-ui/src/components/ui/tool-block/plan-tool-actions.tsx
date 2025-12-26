@@ -111,8 +111,9 @@ export function PlanToolActions({
     hasAutoTriggeredRef.current = true;
     
     const timer = setTimeout(() => {
+      console.log('[PlanToolActions] YOLO auto-triggering verify_plan');
       handleVerifyPlan();
-    }, 50); // Very short delay - just enough for React state to settle
+    }, 300); // Longer delay to ensure streaming finishes
     
     return () => clearTimeout(timer);
   }, [mode, isAwaitingUser, actionType, handleVerifyPlan]);
@@ -133,9 +134,12 @@ export function PlanToolActions({
     // Mark as triggered immediately to prevent race conditions
     hasAutoTriggeredRef.current = true;
     
+    // Use longer delay to ensure streaming has completed before sending continuation
+    // This prevents race condition where sendMessage blocks if streaming is still active
     const timer = setTimeout(() => {
+      console.log('[PlanToolActions] YOLO auto-triggering start_implementation');
       handleStartImplementation();
-    }, 50); // Very short delay - just enough for React state to settle
+    }, 300); // Longer delay to ensure streaming finishes
     
     return () => clearTimeout(timer);
   }, [mode, isAwaitingUser, actionType, handleStartImplementation]);
