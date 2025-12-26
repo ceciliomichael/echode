@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { CheckCircle, Rocket } from 'lucide-react';
 import type { ToolCall } from '../../../types/tool';
 import type { PlanToolResult } from '../../../lib/tools/plan-tool';
@@ -29,6 +29,11 @@ export function PlanToolActions({
   mode,
 }: PlanToolActionsProps) {
   const { triggerContinuation } = usePlanContinuationEmitter();
+  
+  // Track if we've already triggered auto-action to prevent duplicates
+  const hasAutoTriggeredRef = useRef(false);
+  // Track the current toolExecutionId to reset trigger state on new tools
+  const lastToolExecutionIdRef = useRef<string | undefined>(undefined);
 
   const result = toolCall.result;
   if (!result?.success || !result.data) {
@@ -50,27 +55,13 @@ export function PlanToolActions({
   // Button is only active when awaiting user AND this is the last message
   const isButtonActive = isAwaitingUser && isLastMessage;
 
-  // YOLO Mode: Auto-verify when plan is ready
-  useEffect(() => {
-    if (mode === 'yolo' && isButtonActive && actionType === 'verify_plan') {
-      const timer = setTimeout(() => {
-        handleVerifyPlan();
-      }, 500); // Small delay for visual feedback
-      return () => clearTimeout(timer);
-    }
-  }, [mode, isButtonActive, actionType]);
+  // Reset auto-trigger flag when toolExecutionId changes (new tool call)
+  if (toolCall.toolExecutionId !== lastToolExecutionIdRef.current) {
+    lastToolExecutionIdRef.current = toolCall.toolExecutionId;
+    hasAutoTriggeredRef.current = false;
+  }
 
-  // YOLO Mode: Auto-start implementation when ready
-  useEffect(() => {
-    if (mode === 'yolo' && isButtonActive && actionType === 'start_implementation') {
-      const timer = setTimeout(() => {
-        handleStartImplementation();
-      }, 500); // Small delay for visual feedback
-      return () => clearTimeout(timer);
-    }
-  }, [mode, isButtonActive, actionType]);
-
-  const handleVerifyPlan = () => {
+  const handleVerifyPlan = useCallback(() => {
     if (!isButtonActive) return;
     triggerContinuation(
       'verify_plan',
@@ -79,9 +70,9 @@ export function PlanToolActions({
       result.data,
       mode
     );
-  };
+  }, [isButtonActive, triggerContinuation, messageId, toolCall.toolExecutionId, result.data, mode]);
 
-  const handleStartImplementation = () => {
+  const handleStartImplementation = useCallback(() => {
     if (!isButtonActive) return;
     triggerContinuation(
       'start_implementation',
@@ -90,7 +81,49 @@ export function PlanToolActions({
       result.data,
       mode
     );
-  };
+  }, [isButtonActive, triggerContinuation, messageId, toolCall.toolExecutionId, result.data, mode]);
+
+  // YOLO Mode: Auto-verify when plan is ready
+  useEffect(() => {
+    if (mode !== 'yolo' || !isButtonActive || actionType !== 'verify_plan') {
+      return;
+    }
+    
+    // Prevent duplicate triggers
+    if (hasAutoTriggeredRef.current) {
+      return;
+    }
+    
+    // Mark as triggered immediately to prevent race conditions
+    hasAutoTriggeredRef.current = true;
+    
+    const timer = setTimeout(() => {
+      handleVerifyPlan();
+    }, 100); // Reduced delay for faster response
+    
+    return () => clearTimeout(timer);
+  }, [mode, isButtonActive, actionType, handleVerifyPlan]);
+
+  // YOLO Mode: Auto-start implementation when ready
+  useEffect(() => {
+    if (mode !== 'yolo' || !isButtonActive || actionType !== 'start_implementation') {
+      return;
+    }
+    
+    // Prevent duplicate triggers
+    if (hasAutoTriggeredRef.current) {
+      return;
+    }
+    
+    // Mark as triggered immediately to prevent race conditions
+    hasAutoTriggeredRef.current = true;
+    
+    const timer = setTimeout(() => {
+      handleStartImplementation();
+    }, 100); // Reduced delay for faster response
+    
+    return () => clearTimeout(timer);
+  }, [mode, isButtonActive, actionType, handleStartImplementation]);
 
   // After user clicks, show muted style
   const isClicked = isCompletedWithAction;
