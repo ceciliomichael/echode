@@ -38,7 +38,7 @@ interface ToolExecutionMessage {
   requestId: string;
   toolName: string;
   parameters: Record<string, unknown>;
-  mode?: 'agent' | 'plan' | 'ask' | 'general';
+  mode?: 'agent' | 'plan' | 'ask' | 'general' | 'review' | 'yolo';
 }
 
 interface ToolAbortMessage {

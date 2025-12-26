@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useCallback } from 'react';
 import { CheckCircle, Rocket } from 'lucide-react';
 import type { ToolCall } from '../../../types/tool';
 import type { PlanToolResult } from '../../../lib/tools/plan-tool';
@@ -21,6 +21,10 @@ interface PlanToolActionsProps {
  * 
  * Uses the plan continuation emitter to trigger continuation without
  * needing callbacks passed through the component tree.
+ * 
+ * NOTE: In YOLO mode, the backend PlanTool returns awaitsUserAction=false,
+ * so this component will NOT render buttons (status won't be 'awaiting_user').
+ * The streaming loop handles YOLO mode automatically without UI interaction.
  */
 export function PlanToolActions({ 
   toolCall, 
@@ -29,11 +33,6 @@ export function PlanToolActions({
   mode,
 }: PlanToolActionsProps) {
   const { triggerContinuation } = usePlanContinuationEmitter();
-  
-  // Track if we've already triggered auto-action to prevent duplicates
-  const hasAutoTriggeredRef = useRef(false);
-  // Track the current toolExecutionId to reset trigger state on new tools
-  const lastToolExecutionIdRef = useRef<string | undefined>(undefined);
 
   const result = toolCall.result;
   if (!result?.success || !result.data) {
@@ -45,6 +44,8 @@ export function PlanToolActions({
   const actionType = data.actionType;
 
   // Only show actions when status is awaiting_user OR when completed with a user action
+  // In YOLO mode, awaitsUserAction=false from backend, so status will be 'completed'
+  // and this component won't show buttons (which is the desired behavior)
   const isAwaitingUser = toolCall.status === 'awaiting_user';
   const isCompletedWithAction = toolCall.status === 'completed' && !!data.userAction;
 
@@ -55,19 +56,8 @@ export function PlanToolActions({
   // Button is only active when awaiting user AND this is the last message
   const isButtonActive = isAwaitingUser && isLastMessage;
 
-  // Reset auto-trigger flag when toolExecutionId changes (new tool call)
-  if (toolCall.toolExecutionId !== lastToolExecutionIdRef.current) {
-    lastToolExecutionIdRef.current = toolCall.toolExecutionId;
-    hasAutoTriggeredRef.current = false;
-  }
-
-  // In YOLO mode, we bypass the isLastMessage check to ensure reliable auto-execution
-  // This handles race conditions where hidden messages might temporarily affect isLastMessage
   const handleVerifyPlan = useCallback(() => {
-    // For YOLO mode, only check isAwaitingUser (not isLastMessage)
-    // For non-YOLO, require full isButtonActive (isAwaitingUser && isLastMessage)
-    const canExecute = mode === 'yolo' ? isAwaitingUser : isButtonActive;
-    if (!canExecute) return;
+    if (!isButtonActive) return;
     
     triggerContinuation(
       'verify_plan',
@@ -76,13 +66,10 @@ export function PlanToolActions({
       result.data,
       mode
     );
-  }, [mode, isAwaitingUser, isButtonActive, triggerContinuation, messageId, toolCall.toolExecutionId, result.data]);
+  }, [isButtonActive, triggerContinuation, messageId, toolCall.toolExecutionId, result.data, mode]);
 
   const handleStartImplementation = useCallback(() => {
-    // For YOLO mode, only check isAwaitingUser (not isLastMessage)
-    // For non-YOLO, require full isButtonActive (isAwaitingUser && isLastMessage)
-    const canExecute = mode === 'yolo' ? isAwaitingUser : isButtonActive;
-    if (!canExecute) return;
+    if (!isButtonActive) return;
     
     triggerContinuation(
       'start_implementation',
@@ -91,58 +78,7 @@ export function PlanToolActions({
       result.data,
       mode
     );
-  }, [mode, isAwaitingUser, isButtonActive, triggerContinuation, messageId, toolCall.toolExecutionId, result.data]);
-
-  // YOLO Mode: Auto-verify when plan is ready
-  // Note: With ToolExecutor auto-verification for create_plan/update_plan,
-  // this effect mainly serves as a fallback safety net
-  useEffect(() => {
-    // For YOLO, we only need isAwaitingUser (not isLastMessage)
-    if (mode !== 'yolo' || !isAwaitingUser || actionType !== 'verify_plan') {
-      return;
-    }
-    
-    // Prevent duplicate triggers
-    if (hasAutoTriggeredRef.current) {
-      return;
-    }
-    
-    // Mark as triggered immediately to prevent race conditions
-    hasAutoTriggeredRef.current = true;
-    
-    const timer = setTimeout(() => {
-      console.log('[PlanToolActions] YOLO auto-triggering verify_plan');
-      handleVerifyPlan();
-    }, 300); // Longer delay to ensure streaming finishes
-    
-    return () => clearTimeout(timer);
-  }, [mode, isAwaitingUser, actionType, handleVerifyPlan]);
-
-  // YOLO Mode: Auto-start implementation when ready (Handoff)
-  // This is CRITICAL - it triggers the mode switch to 'agent' for implementation
-  useEffect(() => {
-    // For YOLO, we only need isAwaitingUser (not isLastMessage)
-    if (mode !== 'yolo' || !isAwaitingUser || actionType !== 'start_implementation') {
-      return;
-    }
-    
-    // Prevent duplicate triggers
-    if (hasAutoTriggeredRef.current) {
-      return;
-    }
-    
-    // Mark as triggered immediately to prevent race conditions
-    hasAutoTriggeredRef.current = true;
-    
-    // Use longer delay to ensure streaming has completed before sending continuation
-    // This prevents race condition where sendMessage blocks if streaming is still active
-    const timer = setTimeout(() => {
-      console.log('[PlanToolActions] YOLO auto-triggering start_implementation');
-      handleStartImplementation();
-    }, 300); // Longer delay to ensure streaming finishes
-    
-    return () => clearTimeout(timer);
-  }, [mode, isAwaitingUser, actionType, handleStartImplementation]);
+  }, [isButtonActive, triggerContinuation, messageId, toolCall.toolExecutionId, result.data, mode]);
 
   // After user clicks, show muted style
   const isClicked = isCompletedWithAction;

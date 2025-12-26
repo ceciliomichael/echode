@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { ITool, ToolExecutionResult } from './tool.interface';
+import { ITool, ToolExecutionResult, ChatMode } from './tool.interface';
 import { PlanViewerManager } from '../plan-viewer/plan-viewer-manager';
 
 /**
@@ -49,7 +49,15 @@ export interface PlanToolResult {
 export class PlanTool implements ITool {
   name = 'plan';
 
-  async execute(parameters: Record<string, unknown>): Promise<ToolExecutionResult> {
+  async execute(
+    parameters: Record<string, unknown>,
+    _onProgress?: (progress: unknown) => void,
+    _signal?: AbortSignal,
+    chatMode?: ChatMode
+  ): Promise<ToolExecutionResult> {
+    // Check if we're in YOLO mode - fully autonomous, no user action required
+    const isYoloMode = chatMode === 'yolo';
+    
     try {
       const params = parameters as unknown as PlanToolParameters;
       const mode = params.mode;
@@ -63,11 +71,11 @@ export class PlanTool implements ITool {
 
       switch (mode) {
         case 'create_plan':
-          return this.handleCreatePlanMode(params);
+          return this.handleCreatePlanMode(params, isYoloMode);
         case 'update_plan':
-          return this.handleUpdatePlanMode(params);
+          return this.handleUpdatePlanMode(params, isYoloMode);
         case 'handoff':
-          return this.handleHandoffMode(params);
+          return this.handleHandoffMode(params, isYoloMode);
         default:
           return {
             success: false,
@@ -84,9 +92,10 @@ export class PlanTool implements ITool {
 
   /**
    * Create plan mode: Generate a markdown plan and save to .echode/plan-uuid.md
-   * Shows "Verify Plan" button
+   * In normal mode: Shows "Verify Plan" button and waits for user
+   * In YOLO mode: Auto-verifies immediately, no user action required
    */
-  private async handleCreatePlanMode(params: PlanToolParameters): Promise<ToolExecutionResult> {
+  private async handleCreatePlanMode(params: PlanToolParameters, isYoloMode: boolean): Promise<ToolExecutionResult> {
     const planContent = params.plan;
     const title = params.title || 'Implementation Plan';
 
@@ -133,14 +142,18 @@ export class PlanTool implements ITool {
         PlanViewerManager.instance.openPlan(title, fullContent, planFilePath);
       }
 
+      // YOLO mode: Auto-verify, no user action needed
+      // Normal mode: Wait for user to click "Verify Plan"
       const result: PlanToolResult = {
         mode: 'create_plan',
-        awaitsUserAction: true,
+        awaitsUserAction: !isYoloMode, // false in YOLO = auto-verified
         actionType: 'verify_plan',
         planTitle: title,
         planContent: fullContent,
-        planFilePath: planFilePath, // Store path for undo/delete
-        message: `Plan "${title}" saved to .echode/plan/${planFileName}. Click "Verify Plan" to continue.`,
+        planFilePath: planFilePath,
+        message: isYoloMode
+          ? `[YOLO] Plan "${title}" created and auto-verified. Proceeding to handoff.`
+          : `Plan "${title}" saved to .echode/plan/${planFileName}. Click "Verify Plan" to continue.`,
       };
 
       return {
@@ -157,9 +170,10 @@ export class PlanTool implements ITool {
 
   /**
    * Update plan mode: Update an existing plan file when user provides feedback
-   * Shows "Verify Plan" button
+   * In normal mode: Shows "Verify Plan" button and waits for user
+   * In YOLO mode: Auto-verifies immediately, no user action required
    */
-  private async handleUpdatePlanMode(params: PlanToolParameters): Promise<ToolExecutionResult> {
+  private async handleUpdatePlanMode(params: PlanToolParameters, isYoloMode: boolean): Promise<ToolExecutionResult> {
     const planContent = params.plan;
     const title = params.title || 'Implementation Plan';
     let existingPlanFilePath = params.planFilePath;
@@ -252,15 +266,20 @@ export class PlanTool implements ITool {
       }
 
       const planFileName = path.basename(existingPlanFilePath);
+      
+      // YOLO mode: Auto-verify, no user action needed
+      // Normal mode: Wait for user to click "Verify Plan"
       const result: PlanToolResult = {
         mode: 'update_plan',
-        awaitsUserAction: true,
+        awaitsUserAction: !isYoloMode, // false in YOLO = auto-verified
         actionType: 'verify_plan',
         planTitle: title,
         planContent: fullContent,
         planFilePath: existingPlanFilePath,
         previousPlanContent,  // Store previous content for undo support
-        message: `Plan "${title}" updated at .echode/${planFileName}. Click "Verify Plan" to continue.`,
+        message: isYoloMode
+          ? `[YOLO] Plan "${title}" updated and auto-verified. Proceeding to handoff.`
+          : `Plan "${title}" updated at .echode/${planFileName}. Click "Verify Plan" to continue.`,
       };
 
       return {
@@ -277,14 +296,15 @@ export class PlanTool implements ITool {
 
   /**
    * Handoff mode: Prepare to switch to agent mode
-   * Shows "Start Implementation" button
+   * In normal mode: Shows "Start Implementation" button and waits for user
+   * In YOLO mode: Auto-starts implementation, no user action required
    * 
    * Note: planContent and planFilePath come from the frontend which tracks them
    * from the original create_plan/update_plan tool result in the conversation.
    * The handoff tool itself doesn't need to look them up - they're passed through
    * the tool result chain to maintain session-specific context.
    */
-  private handleHandoffMode(params: PlanToolParameters): ToolExecutionResult {
+  private handleHandoffMode(params: PlanToolParameters, isYoloMode: boolean): ToolExecutionResult {
     const summary = params.summary;
     
     // Auto-discover the latest plan file to pass to agent mode
@@ -293,15 +313,19 @@ export class PlanTool implements ITool {
       planFilePath = PlanViewerManager.instance.getCurrentPlanPath();
     }
 
+    // YOLO mode: Auto-start implementation, no user action needed
+    // Normal mode: Wait for user to click "Start Implementation"
     const result: PlanToolResult = {
       mode: 'handoff',
-      awaitsUserAction: true,
+      awaitsUserAction: !isYoloMode, // false in YOLO = auto-started
       actionType: 'start_implementation',
       planFilePath, // Pass the tracked plan path to the agent
       summary,
-      message: summary 
-        ? `Ready to implement: ${summary}. Click "Start Implementation" to switch to Agent mode.`
-        : 'Ready to implement. Click "Start Implementation" to switch to Agent mode.',
+      message: isYoloMode
+        ? `[YOLO] Implementation auto-started. Switching to Agent mode.`
+        : (summary 
+          ? `Ready to implement: ${summary}. Click "Start Implementation" to switch to Agent mode.`
+          : 'Ready to implement. Click "Start Implementation" to switch to Agent mode.'),
     };
 
     return {

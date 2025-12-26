@@ -166,7 +166,7 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
 
   return `<tools>
 <tool_format>
-CRITICAL: You must strictly follow this XML format structure. Valid XML is required.
+CRITICAL: You must strictly follow this XML format structure. Valid XML is STRICTLY  required.
 
 SEQUENTIAL EXECUTION:
 <function_calls>
@@ -194,23 +194,6 @@ FORMAT RULES:
 3. Parameters must be strictly inside <parameter> tags.
 4. XML tags must be properly closed.
 </tool_format>
-
-<invalid_formats>
-CRITICAL: The following formats are STRICTLY FORBIDDEN. NEVER use them:
-
-1. DO NOT use <tool_call> or <tool_code> tags.
-2. DO NOT use <|tool|> or <|tool_call|> syntax.
-3. DO NOT use [TOOL] or [call] prefixes.
-4. DO NOT use JSON objects for tools (except inside param values).
-5. DO NOT use Markdown code blocks for tools.
-
-CORRECT FORMAT ONLY:
-<function_calls>
-    <invoke name="...">
-        ...
-    </invoke>
-</function_calls>
-</invalid_formats>
 
 <available_tools>
 Available: ${toolIdsList}

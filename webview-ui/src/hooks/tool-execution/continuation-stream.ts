@@ -429,6 +429,23 @@ export async function runContinuationStream(config: ContinuationStreamConfig): P
               return false;
             }
 
+            // YOLO Mode: Check if plan handoff completed - switch to agent mode for continuation
+            let continuationConfig = lockedConfig;
+            if (lockedConfig?.originalMode === 'yolo') {
+              // Check if any tool result indicates a handoff was completed
+              const handoffCompleted = blocks.some(block => 
+                block.toolName === 'plan' && block.parameters.mode === 'handoff'
+              );
+              
+              if (handoffCompleted) {
+                console.log('[ContinuationStream] YOLO mode handoff detected - switching to agent mode');
+                continuationConfig = {
+                  ...lockedConfig,
+                  mode: 'agent', // Switch internal mode to agent for implementation
+                };
+              }
+            }
+
             // Continue with all buffered results
             await executeToolAndContinue(
               continuationContent,
@@ -439,7 +456,7 @@ export async function runContinuationStream(config: ContinuationStreamConfig): P
               nextToolIndex,
               userAttachments,
               bufferedToolResults,
-              lockedConfig
+              continuationConfig
             );
             return true;
           }

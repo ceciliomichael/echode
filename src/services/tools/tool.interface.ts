@@ -11,8 +11,9 @@ export type ToolProgressCallback = (progress: unknown) => void;
 
 /**
  * Chat mode types for mode-specific tool behavior
+ * Note: 'yolo' mode is fully autonomous - plan tools auto-verify without waiting for user
  */
-export type ChatMode = 'agent' | 'plan' | 'ask' | 'general' | 'review';
+export type ChatMode = 'agent' | 'plan' | 'ask' | 'general' | 'review' | 'yolo';
 
 export interface ITool {
     name: string;

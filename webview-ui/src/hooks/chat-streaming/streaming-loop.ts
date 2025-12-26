@@ -436,6 +436,23 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
             return { success: false, assistantContent, handledByToolExecution: true };
           }
 
+          // YOLO Mode: Check if plan handoff completed - switch to agent mode for continuation
+          let continuationConfig = lockedConfig;
+          if (lockedConfig.originalMode === 'yolo') {
+            // Check if any tool result indicates a handoff was completed
+            const handoffCompleted = blocks.some(block => 
+              block.toolName === 'plan' && block.parameters.mode === 'handoff'
+            );
+            
+            if (handoffCompleted) {
+              console.log('[StreamingLoop] YOLO mode handoff detected - switching to agent mode');
+              continuationConfig = {
+                ...lockedConfig,
+                mode: 'agent', // Switch internal mode to agent for implementation
+              };
+            }
+          }
+
           // Continue with all buffered results
           await executeToolAndContinue(
             assistantContent,
@@ -446,7 +463,7 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
             0,
             attachments,
             bufferedToolResults,
-            lockedConfig,
+            continuationConfig,
           );
           return { success: true, assistantContent, handledByToolExecution: true };
         }
