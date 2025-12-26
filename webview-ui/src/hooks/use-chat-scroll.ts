@@ -38,19 +38,41 @@ export function useChatScroll(
     }
   }, []);
 
-  // Handle scroll events - simple "at bottom" check
+  const lastScrollTopRef = useRef(0);
+
+  // Handle scroll events
   const handleScroll = useCallback(() => {
     const elem = scrollContainerRef.current;
     if (!elem) return;
 
-    // Check if we are at the bottom (with a tight 1px tolerance)
-    const isAtBottom = Math.abs(elem.scrollHeight - elem.scrollTop - elem.clientHeight) < 1;
+    const { scrollTop, scrollHeight, clientHeight } = elem;
     
+    // Check if we are at the bottom (with a 4px tolerance)
+    const isAtBottom = Math.abs(scrollHeight - scrollTop - clientHeight) < 4;
+    
+    // Determine scroll direction
+    // If scrollTop < lastScrollTop, user is scrolling UP.
+    // If scrollTop > lastScrollTop, user is scrolling DOWN (or content pushed us down).
+    const isScrollingUp = scrollTop < lastScrollTopRef.current;
+    
+    // Update reference for next event
+    lastScrollTopRef.current = scrollTop;
+
     /**
-     * We stop auto scrolling if a user manually scrolled up.
-     * We resume auto scrolling if a user manually scrolled to the bottom.
+     * Intelligent Auto-Scroll Logic:
+     * 1. If we are at the bottom, we are definitely "pinned" (userHasScrolled = false).
+     * 2. If we are scrolling UP (delta < 0), the user is intentionally leaving the bottom.
+     *    Set userHasScrolled = true.
+     * 3. If we are scrolling DOWN (delta > 0) but NOT at the bottom yet:
+     *    This happens when content grows and we are auto-scrolling to catch up.
+     *    In this case, we DO NOT unpin. We assume it's the auto-scroller working.
      */
-    setUserHasScrolled(!isAtBottom);
+    if (isAtBottom) {
+      setUserHasScrolled(false);
+    } else if (isScrollingUp) {
+      setUserHasScrolled(true);
+    }
+    // implicit else: scrolling down but not at bottom -> keep existing state.
   }, []);
 
   // Reset scroll state when a new USER message is added
@@ -67,9 +89,7 @@ export function useChatScroll(
     const resizeObserver = new ResizeObserver(() => {
       // If user hasn't scrolled up, keep pinned to bottom
       if (!userHasScrolled && elem) {
-        requestAnimationFrame(() => {
-          elem.scrollTop = elem.scrollHeight;
-        });
+        elem.scrollTop = elem.scrollHeight;
       }
     });
 
@@ -77,7 +97,6 @@ export function useChatScroll(
     resizeObserver.observe(elem);
 
     // Observe all immediate children for granular resize detection
-    // This ensures we catch height changes from streaming text, thinking blocks, etc.
     Array.from(elem.children).forEach((child) => {
       resizeObserver.observe(child);
     });

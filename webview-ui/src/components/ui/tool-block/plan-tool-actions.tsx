@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { CheckCircle, Rocket } from 'lucide-react';
 import type { ToolCall } from '../../../types/tool';
 import type { PlanToolResult } from '../../../lib/tools/plan-tool';
@@ -48,6 +49,26 @@ export function PlanToolActions({
 
   // Button is only active when awaiting user AND this is the last message
   const isButtonActive = isAwaitingUser && isLastMessage;
+
+  // YOLO Mode: Auto-verify when plan is ready
+  useEffect(() => {
+    if (mode === 'yolo' && isButtonActive && actionType === 'verify_plan') {
+      const timer = setTimeout(() => {
+        handleVerifyPlan();
+      }, 500); // Small delay for visual feedback
+      return () => clearTimeout(timer);
+    }
+  }, [mode, isButtonActive, actionType]);
+
+  // YOLO Mode: Auto-start implementation when ready
+  useEffect(() => {
+    if (mode === 'yolo' && isButtonActive && actionType === 'start_implementation') {
+      const timer = setTimeout(() => {
+        handleStartImplementation();
+      }, 500); // Small delay for visual feedback
+      return () => clearTimeout(timer);
+    }
+  }, [mode, isButtonActive, actionType]);
 
   const handleVerifyPlan = () => {
     if (!isButtonActive) return;

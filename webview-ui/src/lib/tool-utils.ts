@@ -1,4 +1,7 @@
 import type { ToolExecutionResult, EchoSearchProgress } from '../types/tool';
+import type { ChatMode } from '../types/chat-mode';
+
+export type { ChatMode };
 
 /**
  * Progress data type - can be EchoSearchProgress for echo_search or string for terminal output
@@ -9,11 +12,6 @@ export type ToolProgress = EchoSearchProgress | string;
  * Progress callback type for tools that support streaming progress
  */
 export type ToolProgressCallback = (progress: ToolProgress) => void;
-
-/**
- * Chat mode type for mode-specific tool behavior
- */
-export type ChatMode = 'agent' | 'plan' | 'ask' | 'general' | 'chat' | 'review';
 
 /**
  * Execute tool via VSCode extension backend

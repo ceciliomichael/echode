@@ -40,6 +40,12 @@ export function getFilteredToolsForMode(mode: ChatMode): string[] {
     case 'plan':
       allowedTools = new Set(PLAN_MODE_TOOL_IDS);
       break;
+    case 'yolo':
+      // YOLO mode: during plan phase uses plan tools, but after handoff uses agent tools
+      // Since we can't know the phase here, allow all tools (agent superset)
+      // The lockedMode mechanism handles the actual tool availability
+      allowedTools = new Set(STANDARD_TOOLS.filter(t => t !== 'plan' && t !== 'publish_findings'));
+      break;
     case 'ask':
       allowedTools = new Set(ASK_MODE_TOOL_IDS);
       break;

@@ -21,7 +21,7 @@ export interface AgentPromptOptions {
 /**
  * Build the complete Agent mode system prompt
  */
-export function buildAgentPrompt(options: AgentPromptOptions): string {
+export function buildAgentPrompt(options: AgentPromptOptions, modeName: string = 'AGENT'): string {
     const { workspace, enabledTools, fullTerminalAccess = false } = options;
 
     // Tool format section (generic XML format)
@@ -40,7 +40,7 @@ No tools are currently enabled.
     const toolInstructions = getAgentToolInstructions(enabledTools, toolOptions);
 
     // Monolithic prompt (cognitive workflow + rules + mode description)
-    const prompt = getAgentPrompt(workspace, enabledTools);
+    const prompt = getAgentPrompt(workspace, enabledTools, modeName);
 
     const userRules = getUserRules(workspace);
     const systemInfo = getSystemInfo(workspace);

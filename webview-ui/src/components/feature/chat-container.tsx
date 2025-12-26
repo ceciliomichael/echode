@@ -65,11 +65,25 @@ export function ChatContainer() {
   // Context usage tracking
   const workspace = useWorkspaceContext();
   const settings = storageService.getSettings();
-  const systemPrompt = getSystemPrompt(workspace, mode);
+  
+  // For YOLO mode, derive the "effective mode" from the last assistant message
+  // This reflects the internal mode transition (plan -> agent) after handoff
+  const effectiveMode = (() => {
+    if (mode !== 'yolo') return mode;
+    
+    // Find the last assistant message to check its internal mode
+    const lastAssistantMessage = [...messages].reverse().find(msg => msg.role === 'assistant');
+    if (lastAssistantMessage?.mode === 'agent') {
+      return 'agent'; // YOLO has transitioned to agent internally
+    }
+    return 'plan'; // YOLO starts as plan mode
+  })();
+  
+  const systemPrompt = getSystemPrompt(workspace, effectiveMode);
   const contextUsage = useContextUsage({
     systemPrompt,
     messages,
-    mode,
+    mode: effectiveMode,
     contextSettings: settings.contextSettings,
     revertPreviewMessageId,
   });

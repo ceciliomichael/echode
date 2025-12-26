@@ -220,8 +220,8 @@ export function usePlanContinuationHandler({
           message: 'User approved the plan. Begin implementation.',
         };
         
-        // Switch to agent mode for handoff
-        if (onModeChangeRef.current) {
+        // Switch to agent mode for handoff (unless in YOLO mode)
+        if (onModeChangeRef.current && mode !== 'yolo') {
           console.log('[PlanContinuation] Switching to agent mode for handoff');
           onModeChangeRef.current('agent');
         }
@@ -238,11 +238,13 @@ export function usePlanContinuationHandler({
       // Wrap in <tool_result> tags so the AI recognizes it as a tool result continuation
       const messageContent = `<tool_result>\n${toolResultContent}\n</tool_result>`;
 
-      // Determine the mode for the next message
-      // If starting implementation, we MUST switch to agent mode
-      // If verifying plan, we MUST ensure we are in plan mode (even if user is in agent mode)
-      // Otherwise, keep the original mode
-      const nextMode = action === 'start_implementation' ? 'agent' : (action === 'verify_plan' ? 'plan' : mode);
+      // Determine the mode for the next message (lockedMode for prompt/tools selection)
+      // YOLO mode: UI stays 'yolo' but internally uses 'agent' prompt after handoff
+      // - start_implementation: use 'agent' prompt (even for YOLO - this is the internal switch)
+      // - verify_plan: use 'plan' prompt (YOLO stays in plan phase until handoff)
+      const nextMode = action === 'start_implementation' 
+        ? 'agent'  // Always use agent prompt after handoff (YOLO or not)
+        : (action === 'verify_plan' ? (mode === 'yolo' ? 'yolo' : 'plan') : mode);
 
       // Send as a hidden message (user won't see it, but AI receives it as tool result)
       // Use a small delay to ensure state updates are processed

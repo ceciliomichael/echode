@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react';
-import { BookOpen, Check, Code, Hammer, HelpCircle, MessageCircle, SearchCheck } from 'lucide-react';
+import { BookOpen, Check, Code, Hammer, HelpCircle, MessageCircle, Rocket, SearchCheck } from 'lucide-react';
 import { useHoverEffect, hoverPresets } from '../../hooks/use-hover-effect';
 import type { ChatMode } from '../../types/chat-mode';
 import { CHAT_MODE_OPTIONS } from '../../types/chat-mode';
@@ -11,6 +11,7 @@ const MODE_ICONS: Record<ChatMode, typeof Code> = {
   general: BookOpen,
   chat: MessageCircle,
   review: SearchCheck,
+  yolo: Rocket,
 };
 
 interface ModeDropdownProps {
@@ -71,7 +72,7 @@ function ModeDropdownComponent({ mode, onModeChange, disabled = false, direction
         disabled={disabled}
         className="flex items-center gap-1.5 px-2 py-1 text-xs rounded-xl border transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
         style={{
-          color: mode === 'agent' ? '#22c55e' : mode === 'ask' ? '#3b82f6' : mode === 'plan' ? '#f97316' : mode === 'chat' ? '#ec4899' : mode === 'review' ? '#ef4444' : '#a855f7',
+          color: mode === 'agent' ? '#22c55e' : mode === 'ask' ? '#3b82f6' : mode === 'plan' ? '#f97316' : mode === 'chat' ? '#ec4899' : mode === 'review' ? '#ef4444' : mode === 'yolo' ? '#eab308' : '#a855f7',
           backgroundColor: 'transparent',
           borderColor: mode === 'agent'
             ? 'rgba(34, 197, 94, 0.3)'
@@ -83,7 +84,9 @@ function ModeDropdownComponent({ mode, onModeChange, disabled = false, direction
                   ? 'rgba(236, 72, 153, 0.3)'
                   : mode === 'review'
                     ? 'rgba(239, 68, 68, 0.3)'
-                    : 'rgba(168, 85, 247, 0.3)',
+                    : mode === 'yolo'
+                      ? 'rgba(234, 179, 8, 0.3)'
+                      : 'rgba(168, 85, 247, 0.3)',
         }}
         title={currentOption?.description}
         onMouseEnter={(e) => !disabled && handleMouseEnter(e, hoverPresets.button.enter)}

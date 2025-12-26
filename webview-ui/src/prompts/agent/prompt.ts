@@ -11,7 +11,7 @@ import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
 import { TYPE_SAFETY_RULE, IMAGE_AWARENESS_RULES, INTERACTION_RULES, PRESERVATION_RULES } from '../shared';
 
-export function getAgentPrompt(workspace: WorkspaceContext | null, enabledTools: Tool[] = []): string {
+export function getAgentPrompt(workspace: WorkspaceContext | null, enabledTools: Tool[] = [], modeName: string = 'AGENT'): string {
   const cwd = workspace?.path || 'the current workspace directory';
   const enabledIds = new Set(enabledTools.map(t => t.id));
 
@@ -53,7 +53,7 @@ export function getAgentPrompt(workspace: WorkspaceContext | null, enabledTools:
   return `<agent>
 <role>
 You are an autonomous coding agent. Implement changes based on the user's request.
-Mode: AGENT
+Mode: ${modeName}
 Available tools: ${toolList.length > 0 ? toolList.join(', ') : 'none'}
 Workspace: ${cwd}
 </role>

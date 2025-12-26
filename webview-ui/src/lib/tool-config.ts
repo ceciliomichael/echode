@@ -98,7 +98,9 @@ export function getToolsForMode(mode: ChatMode, defaultEnabled = true): Tool[] {
 
   switch (mode) {
     case 'plan':
-      // Include explicitly allowed plan tools OR any remote/MCP tool (not in standard set)
+    case 'yolo':
+      // YOLO starts as Plan mode (same tools)
+      // After handoff, it internally switches to Agent tools via lockedMode
       return allTools.filter(t =>
         (PLAN_MODE_TOOL_IDS as readonly string[]).includes(t.id) ||
         !STANDARD_TOOL_IDS.has(t.id)
