@@ -277,7 +277,14 @@ export function ChatContainer() {
           data-chat-scroll-container="true"
           data-chat-message-list-boundary="true"
           className={`flex-1 ${editingMessageId ? 'overflow-y-hidden' : 'overflow-y-auto'}`}
-          style={{ scrollbarGutter: 'stable', overflowAnchor: 'auto' }}
+          style={{
+            scrollbarGutter: 'stable',
+            overflowAnchor: 'auto',
+            transform: 'translateZ(0)',
+            contain: 'size layout',
+            zIndex: 0,
+            position: 'relative',
+          }}
         >
           {visibleMessages.length === 0 ? (
             <div className={`${contentWidthClass} mx-auto h-full py-3 sm:py-4 lg:py-6 ${horizontalPaddingClass}`}>
@@ -291,6 +298,7 @@ export function ChatContainer() {
               <div className="space-y-3">
                 {visibleMessages.map((message, index) => {
                   const isLastAssistantMessage = index === visibleMessages.length - 1 && message.role === 'assistant';
+                  const isFirstMessage = index === 0;
 
                   return (
                     <MessageBubble
@@ -304,6 +312,7 @@ export function ChatContainer() {
                       onRevert={handleRevert}
                       isStreaming={(isStreaming || isExecutingTool) && isLastAssistantMessage}
                       isLastMessage={isLastAssistantMessage}
+                      isFirstMessage={isFirstMessage}
                       mode={mode}
                       onModeChange={handleModeChange}
                       provider={provider}

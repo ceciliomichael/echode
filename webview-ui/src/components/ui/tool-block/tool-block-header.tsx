@@ -62,7 +62,7 @@ export function ToolBlockHeader({
 
         {/* Filename / Tool Name */}
         <span
-          className="text-sm font-medium truncate"
+          className="text-sm font-medium break-words"
           style={{ color: 'var(--vscode-foreground)', opacity: 0.7 }}
         >
           {fileInfo.displayName}

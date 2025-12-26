@@ -166,11 +166,19 @@ export function useChatStreaming({
       });
     }
 
+    // Capture enabled tool IDs at request start to lock tools for this request
+    // This prevents mid-request settings changes from affecting the running agent
+    const currentSettings = storageService.getSettings();
+    const enabledToolIds = currentSettings.enabledTools
+      ?.filter(t => t.enabled)
+      .map(t => t.id) ?? [];
+
     const lockedConfig: LockedModelConfig = {
       provider: selectedProvider,
       model: selectedModel,
       mode: currentMode,
       originalMode, // Preserve 'yolo' for auto-verification logic
+      enabledToolIds, // Lock tools for this request
     };
     
     console.log('[sendMessage] Mode configuration:', {

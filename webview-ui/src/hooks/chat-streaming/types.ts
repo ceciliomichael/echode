@@ -2,20 +2,10 @@ import type { Message, ImageAttachment } from '../../types/chat';
 import type { ChatMessage } from '../../types/chat-api';
 import type { ChatMode } from '../../types/chat-mode';
 import type { ToolExecutionState } from '../../types/tool';
-import type { Provider } from '../../types/api-settings';
 
-/**
- * Locked configuration - captured at the start of streaming
- * to ensure the same model AND mode are used throughout tool execution and continuation
- * even if user changes settings while AI is working
- */
-export interface LockedModelConfig {
-  provider: Provider;
-  model: string;
-  mode: ChatMode;
-  /** The original UI mode before any conversions (e.g., 'yolo' before it becomes 'plan' or 'agent') */
-  originalMode?: ChatMode;
-}
+// Re-export LockedModelConfig from the shared location (DRY)
+export type { LockedModelConfig } from '../../services/chat-api';
+import type { LockedModelConfig } from '../../services/chat-api';
 
 /**
  * Props passed to useChatStreaming hook

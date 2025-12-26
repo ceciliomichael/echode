@@ -76,7 +76,7 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, is
                       )}
                     </div>
                     <pre
-                      className="text-xs font-mono whitespace-pre-wrap overflow-x-auto p-2 rounded"
+                      className="text-xs font-mono whitespace-pre-wrap break-all p-2 rounded"
                       style={{
                         backgroundColor: 'var(--vscode-textCodeBlock-background)',
                         color: 'var(--vscode-editor-foreground)',

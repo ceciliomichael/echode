@@ -154,6 +154,22 @@ export function getToolFileInfo(
     };
   }
 
+  // Run terminal -> Use Terminal icon with truncated command in header
+  if (toolName === 'run_terminal') {
+    const command = parameters.command as string | undefined;
+    const truncatedCommand = command && command.length > 50 
+      ? command.substring(0, 50) + '...' 
+      : command;
+    const displayName = truncatedCommand ? `$ ${truncatedCommand}` : 'Terminal';
+    return {
+      displayName,
+      fullPath: '',
+      icon: getIcon(getToolMetadata('run_terminal')?.icon || getFileIconConfig('').icon),
+      iconColor: getIconColor('var(--vscode-terminal-foreground)'),
+      isSpinning: isExecuting,
+    };
+  }
+
   // Generic file operations with path
   if (path) {
     const fileName = extractFileName(path);

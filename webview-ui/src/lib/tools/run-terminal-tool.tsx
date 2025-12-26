@@ -71,7 +71,7 @@ Usage: Always use "execute" then "read" with timeout to get streaming output.`,
                     <span>Terminal Output</span>
                 </div>
                 <pre
-                    className="text-xs font-mono whitespace-pre-wrap overflow-x-auto p-2 rounded"
+                    className="text-xs font-mono whitespace-pre-wrap break-all p-2 rounded"
                     style={{
                         backgroundColor: 'var(--vscode-textCodeBlock-background)',
                         color: 'var(--vscode-editor-foreground)',

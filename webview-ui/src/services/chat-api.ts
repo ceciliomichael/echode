@@ -12,6 +12,8 @@ export interface LockedModelConfig {
   mode: ChatMode;
   /** The original UI mode before any conversions (e.g., 'yolo' before it becomes 'plan' or 'agent') */
   originalMode?: ChatMode;
+  /** Enabled tool IDs captured at request start - locks tools for the duration of the request */
+  enabledToolIds?: string[];
 }
 
 export class ChatApiService {
@@ -125,19 +127,31 @@ export class ChatApiService {
     // Filter tools based on mode (plan mode gets restricted set, agent mode gets all)
     // Use locked mode if provided (for continuations), otherwise use the mode parameter
     const activeMode = lockedConfig?.mode ?? mode;
-    const savedEnabledTools = settings.enabledTools;
-    const hasSavedEnabledTools = Array.isArray(savedEnabledTools) && savedEnabledTools.length > 0;
 
     let modeTools = activeMode === 'plan'
       ? getToolsForMode('plan', true)
       : getToolsForMode(activeMode, true);
 
-    if (activeMode === 'agent' && hasSavedEnabledTools) {
-      modeTools = modeTools.filter(tool => {
-        // Find the tool in settings to check if it's enabled
-        const settingsTool = savedEnabledTools!.find(t => t.id === tool.id);
-        return settingsTool?.enabled ?? false;
-      });
+    // Tool locking: Use locked tool IDs if provided (captured at request start),
+    // otherwise fall back to current settings for backward compatibility
+    if (activeMode === 'agent') {
+      const lockedToolIds = lockedConfig?.enabledToolIds;
+      
+      if (lockedToolIds && lockedToolIds.length > 0) {
+        // Use locked tools from request start - prevents mid-request settings changes
+        modeTools = modeTools.filter(tool => lockedToolIds.includes(tool.id));
+      } else {
+        // Fallback: read from current settings (legacy behavior)
+        const savedEnabledTools = settings.enabledTools;
+        const hasSavedEnabledTools = Array.isArray(savedEnabledTools) && savedEnabledTools.length > 0;
+        
+        if (hasSavedEnabledTools) {
+          modeTools = modeTools.filter(tool => {
+            const settingsTool = savedEnabledTools!.find(t => t.id === tool.id);
+            return settingsTool?.enabled ?? false;
+          });
+        }
+      }
     }
 
     // Filter out echo_search if indexing is disabled

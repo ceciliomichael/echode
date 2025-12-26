@@ -155,7 +155,9 @@ export function ChatInput({
       data-edit-outside-ignore="true"
       style={{
         paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))",
-        backgroundColor: 'var(--vscode-sideBar-background)'
+        backgroundColor: 'var(--vscode-sideBar-background)',
+        zIndex: 10,
+        position: 'relative',
       }}
     >
       {queuedMessages.length > 0 && onRemoveFromQueue && (
