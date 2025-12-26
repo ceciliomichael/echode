@@ -11,10 +11,27 @@
 export function getPlanInstructions(): string {
   return `## plan
 Interactive planning tool for structured development workflow.
- 
+
 Parameters:
 - mode: "create_plan" | "update_plan" | "handoff" (required)
- 
+
+### Mode Selection Guide (CRITICAL)
+**create_plan**: Use when:
+- Starting a new implementation (no plan exists yet)
+- User requests something NEW after a previous plan was executed (handoff completed)
+- Starting fresh on a different feature or task
+
+**update_plan**: Use ONLY when:
+- User gave feedback on the CURRENT active plan (before clicking "Verify Plan")
+- User said "change this part" or "revise the approach" for the EXISTING plan
+- Iterating on the same plan during the planning phase
+
+**handoff**: Use when:
+- Plan has been verified by the user
+- Ready to switch to Agent mode for implementation
+
+CRITICAL: Once handoff is executed, that plan is DONE. Any new user request should use create_plan, NOT update_plan.
+
 ### Mode: create_plan
 Create a detailed implementation plan in markdown format.
  

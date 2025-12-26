@@ -87,10 +87,13 @@ export function getSystemPrompt(workspace: WorkspaceContext | null, mode: ChatMo
             return buildAskPrompt({ workspace, enabledTools });
 
         case 'plan':
+            return buildPlanPrompt({ workspace, enabledTools });
+
         case 'yolo':
             // YOLO mode starts with Plan prompt (internally acts as Plan first)
             // After auto-verify, it switches to Agent prompt via lockedMode
-            return buildPlanPrompt({ workspace, enabledTools });
+            // Key difference: isYoloMode=true skips clarification questions
+            return buildPlanPrompt({ workspace, enabledTools, isYoloMode: true });
 
         case 'review':
             return buildReviewPrompt({ workspace, enabledTools });

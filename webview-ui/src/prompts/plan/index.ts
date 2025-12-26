@@ -13,13 +13,15 @@ import { getToolSystemPrompt } from '../../lib/tool-config';
 export interface PlanPromptOptions {
     workspace: WorkspaceContext | null;
     enabledTools: Tool[];
+    /** YOLO mode: Skip clarification, go straight to planning */
+    isYoloMode?: boolean;
 }
 
 /**
  * Build the complete Plan mode system prompt
  */
 export function buildPlanPrompt(options: PlanPromptOptions): string {
-    const { workspace, enabledTools } = options;
+    const { workspace, enabledTools, isYoloMode } = options;
 
     // Tool format section (generic XML format)
     const toolsSection = enabledTools.length > 0
@@ -32,7 +34,11 @@ No tools are currently enabled.
     const toolInstructions = getPlanToolInstructions(enabledTools);
 
     // Monolithic prompt (cognitive workflow + rules + mode description)
-    const prompt = getPlanPrompt(workspace, enabledTools);
+    const prompt = getPlanPrompt({
+        workspace,
+        enabledTools,
+        isYoloMode,
+    });
 
     const userRules = getUserRules(workspace);
     const systemInfo = getSystemInfo(workspace);

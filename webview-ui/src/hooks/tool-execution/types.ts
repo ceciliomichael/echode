@@ -17,6 +17,8 @@ export interface LockedModelConfig {
   provider: Provider;
   model: string;
   mode: ChatMode;
+  /** The original UI mode before any conversions (e.g., 'yolo' before it becomes 'plan' or 'agent') */
+  originalMode?: ChatMode;
 }
 
 /**

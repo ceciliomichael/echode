@@ -10,6 +10,7 @@ import { chatApi } from '../../services/chat-api';
 import type { LockedModelConfig } from '../../services/chat-api';
 import { hasCompleteToolBlock, trimToFirstCompleteToolBlock, extractCompleteInvokeBlocksIncremental } from '../../lib/tool-parser';
 import { formatToolResultForAI } from '../../utils/tool-execution-helpers';
+import { planContinuationEmitter } from '../use-plan-continuation';
 import type { ChatMessage } from '../../types/chat-api';
 import type { ChatMode } from '../../types/chat-mode';
 import type { Message, ImageAttachment } from '../../types/chat';
@@ -363,8 +364,57 @@ export async function runContinuationStream(config: ContinuationStreamConfig): P
             console.log(`[ContinuationStream] All ${allResults.length} parallel executions completed`);
 
             // Check if any tool awaits user action - if so, STOP and don't continue
+            // EXCEPTION: In YOLO mode, auto-trigger the continuation instead of waiting
             const hasAwaitingTool = allResults.some(r => r.awaitsUserAction);
             if (hasAwaitingTool) {
+              // Check originalMode for YOLO detection (mode is converted to 'plan'/'agent')
+              const isYoloMode = lockedConfig?.originalMode === 'yolo';
+              
+              if (isYoloMode) {
+                // YOLO mode: Auto-trigger the plan continuation
+                console.log('[ContinuationStream] YOLO mode - auto-triggering plan continuation');
+                
+                // Find the awaiting tool result to get actionType and other data
+                const awaitingResult = allResults.find(r => r.awaitsUserAction);
+                if (awaitingResult) {
+                  const toolIndex = awaitingResult.toolIndex;
+                  const execId = generateToolExecutionId(assistantMessageId, toolIndex);
+                  
+                  // Get the tool blocks to extract parameters for the emitter
+                  const blocks = extractCompleteInvokeBlocksIncremental(continuationContent).blocks;
+                  const block = blocks[toolIndex];
+                  
+                  if (block) {
+                    // Parse the action type from the tool result
+                    // For plan tool: actionType is 'verify_plan' or 'start_implementation'
+                    const actionType = block.parameters.mode === 'handoff' 
+                      ? 'start_implementation' 
+                      : 'verify_plan';
+                    
+                    // Build the tool result data for the emitter
+                    const toolResultData = {
+                      mode: block.parameters.mode,
+                      planTitle: block.parameters.title,
+                      summary: block.parameters.summary,
+                    };
+                    
+                    // Emit the continuation event (same as clicking the button)
+                    planContinuationEmitter.emit({
+                      action: actionType,
+                      messageId: assistantMessageId,
+                      toolExecutionId: execId,
+                      toolResult: toolResultData,
+                      mode: 'yolo',
+                    });
+                    
+                    console.log(`[ContinuationStream] YOLO mode - emitted ${actionType} continuation`);
+                  }
+                }
+                
+                setIsExecutingTool(false);
+                return true; // Return success, continuation will be handled by the emitter
+              }
+              
               console.log('[ContinuationStream] Tool awaits user action - stopping continuation');
               setIsExecutingTool(false);
               return true; // Return success but don't continue

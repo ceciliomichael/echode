@@ -115,20 +115,49 @@ export function useChatStreaming({
     // === CONTEXT PREPARATION ===
     const latestWorkspace = window.workspaceContext || workspace;
     
+    // Preserve the UI mode BEFORE applying lockedMode override
+    // This is critical for YOLO mode: lockedMode may be 'plan' or 'agent' (internal phase),
+    // but we need to remember that the UI is actually in 'yolo' mode for auto-verification
+    const uiMode = modeRef.current;
+    const originalMode = uiMode === 'yolo' ? 'yolo' : (lockedMode ?? uiMode);
+    
     // Determine current mode: prefer locked mode if provided (e.g. from plan continuation),
     // otherwise use current mode ref (handles race condition where mode updates during async flow)
-    const currentMode = lockedMode ?? modeRef.current;
+    let currentMode = lockedMode ?? modeRef.current;
+    
+    // YOLO mode phase detection:
+    // YOLO starts as 'plan' but internally transitions to 'agent' after handoff.
+    // We detect the phase by checking the last assistant message's mode.
+    // This ensures correct tool filtering in chat history (plan tools vs agent tools).
+    if (currentMode === 'yolo') {
+      const msgsToCheck = overrideMessages ?? messages;
+      const lastAssistantMessage = [...msgsToCheck].reverse().find(msg => msg.role === 'assistant');
+      
+      // If last assistant message was in agent mode, stay in agent mode
+      // Otherwise default to plan mode for the initial phase
+      currentMode = lastAssistantMessage?.mode === 'agent' ? 'agent' : 'plan';
+    }
     
     // === LOCK CONFIG ===
     // Capture the current provider/model/mode at the START of streaming
     // This ensures the same settings are used throughout tool execution and continuation
     // even if user changes settings while AI is working
-    const modeModel = storageService.getModeModel(currentMode);
+    // Use originalMode for model selection (YOLO uses its own settings, not plan/agent's)
+    const modeModel = storageService.getModeModel(originalMode);
     const lockedConfig: LockedModelConfig = {
       provider: modeModel.provider,
       model: modeModel.model,
       mode: currentMode,
+      originalMode, // Preserve 'yolo' for auto-verification logic
     };
+    
+    console.log('[sendMessage] Mode configuration:', {
+      uiMode,
+      lockedMode,
+      originalMode,
+      currentMode,
+      lockedConfig,
+    });
 
     // === MESSAGE CREATION ===
     const userMessage: Message = {

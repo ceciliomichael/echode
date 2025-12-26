@@ -172,6 +172,9 @@ export function usePlanContinuationHandler({
         planContent?: string;
       } | undefined;
 
+      // Derive actionType from the action (needed for isPlanToolResult validation)
+      const actionType = action === 'verify_plan' ? 'verify_plan' : 'start_implementation';
+
       // Update tool execution state to 'completed'
       const completedState: ToolExecutionState = {
         toolExecutionId,
@@ -182,6 +185,7 @@ export function usePlanContinuationHandler({
           success: true,
           data: {
             ...planData,
+            actionType, // Required for isPlanToolResult validation
             userAction: action,
             awaitsUserAction: false, // Clear the flag
           },
@@ -200,7 +204,7 @@ export function usePlanContinuationHandler({
           userAction: 'verify_plan',
           verified: true,
           planTitle,
-          message: `User verified and approved "${planTitle}". Proceed with the next step.`,
+          message: `User verified and approved "${planTitle}". IMMEDIATELY proceed to handoff: 1) Create todo_write with implementation tasks, 2) Call plan tool with mode="handoff". DO NOT create another plan.`,
         };
       } else if (action === 'start_implementation') {
         const summary = planData?.summary || 'the planned implementation';

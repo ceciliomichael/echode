@@ -7,6 +7,7 @@ import { isRetryableError } from './helpers';
 import { ToolExecutor } from '../../lib/tool-executor';
 import { formatToolResultForAI, type ToolProgressCallback } from '../../utils/tool-execution-helpers';
 import type { ChatMode } from '../../types/chat-mode';
+import { planContinuationEmitter } from '../use-plan-continuation';
 
 /**
  * Result of the streaming loop
@@ -348,11 +349,79 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
           // Sort results by toolIndex to maintain order
           allResults.sort((a, b) => a.toolIndex - b.toolIndex);
 
-          console.log(`[StreamingLoop] All ${allResults.length} parallel executions completed`);
+          console.log(`[StreamingLoop] All ${allResults.length} parallel executions completed`, {
+            results: allResults.map(r => ({ 
+              toolName: r.toolName, 
+              awaitsUserAction: r.awaitsUserAction,
+              success: r.success 
+            })),
+            lockedConfigOriginalMode: lockedConfig.originalMode,
+          });
 
           // Check if any tool awaits user action - if so, STOP and don't continue
+          // EXCEPTION: In YOLO mode, auto-trigger the continuation instead of waiting
           const hasAwaitingTool = allResults.some(r => r.awaitsUserAction);
           if (hasAwaitingTool) {
+            // Check originalMode for YOLO detection (mode is converted to 'plan'/'agent')
+            const isYoloMode = lockedConfig.originalMode === 'yolo';
+            
+            console.log('[StreamingLoop] YOLO check:', {
+              hasAwaitingTool,
+              originalMode: lockedConfig.originalMode,
+              mode: lockedConfig.mode,
+              isYoloMode,
+              lockedConfig: JSON.stringify(lockedConfig),
+            });
+            
+            if (isYoloMode) {
+              // YOLO mode: Auto-trigger the plan continuation
+              console.log('[StreamingLoop] YOLO mode - auto-triggering plan continuation');
+              
+              // Find the awaiting tool result to get actionType and other data
+              const awaitingResult = allResults.find(r => r.awaitsUserAction);
+              if (awaitingResult) {
+                const toolIndex = awaitingResult.toolIndex;
+                const execId = generateToolExecutionId(assistantMessageId, toolIndex);
+                
+                // Get the tool blocks to extract parameters for the emitter
+                const blocks = extractCompleteInvokeBlocksIncremental(assistantContent).blocks;
+                const block = blocks[toolIndex];
+                
+                if (block) {
+                  // Re-execute to get the full result (we only have the formatted string)
+                  // Actually, we need to get the result from the execution state
+                  // The actionType is in the tool result data
+                  
+                  // Parse the action type from the tool result
+                  // For plan tool: actionType is 'verify_plan' or 'start_implementation'
+                  const actionType = block.parameters.mode === 'handoff' 
+                    ? 'start_implementation' 
+                    : 'verify_plan';
+                  
+                  // Build the tool result data for the emitter
+                  const toolResultData = {
+                    mode: block.parameters.mode,
+                    planTitle: block.parameters.title,
+                    summary: block.parameters.summary,
+                  };
+                  
+                  // Emit the continuation event (same as clicking the button)
+                  planContinuationEmitter.emit({
+                    action: actionType,
+                    messageId: assistantMessageId,
+                    toolExecutionId: execId,
+                    toolResult: toolResultData,
+                    mode: 'yolo',
+                  });
+                  
+                  console.log(`[StreamingLoop] YOLO mode - emitted ${actionType} continuation`);
+                }
+              }
+              
+              setIsExecutingTool(false);
+              return { success: true, assistantContent, handledByToolExecution: true };
+            }
+            
             console.log('[StreamingLoop] Tool awaits user action - stopping continuation');
             setIsExecutingTool(false);
             return { success: true, assistantContent, handledByToolExecution: true };
