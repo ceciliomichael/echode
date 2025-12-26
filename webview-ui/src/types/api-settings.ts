@@ -3,7 +3,7 @@ import type { ChatMode } from './chat-mode';
 export type BuiltInProvider = 'anthropic' | 'openai' | 'openai-compatible' | 'megallm' | 'vscode-lm' | 'qwen-code' | 'zai';
 
 // Extended provider type that includes custom providers with pattern custom-{id}
-export type Provider = BuiltInProvider | `custom-${string}`;
+export type Provider = BuiltInProvider | 'auto' | `custom-${string}`;
 
 /**
  * Per-mode model configuration

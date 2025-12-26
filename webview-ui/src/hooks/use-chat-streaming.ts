@@ -127,15 +127,18 @@ export function useChatStreaming({
     
     // YOLO mode phase detection:
     // YOLO starts as 'plan' but internally transitions to 'agent' after handoff.
-    // We detect the phase by checking the last assistant message's mode.
-    // This ensures correct tool filtering in chat history (plan tools vs agent tools).
+    // We detect the phase by checking if this is a continuation (lockedMode provided) or a fresh request.
     if (currentMode === 'yolo') {
-      const msgsToCheck = overrideMessages ?? messages;
-      const lastAssistantMessage = [...msgsToCheck].reverse().find(msg => msg.role === 'assistant');
-      
-      // If last assistant message was in agent mode, stay in agent mode
-      // Otherwise default to plan mode for the initial phase
-      currentMode = lastAssistantMessage?.mode === 'agent' ? 'agent' : 'plan';
+      // If lockedMode is provided, this is a continuation (tool execution, plan handoff, etc.)
+      // In that case, check the last assistant message to determine the current phase
+      if (lockedMode) {
+        const msgsToCheck = overrideMessages ?? messages;
+        const lastAssistantMessage = [...msgsToCheck].reverse().find(msg => msg.role === 'assistant');
+        currentMode = lastAssistantMessage?.mode === 'agent' ? 'agent' : 'plan';
+      } else {
+        // Fresh user request in YOLO mode: always start with planning phase
+        currentMode = 'plan';
+      }
     }
     
     // === LOCK CONFIG ===
@@ -144,9 +147,28 @@ export function useChatStreaming({
     // even if user changes settings while AI is working
     // Use originalMode for model selection (YOLO uses its own settings, not plan/agent's)
     const modeModel = storageService.getModeModel(originalMode);
+    
+    // Logic for Autodetect in YOLO mode:
+    // If provider is 'auto', we resolve the underlying model based on the current phase (plan or agent)
+    let selectedProvider = modeModel.provider;
+    let selectedModel = modeModel.model;
+
+    if (originalMode === 'yolo' && selectedProvider === 'auto') {
+      // Resolve based on current phase
+      const phaseSettings = storageService.getModeModel(currentMode); // currentMode is 'plan' or 'agent'
+      selectedProvider = phaseSettings.provider;
+      selectedModel = phaseSettings.model;
+      
+      console.log('[sendMessage] YOLO Autodetect resolved to:', {
+        phase: currentMode,
+        provider: selectedProvider,
+        model: selectedModel
+      });
+    }
+
     const lockedConfig: LockedModelConfig = {
-      provider: modeModel.provider,
-      model: modeModel.model,
+      provider: selectedProvider,
+      model: selectedModel,
       mode: currentMode,
       originalMode, // Preserve 'yolo' for auto-verification logic
     };

@@ -17,6 +17,15 @@ export class ModeHelpers {
       return modeSettings;
     }
     
+    // Special handling for YOLO mode: always default to Autodetect
+    // The Autodetect option will show as empty/unselected if underlying models are not configured
+    if (mode === 'yolo') {
+      return {
+        provider: 'auto',
+        model: 'Autodetect'
+      };
+    }
+    
     // Fallback to global provider/model (inherits current selection)
     return {
       provider: settings.provider,

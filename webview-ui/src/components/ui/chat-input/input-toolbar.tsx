@@ -93,6 +93,7 @@ export function InputToolbar({
           onChange={onModelChange}
           disabled={disabled}
           direction="up"
+          showAutodetect={mode === 'yolo'}
         />
       </div>
 

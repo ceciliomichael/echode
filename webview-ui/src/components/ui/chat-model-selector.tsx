@@ -7,6 +7,7 @@ import { useModelFetcher, requestModelsRefresh } from '../../hooks/use-model-fet
 import { CustomModelFetcher } from './custom-model-fetcher';
 
 const PROVIDER_OPTIONS: { value: Provider; label: string }[] = [
+  { value: 'auto', label: 'Autodetect' },
   { value: 'anthropic', label: 'Anthropic' },
   { value: 'openai', label: 'OpenAI' },
   { value: 'openai-compatible', label: 'OpenAI Compatible' },
@@ -22,9 +23,10 @@ interface ChatModelSelectorProps {
   onChange: (provider: Provider, model: string) => void;
   disabled?: boolean;
   direction?: 'up' | 'down';
+  showAutodetect?: boolean;
 }
 
-function ChatModelSelectorComponent({ provider: activeProvider, model: activeModel, onChange, disabled = false, direction = 'up' }: ChatModelSelectorProps) {
+function ChatModelSelectorComponent({ provider: activeProvider, model: activeModel, onChange, disabled = false, direction = 'up', showAutodetect = false }: ChatModelSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -194,6 +196,14 @@ function ChatModelSelectorComponent({ provider: activeProvider, model: activeMod
   // Flatten all models into a single array
   const allModels = useMemo(() => {
     const models: Array<{ provider: Provider; providerLabel: string; model: string }> = [];
+
+    if (showAutodetect) {
+      models.push({
+        provider: 'auto',
+        providerLabel: 'System',
+        model: 'Autodetect'
+      });
+    }
 
     if (anthropicModels) models.push(...anthropicModels.map(m => ({ provider: 'anthropic' as Provider, providerLabel: 'Anthropic', model: m })));
     if (openaiModels) models.push(...openaiModels.map(m => ({ provider: 'openai' as Provider, providerLabel: 'OpenAI', model: m })));

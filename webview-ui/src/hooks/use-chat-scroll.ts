@@ -89,7 +89,15 @@ export function useChatScroll(
     const resizeObserver = new ResizeObserver(() => {
       // If user hasn't scrolled up, keep pinned to bottom
       if (!userHasScrolled && elem) {
-        elem.scrollTop = elem.scrollHeight;
+        // Calculate how far we are from the bottom
+        const distanceFromBottom = elem.scrollHeight - elem.scrollTop - elem.clientHeight;
+        
+        // Only force scroll if we've drifted more than 10px from the bottom.
+        // This prevents fighting with browser's native scroll anchoring during
+        // CSS transitions (e.g., think block collapse), which handles small adjustments.
+        if (distanceFromBottom > 10) {
+          elem.scrollTop = elem.scrollHeight;
+        }
       }
     });
 
