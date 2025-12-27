@@ -197,7 +197,7 @@ FORMAT RULES:
 
 <available_tools>
 Available: ${toolIdsList}
-Only use tools listed above.
+Only use tools listed above. Do not hallucinate non existent tools.
 
 ${toolList}
 </available_tools>

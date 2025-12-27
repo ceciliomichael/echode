@@ -86,7 +86,7 @@ BEFORE STARTING:
 SEARCH (pick the right tool):
 - Understand how code works → echo_search (Sparingly! for complex logic only)
 - Find exact identifier → grep_search (FASTEST & PREFERRED)
-- Find files by name/pattern → glob_search (Use this to find files, not find_file)
+- Find files by name/pattern → glob_search
 - See directory contents → list_files
 
 EDIT:

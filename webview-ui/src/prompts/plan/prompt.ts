@@ -73,7 +73,7 @@ Use the \`plan\` tool for ALL plan outputs. Never write plans directly in chat.
 Gather information before asking questions or planning:
 
 1. Use \`grep_search\` to find entry points (exact identifiers mentioned in request)
-2. Use \`glob_search\` to find files by name pattern
+2. Use \`glob_search\` to locate files by name pattern 
 3. Use \`read_file\` ONLY on identified relevant files
 4. Trace imports/exports to map impact radius
 5. Sample 1-2 similar files to understand conventions
