@@ -15,14 +15,14 @@ export const CHAT_MODE_OPTIONS: ChatModeOption[] = [
     description: 'Echo can write and edit code',
   },
   {
-    value: 'manual',
-    label: 'Manual',
-    description: 'Approve every change',
-  },
-  {
     value: 'plan',
     label: 'Plan',
     description: 'Echo can read and plan',
+  },
+  {
+    value: 'manual',
+    label: 'Manual',
+    description: 'Approve every change',
   },
   {
     value: 'yolo',

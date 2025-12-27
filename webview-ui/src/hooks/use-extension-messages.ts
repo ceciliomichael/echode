@@ -11,11 +11,10 @@ interface ExtensionMessagesConfig {
   onNewChat: () => void;
   onSessionLoaded: (session: { uiState?: { editingMessageId?: string; revertPreviewMessageId?: string } }) => void;
   scrollContainerRef: React.RefObject<HTMLDivElement | null>;
-  setIsAutoScrollEnabled: (enabled: boolean) => void;
 }
 
 export function useExtensionMessages(config: ExtensionMessagesConfig): ExtensionMessagesState {
-  const { onNewChat, onSessionLoaded, scrollContainerRef, setIsAutoScrollEnabled } = config;
+  const { onNewChat, onSessionLoaded, scrollContainerRef } = config;
   
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [echoSearchEnabled, setEchoSearchEnabled] = useState(() => {
@@ -67,19 +66,9 @@ export function useExtensionMessages(config: ExtensionMessagesConfig): Extension
         setIsHistoryOpen(false);
       } else if (message.type === 'sessionLoaded') {
         requestAnimationFrame(() => {
-          const sessionUiState = message.session?.uiState;
-          const hasActiveEdit = sessionUiState?.editingMessageId || sessionUiState?.revertPreviewMessageId;
-          
-          if (hasActiveEdit) {
-            setIsAutoScrollEnabled(false);
-            onSessionLoaded(message.session);
-            return;
-          }
-          
           if (scrollContainerRef.current) {
             scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
           }
-          setIsAutoScrollEnabled(true);
           onSessionLoaded(message.session);
         });
       }
@@ -87,7 +76,7 @@ export function useExtensionMessages(config: ExtensionMessagesConfig): Extension
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [onNewChat, onSessionLoaded, scrollContainerRef, setIsAutoScrollEnabled]);
+  }, [onNewChat, onSessionLoaded, scrollContainerRef]);
 
   return {
     isHistoryOpen,

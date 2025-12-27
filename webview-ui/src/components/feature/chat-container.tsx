@@ -10,7 +10,6 @@ import { useStreamingChat } from '../../hooks/use-streaming-chat';
 import { useTodo } from '../../hooks/use-todo';
 import { useChatModel } from '../../hooks/use-chat-model';
 import { useChatMode } from '../../hooks/use-chat-mode';
-import { useChatScroll } from '../../hooks/use-chat-scroll';
 import { useExtensionMessages } from '../../hooks/use-extension-messages';
 import { useTodoExtraction } from '../../hooks/use-todo-extraction';
 import { useContextUsage } from '../../hooks/use-context-usage';
@@ -89,18 +88,10 @@ export function ChatContainer() {
   });
 
   const visibleMessages = messages.filter(msg => !msg.hidden);
-  
-  // Count user messages only for autoscroll reset trigger
-  // (matches Continue's pattern - only reset on new user messages, not all messages)
-  const userMessageCount = visibleMessages.filter(msg => msg.role === 'user').length;
 
-  const {
-    scrollContainerRef,
-    scrollContentRef,
-    handleScroll,
-    scrollToBottom,
-    setIsAutoScrollEnabled,
-  } = useChatScroll(userMessageCount);
+  // Scroll container refs
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const scrollContentRef = useRef<HTMLDivElement>(null);
 
   // Direct send function (bypasses queue, used for queue processing)
   const sendMessageDirect = useCallback(async (
@@ -109,12 +100,8 @@ export function ChatContainer() {
     forceEchoSearch: boolean = false,
     overrideMessages?: Message[]
   ) => {
-    setIsAutoScrollEnabled(true);
     sendMessage(content, attachments, overrideMessages, false, forceEchoSearch);
-    setTimeout(() => {
-      scrollToBottom({ behavior: 'smooth' });
-    }, 100);
-  }, [sendMessage, setIsAutoScrollEnabled, scrollToBottom]);
+  }, [sendMessage]);
 
   // Add message to queue
   const addToQueue = useCallback((
@@ -227,7 +214,6 @@ export function ChatContainer() {
     onNewChat,
     onSessionLoaded: () => { /* Session load handled internally */ },
     scrollContainerRef,
-    setIsAutoScrollEnabled,
   });
 
   useTodoExtraction({
@@ -273,13 +259,11 @@ export function ChatContainer() {
       <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--vscode-sideBar-background)' }}>
         <div
           ref={scrollContainerRef}
-          onScroll={handleScroll}
           data-chat-scroll-container="true"
           data-chat-message-list-boundary="true"
           className={`flex-1 ${editingMessageId ? 'overflow-y-hidden' : 'overflow-y-auto'}`}
           style={{
             scrollbarGutter: 'stable',
-            overflowAnchor: 'auto',
           }}
         >
           {visibleMessages.length === 0 ? (
