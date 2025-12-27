@@ -33,23 +33,21 @@ Behavior:
 - Returns full output when done
 
 Example (installing dependencies):
-\`\`\`xml
+<function_calls>
 <function_calls>
     <invoke name="run_terminal">
         <parameter name="command">npm install</parameter>
     </invoke>
 </function_calls>
-\`\`\`
 
 Example (running a build):
-\`\`\`xml
+<function_calls>
 <function_calls>
     <invoke name="run_terminal">
         <parameter name="command">npm run build</parameter>
         <parameter name="timeout">60</parameter>
     </invoke>
 </function_calls>
-\`\`\`
 `;
 }
 
@@ -82,22 +80,20 @@ Behavior:
 - Returns full output when done
 
 Example (installing dependencies):
-\`\`\`xml
+<function_calls>
 <function_calls>
     <invoke name="run_terminal">
         <parameter name="command">npm install</parameter>
     </invoke>
 </function_calls>
-\`\`\`
 
 Example (running a build):
-\`\`\`xml
+<function_calls>
 <function_calls>
     <invoke name="run_terminal">
         <parameter name="command">npm run build</parameter>
         <parameter name="timeout">60</parameter>
     </invoke>
 </function_calls>
-\`\`\`
 `;
 }

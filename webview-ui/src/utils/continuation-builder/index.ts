@@ -7,6 +7,7 @@
 export { buildContinuationHistory } from './continuation-history-builder';
 export { buildTodoContext } from './todo-context-builder';
 export { calculateContextTokens } from './token-estimator';
+export { getDiagnosticsForToolResults } from './diagnostics-fetcher';
 
 // Type exports
 export type { TodoItem, ContinuationConfig, ToolResultMessageOptions, TruncationResult } from './types';

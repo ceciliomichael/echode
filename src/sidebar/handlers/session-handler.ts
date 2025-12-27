@@ -34,13 +34,28 @@ export async function handleGetSession(
   webview: vscode.WebviewView,
   historyService: ChatHistoryService
 ): Promise<void> {
-  const session = await historyService.getSession(data.sessionId!);
-  webview.webview.postMessage({
-    type: 'sessionLoaded',
-    session,
-    request: 'session',
-    sessionId: data.sessionId
-  });
+  try {
+    const session = await historyService.getSession(data.sessionId!);
+    webview.webview.postMessage({
+      type: 'sessionLoaded',
+      session,
+      request: 'session',
+      sessionId: data.sessionId,
+      // Indicate whether session was found vs load error
+      notFound: session === null
+    });
+  } catch (error) {
+    console.error('[SessionHandler] Failed to get session:', data.sessionId, error);
+    // On error, send null but mark as error (not a deliberate "not found")
+    webview.webview.postMessage({
+      type: 'sessionLoaded',
+      session: null,
+      request: 'session',
+      sessionId: data.sessionId,
+      error: true,
+      errorMessage: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
 }
 
 /**

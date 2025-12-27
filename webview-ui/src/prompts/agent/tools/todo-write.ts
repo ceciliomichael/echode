@@ -9,7 +9,7 @@ Track task progress with a CONCISE list.
 Parameters (choose ONE format - do not mix):
 
 **Option 1 - Markdown (RECOMMENDED):**
-\`\`\`xml
+<function_calls>
 <invoke name="todo_write">
     <parameter name="todos">
 - [ ] First pending task
@@ -17,10 +17,10 @@ Parameters (choose ONE format - do not mix):
 - [x] Completed task
     </parameter>
 </invoke>
-\`\`\`
+</function_calls>
 
 **Option 2 - JSON Array:**
-\`\`\`xml
+<function_calls>
 <invoke name="todo_write">
     <parameter name="tasks">[
   {"id": "1", "content": "First task", "status": "pending"},
@@ -28,7 +28,7 @@ Parameters (choose ONE format - do not mix):
   {"id": "3", "content": "Third task", "status": "completed"}
 ]</parameter>
 </invoke>
-\`\`\`
+</function_calls>
 
 CRITICAL FORMAT REQUIREMENTS:
 - Use EITHER \`todos\` (markdown) OR \`tasks\` (JSON) - never both

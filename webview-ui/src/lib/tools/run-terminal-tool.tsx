@@ -75,7 +75,7 @@ Usage: Always use "execute" then "read" with timeout to get streaming output.`,
                     style={{
                         backgroundColor: 'var(--vscode-textCodeBlock-background)',
                         color: 'var(--vscode-editor-foreground)',
-                        maxHeight: '400px',
+                        maxHeight: '300px',
                         overflowY: 'auto',
                     }}
                 >

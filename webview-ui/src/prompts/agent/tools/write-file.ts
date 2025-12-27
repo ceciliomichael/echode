@@ -11,16 +11,18 @@ Parameters:
 - content: Complete file content (required)
 
 When to use:
-- Creating NEW files
-- Complete rewrites (>50% changed)
+- Creating NEW files that don't exist yet
+- Complete rewrites (>50% of file changing)
 - After 2 failed apply_diff attempts
-- File becomes shorter after refactor
+- When apply_diff keeps failing due to complex changes
 
 Requirements:
 - Content must be COMPLETE (no placeholders like "// rest of code")
 - No truncation
 - No line numbers in content
 
-WARNING: This tool is token expensive. Use apply_diff for any edits smaller than the full file.
-Use apply_diff instead for targeted edits. Only use write_to_file if you are rewriting the MAJORITY of the file.`;
+**IMPORTANT**: For existing files, ALWAYS try apply_diff first. Only use write_to_file if:
+1. The file is NEW (doesn't exist)
+2. You're rewriting most of the file (>50%)
+3. apply_diff failed twice and you need to force the change`;
 }

@@ -48,7 +48,7 @@ The plan should include:
 - Potential risks or considerations
  
 Example:
-\`\`\`xml
+<function_calls>
 <invoke name="plan">
 <parameter name="mode">create_plan</parameter>
 <parameter name="title">Authentication System Implementation</parameter>
@@ -62,7 +62,7 @@ Implement JWT-based authentication with refresh tokens.
 3. Add middleware for protected routes
 </parameter>
 </invoke>
-\`\`\`
+</function_calls>
  
 The plan is saved to .echode/plan-{uuid}.md and opened in VS Code. User must click "Verify Plan" to continue.
 
@@ -85,7 +85,7 @@ Use when:
 NOTE: You do not need to track the "planFilePath". The system remembers the last created or updated plan automatically.
  
 Example (system uses tracked plan):
-\`\`\`xml
+<function_calls>
 <invoke name="plan">
 <parameter name="mode">update_plan</parameter>
 <parameter name="title">Authentication System Implementation</parameter>
@@ -97,7 +97,7 @@ Updated plan based on user feedback...
 1. Updated task list...
 </parameter>
 </invoke>
-\`\`\`
+</function_calls>
  
 The updated plan replaces the existing file. User must click "Verify Plan" to continue.
  
@@ -114,12 +114,12 @@ Use when:
 - All clarifications have been addressed
  
 Example:
-\`\`\`xml
+<function_calls>
 <invoke name="plan">
 <parameter name="mode">handoff</parameter>
 <parameter name="summary">Will implement the authentication system as planned.</parameter>
 </invoke>
-\`\`\`
+</function_calls>
  
 User must click "Start Implementation" to switch to Agent mode.
  

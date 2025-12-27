@@ -4,7 +4,7 @@
 
 export function getApplyDiffInstructions(): string {
     return `## apply_diff
-Targeted edits to existing files. PREFERRED over write_to_file for small changes.
+Targeted edits to existing files. **DEFAULT for all existing file modifications.**
 
 Parameters:
 - path: File path (required)
@@ -36,7 +36,7 @@ Parameters:
 
 ### SINGLE EDIT EXAMPLE
 Changing a function name at line 15:
-\`\`\`xml
+<function_calls>
 <invoke name="apply_diff">
     <parameter name="path">src/utils.ts</parameter>
     <parameter name="diff">
@@ -53,11 +53,9 @@ function computeTotal(items) {
 >>>>>>> REPLACE
     </parameter>
 </invoke>
-\`\`\`
+</function_calls>
 
 ### MULTIPLE EDITS - Use separate invokes (PARALLEL OK)
-\`\`\`xml
-</function_calls>
 <function_calls>
     <invoke name="apply_diff">
         <parameter name="path">src/file.ts</parameter>
@@ -84,7 +82,6 @@ console.log("new message");
         </parameter>
     </invoke>
 </function_calls>
-\`\`\`
 
 ### RULES
 1. **ONE SEARCH/REPLACE per invoke** - never multiple blocks in one diff
@@ -100,7 +97,7 @@ console.log("new message");
 4. If still failing after 2 attempts, use write_to_file instead
 
 ### WHEN TO USE
-- Small changes (<50% of file modified)
+- **DEFAULT for ALL existing file edits** (any size change)
 - Adding/removing/modifying specific sections
-- Prefer over write_to_file for existing files`;
+- Only fall back to write_to_file after 2 failed attempts`;
 }

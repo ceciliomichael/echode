@@ -3,9 +3,58 @@ import {
     findNextToolStart,
     findNextMermaidStart,
     findMermaidClose,
-    findMatchingFunctionCallsClose
+    findMatchingFunctionCallsClose,
+    isInsideFunctionCallsParameterValue
 } from './tag-utils';
 import { extractAllInvokeBlocks, parseXMLParameters } from './xml-parser';
+
+/**
+ * Find the next <think> tag that is NOT inside a parameter value.
+ * This prevents incorrectly treating think tags in file content as thinking blocks.
+ */
+function findNextValidThinkStart(content: string, fromPosition: number): number {
+    const tag = '<think>';
+    let pos = fromPosition;
+
+    while (pos < content.length) {
+        const found = content.indexOf(tag, pos);
+        if (found === -1) return -1;
+
+        // Check if this position is inside a parameter value
+        if (!isInsideFunctionCallsParameterValue(content, found)) {
+            return found;
+        }
+
+        // Skip this occurrence and look for the next one
+        pos = found + tag.length;
+    }
+
+    return -1;
+}
+
+/**
+ * Find the next <thinking> tag that is NOT inside a parameter value.
+ * This prevents incorrectly treating thinking tags in file content as thinking blocks.
+ */
+function findNextValidThinkingStart(content: string, fromPosition: number): number {
+    const tag = '<thinking>';
+    let pos = fromPosition;
+
+    while (pos < content.length) {
+        const found = content.indexOf(tag, pos);
+        if (found === -1) return -1;
+
+        // Check if this position is inside a parameter value
+        if (!isInsideFunctionCallsParameterValue(content, found)) {
+            return found;
+        }
+
+        // Skip this occurrence and look for the next one
+        pos = found + tag.length;
+    }
+
+    return -1;
+}
 
 /**
  * Preprocess content to fix corrupted AI tool call formats
@@ -97,8 +146,9 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
 
     while (position < processedContent.length) {
         // Check for think/thinking blocks, tool blocks, and mermaid blocks
-        const thinkStart = processedContent.indexOf('<think>', position);
-        const thinkingStart = processedContent.indexOf('<thinking>', position);
+        // Use validators that skip tags inside parameter values (e.g., in apply_diff/write_to_file content)
+        const thinkStart = findNextValidThinkStart(processedContent, position);
+        const thinkingStart = findNextValidThinkingStart(processedContent, position);
         const toolStart = findNextToolStart(processedContent, position);
         const mermaidStart = findNextMermaidStart(processedContent, position);
 

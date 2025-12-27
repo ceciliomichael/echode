@@ -8,6 +8,7 @@ import { buildChatMessage } from '../../utils/vision-utils';
 import { formatToolExecutionResults } from './tool-result-formatter';
 import { trimHistory } from './helpers';
 import { stripUnavailableToolCalls } from '../../utils/tool-history-filter';
+import { identifyStaleFileReads, identifyStaleFilePaths } from '../../utils/file-read-deduplicator';
 
 /**
  * Extract list of files read in the conversation for context
@@ -48,6 +49,11 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
     mode,
   } = ctx;
 
+  // Identify stale file reads BEFORE building history
+  // This ensures older reads of the same file are summarized, not shown in full
+  const staleExecutionIds = identifyStaleFileReads(contextMessages);
+  const stalePathsByExecution = identifyStaleFilePaths(contextMessages);
+
   // Build full chat history with all messages and tool results
   const chatHistory: ChatMessage[] = [
     {
@@ -61,7 +67,7 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
     // Skip hidden messages
     if (msg.hidden) {continue;}
 
-    // Strip <think> and <thinking> blocks from message content
+    // Strip reasoning blocks from message content
     let processedContent = removeThinkBlocks(msg.content);
 
     // For assistant messages, strip tool call XML for tools not available in current mode
@@ -80,7 +86,13 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
 
     // If this message has tool executions, add them as context
     if (msg.toolExecutions && msg.toolExecutions.size > 0) {
-      const { toolResults } = formatToolExecutionResults(msg.toolExecutions, mode);
+      // Pass stale file info to formatter so outdated reads get summarized
+      const { toolResults } = formatToolExecutionResults(
+        msg.toolExecutions,
+        mode,
+        staleExecutionIds,
+        stalePathsByExecution
+      );
 
       if (toolResults.length > 0) {
         const toolResultsContent = `<tool_results>\n${toolResults.join('\n\n---\n\n')}\n</tool_results>`;

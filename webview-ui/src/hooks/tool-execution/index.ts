@@ -13,7 +13,7 @@ import { ToolExecutor } from '../../lib/tool-executor';
 import { getToolsForMode } from '../../lib/tool-config';
 import { generateToolExecutionId } from '../../lib/tool-execution-tracker';
 import type { ToolExecutionState } from '../../types/tool';
-import { buildContinuationHistory } from '../../utils/continuation-builder';
+import { buildContinuationHistory, getDiagnosticsForToolResults } from '../../utils/continuation-builder';
 
 import type { ToolExecutionHookProps, ToolExecutionContext, LockedModelConfig } from './types';
 import { executeSingleTool } from './single-executor';
@@ -231,7 +231,9 @@ async function handleBufferedResults(
 ): Promise<void> {
 
   const toolResultText = bufferedToolResults.join('\n\n');
-  const diagnosticsText = ''; // Diagnostics already handled during incremental execution
+  
+  // Fetch diagnostics for any files that were modified by the tools
+  const diagnosticsText = await getDiagnosticsForToolResults(bufferedToolResults);
 
   // Build continuation history for chat
   const latestWorkspace = (window.workspaceContext || context.workspace)!;

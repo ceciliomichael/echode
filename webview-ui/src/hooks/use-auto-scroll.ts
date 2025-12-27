@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { Message } from '../types/chat';
 
 /**
@@ -8,60 +8,70 @@ function getNumUserMsgs(messages: Message[]) {
   return messages.filter((msg) => msg.role === 'user').length;
 }
 
+/**
+ * Auto-scroll hook that follows content during streaming.
+ * 
+ * Logic:
+ * 1. ResizeObserver detects content size change
+ * 2. If user hasn't scrolled up, scroll to bottom
+ * 3. Scroll event checks distance from bottom:
+ *    - < 50px = "at bottom" (keep auto-scrolling)
+ *    - > 50px = "user scrolled up" (pause auto-scroll)
+ * 4. Reset on new user message (resume auto-scroll)
+ * 
+ * IMPORTANT: Uses refs instead of state to avoid effect teardown/re-setup
+ * which was causing scroll "bouncing" and erratic scrollbar behavior.
+ */
 export const useAutoScroll = (
   containerRef: React.RefObject<HTMLDivElement | null>,
   contentRef: React.RefObject<HTMLDivElement | null>,
   messages: Message[],
 ) => {
-  const [userHasScrolled, setUserHasScrolled] = useState(false);
+  // Use ref to avoid re-renders and effect teardowns when scroll state changes
+  const userHasScrolledRef = useRef(false);
   const numUserMsgs = useMemo(() => getNumUserMsgs(messages), [messages.length]);
-  const isAutoScrolling = useRef(false);
 
   // Reset scroll state when a new user message is added
   useEffect(() => {
-    setUserHasScrolled(false);
+    userHasScrolledRef.current = false;
   }, [numUserMsgs]);
-
-  const scrollToBottom = useCallback(() => {
-    const container = containerRef.current;
-    if (!container || userHasScrolled) return;
-
-    isAutoScrolling.current = true;
-    
-    // Use requestAnimationFrame to ensure we scroll after layout updates
-    requestAnimationFrame(() => {
-      container.scrollTop = container.scrollHeight;
-      
-      // Reset the flag after a short delay to allow the scroll event to fire and be ignored
-      setTimeout(() => {
-        isAutoScrolling.current = false;
-      }, 100);
-    });
-  }, [containerRef, userHasScrolled]);
 
   useEffect(() => {
     const container = containerRef.current;
     const content = contentRef.current;
-    
+
     if (!container || messages.length === 0) return;
 
-    const handleScroll = () => {
-      // Ignore scroll events caused by our own auto-scrolling
-      if (isAutoScrolling.current) return;
+    // Stable scroll function that reads ref directly
+    const scrollToBottom = () => {
+      if (userHasScrolledRef.current) return;
 
-      const isAtBottom =
-        Math.abs(container.scrollHeight - container.scrollTop - container.clientHeight) < 30;
-
-      // Stop auto-scroll if user manually scrolled up, resume if at bottom
-      setUserHasScrolled(!isAtBottom);
+      requestAnimationFrame(() => {
+        if (container && !userHasScrolledRef.current) {
+          container.scrollTop = container.scrollHeight;
+        }
+      });
     };
 
-    container.addEventListener('scroll', handleScroll);
+    const handleScroll = () => {
+      const distanceFromBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
+
+      // 50px threshold: generous buffer to avoid false positives from
+      // subpixel rendering, zoom levels, or minor scroll adjustments
+      const isAtBottom = distanceFromBottom < 50;
+
+      // User scrolled up = pause auto-scroll
+      // User at bottom = resume auto-scroll
+      userHasScrolledRef.current = !isAtBottom;
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
 
     // Initial scroll
     scrollToBottom();
 
-    // Observe content size changes (this captures streaming updates effectively)
+    // Observe content size changes (captures streaming updates)
     const resizeObserver = new ResizeObserver(() => {
       scrollToBottom();
     });
@@ -69,8 +79,7 @@ export const useAutoScroll = (
     if (content) {
       resizeObserver.observe(content);
     } else {
-      // Fallback: observe container scrollHeight changes if content ref isn't available yet
-      // This might happen if messages > 0 but the inner div hasn't mounted for some reason
+      // Fallback: observe container if content ref isn't available yet
       resizeObserver.observe(container);
     }
 
@@ -78,5 +87,5 @@ export const useAutoScroll = (
       resizeObserver.disconnect();
       container.removeEventListener('scroll', handleScroll);
     };
-  }, [containerRef, contentRef, messages.length, scrollToBottom]);
+  }, [containerRef, contentRef, messages.length]);
 };

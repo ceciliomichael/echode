@@ -268,6 +268,7 @@ export function ChatContainer() {
           className={`flex-1 ${editingMessageId ? 'overflow-y-hidden' : 'overflow-y-auto'}`}
           style={{
             scrollbarGutter: 'stable',
+            overflowAnchor: 'none',
           }}
         >
           {visibleMessages.length === 0 ? (

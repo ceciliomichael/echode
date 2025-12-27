@@ -4,12 +4,56 @@ import { isToolAvailableInMode } from '../../utils/tool-history-filter';
 import { truncateContent, MAX_FILE_CONTENT_CHARS } from './helpers';
 
 /**
+ * Format a stale read_file result - shows only metadata, not content
+ * This prevents AI confusion when a file has been read again with newer content
+ */
+function formatStaleReadFile(
+  data: Record<string, unknown>,
+  staleFilePaths?: Set<string>
+): string {
+  // Single file case
+  if ('path' in data && typeof data.path === 'string') {
+    const filePath = data.path;
+    // If we have a stale paths set and this path isn't in it, it's not stale
+    if (staleFilePaths && !staleFilePaths.has(filePath)) {
+      return ''; // Not stale, return empty to signal normal formatting
+    }
+    return `┌─ ${filePath} (outdated - see later read) ─┐\n[Content hidden - file was re-read with newer version]\n└─ END ${filePath} ─┘`;
+  }
+  
+  // Multi-file case - filter only stale paths
+  if ('files' in data && Array.isArray(data.files)) {
+    const files = data.files as Array<{ path: string; content: string }>;
+    const results: string[] = [];
+    
+    for (const f of files) {
+      if (staleFilePaths && !staleFilePaths.has(f.path)) {
+        // Not stale, will be handled by normal formatting
+        continue;
+      }
+      results.push(`┌─ ${f.path} (outdated - see later read) ─┐\n[Content hidden - file was re-read with newer version]\n└─ END ${f.path} ─┘`);
+    }
+    
+    return results.join('\n\n');
+  }
+  
+  return '';
+}
+
+/**
  * Format tool execution results for inclusion in chat history
  * Returns formatted tool results string array and list of skipped tools
+ * 
+ * @param toolExecutions - Map of tool executions to format
+ * @param mode - Current chat mode
+ * @param staleExecutionIds - Optional set of execution IDs that are stale (file was re-read later)
+ * @param stalePathsByExecution - Optional map of execution ID -> stale file paths within that execution
  */
 export function formatToolExecutionResults(
   toolExecutions: Map<string, ToolExecutionState>,
-  mode: ChatMode
+  mode: ChatMode,
+  staleExecutionIds?: Set<string>,
+  stalePathsByExecution?: Map<string, Set<string>>
 ): { toolResults: string[]; skippedTools: string[] } {
   const toolResults: string[] = [];
   const skippedTools: string[] = [];
@@ -34,24 +78,52 @@ export function formatToolExecutionResults(
         let formattedResult = '';
 
         if (execution.toolName === 'read_file') {
-          // For read_file, format with clear markers
-          // Only include apply_diff hints in modes where apply_diff is available
-          const canUseDiff = mode === 'agent' || mode === 'general';
-          const searchHint = canUseDiff ? ' (copy for SEARCH blocks)' : '';
-
-          if ('files' in data && Array.isArray(data.files)) {
-            // Multiple files case
-            const files = data.files as Array<{ path: string; content: string }>;
-            formattedResult = files
-              .map(f => `┌─ ${f.path}${searchHint} ─┐\n${truncateContent(f.content, MAX_FILE_CONTENT_CHARS)}\n└─ END ${f.path} ─┘`)
-              .join('\n\n');
-          } else if ('content' in data && 'path' in data) {
-            // Single file case
-            const filePath = data.path as string;
-            const content = truncateContent(String(data.content), MAX_FILE_CONTENT_CHARS);
-            formattedResult = `┌─ ${filePath}${searchHint} ─┐\n${content}\n└─ END ${filePath} ─┘`;
+          // Check if this entire execution is stale (file was re-read later)
+          const isStaleExecution = staleExecutionIds?.has(execution.toolExecutionId);
+          const stalePathsForThis = stalePathsByExecution?.get(execution.toolExecutionId);
+          
+          if (isStaleExecution) {
+            // Entire execution is stale - use condensed format
+            formattedResult = formatStaleReadFile(data, stalePathsForThis);
+          } else if (stalePathsForThis && stalePathsForThis.size > 0) {
+            // Some paths in this execution are stale (multi-file read case)
+            // Format stale paths with condensed format, fresh paths with full content
+            const canUseDiff = mode === 'agent' || mode === 'general';
+            const searchHint = canUseDiff ? ' (copy for SEARCH blocks)' : '';
+            
+            if ('files' in data && Array.isArray(data.files)) {
+              const files = data.files as Array<{ path: string; content: string }>;
+              formattedResult = files
+                .map(f => {
+                  if (stalePathsForThis.has(f.path)) {
+                    return `┌─ ${f.path} (outdated - see later read) ─┐\n[Content hidden - file was re-read with newer version]\n└─ END ${f.path} ─┘`;
+                  }
+                  return `┌─ ${f.path}${searchHint} ─┐\n${truncateContent(f.content, MAX_FILE_CONTENT_CHARS)}\n└─ END ${f.path} ─┘`;
+                })
+                .join('\n\n');
+            } else {
+              // Single file case but marked as having stale paths - format as stale
+              formattedResult = formatStaleReadFile(data, stalePathsForThis);
+            }
           } else {
-            formattedResult = JSON.stringify(data);
+            // Fresh read - format with full content
+            const canUseDiff = mode === 'agent' || mode === 'general';
+            const searchHint = canUseDiff ? ' (copy for SEARCH blocks)' : '';
+
+            if ('files' in data && Array.isArray(data.files)) {
+              // Multiple files case
+              const files = data.files as Array<{ path: string; content: string }>;
+              formattedResult = files
+                .map(f => `┌─ ${f.path}${searchHint} ─┐\n${truncateContent(f.content, MAX_FILE_CONTENT_CHARS)}\n└─ END ${f.path} ─┘`)
+                .join('\n\n');
+            } else if ('content' in data && 'path' in data) {
+              // Single file case
+              const filePath = data.path as string;
+              const content = truncateContent(String(data.content), MAX_FILE_CONTENT_CHARS);
+              formattedResult = `┌─ ${filePath}${searchHint} ─┐\n${content}\n└─ END ${filePath} ─┘`;
+            } else {
+              formattedResult = JSON.stringify(data);
+            }
           }
         } else if (execution.toolName === 'grep_search') {
           // For grep, show matches concisely

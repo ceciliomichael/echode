@@ -93,12 +93,44 @@ export function useSessionManagement({
         const session = message.session as ChatSession | null;
 
         if (!session) {
-          currentSessionIdRef.current = null;
-          setCurrentSessionId(null);
-          storageService.clearCurrentSessionId();
-          setMessages([]);
-          setEditingMessageId(null);
-          setRevertPreviewMessageId(null);
+          // CRITICAL: Don't clear localStorage if there was an error loading the session.
+          // This prevents losing the session reference during extension restarts or transient failures.
+          // Only clear if the session was explicitly not found (notFound: true) and no error occurred.
+          const isError = message.error === true;
+          const isNotFound = message.notFound === true;
+          const requestedSessionId = message.sessionId as string | undefined;
+          
+          if (isError) {
+            // Error loading session - keep the localStorage reference intact
+            // The session file might still exist, just temporarily unreadable
+            console.warn('[SessionManagement] Error loading session, keeping reference:', requestedSessionId);
+            // Don't clear anything - user can retry or the extension can recover
+            return;
+          }
+          
+          if (isNotFound && requestedSessionId) {
+            // Session genuinely doesn't exist - clear only if this was a specific session request
+            // (not a "getLatestSession" which returns null when there are no sessions)
+            currentSessionIdRef.current = null;
+            setCurrentSessionId(null);
+            storageService.clearCurrentSessionId();
+            setMessages([]);
+            setEditingMessageId(null);
+            setRevertPreviewMessageId(null);
+            return;
+          }
+          
+          // For "latest" requests with no session, just set empty state but don't clear stored ID
+          // (there might be a stored ID that we want to try loading separately)
+          if (message.request === 'latest') {
+            setMessages([]);
+            setEditingMessageId(null);
+            setRevertPreviewMessageId(null);
+            return;
+          }
+          
+          // Fallback for unknown cases - be conservative, don't clear localStorage
+          console.warn('[SessionManagement] Session load returned null with unknown state:', message);
           return;
         }
 
