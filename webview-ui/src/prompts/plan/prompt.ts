@@ -140,6 +140,11 @@ These principles apply to EVERY plan, regardless of size or complexity.
 Whether it's a one-line fix or a multi-module feature, SOLID and DRY are the default standard.
 Only skip these principles if the user EXPLICITLY requests otherwise.
 
+**IMPORTANT: Apply these principles SILENTLY.**
+- Do NOT lecture the user about SOLID or DRY in your explanation.
+- Do NOT mention "following SOLID principles" in your plan descriptions.
+- JUST DO IT. Make the architecture speak for itself.
+
 **Single Responsibility**: Each file/module/function does ONE thing well
 - BAD: \`UserService\` handles auth, profile, notifications, and email
 - GOOD: \`AuthService\`, \`ProfileService\`, \`NotificationService\` (separate concerns)

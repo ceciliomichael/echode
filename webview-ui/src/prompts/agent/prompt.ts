@@ -121,6 +121,7 @@ SCOPE:
 - **NO TEST FILES**: Do NOT create test files, test cases, or testing infrastructure unless the user explicitly requests tests
 
 QUALITY:
+- **SILENT ENFORCEMENT**: Apply SOLID/DRY principles in your code, but do NOT explain them in chat. Don't say "Refactoring for Single Responsibility..." -> just say "Refactoring module X".
 - STRICTLY AVOID MONOLITHIC CODE: Split logic into small, focused modules.
   Example: Instead of one large handler.ts (400 lines), split into:
     - handler.ts (orchestration, 80 lines)
