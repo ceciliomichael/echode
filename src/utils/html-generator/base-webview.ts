@@ -1,11 +1,29 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 
+/**
+ * Approval data for Manual Mode tool confirmation
+ */
+export interface ApprovalData {
+  requestId: string;
+  toolName: string;
+  title: string;
+  message: string;
+  diff?: {
+    oldContent: string | null;
+    newContent: string;
+    fileName: string;
+  };
+  command?: string;
+}
+
 export interface WebviewHtmlOptions {
   title: string;
   isSettingsPanel?: boolean;
   isPlanViewer?: boolean;
   planContent?: string;
+  isToolApproval?: boolean;
+  approvalData?: ApprovalData;
   workspaceInfo?: {
     path: string;
     name: string;
@@ -74,6 +92,13 @@ export function generateWebviewHtml(
     scriptContent += '\n    window.isPlanViewer = true;';
     if (options.planContent) {
       scriptContent += `\n    window.planContent = ${JSON.stringify(options.planContent)};`;
+    }
+  }
+
+  if (options.isToolApproval) {
+    scriptContent += '\n    window.isToolApproval = true;';
+    if (options.approvalData) {
+      scriptContent += `\n    window.approvalData = ${JSON.stringify(options.approvalData)};`;
     }
   }
 

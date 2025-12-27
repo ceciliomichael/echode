@@ -16,7 +16,7 @@ export interface ToolCallExecutionResult {
   executedToolCalls: Array<{
     toolName: string;
     parameters: Record<string, unknown>;
-    status: 'pending' | 'executing' | 'completed' | 'error' | 'aborted';
+    status: 'pending' | 'executing' | 'completed' | 'error' | 'aborted' | 'rejected';
     result?: ToolExecutionResult;
   }>;
   toolResults: string[];
@@ -134,7 +134,7 @@ export class ToolExecutor {
     const executedToolCalls: Array<{
       toolName: string;
       parameters: Record<string, unknown>;
-      status: 'pending' | 'executing' | 'completed' | 'error' | 'aborted';
+      status: 'pending' | 'executing' | 'completed' | 'error' | 'aborted' | 'rejected';
       result?: ToolExecutionResult;
     }> = [];
     const toolResults: string[] = [];
@@ -225,10 +225,23 @@ export class ToolExecutor {
       }
 
       // Update tool call with result
+      // Detect if tool was rejected by user in Manual Mode
+      // Detect if tool was rejected by user in Manual Mode (case-insensitive)
+      const isRejected = !result.success && (
+        result.error?.includes('REJECTED_BY_USER') || 
+        result.error?.toLowerCase().includes('rejected by user')
+      );
+      
+      const status = result.success 
+        ? ('completed' as const) 
+        : isRejected 
+          ? ('rejected' as const) 
+          : ('error' as const);
+      
       const completedToolCall = {
         toolName: toolBlock.toolName,
         parameters: toolBlock.parameters,
-        status: result.success ? ('completed' as const) : ('error' as const),
+        status,
         result,
       };
 
@@ -256,13 +269,21 @@ export class ToolExecutor {
         toolResults.push(formattedResult);
       }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Check if this is a rejection error caught as an exception
+      const isRejected = errorMessage.includes('REJECTED_BY_USER') || 
+                         errorMessage.toLowerCase().includes('rejected by user');
+      
+      const status = isRejected ? ('rejected' as const) : ('error' as const);
+      
       const errorToolCall = {
         toolName: toolBlock.toolName,
         parameters: toolBlock.parameters,
-        status: 'error' as const,
+        status,
         result: {
           success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: errorMessage,
         },
       };
       executedToolCalls[0] = errorToolCall;

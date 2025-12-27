@@ -1,4 +1,4 @@
-import { ITool, ToolExecutionResult, ToolProgressCallback, ChatMode } from './tool.interface';
+import { ITool, ToolExecutionResult, ToolProgressCallback, ChatMode, ToolConfirmation } from './tool.interface';
 import { TerminalManager } from '../terminal/terminal-manager';
 import { CommandValidator } from './utils/command-validator';
 import { SettingsManager } from '../settings/settings-manager';
@@ -7,6 +7,29 @@ const DEFAULT_TIMEOUT_SECONDS = 5 * 60; // 5 minutes max
 
 export class RunTerminalTool implements ITool {
     name = 'run_terminal';
+
+    /**
+     * Prepare execution for Manual Mode approval.
+     * Returns confirmation data with command preview.
+     */
+    async prepareExecution(
+        parameters: Record<string, unknown>
+    ): Promise<ToolConfirmation | undefined> {
+        const command = parameters.command as string;
+        const timeout = Number(parameters.timeout) || DEFAULT_TIMEOUT_SECONDS;
+
+        if (!command) {
+            return undefined;
+        }
+
+        return {
+            toolName: this.name,
+            title: 'Run Terminal Command',
+            message: `This will execute the following command in your terminal (timeout: ${timeout}s):`,
+            command,
+            parameters,
+        };
+    }
 
     async execute(
         parameters: Record<string, unknown>,

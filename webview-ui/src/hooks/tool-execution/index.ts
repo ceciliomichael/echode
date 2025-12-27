@@ -300,14 +300,22 @@ function handleExecutionError(
     // Only set error state if tool hasn't already completed successfully
     // HTTP errors during continuation shouldn't overwrite successful tool execution
     if (!existingExecution?.result?.success) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Check if this is a rejection error caught as an exception
+      const isRejected = errorMessage.includes('REJECTED_BY_USER') || 
+                         errorMessage.toLowerCase().includes('rejected by user');
+      
+      const status = isRejected ? ('rejected' as const) : ('error' as const);
+
       const errorState: ToolExecutionState = {
         toolExecutionId,
         toolName: toolBlock.toolName,
         parameters: toolBlock.parameters,
-        status: 'error',
+        status,
         result: {
           success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: errorMessage
         },
         startedAt: Date.now(),
         completedAt: Date.now(),

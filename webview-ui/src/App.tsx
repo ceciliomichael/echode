@@ -2,17 +2,40 @@ import { useState, useEffect } from 'react';
 import { SetupPage } from './components/feature/setup-page';
 import { ChatContainer } from './components/feature/chat-container';
 import { PlanViewer } from './components/feature/plan-viewer';
+import { ApprovalViewer } from './components/feature/approval-viewer';
 import { storageService, initializeSettings } from './utils/storage';
 import { prefetchAllModels } from './hooks/use-model-fetcher';
 import { useMcpToolSync } from './hooks/use-mcp-tool-sync';
 import type { ApiSettings } from './types/api-settings';
 import { DEFAULT_API_SETTINGS } from './types/api-settings';
 
+/**
+ * Approval data passed from extension for Manual Mode tool confirmation
+ */
+export interface ApprovalData {
+  requestId: string;
+  toolName: string;
+  title: string;
+  message: string;
+  diff?: {
+    oldContent: string | null;
+    newContent: string;
+    fileName: string;
+  };
+  command?: string;
+  /** Queue position (1-based) when multiple approvals are pending */
+  queuePosition?: number;
+  /** Total number of approvals in queue */
+  queueTotal?: number;
+}
+
 declare global {
   interface Window {
     isSettingsPanel?: boolean;
     isPlanViewer?: boolean;
     planContent?: string;
+    isToolApproval?: boolean;
+    approvalData?: ApprovalData;
   }
 }
 
@@ -93,6 +116,11 @@ function App() {
   // Plan Viewer mode - render plan content directly
   if (window.isPlanViewer) {
     return <PlanViewer />;
+  }
+
+  // Tool Approval mode - render approval viewer for Manual Mode
+  if (window.isToolApproval) {
+    return <ApprovalViewer />;
   }
 
   // Show nothing while loading settings from backend

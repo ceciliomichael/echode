@@ -1,4 +1,4 @@
-import { memo, useMemo, useRef } from 'react';
+import { memo, useMemo } from 'react';
 
 /**
  * Normalize content by converting escaped sequences to actual characters.
@@ -218,8 +218,6 @@ function filterDiffWithContext(diffLines: DiffLine[], contextLines: number | und
 }
 
 const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = false, viewOnly = false, startLineNumber = 1, endLineNumber, contextLines }: DiffViewerProps) => {
-  const lineNumbersRef = useRef<HTMLDivElement>(null);
-
   const diffLines = useMemo(
     () => {
       const diff = computeDiff(oldContent, newContent, isStreaming, startLineNumber);
@@ -233,10 +231,10 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
   const hasOldSide = !viewOnly && diffLines.some((line) => line.type !== 'collapsed' && line.oldLineNumber !== undefined);
 
   return (
-    <div className="w-full rounded-xl overflow-hidden border border-[var(--vscode-input-border)]">
+    <div className="w-full flex-1 min-h-0 flex flex-col rounded-xl overflow-hidden border border-[var(--vscode-input-border)]">
       {/* Diff Header */}
       <div
-        className="flex items-center justify-between px-3 py-2 text-xs font-medium border-b"
+        className="flex-shrink-0 flex items-center justify-between px-3 py-2 text-xs font-medium border-b"
         style={{
           backgroundColor: 'var(--vscode-editor-background)',
           borderColor: 'var(--vscode-input-border)',
@@ -249,41 +247,49 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
         )}
       </div>
 
-      {/* Diff Content */}
+      {/* Diff Content - scrollable area */}
       <div
-        className="flex text-xs font-mono"
+        className="flex-1 flex flex-col text-xs font-mono overflow-auto min-h-0"
         style={{
           backgroundColor: 'var(--vscode-editor-background)',
         }}
       >
-        {/* Line Numbers Column - Fixed, no scrollbar */}
-        <div
-          className="flex-shrink-0 select-none overflow-hidden"
-          style={{
-            minWidth: viewOnly || !hasOldSide ? '40px' : '80px',
-            backgroundColor: 'var(--vscode-editor-background)',
-            maxHeight: '400px',
-          }}
-        >
-          <div ref={lineNumbersRef}>
-            {diffLines.map((line, idx) => {
-              if (line.type === 'collapsed') {
-                return null;
-              }
+        <div style={{ width: 'fit-content', minWidth: '100%' }}>
+          {diffLines.map((line, idx) => {
+            if (line.type === 'collapsed') {
+              return null;
+            }
 
-              return (
+            let bgColor: string;
+            if (viewOnly) {
+              bgColor = 'transparent';
+            } else {
+              switch (line.type) {
+                case 'added':
+                  bgColor = 'var(--vscode-diffEditor-insertedTextBackground)';
+                  break;
+                case 'removed':
+                  bgColor = 'var(--vscode-diffEditor-removedTextBackground)';
+                  break;
+                default:
+                  bgColor = 'transparent';
+              }
+            }
+
+            return (
+              <div key={idx} className="flex min-h-[1.15rem] w-full">
+                {/* Line Number Cell - Sticky */}
                 <div
-                  key={idx}
-                  className="px-2 text-right min-h-[1.15rem] leading-[1.15rem]"
+                  className="flex-shrink-0 select-none sticky left-0 z-10 px-2 text-right leading-[1.15rem]"
                   style={{
+                    minWidth: viewOnly || !hasOldSide ? '40px' : '80px',
+                    backgroundColor: 'var(--vscode-editor-background)',
                     color: 'var(--vscode-editorLineNumber-foreground)',
                   }}
                 >
                   {viewOnly || !hasOldSide ? (
-                    // Single-column view: used for read-only view and "new file" diffs
                     <span className="inline-block w-6">{line.newLineNumber}</span>
                   ) : (
-                    // Two-column diff view: old | new
                     <>
                       <span className="inline-block w-6">
                         {line.oldLineNumber !== undefined ? line.oldLineNumber : ''}
@@ -295,49 +301,10 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
                     </>
                   )}
                 </div>
-              );
-            })}
-          </div>
-        </div>
 
-        {/* Code Content Column - Scrolls both directions */}
-        <div
-          className="flex-1 overflow-auto"
-          style={{
-            maxHeight: '400px',
-          }}
-          onScroll={(e) => {
-            if (lineNumbersRef.current) {
-              lineNumbersRef.current.style.transform = `translateY(-${e.currentTarget.scrollTop}px)`;
-            }
-          }}
-        >
-          <div style={{ width: 'fit-content', minWidth: '100%', paddingRight: '1rem' }}>
-            {diffLines.map((line, idx) => {
-              if (line.type === 'collapsed') {
-                return null;
-              }
-
-              let bgColor: string;
-              if (viewOnly) {
-                bgColor = 'transparent';
-              } else {
-                switch (line.type) {
-                  case 'added':
-                    bgColor = 'var(--vscode-diffEditor-insertedTextBackground)';
-                    break;
-                  case 'removed':
-                    bgColor = 'var(--vscode-diffEditor-removedTextBackground)';
-                    break;
-                  default:
-                    bgColor = 'transparent';
-                }
-              }
-
-              return (
+                {/* Code Content Cell */}
                 <pre
-                  key={idx}
-                  className="px-2 whitespace-pre m-0 min-h-[1.15rem] leading-[1.15rem]"
+                  className="flex-1 px-2 whitespace-pre m-0 leading-[1.15rem] overflow-visible"
                   style={{
                     color: 'var(--vscode-editor-foreground)',
                     backgroundColor: bgColor,
@@ -345,9 +312,9 @@ const DiffViewerComponent = ({ oldContent, newContent, fileName, isStreaming = f
                 >
                   {line.content || ' '}
                 </pre>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

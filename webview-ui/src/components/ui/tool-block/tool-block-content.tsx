@@ -55,12 +55,12 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, is
       }`}
     >
       {shouldRenderInnerContent && (
-        <div className="border-t" style={{ borderColor: 'var(--vscode-input-border)' }}>
+        <div className="border-t max-h-[400px] flex flex-col" style={{ borderColor: 'var(--vscode-input-border)' }}>
           {/* Processing indicator or Real-time Streaming */}
           {isStreamingPhase && (
             <>
               {toolCall.toolName === 'write_to_file' && toolCall.parameters.content ? (
-                <div className="px-3 py-3">
+                <div className="px-3 py-3 flex-1 min-h-0 flex flex-col overflow-hidden">
                   <DiffViewer
                     oldContent={undefined}
                     newContent={toolCall.parameters.content as string}
@@ -70,14 +70,14 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, is
                   />
                 </div>
               ) : toolCall.toolName === 'echo_search' ? (
-                <div className="px-3 py-3">
+                <div className="px-3 py-3 overflow-y-auto">
                   <EchoSearchProgressIndicator 
                     progress={(toolCall.progress as any) || { iteration: 0, toolsIteration: 0, maxIterations: 4, phase: 'starting', tools: [], message: '' }} 
                     isAborted={isAborted} 
                   />
                 </div>
               ) : toolCall.toolName === 'run_terminal' ? (
-                <div className="px-3 py-3">
+                <div className="px-3 py-3 overflow-hidden">
                   <div className="space-y-2">
                     <div className="text-xs font-semibold opacity-70 flex items-center gap-1">
                       <span>Terminal Output</span>
@@ -106,9 +106,9 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, is
 
           {/* Result - only show if not aborted (aborted handled above) */}
           {toolCall.result && !isAborted && (
-            <div className="overflow-x-auto">
+            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
               {toolCall.result.success ? (
-                <div style={{ color: 'var(--vscode-editor-foreground)' }}>
+                <div className="flex-1 min-h-0 flex flex-col" style={{ color: 'var(--vscode-editor-foreground)' }}>
                   {/* For run_terminal, pass progress to renderer for complete output */}
                   {toolCall.toolName === 'run_terminal' ? (
                     renderToolResult(
@@ -135,33 +135,61 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, is
                   )}
                 </div>
               ) : (
-                <div
-                  className="px-3 py-3"
-                  style={{
-                    backgroundColor: 'var(--vscode-inputValidation-errorBackground)',
-                  }}
-                >
-                  <div className="flex items-start gap-2">
-                    <X
-                      className="w-3.5 h-3.5 mt-0.5 shrink-0"
-                      style={{ color: 'var(--vscode-errorForeground)' }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div
-                        className="text-sm font-semibold mb-1"
-                        style={{ color: 'var(--vscode-errorForeground)' }}
-                      >
-                        Error
-                      </div>
-                      <div
-                        className="text-sm break-words whitespace-pre-wrap"
-                        style={{ color: 'var(--vscode-errorForeground)' }}
-                      >
-                        {toolCall.result.error?.split('\n\n')[0]}
+                toolCall.status === 'rejected' || 
+                toolCall.result.error?.includes('REJECTED_BY_USER') ||
+                toolCall.result.error?.toLowerCase().includes('rejected by user') ? (
+                  <div
+                    className="px-3 py-3"
+                    style={{
+                      backgroundColor: 'var(--vscode-inputValidation-infoBackground)',
+                    }}
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div
+                          className="text-sm font-semibold mb-1"
+                          style={{ color: 'var(--vscode-descriptionForeground)' }}
+                        >
+                          Action Cancelled
+                        </div>
+                        <div
+                          className="text-sm break-words whitespace-pre-wrap"
+                          style={{ color: 'var(--vscode-descriptionForeground)' }}
+                        >
+                          User rejected this action.
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div
+                    className="px-3 py-3"
+                    style={{
+                      backgroundColor: 'var(--vscode-inputValidation-errorBackground)',
+                    }}
+                  >
+                    <div className="flex items-start gap-2">
+                      <X
+                        className="w-3.5 h-3.5 mt-0.5 shrink-0"
+                        style={{ color: 'var(--vscode-errorForeground)' }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div
+                          className="text-sm font-semibold mb-1"
+                          style={{ color: 'var(--vscode-errorForeground)' }}
+                        >
+                          Error
+                        </div>
+                        <div
+                          className="text-sm break-words whitespace-pre-wrap"
+                          style={{ color: 'var(--vscode-errorForeground)' }}
+                        >
+                          {toolCall.result.error?.split('\n\n')[0]}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
               )}
             </div>
           )}

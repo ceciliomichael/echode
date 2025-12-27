@@ -60,7 +60,7 @@ export function renderToolResult(
     if ('files' in data && Array.isArray((data as { files: unknown[] }).files)) {
       const multiResult = data as { files: Array<{ content: string; path: string; startLine?: number; endLine?: number }> };
       return (
-        <div className="space-y-4 px-3 py-3">
+        <div className="space-y-4 px-3 py-3 flex-1 min-h-0 overflow-y-auto">
           {multiResult.files.map((file, index) => {
             const cleanContent = stripLineNumbers(file.content);
             return (
@@ -86,7 +86,7 @@ export function renderToolResult(
       const cleanContent = stripLineNumbers(result.content);
 
       return (
-        <div className="px-3 py-3">
+        <div className="px-3 py-3 flex-1 min-h-0 flex flex-col overflow-hidden">
           <DiffViewer
             oldContent={undefined}
             newContent={cleanContent}
@@ -111,7 +111,7 @@ export function renderToolResult(
 
     if (result.newContent !== undefined) {
       return (
-        <div className="px-3 py-3">
+        <div className="px-3 py-3 flex-1 min-h-0 flex flex-col overflow-hidden">
           <DiffResultWrapper
             oldContent={result.oldContent ?? null}
             newContent={result.newContent}
@@ -133,7 +133,7 @@ export function renderToolResult(
 
     if (result.newContent !== undefined && result.oldContent !== undefined) {
       return (
-        <div className="px-3 py-3">
+        <div className="px-3 py-3 flex-1 min-h-0 flex flex-col overflow-hidden">
           <DiffResultWrapper
             oldContent={result.oldContent ?? null}
             newContent={result.newContent}
@@ -183,7 +183,7 @@ export function renderToolResult(
 
   // Default fallback
   return (
-    <div className="px-3 py-3">
+    <div className="px-3 py-3 flex-1 min-h-0 overflow-auto">
       <pre
         className="text-xs font-mono whitespace-pre overflow-x-auto p-2 rounded-xl"
         style={{

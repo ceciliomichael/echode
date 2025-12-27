@@ -3,7 +3,7 @@
  */
 
 import * as vscode from 'vscode';
-import { ITool, ToolExecutionResult, ChatMode } from './tool.interface';
+import { ITool, ToolExecutionResult, ChatMode, ToolConfirmation } from './tool.interface';
 import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
 import { unescapeHtmlEntities, stripCDataWrapper } from '../../utils/text-normalization';
 import { SearchReplaceDiffStrategy } from './apply-diff';
@@ -18,6 +18,80 @@ export class ApplyDiffTool implements ITool {
     name = 'apply_diff';
     private diffStrategy = new SearchReplaceDiffStrategy();
     private applyDiffFailureCounts = new Map<string, number>();
+
+    /**
+     * Normalize diff content (shared between prepareExecution and execute)
+     */
+    private normalizeDiffContent(diffContent: string): string {
+        let normalized = unescapeHtmlEntities(diffContent);
+        normalized = stripCDataWrapper(normalized);
+
+        const hasActualNewlines = normalized.includes('\n');
+        const hasEscapedSequences = /\\[ntr]/.test(normalized);
+        if (!hasActualNewlines && hasEscapedSequences) {
+            normalized = normalized
+                .replace(/\\n/g, '\n')
+                .replace(/\\t/g, '\t')
+                .replace(/\\r/g, '\r');
+        }
+        return normalized;
+    }
+
+    /**
+     * Prepare execution for Manual Mode approval.
+     * Returns confirmation data with old/new content diff preview.
+     */
+    async prepareExecution(
+        parameters: Record<string, unknown>
+    ): Promise<ToolConfirmation | undefined> {
+        const filePath = parameters.path as string;
+        const rawDiff = parameters.diff as string;
+
+        if (!filePath || !rawDiff) {
+            return undefined;
+        }
+
+        const diffContent = this.normalizeDiffContent(rawDiff);
+
+        const workspaceRoot = getWorkspaceRoot();
+        if (!workspaceRoot) {
+            return undefined;
+        }
+
+        const absolutePath = resolveAbsolutePath(filePath, workspaceRoot);
+
+        try {
+            const uri = vscode.Uri.file(absolutePath);
+            const document = await vscode.workspace.openTextDocument(uri);
+            const originalContent = document.getText();
+
+            // Apply diff in preview mode to get the result
+            const diffResult = await this.diffStrategy.applyDiff(
+                originalContent,
+                diffContent,
+                parseInt(diffContent.match(/:start_line:(\d+)/)?.[1] ?? ""),
+            );
+
+            if (!diffResult.success || !diffResult.content) {
+                // Diff preview failed - skip approval and let normal execution handle the error
+                return undefined;
+            }
+
+            return {
+                toolName: this.name,
+                title: `Apply Diff: ${filePath}`,
+                message: `This will modify "${filePath}" using a search/replace diff.`,
+                diff: {
+                    oldContent: originalContent,
+                    newContent: diffResult.content,
+                    fileName: filePath,
+                },
+                parameters,
+            };
+        } catch {
+            return undefined;
+        }
+    }
 
     async execute(
         parameters: Record<string, unknown>,
@@ -175,15 +249,17 @@ export class ApplyDiffTool implements ITool {
                 }
             }
 
-            // Ensure file is visible
-            try {
-                await vscode.window.showTextDocument(document, {
-                    preview: false,
-                    preserveFocus: true,
-                });
-                console.log('[APPLY_DIFF] File opened in tab for diagnostics');
-            } catch (openError) {
-                console.warn('[APPLY_DIFF] Could not open file in tab:', openError);
+            // Ensure file is visible (skip in manual mode - user already reviewed diff)
+            if (mode !== 'manual') {
+                try {
+                    await vscode.window.showTextDocument(document, {
+                        preview: false,
+                        preserveFocus: true,
+                    });
+                    console.log('[APPLY_DIFF] File opened in tab for diagnostics');
+                } catch (openError) {
+                    console.warn('[APPLY_DIFF] Could not open file in tab:', openError);
+                }
             }
 
             let partFailHint = "";

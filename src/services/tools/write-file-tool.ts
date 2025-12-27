@@ -1,11 +1,12 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import type { ITool, ToolExecutionResult, ChatMode } from './tool.interface';
+import type { ITool, ToolExecutionResult, ChatMode, ToolConfirmation } from './tool.interface';
 import { unescapeHtmlEntities, stripAllCDataWrappers } from '../../utils/text-normalization';
 import { detectCodeOmission } from '../../utils/detect-code-omission';
 import { getWorkspaceRoot, resolveAbsolutePath, getCreatedDirectories } from './utils/workspace-utils';
 import { FileLockManager } from './utils/file-lock-manager';
 import { getFileDiagnosticsAfterEdit, formatDiagnosticsForAI } from './utils/diagnostics-utils';
+
 export class WriteFileTool implements ITool {
   name = 'write_to_file';
 
@@ -55,6 +56,82 @@ export class WriteFileTool implements ITool {
     }
 
     return { isBinary: false };
+  }
+
+  /**
+   * Prepare execution for Manual Mode approval.
+   * Returns confirmation data with old/new content diff.
+   */
+  async prepareExecution(
+    parameters: Record<string, unknown>
+  ): Promise<ToolConfirmation | undefined> {
+    const filePath = parameters.path as string;
+    const rawContent = parameters.content;
+
+    if (!filePath || typeof rawContent !== 'string') {
+      return undefined;
+    }
+
+    let content = rawContent;
+
+    // Apply same content normalization as execute()
+    const ext = filePath.split('.').pop()?.toLowerCase();
+    const isMarkdownLike = ext ? this.MARKDOWN_LIKE_EXTENSIONS.has(ext) : false;
+
+    if (!isMarkdownLike) {
+      const startsWithFence = /^```[a-zA-Z]*\r?\n/.test(content);
+      const endsWithFence = /\r?\n```$/.test(content);
+      if (startsWithFence && endsWithFence) {
+        content = content.split('\n').slice(1, -1).join('\n');
+      }
+    }
+
+    content = unescapeHtmlEntities(content);
+    content = stripAllCDataWrappers(content);
+
+    const hasActualNewlines = content.includes('\n');
+    const hasEscapedSequences = /\\[ntr]/.test(content);
+    if (!hasActualNewlines && hasEscapedSequences) {
+      content = content
+        .replace(/\\n/g, '\n')
+        .replace(/\\t/g, '\t')
+        .replace(/\\r/g, '\r');
+    }
+
+    const workspaceRoot = getWorkspaceRoot();
+    if (!workspaceRoot) {
+      return undefined;
+    }
+
+    const absolutePath = resolveAbsolutePath(filePath, workspaceRoot);
+    let oldContent: string | null = null;
+    let fileExists = false;
+
+    try {
+      const uri = vscode.Uri.file(absolutePath);
+      const document = await vscode.workspace.openTextDocument(uri);
+      oldContent = document.getText();
+      fileExists = true;
+    } catch {
+      // File doesn't exist - this is a new file
+      fileExists = false;
+    }
+
+    const action = fileExists ? 'Modify' : 'Create';
+
+    return {
+      toolName: this.name,
+      title: `${action} File: ${filePath}`,
+      message: fileExists
+        ? `This will modify the existing file "${filePath}".`
+        : `This will create a new file "${filePath}".`,
+      diff: {
+        oldContent,
+        newContent: content,
+        fileName: filePath,
+      },
+      parameters,
+    };
   }
 
   async execute(
@@ -252,7 +329,8 @@ export class WriteFileTool implements ITool {
         await vscode.workspace.fs.writeFile(uri, contentBytes);
 
         // If we just created it, try to open it to make it visible
-        if (!fileExisted) {
+        // Skip in manual mode since user already reviewed the diff
+        if (!fileExisted && mode !== 'manual') {
           try {
             const doc = await vscode.workspace.openTextDocument(uri);
             await vscode.window.showTextDocument(doc, { preview: false, preserveFocus: true });
@@ -265,14 +343,17 @@ export class WriteFileTool implements ITool {
       console.log('[WRITE_FILE] File written successfully');
 
       // Open the file in a tab for visibility (without stealing focus)
-      try {
-        await vscode.window.showTextDocument(uri, {
-          preview: false,
-          preserveFocus: true,
-        });
-        console.log('[WRITE_FILE] File opened in tab for diagnostics');
-      } catch (openError) {
-        console.warn('[WRITE_FILE] Could not open file in tab:', openError);
+      // Skip in manual mode since user already reviewed the diff in the approval viewer
+      if (mode !== 'manual') {
+        try {
+          await vscode.window.showTextDocument(uri, {
+            preview: false,
+            preserveFocus: true,
+          });
+          console.log('[WRITE_FILE] File opened in tab for diagnostics');
+        } catch (openError) {
+          console.warn('[WRITE_FILE] Could not open file in tab:', openError);
+        }
       }
 
       // Post-write verification: try reading back as text

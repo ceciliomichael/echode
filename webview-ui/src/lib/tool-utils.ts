@@ -60,11 +60,9 @@ export async function executeToolViaExtension(
       // Handle final result
       if (message.type === 'toolExecutionResult' && message.requestId === requestId) {
         cleanup();
-        if (message.result.success) {
-          resolve(message.result);
-        } else {
-          reject(new Error(message.result.error || 'Tool execution failed'));
-        }
+        // Always resolve with the result - let the caller handle success/failure
+        // This allows proper detection of rejection vs other errors
+        resolve(message.result);
       }
     };
 

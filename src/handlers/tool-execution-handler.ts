@@ -2,9 +2,14 @@ import * as vscode from 'vscode';
 import { defaultRegistry } from '../services/tools/tool-registry';
 import { ReadFileTool, WriteFileTool, ListFilesTool, GrepSearchTool, GlobSearchTool, DeleteFileTool, TodoWriteTool, TodoReadTool, ApplyDiffTool, GetDiagnosticsTool, EchoSearchTool, PlanTool, PublishFindingsTool, RunTerminalTool } from '../services/tools';
 import { getWorkspaceFiles, getAgentsConfig } from '../utils/workspace-scanner';
+import { ApprovalViewerManager } from '../services/approval/approval-viewer-manager';
+import type { ChatMode } from '../services/tools/tool.interface';
 
 // Tools that modify the file system and require workspace refresh
 const FILE_MODIFYING_TOOLS = new Set(['write_to_file', 'delete_file', 'apply_diff']);
+
+// Tools that require approval in Manual Mode
+const APPROVAL_REQUIRED_TOOLS = new Set(['write_to_file', 'delete_file', 'apply_diff', 'run_terminal']);
 
 // Optional callback that can be set by the sidebar provider to trigger
 // a refactor/large-file scan after successful write_to_file/apply_diff
@@ -38,7 +43,7 @@ interface ToolExecutionMessage {
   requestId: string;
   toolName: string;
   parameters: Record<string, unknown>;
-  mode?: 'agent' | 'plan' | 'ask' | 'general' | 'review' | 'yolo';
+  mode?: ChatMode;
 }
 
 interface ToolAbortMessage {
@@ -116,6 +121,59 @@ export async function handleToolExecution(
       };
       webviewView.webview.postMessage(progressMessage);
     };
+
+    // Manual Mode: Request user approval for file-modifying and terminal tools
+    if (mode === 'manual' && APPROVAL_REQUIRED_TOOLS.has(toolName) && tool.prepareExecution) {
+      // Check if ApprovalViewerManager is initialized
+      if (!ApprovalViewerManager.isInitialized) {
+        console.warn('[ToolHandler] ApprovalViewerManager not initialized, skipping approval');
+      } else {
+        try {
+          const confirmation = await tool.prepareExecution(parameters);
+          
+          if (confirmation) {
+            // Request user approval via the dedicated approval panel
+            const approved = await ApprovalViewerManager.instance.requestApproval({
+              requestId,
+              toolName: confirmation.toolName,
+              title: confirmation.title,
+              message: confirmation.message,
+              diff: confirmation.diff,
+              command: confirmation.command,
+            });
+
+            if (!approved) {
+              // User rejected the tool execution
+              console.log(`[ToolHandler] User REJECTED ${toolName} execution`);
+              const response: ToolExecutionResponse = {
+                type: 'toolExecutionResult',
+                requestId,
+                result: {
+                  success: false,
+                  error: 'REJECTED_BY_USER',
+                }
+              };
+              webviewView.webview.postMessage(response);
+              return;
+            }
+            // User approved - continue to execute the tool
+            console.log(`[ToolHandler] User approved ${toolName} execution in Manual Mode`);
+          }
+        } catch (approvalError) {
+          console.error('[ToolHandler] Approval request failed:', approvalError);
+          const response: ToolExecutionResponse = {
+            type: 'toolExecutionResult',
+            requestId,
+            result: {
+              success: false,
+              error: `Approval request failed: ${approvalError instanceof Error ? approvalError.message : 'Unknown error'}`,
+            }
+          };
+          webviewView.webview.postMessage(response);
+          return;
+        }
+      }
+    }
 
     // Execute tool with cancellation signal and mode
     const result = await tool.execute(parameters, onProgress, abortController.signal, mode);

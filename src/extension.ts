@@ -8,6 +8,7 @@ import { generateGitCommitMessage } from './services/git-commit-generator';
 import { getGlobalServerManager } from './services/mcp/mcp-server-manager';
 import { defaultRegistry } from './services/tools/tool-registry';
 import { PlanViewerManager } from './services/plan-viewer/plan-viewer-manager';
+import { ApprovalViewerManager } from './services/approval/approval-viewer-manager';
 
 export function activate(context: vscode.ExtensionContext) {
   // Initialize MCP Server Manager with context for global storage access
@@ -15,6 +16,9 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Initialize Plan Viewer Manager
   PlanViewerManager.initialize(context);
+
+  // Initialize Approval Viewer Manager for Manual Mode
+  ApprovalViewerManager.initialize(context);
 
   const autocompleteService = new AutocompleteService(context);
   const sidebarProvider = new EchodeSidebarProvider(context.extensionUri, context, autocompleteService);

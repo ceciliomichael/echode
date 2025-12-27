@@ -36,7 +36,7 @@ export function updateToolExecutionStatus(
     ...state,
     status,
     result,
-    completedAt: status === 'completed' || status === 'error' || status === 'aborted' 
+    completedAt: status === 'completed' || status === 'error' || status === 'aborted' || status === 'rejected'
       ? Date.now() 
       : state.completedAt,
   };

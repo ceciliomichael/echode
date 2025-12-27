@@ -49,7 +49,7 @@ interface ToolExecutionResult {
   executedToolCalls: Array<{
     toolName: string;
     parameters: Record<string, unknown>;
-    status: 'completed' | 'error' | 'aborted';
+    status: 'completed' | 'error' | 'aborted' | 'rejected';
     result: { success: boolean; data?: unknown; error?: string };
   }>;
   toolResults: string[];
@@ -101,12 +101,24 @@ export async function executeToolWithStopCheck(
     }
 
     // Normal tool result
+    // Check for user rejection (case-insensitive to be safe)
+    const isRejected = !toolResult.success && (
+      toolResult.error?.includes('REJECTED_BY_USER') || 
+      toolResult.error?.toLowerCase().includes('rejected by user')
+    );
+    
+    const status = toolResult.success 
+      ? ('completed' as const) 
+      : isRejected 
+        ? ('rejected' as const) 
+        : ('error' as const);
+
     return {
       executedToolCalls: [
         {
           toolName: toolBlock.toolName,
           parameters: toolBlock.parameters,
-          status: toolResult.success ? ('completed' as const) : ('error' as const),
+          status,
           result: toolResult,
         },
       ],
@@ -135,13 +147,19 @@ export async function executeToolWithStopCheck(
         wasStopped: true,
       };
     }
+
+    // Check if this is a rejection error caught as an exception
+    const isRejected = errorMessage.includes('REJECTED_BY_USER') || 
+                       errorMessage.toLowerCase().includes('rejected by user');
+    
+    const status = isRejected ? ('rejected' as const) : ('error' as const);
     
     return {
       executedToolCalls: [
         {
           toolName: toolBlock.toolName,
           parameters: toolBlock.parameters,
-          status: 'error' as const,
+          status,
           result: { success: false, error: errorMessage },
         },
       ],

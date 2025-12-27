@@ -2,7 +2,7 @@
  * Tool execution types for echode extension
  */
 
-export type ToolStatus = 'pending' | 'executing' | 'completed' | 'error' | 'aborted' | 'fetching_diagnostics' | 'awaiting_user';
+export type ToolStatus = 'pending' | 'executing' | 'completed' | 'error' | 'aborted' | 'fetching_diagnostics' | 'awaiting_user' | 'rejected';
 
 export interface Tool {
   id: string;

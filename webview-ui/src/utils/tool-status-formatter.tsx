@@ -30,7 +30,22 @@ export function getToolStatusDisplay(
   toolCall: ToolCall,
   isStreaming: boolean
 ): ReactNode {
-  // Handle error and aborted states first
+  // Handle error, aborted, and rejected states first
+  // Check both status AND error message for rejection (fallback in case status wasn't set correctly)
+  const isRejected = toolCall.status === 'rejected' || (
+    toolCall.status === 'error' && (
+      toolCall.result?.error?.includes('REJECTED_BY_USER') ||
+      toolCall.result?.error?.toLowerCase().includes('rejected by user')
+    )
+  );
+  
+  if (isRejected) {
+    return (
+      <span style={{ color: 'var(--vscode-errorForeground)' }}>
+        Rejected
+      </span>
+    );
+  }
   if (toolCall.status === 'error') {
     return 'Error';
   }

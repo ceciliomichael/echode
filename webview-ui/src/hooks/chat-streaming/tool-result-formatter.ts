@@ -20,7 +20,14 @@ export function formatToolExecutionResults(
       skippedTools.push(execution.toolName);
       return;
     }
-    if (execution.status === 'completed' && execution.result) {
+    
+    // Include completed, error, and rejected statuses in history
+    // This ensures the AI sees tool results even when rejected in manual mode
+    const hasResult = execution.status === 'completed' || 
+                      execution.status === 'error' || 
+                      execution.status === 'rejected';
+    
+    if (hasResult && execution.result) {
       if (execution.result.success) {
         // Format result based on tool type
         const data = execution.result.data as Record<string, unknown>;

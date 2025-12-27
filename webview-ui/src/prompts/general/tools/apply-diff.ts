@@ -15,17 +15,24 @@ Parameters:
 <<<<<<< SEARCH
 :start_line:N
 -------
-[exact lines to find - COPY from read_file output]
+[exact lines to find - COPY from context or read_file output]
 =======
 [new content to replace with]
 >>>>>>> REPLACE
 \`\`\`
 
-### REQUIRED WORKFLOW
-1. **ALWAYS read_file first** to see current content with line numbers
-2. **COPY the exact lines** from read_file output for the SEARCH block (never type from memory)
-3. **Use the line number** shown in read_file output for :start_line:N
-4. Apply the diff
+### CRITICAL: USE CONTENT ALREADY IN CONTEXT
+- If you just called read_file or echo_search and the file content is visible above, **USE THAT CONTENT DIRECTLY**
+- Do NOT call read_file again if the content is already in your recent context
+- Copy the EXACT lines from whatever output you have (preserving whitespace exactly)
+- The :start_line number is shown at the beginning of each line in read_file output
+
+### WORKFLOW
+1. Check if file content is already in recent context (from read_file, echo_search, or tool results)
+2. If YES: Copy exact lines from that context for the SEARCH block
+3. If NO or STALE: Call read_file first, then copy from its output
+4. Use the line number shown in the output for :start_line:N
+5. Apply the diff
 
 ### SINGLE EDIT EXAMPLE
 Changing a function name at line 15:
@@ -50,6 +57,7 @@ function computeTotal(items) {
 
 ### MULTIPLE EDITS - Use separate invokes (PARALLEL OK)
 \`\`\`xml
+</function_calls>
 <function_calls>
     <invoke name="apply_diff">
         <parameter name="path">src/file.ts</parameter>
@@ -80,17 +88,15 @@ console.log("new message");
 
 ### RULES
 1. **ONE SEARCH/REPLACE per invoke** - never multiple blocks in one diff
-2. **SEARCH must match exactly** - copy/paste from read_file, preserve whitespace
-3. **Line number helps locate** - use :start_line from read_file output
+2. **SEARCH must match EXACTLY** - copy/paste from context, preserve all whitespace
+3. **Line number helps locate** - use :start_line from the line numbers shown in output
 4. **Markers on own lines** - <<<<<<< SEARCH, =======, >>>>>>> REPLACE
 5. **EXACTLY ONE of each marker** - one SEARCH, one separator (=======), one REPLACE
-   - ❌ WRONG: Two ======= markers will cause parsing errors
-   - ✓ CORRECT: Exactly one ======= between SEARCH and REPLACE sections
 
 ### IF DIFF FAILS
-1. Call read_file to get fresh content
-2. Copy the EXACT lines from output (don't retype)
-3. Retry with correct content
+1. Call read_file to get FRESH content (file may have changed)
+2. Copy the EXACT lines from the NEW output (don't reuse old content)
+3. Retry with the fresh content
 4. If still failing after 2 attempts, use write_to_file instead
 
 ### WHEN TO USE
