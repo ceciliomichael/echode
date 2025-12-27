@@ -10,6 +10,13 @@ import { extractAllInvokeBlocks, parseXMLParameters } from './xml-parser';
 /**
  * Preprocess content to fix corrupted AI tool call formats
  * This ensures the tokenizer can properly recognize tool blocks
+ * 
+ * Common issues this handles:
+ * 1. Alternate tag names (tool_call, tool_code, etc.)
+ * 2. Special delimiters (<|tool|>)
+ * 3. Anthropic-style tags (antml:function_calls, antml:invoke)
+ * 4. Extra whitespace in tags
+ * 5. Case variations
  */
 function preprocessToolTags(content: string): string {
     let processed = content;
@@ -31,8 +38,49 @@ function preprocessToolTags(content: string): string {
     processed = processed.replace(/<\|\/tool\|>/gi, '</function_calls>');
     processed = processed.replace(/<\|\/tool_call\|>/gi, '</function_calls>');
 
+    // Handle Anthropic-style namespaced tags (antml:function_calls, antml:invoke)
+    processed = processed.replace(/<function_calls>/gi, '<function_calls>');
+    processed = processed.replace(/<\/antml:function_calls>/gi, '</function_calls>');
+    processed = processed.replace(/<invoke(\s+)/gi, '<invoke$1');
+    processed = processed.replace(/<\/antml:invoke>/gi, '</invoke>');
+    processed = processed.replace(/<parameter(\s+)/gi, '<parameter$1');
+    processed = processed.replace(/<\/antml:parameter>/gi, '</parameter>');
+
+    // Fix whitespace issues in opening tags
+    // < function_calls > -> <function_calls>
+    processed = processed.replace(/<\s*function_calls\s*>/gi, '<function_calls>');
+    processed = processed.replace(/<\s*\/\s*function_calls\s*>/gi, '</function_calls>');
+
+    // Handle cases where function_calls is accidentally split/mangled
+    // <function calls> (with space)
+    processed = processed.replace(/<function\s+calls>/gi, '<function_calls>');
+    processed = processed.replace(/<\/function\s+calls>/gi, '</function_calls>');
+
+    // Remove any CDATA wrappers that might have been added
+    processed = processed.replace(/<!\[CDATA\[/g, '');
+    processed = processed.replace(/\]\]>/g, '');
+
     return processed;
 }
+
+/**
+ * Fallback detection: Check if content contains tool-like patterns that weren't parsed
+ * This helps identify cases where the main parser might have missed something
+ */
+function hasPotentialUnparsedTools(content: string, parsedTokens: ContentToken[]): boolean {
+    // Check if there are <invoke patterns in content that didn't become tool tokens
+    const invokePattern = /<invoke\s+name=["'][^"']+["']>/gi;
+    const matches = content.match(invokePattern);
+
+    if (!matches) return false;
+
+    // Count tool tokens in parsed result
+    const toolTokenCount = parsedTokens.filter(t => t.type === 'tool').length;
+
+    // If there are more invoke patterns than tool tokens, something might be missing
+    return matches.length > toolTokenCount;
+}
+
 
 /**
  * Tokenize content into stable segments (think blocks, tool blocks, and text)
@@ -341,6 +389,20 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
             }
             position = processedContent.length;
         }
+    }
+
+    // Fallback check: if we might have missed tools, log a warning for debugging
+    // This helps identify edge cases that need to be handled
+    if (hasPotentialUnparsedTools(processedContent, tokens)) {
+        console.warn(
+            '[tokenizer] Potential unparsed tool blocks detected. Content may need preprocessing adjustment.',
+            {
+                messageId,
+                contentPreview: processedContent.slice(0, 200),
+                tokenCount: tokens.length,
+                toolTokenCount: tokens.filter(t => t.type === 'tool').length
+            }
+        );
     }
 
     return tokens;

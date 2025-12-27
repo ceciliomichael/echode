@@ -9,9 +9,9 @@ export class CommandValidator {
         /\bnpx\s+(nodemon|ts-node-dev|vite|next|nuxt|react-scripts|webpack(-dev-server)?|parcel|live-server|http-server)\b/i,
         /\bnode\s+--watch\b/i,
         /\bnodemon\b/i,
-        /\bvite\b/i,
-        /\bnext(\s+dev)?\b/i,
-        /\bnuxt\b/i,
+        /\bvite\s+(dev|build|preview)?\s*$/i,
+        /\bnpx\s+next(\s+dev)?\b/i,
+        /\bnuxt(\s+dev)?\b/i,
         /\bgatsby\s+develop\b/i,
         /\breact-scripts\s+start\b/i,
 

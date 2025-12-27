@@ -122,12 +122,8 @@ export function getToolFileInfo(
   // Get diagnostics -> Use Stethoscope icon
   if (toolName === 'get_diagnostics') {
     const targetPath = path || (parameters.file_pattern as string) || 'workspace';
-    const maxLength = 50;
-    const displayPath = targetPath.length > maxLength
-      ? '.../' + targetPath.slice(-(maxLength - 4))
-      : targetPath;
     return {
-      displayName: displayPath,
+      displayName: targetPath,
       fullPath: path || '',
       icon: getIcon(Stethoscope),
       iconColor: getIconColor('var(--vscode-editorWarning-foreground)'),
@@ -158,15 +154,11 @@ export function getToolFileInfo(
     };
   }
 
-  // Run terminal -> Use Terminal icon with truncated command in header
+  // Run terminal -> Use Terminal icon with command in header (CSS handles truncation)
   if (toolName === 'run_terminal') {
     const command = parameters.command as string | undefined;
-    const truncatedCommand = command && command.length > 50 
-      ? command.substring(0, 50) + '...' 
-      : command;
-    const displayName = truncatedCommand || 'Terminal';
     return {
-      displayName,
+      displayName: command || 'Terminal',
       fullPath: '',
       icon: getIcon(getToolMetadata('run_terminal')?.icon || getFileIconConfig('').icon),
       iconColor: getIconColor('var(--vscode-terminal-foreground)'),
