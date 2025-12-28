@@ -4,7 +4,9 @@
 
 export function getApplyDiffInstructions(): string {
     return `## apply_diff
-Targeted edits to existing files. **DEFAULT for all existing file modifications.**
+🔧 **PRIMARY TOOL** - Use this for ALL existing file edits.
+
+This is your go-to tool. Whenever you need to modify an existing file, use \`apply_diff\`. Do NOT reach for \`write_to_file\` unless this tool fails twice.
 
 Parameters:
 - path: File path (required)

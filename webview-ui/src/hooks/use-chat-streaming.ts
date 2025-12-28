@@ -15,6 +15,7 @@ import type { ChatStreamingProps, LockedModelConfig } from './chat-streaming/typ
 import { buildChatHistoryWithToolResults } from './chat-streaming/chat-history-builder';
 import { handleForcedEchoSearch } from './chat-streaming/forced-echo-search';
 import { runStreamingLoop } from './chat-streaming/streaming-loop';
+import { detectYoloPhase } from './chat-streaming/helpers';
 
 // Re-export types for consumers
 export type { ChatStreamingProps } from './chat-streaming/types';
@@ -130,14 +131,13 @@ export function useChatStreaming({
     
     // YOLO mode phase detection:
     // YOLO starts as 'plan' but internally transitions to 'agent' after handoff.
-    // We detect the phase by checking if this is a continuation (lockedMode provided) or a fresh request.
+    // We detect the phase by scanning history for plan tool executions (robust detection).
     if (currentMode === 'yolo') {
-      // YOLO mode phase detection:
-      // Check the last assistant message to determine if we are in 'plan' or 'agent' phase
-      // This handles both continuations and fresh user requests (preserving the phase)
+      // Scan history for plan tool handoff to determine current phase
+      // This replaces the naive lastAssistantMessage.mode check which fails when
+      // history contains non-YOLO agent messages (e.g., after compression)
       const msgsToCheck = overrideMessages ?? messages;
-      const lastAssistantMessage = [...msgsToCheck].reverse().find(msg => msg.role === 'assistant');
-      currentMode = lastAssistantMessage?.mode === 'agent' ? 'agent' : 'plan';
+      currentMode = detectYoloPhase(msgsToCheck);
     }
     
     // === LOCK CONFIG ===

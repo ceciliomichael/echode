@@ -19,7 +19,7 @@
  */
 
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { memo, useEffect, useRef, useState, useDeferredValue } from 'react';
+import { memo, useEffect, useLayoutEffect, useRef, useState, useDeferredValue } from 'react';
 import { getThinkBlockDuration, setThinkBlockDuration } from '../../utils/think-block-storage';
 import { formatDuration } from '../../utils/format-duration';
 import { StreamingText } from './streaming-text';
@@ -42,9 +42,9 @@ interface ThinkBlockProps {
 const ThinkContent = memo(
   ({ content, isStreaming }: { content: string; isStreaming: boolean }) => {
     return (
-      <div 
+      <div
         className="text-sm m-0"
-        style={{ 
+        style={{
           color: 'var(--vscode-disabledForeground)',
           opacity: 0.7,
           fontFamily: 'var(--vscode-font-family)'
@@ -89,8 +89,8 @@ const ThinkBlockComponent = ({
     }
   }, [messageId, content]);
 
-  // Track timing when streaming starts/stops
-  useEffect(() => {
+  // Track timing when streaming starts/stops - use layout effect to avoid visual flicker
+  useLayoutEffect(() => {
     if (isStreaming) {
       // Start timing
       if (startTimeRef.current === null) {
@@ -122,11 +122,6 @@ const ThinkBlockComponent = ({
         startTimeRef.current = null;
       }
 
-      // Auto-collapse when complete (only if closed)
-      if (isClosed) {
-        setIsExpanded(false);
-      }
-
       // Clear intervals
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -145,7 +140,18 @@ const ThinkBlockComponent = ({
         setThinkBlockDuration(messageId, content, finalDuration);
       }
     };
-  }, [isStreaming, isClosed, messageId, content]);
+  }, [isStreaming, messageId, content]);
+
+  // Handle auto-collapse separately with a delay to prevent visual glitches
+  useEffect(() => {
+    if (isClosed && !isStreaming) {
+      // Delay collapse when transitioning from streaming to closed for smoother UX
+      const collapseTimeout = setTimeout(() => {
+        setIsExpanded(false);
+      }, 150);
+      return () => clearTimeout(collapseTimeout);
+    }
+  }, [isClosed, isStreaming]);
 
 
   const deferredContent = useDeferredValue(content);
@@ -201,11 +207,10 @@ const ThinkBlockComponent = ({
 
       {/* Content - expands inline with smooth animation */}
       <div
-        className={`overflow-hidden transition-[max-height,opacity] duration-300 ease-in-out ${
-          isExpanded
+        className={`overflow-hidden transition-[max-height,opacity] duration-300 ease-in-out ${isExpanded
             ? 'max-h-[5000px] opacity-100 mt-1'
             : 'max-h-0 opacity-0 mt-0'
-        }`}
+          }`}
         style={{
           contentVisibility: isExpanded ? 'auto' : 'hidden',
         }}

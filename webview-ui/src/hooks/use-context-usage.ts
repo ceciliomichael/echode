@@ -108,7 +108,7 @@ export function useContextUsage({
       toolResultsTokens += estimateTokens(currentToolResultText);
     }
 
-    const totalTokens = systemPromptTokens + historyTokens + toolResultsTokens;
+    const totalTokens = systemPromptTokens + historyTokens + compressedHistoryTokens + toolResultsTokens;
     const maxTokens = contextSettings.maxContextTokens;
 
     return {

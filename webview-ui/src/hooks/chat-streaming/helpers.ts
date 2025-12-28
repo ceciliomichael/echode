@@ -1,4 +1,5 @@
 import type { ChatMessage } from '../../types/chat-api';
+import type { Message } from '../../types/chat';
 
 export const MAX_HISTORY_MESSAGES = 20;
 export const MAX_FILE_CONTENT_CHARS = 8000;
@@ -65,4 +66,58 @@ export function isRetryableError(errorMessage: string): boolean {
     lowerError.includes('network') ||
     lowerError.includes('fetch')
   );
+}
+
+/**
+ * Detect the current YOLO mode phase by scanning history for plan tool executions.
+ * 
+ * YOLO mode has two phases:
+ * - 'plan': Creating/updating the implementation plan
+ * - 'agent': Executing the plan after handoff
+ * 
+ * We determine the phase by finding the most recent successful 'plan' tool execution:
+ * - If mode is 'handoff' → we're in 'agent' phase
+ * - If mode is 'create_plan' or 'update_plan' → we're in 'plan' phase
+ * - If no plan tool found → default to 'plan' phase (fresh start)
+ * 
+ * This replaces the naive `lastAssistantMessage.mode === 'agent'` check which
+ * incorrectly triggers agent phase when history contains non-YOLO agent messages
+ * (e.g., from a previous Agent mode session or after compression).
+ */
+export function detectYoloPhase(messages: Message[]): 'plan' | 'agent' {
+  // Scan messages in reverse order (most recent first)
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    
+    // Only assistant messages have tool executions
+    if (msg.role !== 'assistant' || !msg.toolExecutions) {
+      continue;
+    }
+    
+    // Check each tool execution in this message
+    for (const execution of msg.toolExecutions.values()) {
+      // Only consider successful 'plan' tool executions
+      if (
+        execution.toolName === 'plan' &&
+        execution.status === 'completed' &&
+        execution.result?.success
+      ) {
+        const planMode = execution.parameters?.mode as string | undefined;
+        
+        if (planMode === 'handoff') {
+          // Found a handoff - we're in agent phase
+          return 'agent';
+        }
+        
+        if (planMode === 'create_plan' || planMode === 'update_plan') {
+          // Found a plan creation/update - we're in plan phase
+          // (either still planning, or plan was updated after handoff)
+          return 'plan';
+        }
+      }
+    }
+  }
+  
+  // No plan tool found - default to plan phase (fresh YOLO start)
+  return 'plan';
 }

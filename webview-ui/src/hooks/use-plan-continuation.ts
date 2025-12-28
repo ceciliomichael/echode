@@ -61,67 +61,6 @@ export function usePlanContinuationEmitter() {
 }
 
 /**
- * Interface for plan data extracted from tool results
- */
-interface PlanData {
-  planFilePath?: string;
-  planContent?: string;
-  planTitle?: string;
-}
-
-/**
- * Find the latest plan (create_plan or update_plan) from conversation messages.
- * Scans messages in reverse order to find the most recent plan tool result.
- * This ensures session-scoped tracking - only plans from this conversation are considered.
- */
-function findLatestPlanFromMessages(messages: Message[]): PlanData | undefined {
-  // Scan messages in reverse order (newest first)
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i];
-    if (message.role !== 'assistant' || !message.toolExecutions) {
-      continue;
-    }
-
-    // toolExecutions is a Map<string, ToolExecutionState>
-    // Convert to array and check each execution
-    const toolExecArray = Array.from(message.toolExecutions.values());
-    
-    // Check tool executions in reverse order within the message
-    for (let j = toolExecArray.length - 1; j >= 0; j--) {
-      const toolExec = toolExecArray[j];
-      if (toolExec.toolName !== 'plan') {
-        continue;
-      }
-
-      const result = toolExec.result;
-      if (!result?.success || !result.data) {
-        continue;
-      }
-
-      const data = result.data as {
-        mode?: string;
-        planFilePath?: string;
-        planContent?: string;
-        planTitle?: string;
-      };
-
-      // Only consider create_plan or update_plan modes (not handoff)
-      if (data.mode === 'create_plan' || data.mode === 'update_plan') {
-        if (data.planFilePath || data.planContent) {
-          return {
-            planFilePath: data.planFilePath,
-            planContent: data.planContent,
-            planTitle: data.planTitle,
-          };
-        }
-      }
-    }
-  }
-
-  return undefined;
-}
-
-/**
  * Hook for handling plan continuation in the chat system
  * 
  * When a plan tool button is clicked:
@@ -207,21 +146,12 @@ export function usePlanContinuationHandler({
           message: `User verified and approved "${planTitle}". IMMEDIATELY proceed to handoff: 1) Create todo_write with implementation tasks, 2) Call plan tool with mode="handoff". DO NOT create another plan.`,
         };
       } else if (action === 'start_implementation') {
-        const summary = planData?.summary || 'the planned implementation';
-        
-        // Find the latest plan from conversation messages (session-scoped)
-        // The handoff tool result doesn't contain plan details - we need to look them up
-        const latestPlan = findLatestPlanFromMessages(messagesRef.current);
-        const planContent = latestPlan?.planContent;
-        const planFilePath = latestPlan?.planFilePath;
-
+        // Don't resend plan content - it's already in chat history
+        // Resending causes duplication and wastes context tokens
         toolResultData = {
           userAction: 'start_implementation',
           approved: true,
-          summary,
-          planContent,
-          planFilePath,
-          message: 'User approved the plan. Begin implementation.',
+          message: 'User approved the plan. The plan is already in the conversation above - refer to it there. Begin implementation immediately using todo_read to check tasks.',
         };
         
         // Switch to agent mode for handoff (unless in YOLO mode)

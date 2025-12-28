@@ -46,7 +46,7 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
     if (isEditing && containerRef.current) {
       // Small delay to ensure DOM has updated
       setTimeout(() => {
-        containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        containerRef.current?.scrollIntoView({ behavior: 'auto', block: 'center' });
       }, 50);
     }
   }, [isEditing]);

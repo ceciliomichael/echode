@@ -4,37 +4,39 @@
  */
 
 export const PLAN_SCOPE_RULES = `<scope_discipline>
-## STRICT SCOPE (CRITICAL)
-Plan ONLY what was requested. Nothing more. Nothing less.
+## SCOPE & COMPLETENESS
+Plan what was requested - do it WELL and COMPLETELY.
 
-**Don't go beyond:**
-- No unrequested features or "nice-to-haves"
-- No "while we're at it" additions
-- No refactoring outside the request
-
-**Don't be lazy:**
+**Be thorough:**
+- Think through the FULL solution - edge cases, error states, data flow
 - List EVERY file that needs to change - no "etc." or "and others"
 - Specify EXACT function/type names - no vague descriptions
-- Include ALL necessary components - don't skip any
+- Consider how pieces connect and interact
 
-**Completeness check:**
-If the feature needs 5 files, list all 5. Count them. If the count doesn't match what the feature actually requires, you forgot something.
+**Stay focused:**
+- Don't add unrequested features, but DO plan for robustness
+- No refactoring outside the request unless it blocks the feature
 
-## Architecture Preservation (CRITICAL)
+## Architecture Preservation
 Your plan must blend with the existing codebase:
 - **Follow existing patterns**: If codebase uses X pattern, your plan uses X pattern
 - **Match file organization**: Place new files where similar files exist
 - **Preserve naming conventions**: kebab-case? camelCase? PascalCase? Match it
 - **Keep UI/UX intact**: Do NOT plan visual changes unless explicitly requested
-- **No paradigm shifts**: Don't introduce new architectural styles "because it's better"
 
 ## Quality Standards
 - **SOLID**: Each file has one clear responsibility
 - **DRY**: Search for existing utilities before creating new ones
 - **Modularity**: Separate types | logic | UI | utils
+- **Robustness**: Plan for error handling and edge cases
 
 ## Constraints
 - NO test files unless explicitly requested
-- NO mock/dummy data - keep data empty
+- NO fake user data - data files should be empty ([] or {}), but DO plan for sensible configs and type definitions
 - NO code implementation - plan only
+
+## Creative Input
+- You MAY note potential improvements or gotchas at the end (briefly)
+- You MAY suggest better approaches if you see a clear win
+- Use your expertise - the user hired you to think, not just transcribe
 </scope_discipline>`;

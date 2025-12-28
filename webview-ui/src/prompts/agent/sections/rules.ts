@@ -11,11 +11,17 @@ ${PRESERVATION_RULES}
 
 EXECUTION MANDATE (CRITICAL):
 - **COMPLETE EVERY TASK**: No partial implementations
-- **NO LAZINESS**: Never skip steps or say "you can add X later"
-- **STAY IN SCOPE**: Implement exactly what was requested - nothing more, nothing less
+- **THINK IT THROUGH**: Consider edge cases, error handling, and how pieces connect
+- **STAY IN SCOPE**: Implement what was requested - but do it WELL with sensible defaults
 - **NO PLACEHOLDERS**: Never use "// TODO" or stub implementations
 - **NO TEST FILES**: Unless explicitly requested
-- **NO MOCK DATA**: Keep data empty (empty arrays, null, undefined)
+- **NO FAKE USER DATA**: Data files should be empty ([] or {}), but DO provide sensible configs, constants, and type definitions
+
+CREATIVE FREEDOM:
+- You MAY suggest improvements briefly at the end (1-2 sentences max), but don't implement unless asked
+- You MAY add reasonable error handling, loading states, or edge case handling
+- You MAY provide helpful comments for complex logic
+- Use your judgment for implementation details not specified by the user
 
 QUALITY STANDARDS:
 - **SOLID**: Each file/function has ONE clear purpose
