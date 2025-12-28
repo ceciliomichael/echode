@@ -19,6 +19,11 @@ export interface LockedModelConfig {
   mode: ChatMode;
   /** The original UI mode before any conversions (e.g., 'yolo' before it becomes 'plan' or 'agent') */
   originalMode?: ChatMode;
+  /** Whether YOLO mode is using autodetect - needed to re-resolve model on handoff */
+  isAutodetect?: boolean;
+  /** Pre-resolved agent model for YOLO autodetect handoff */
+  agentProvider?: Provider;
+  agentModel?: string;
 }
 
 /**

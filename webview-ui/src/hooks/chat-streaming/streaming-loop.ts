@@ -446,10 +446,25 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
             
             if (handoffCompleted) {
               console.log('[StreamingLoop] YOLO mode handoff detected - switching to agent mode');
-              continuationConfig = {
-                ...lockedConfig,
-                mode: 'agent', // Switch internal mode to agent for implementation
-              };
+              
+              // For autodetect, use the pre-resolved agent model
+              if (lockedConfig.isAutodetect && lockedConfig.agentProvider && lockedConfig.agentModel) {
+                console.log('[StreamingLoop] YOLO autodetect - switching to agent model:', {
+                  provider: lockedConfig.agentProvider,
+                  model: lockedConfig.agentModel,
+                });
+                continuationConfig = {
+                  ...lockedConfig,
+                  mode: 'agent',
+                  provider: lockedConfig.agentProvider,
+                  model: lockedConfig.agentModel,
+                };
+              } else {
+                continuationConfig = {
+                  ...lockedConfig,
+                  mode: 'agent', // Switch internal mode to agent for implementation
+                };
+              }
             }
           }
 

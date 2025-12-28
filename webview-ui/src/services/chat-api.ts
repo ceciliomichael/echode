@@ -14,6 +14,11 @@ export interface LockedModelConfig {
   originalMode?: ChatMode;
   /** Enabled tool IDs captured at request start - locks tools for the duration of the request */
   enabledToolIds?: string[];
+  /** Whether YOLO mode is using autodetect - needed to re-resolve model on handoff */
+  isAutodetect?: boolean;
+  /** Pre-resolved agent model for YOLO autodetect handoff */
+  agentProvider?: Provider;
+  agentModel?: string;
 }
 
 export class ChatApiService {

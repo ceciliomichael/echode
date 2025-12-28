@@ -132,16 +132,12 @@ export function useChatStreaming({
     // YOLO starts as 'plan' but internally transitions to 'agent' after handoff.
     // We detect the phase by checking if this is a continuation (lockedMode provided) or a fresh request.
     if (currentMode === 'yolo') {
-      // If lockedMode is provided, this is a continuation (tool execution, plan handoff, etc.)
-      // In that case, check the last assistant message to determine the current phase
-      if (lockedMode) {
-        const msgsToCheck = overrideMessages ?? messages;
-        const lastAssistantMessage = [...msgsToCheck].reverse().find(msg => msg.role === 'assistant');
-        currentMode = lastAssistantMessage?.mode === 'agent' ? 'agent' : 'plan';
-      } else {
-        // Fresh user request in YOLO mode: always start with planning phase
-        currentMode = 'plan';
-      }
+      // YOLO mode phase detection:
+      // Check the last assistant message to determine if we are in 'plan' or 'agent' phase
+      // This handles both continuations and fresh user requests (preserving the phase)
+      const msgsToCheck = overrideMessages ?? messages;
+      const lastAssistantMessage = [...msgsToCheck].reverse().find(msg => msg.role === 'assistant');
+      currentMode = lastAssistantMessage?.mode === 'agent' ? 'agent' : 'plan';
     }
     
     // === LOCK CONFIG ===
@@ -156,16 +152,27 @@ export function useChatStreaming({
     let selectedProvider = modeModel.provider;
     let selectedModel = modeModel.model;
 
+    // Pre-resolve agent model for YOLO autodetect (needed for handoff)
+    let agentProvider: typeof selectedProvider | undefined;
+    let agentModel: string | undefined;
+
     if (originalMode === 'yolo' && selectedProvider === 'auto') {
       // Resolve based on current phase
       const phaseSettings = storageService.getModeModel(currentMode); // currentMode is 'plan' or 'agent'
       selectedProvider = phaseSettings.provider;
       selectedModel = phaseSettings.model;
       
+      // Also pre-resolve agent model for handoff (so we don't need storageService later)
+      const agentSettings = storageService.getModeModel('agent');
+      agentProvider = agentSettings.provider;
+      agentModel = agentSettings.model;
+      
       console.log('[sendMessage] YOLO Autodetect resolved to:', {
         phase: currentMode,
         provider: selectedProvider,
-        model: selectedModel
+        model: selectedModel,
+        agentProvider,
+        agentModel,
       });
     }
 
@@ -182,6 +189,11 @@ export function useChatStreaming({
       mode: currentMode,
       originalMode, // Preserve 'yolo' for auto-verification logic
       enabledToolIds, // Lock tools for this request
+      // Track if YOLO is using autodetect - needed to re-resolve model on handoff
+      isAutodetect: originalMode === 'yolo' && modeModel.provider === 'auto',
+      // Pre-resolved agent model for handoff
+      agentProvider,
+      agentModel,
     };
     
     console.log('[sendMessage] Mode configuration:', {
