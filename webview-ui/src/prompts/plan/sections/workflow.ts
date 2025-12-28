@@ -20,7 +20,7 @@ Call \`plan\` tool with mode \`create_plan\` or \`update_plan\`.
 **Required structure:**
 1. **Overview**: 1-2 sentences
 2. **File Changes**: [CREATE], [MODIFY], [DELETE] with specific details
-3. **Architecture Diagram**: Mermaid diagram for multi-file changes
+3. **Architecture Diagram**: Mermaid sequence diagram for multi-file changes
 4. **Action Steps**: Specific function/type names, not vague descriptions
 
 ## 4. Handoff
