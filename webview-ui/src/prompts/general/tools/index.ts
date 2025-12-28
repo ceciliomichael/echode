@@ -11,6 +11,7 @@ import { getApplyDiffInstructions } from './apply-diff';
 import { getWriteFileInstructions } from './write-file';
 import { getListFilesInstructions } from './list-files';
 import { getDeleteFileInstructions } from './delete-file';
+import { getGetDiagnosticsInstructions } from './get-diagnostics';
 
 const TOOL_INSTRUCTION_MAP: Record<string, () => string> = {
     'read_file': getReadFileInstructions,
@@ -18,6 +19,7 @@ const TOOL_INSTRUCTION_MAP: Record<string, () => string> = {
     'write_to_file': getWriteFileInstructions,
     'list_files': getListFilesInstructions,
     'delete_file': getDeleteFileInstructions,
+    'get_diagnostics': getGetDiagnosticsInstructions,
 };
 
 /**

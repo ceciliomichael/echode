@@ -4,7 +4,7 @@
 
 export function getApplyDiffInstructions(): string {
     return `## apply_diff
-Targeted edits to existing files. PREFERRED over write_to_file for existing files.
+Targeted edits to existing files. **DEFAULT for all existing file modifications.**
 
 Parameters:
 - path: File path (required)
@@ -22,13 +22,13 @@ Parameters:
 \`\`\`
 
 ### CRITICAL: USE CONTENT ALREADY IN CONTEXT
-- If you just called read_file or echo_search and the file content is visible above, **USE THAT CONTENT DIRECTLY**
+- If you just called read_file and the file content is visible above, **USE THAT CONTENT DIRECTLY**
 - Do NOT call read_file again if the content is already in your recent context
 - Copy the EXACT lines from whatever output you have (preserving whitespace exactly)
 - The :start_line number is shown at the beginning of each line in read_file output
 
 ### WORKFLOW
-1. Check if file content is already in recent context (from read_file, echo_search, or tool results)
+1. Check if file content is already in recent context (from read_file or tool results)
 2. If YES: Copy exact lines from that context for the SEARCH block
 3. If NO or STALE: Call read_file first, then copy from its output
 4. Use the line number shown in the output for :start_line:N
@@ -36,6 +36,7 @@ Parameters:
 
 ### SINGLE EDIT EXAMPLE
 Changing a function name at line 15:
+</function_calls>
 <function_calls>
 <invoke name="apply_diff">
     <parameter name="path">src/utils.ts</parameter>
@@ -97,7 +98,7 @@ console.log("new message");
 4. If still failing after 2 attempts, use write_to_file instead
 
 ### WHEN TO USE
-- Any edits to existing files (default choice)
+- **DEFAULT for ALL existing file edits** (any size change)
 - Adding/removing/modifying specific sections
-- Only use write_to_file after 2 failed attempts or for new files`;
+- Only fall back to write_to_file after 2 failed attempts`;
 }

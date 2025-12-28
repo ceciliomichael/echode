@@ -63,9 +63,11 @@ export function useChatStreaming({
     }
   }, [isStreaming, isExecutingTool, saveSession, hasStreamedContentRef, messagesRef]);
 
-  const getToolExecutor = (lockedMode?: ChatMode) => {
+  const getToolExecutor = (lockedMode?: ChatMode, originalMode?: ChatMode) => {
     // Determine which mode we need tools for: lockedMode (if executing a specific plan/action) or current mode
     const targetMode = lockedMode ?? modeRef.current;
+    // Preserve originalMode for YOLO detection (mode gets converted from 'yolo' to 'plan'/'agent')
+    const effectiveOriginalMode = originalMode ?? lockedMode ?? modeRef.current;
 
     // Check if we need to create a new executor (either none exists, or mode mismatch)
     // We check toolExecutorRef.current.mode (which we exposed as public readonly)
@@ -81,6 +83,7 @@ export function useChatStreaming({
         isStoppingRef,
         abortControllerRef: toolAbortControllerRef,
         mode: targetMode,
+        originalMode: effectiveOriginalMode,
       });
     }
     return toolExecutorRef.current;

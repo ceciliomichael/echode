@@ -8,4 +8,5 @@ export { getSystemInfo, getMinimalSystemInfo } from './system-info';
 export { TYPE_SAFETY_RULE } from './type-safety';
 export { IMAGE_AWARENESS_RULES } from './image-awareness';
 export { INTERACTION_RULES } from './interaction-rules';
-export { PRESERVATION_RULES, PRESERVATION_PRINCIPLES } from './preservation-rules';
+export { PRESERVATION_RULES } from './preservation-rules';
+export { getIsolationRules } from './isolation';

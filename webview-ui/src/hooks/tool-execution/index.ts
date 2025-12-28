@@ -65,6 +65,7 @@ export function useToolExecution({
       isStoppingRef,
       // No abortControllerRef - tools should not abort when stream is aborted
       mode,
+      originalMode: mode, // Preserve original mode for YOLO detection
     });
   }, [mode, isStoppingRef]);
 
@@ -94,6 +95,7 @@ export function useToolExecution({
           isStoppingRef,
           // No abortControllerRef - tools should not abort when stream is aborted
           mode: lockedConfig.mode,
+          originalMode: lockedConfig.originalMode,
         });
       }
 

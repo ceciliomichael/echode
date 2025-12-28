@@ -28,6 +28,8 @@ export interface ToolExecutorOptions {
   isStoppingRef: { current: boolean };
   abortControllerRef?: { current: AbortController | null };
   mode?: ChatMode;
+  /** The original UI mode before any conversions (e.g., 'yolo' before it becomes 'plan' or 'agent') */
+  originalMode?: ChatMode;
 }
 
 export class ToolExecutor {
@@ -35,12 +37,14 @@ export class ToolExecutor {
   private isStoppingRef: { current: boolean };
   private abortControllerRef?: { current: AbortController | null };
   public readonly mode?: ChatMode;
+  public readonly originalMode?: ChatMode;
 
   constructor(options: ToolExecutorOptions) {
     this.enabledTools = options.enabledTools;
     this.isStoppingRef = options.isStoppingRef;
     this.abortControllerRef = options.abortControllerRef;
     this.mode = options.mode;
+    this.originalMode = options.originalMode;
   }
 
   /**
@@ -105,13 +109,45 @@ export class ToolExecutor {
       };
     }
 
-    return await handler.execute(
+    const result = await handler.execute(
       toolCall.parameters,
       effectiveSignal,
       onStatusChange,
       onProgress,
       this.mode,
     );
+
+    // YOLO Mode: Auto-verify plan tool actions (create_plan, update_plan, handoff)
+    // This ensures the continuation happens immediately without waiting for UI button clicks
+    // Check originalMode for YOLO detection (mode is converted from 'yolo' to 'plan'/'agent')
+    const isYoloMode = this.originalMode === 'yolo' || this.mode === 'yolo';
+    if (
+      isYoloMode &&
+      toolCall.toolName === 'plan' &&
+      result.success &&
+      result.data
+    ) {
+      const planData = result.data as PlanToolResult & {
+        userAction?: string;
+        autoVerified?: boolean;
+      };
+
+      // Auto-verify all plan modes in YOLO - no user intervention needed
+      if (planData.awaitsUserAction) {
+        planData.awaitsUserAction = false;
+        planData.autoVerified = true;
+
+        if (planData.mode === 'handoff') {
+          planData.userAction = 'start_implementation';
+          planData.message = `[YOLO Mode] Implementation approved automatically. Starting execution.`;
+        } else {
+          planData.userAction = 'verify_plan';
+          planData.message = `[YOLO Mode] Plan "${planData.planTitle || 'Implementation Plan'}" auto-verified. Proceeding immediately.`;
+        }
+      }
+    }
+
+    return result;
   }
 
   /**
@@ -195,36 +231,8 @@ export class ToolExecutor {
         };
       }
 
-      // YOLO Mode: Auto-verify plan creation/update to prevent loops
-      // This intercepts the plan tool result and simulates user verification
-      // so the agent can proceed immediately to handoff without waiting for UI
-      if (
-        this.mode === 'yolo' &&
-        toolBlock.toolName === 'plan' &&
-        result.success &&
-        result.data
-      ) {
-        // Cast to extended type that includes dynamic properties added during auto-verification
-        const planData = result.data as PlanToolResult & { 
-          userAction?: string; 
-          autoVerified?: boolean; 
-        };
-        
-        // Only auto-verify create_plan and update_plan (NOT handoff)
-        // Handoff requires the frontend to trigger mode switch to 'agent'
-        if (
-          planData.awaitsUserAction &&
-          (planData.mode === 'create_plan' || planData.mode === 'update_plan')
-        ) {
-          // Mutate the result to simulate user verification
-          planData.awaitsUserAction = false;
-          planData.userAction = 'verify_plan';
-          planData.autoVerified = true;
-          planData.message = `[YOLO Mode] Plan "${planData.planTitle || 'Implementation Plan'}" auto-verified. Proceeding to handoff immediately.`;
-        }
-      }
-
       // Update tool call with result
+      // Note: YOLO mode auto-verification is handled in execute() method
       // Detect if tool was rejected by user in Manual Mode
       // Detect if tool was rejected by user in Manual Mode (case-insensitive)
       const isRejected = !result.success && (

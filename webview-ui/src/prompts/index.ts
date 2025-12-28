@@ -23,10 +23,6 @@ import { getToolsForMode } from '../lib/tool-config';
  * and strictly enforcing mode restrictions.
  */
 function getEnabledToolsForMode(mode: ChatMode): Tool[] {
-    if (mode === 'chat') {
-        return []; // Chat mode has no tools
-    }
-
     const savedTools = storageService.getEnabledTools();
     const settings = storageService.getSettings();
     const echoSearchEnabled = settings.indexingSettings?.enabled ?? true;
@@ -78,7 +74,7 @@ export function getSystemPrompt(workspace: WorkspaceContext | null, mode: ChatMo
 
     switch (mode) {
         case 'chat':
-            return buildChatPrompt({ workspace });
+            return buildChatPrompt({ workspace, enabledTools });
 
         case 'general':
             return buildGeneralPrompt({ workspace, enabledTools });

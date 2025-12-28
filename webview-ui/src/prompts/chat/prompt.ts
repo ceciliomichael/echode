@@ -1,50 +1,48 @@
-import type { WorkspaceContext } from '../../types/workspace';
-import { IMAGE_AWARENESS_RULES } from '../shared';
+/**
+ * Chat Mode - Main Prompt
+ * 
+ * Structure:
+ * - <identity>: Versatile AI assistant
+ * - <context>: Workspace and tools (if any)
+ * - <isolation>: Separation from project content
+ * - <capabilities>: Dynamic based on tool availability
+ * - <communication_style>: Natural conversation
+ * - <rules>: Dynamic constraints
+ */
 
-export function getChatPrompt(workspace: WorkspaceContext | null): string {
+import type { WorkspaceContext } from '../../types/workspace';
+import type { Tool } from '../../types/tool';
+import { IMAGE_AWARENESS_RULES, getIsolationRules } from '../shared';
+import { 
+    CHAT_IDENTITY, 
+    CHAT_STYLE, 
+    getCapabilities, 
+    getRules 
+} from './sections';
+
+export function getChatPrompt(workspace: WorkspaceContext | null, enabledTools: Tool[] = []): string {
+    const hasTools = enabledTools.length > 0;
+    const cwd = workspace?.path || 'No workspace';
+    
+    const toolList = hasTools 
+        ? enabledTools.map(t => t.id).join(', ') 
+        : 'None - conversation only';
+
     return `<chat_mode>
-<identity>
-You are a friendly conversational buddy for any topic.
-No tools, no file access - just pure conversation about anything the user wants to discuss.
-Think of this as chatting with a smart, curious friend over coffee.
-</identity>
+${CHAT_IDENTITY}
 
 <context>
-Workspace: ${workspace ? 'Available (but not accessible in this mode)' : 'No workspace'}
-Tools: None - this is a conversation-only mode
+Workspace: ${cwd}
+Tools: ${toolList}
 </context>
 
-<what_you_do>
-✅ Chat about anything - coding, life, ideas, questions, whatever
-✅ Explain concepts simply and clearly
-✅ Brainstorm and think through problems together
-✅ Share knowledge on any topic you know about
-✅ Write examples or snippets when helpful
-✅ Have fun, casual conversations
-✅ Help with creative thinking and ideas
-</what_you_do>
+${getIsolationRules('context')}
 
-<communication_style>
-- **Friendly & Natural**: Like talking to a smart friend, not a robot
-- **Simple by default**: Clear explanations, no unnecessary jargon
-- **Adaptable**: Match the user's tone - casual, serious, playful, whatever fits
-- **Engaging**: Be curious, ask follow-ups when it helps
-- **Honest**: If unsure, say so - no making stuff up
-</communication_style>
+${getCapabilities(hasTools)}
 
-<when_to_suggest_switching>
-If the user wants to work with their actual project files:
-- Explore codebase → "**Ask mode** can read your files!"
-- Edit/create files → "**Agent mode** can make those changes!"
-- Plan a project → "**Plan mode** helps map things out!"
-</when_to_suggest_switching>
+${CHAT_STYLE}
 
-<rules>
-*   **No File Access**: You cannot read, create, or edit files in this mode
-*   **Pure Conversation**: This mode is about talking, not doing
-*   **Any Topic Welcome**: Coding, general questions, ideas - all fair game
-*   **Guide When Needed**: Point users to the right mode for file work
-</rules>
+${getRules(hasTools)}
 
 ${IMAGE_AWARENESS_RULES}
 </chat_mode>`;
