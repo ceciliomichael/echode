@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { GitignoreContext } from './types';
 import { getGitignorePatterns, shouldExclude } from './gitignore-manager';
-import { isExcludedFromWorkspaceContext } from '../../constants/excluded-patterns';
+import { isExcludedFromWorkspaceContext, isAlwaysMentionable } from '../../constants/excluded-patterns';
 
 /**
  * Recursively scan workspace directory and return list of files
@@ -26,18 +26,19 @@ export function getWorkspaceFiles(workspacePath: string): string[] {
 
       for (const entry of entries) {
         const relPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+        const isMentionable = isAlwaysMentionable(entry.name);
 
-        // Skip hidden files (except .gitignore)
-        if (entry.name.startsWith('.') && entry.name !== '.gitignore') {
+        // Skip hidden files (except .gitignore and mentionable files)
+        if (entry.name.startsWith('.') && entry.name !== '.gitignore' && !isMentionable) {
           continue;
         }
 
-        if (shouldExclude(entry.name, entry.isDirectory(), relPath, localContexts)) {
+        if (!isMentionable && shouldExclude(entry.name, entry.isDirectory(), relPath, localContexts)) {
           continue;
         }
 
         // Skip files excluded from workspace context (but still accessible via read_file)
-        if (!entry.isDirectory() && isExcludedFromWorkspaceContext(entry.name)) {
+        if (!entry.isDirectory() && !isMentionable && isExcludedFromWorkspaceContext(entry.name)) {
           continue;
         }
 

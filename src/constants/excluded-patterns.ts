@@ -10,6 +10,37 @@ export const WORKSPACE_CONTEXT_EXCLUDED_FILES = [
 ];
 
 /**
+ * Files/patterns that should ALWAYS be mentionable in the chat, even if they are
+ * hidden (start with .) or excluded by gitignore.
+ * Supports exact matches and simple glob patterns (e.g., '.env*')
+ */
+export const ALWAYS_MENTIONABLE_PATTERNS = [
+  '.env*',    // Matches .env, .env.local, .env.production, etc.
+  'config*',  // Matches config.yaml, config.json, config.js, etc.
+  'AGENTS.md',
+];
+
+/**
+ * Check if a filename matches any always-mentionable pattern
+ */
+export function isAlwaysMentionable(filename: string): boolean {
+  for (const pattern of ALWAYS_MENTIONABLE_PATTERNS) {
+    if (pattern.includes('*')) {
+      // Simple glob: convert to regex (only supports * wildcard)
+      const regexPattern = pattern
+        .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+        .replace(/\*/g, '.*');
+      if (new RegExp(`^${regexPattern}$`).test(filename)) {
+        return true;
+      }
+    } else if (filename === pattern) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Default patterns to ignore during workspace scanning
  * These apply regardless of .gitignore existence
  */
