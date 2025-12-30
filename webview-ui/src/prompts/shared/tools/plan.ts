@@ -1,15 +1,10 @@
 /**
- * Plan Tool Instructions for Plan Mode
- * 
- * The plan tool is exclusive to plan mode and supports four modes:
- * - ask: Ask clarifying questions to the user
- * - create_plan: Create a detailed implementation plan
- * - update_plan: Update an existing plan based on user feedback
- * - handoff: Hand off to agent mode for implementation
+ * Shared plan tool instructions
+ * Used exclusively in Plan mode
  */
- 
+
 export function getPlanInstructions(): string {
-  return `## plan
+    return `## plan
 Interactive planning tool for structured development workflow.
 
 Parameters:
@@ -34,95 +29,55 @@ CRITICAL: Once handoff is executed, that plan is DONE. Any new user request shou
 
 ### Mode: create_plan
 Create a detailed implementation plan in markdown format.
- 
+
 Parameters:
 - mode: "create_plan"
 - title: Plan title (optional, defaults to "Implementation Plan")
 - plan: Markdown content with the full plan (required)
- 
+
 The plan should include:
 - Overview of the approach
 - Step-by-step implementation tasks
 - File changes needed
 - Dependencies or prerequisites
 - Potential risks or considerations
- 
-Example:
-<function_calls>
-<invoke name="plan">
-<parameter name="mode">create_plan</parameter>
-<parameter name="title">Authentication System Implementation</parameter>
-<parameter name="plan">
-## Overview
-Implement JWT-based authentication with refresh tokens.
- 
-## Tasks
-1. Create auth service module
-2. Implement login/logout endpoints
-3. Add middleware for protected routes
-</parameter>
-</invoke>
-</function_calls>
- 
+
 The plan is saved to .echode/plan-{uuid}.md and opened in VS Code. User must click "Verify Plan" to continue.
 
 NOTE: The tool result contains "planFilePath", but the system automatically tracks this for future updates.
- 
+
 ### Mode: update_plan
 Update an existing plan when user provides feedback instead of verifying.
- 
+
 Parameters:
 - mode: "update_plan"
 - title: Plan title (optional, defaults to "Implementation Plan")
 - plan: Updated markdown content with the revised plan (required)
 - planFilePath: (Optional) The system automatically tracks the active plan. Only provide this if you need to override the active plan.
- 
+
 Use when:
 - User provides feedback on the created plan instead of clicking "Verify Plan"
 - Plan needs adjustments based on user's comments
 - Iterating on the plan before final verification
 
 NOTE: You do not need to track the "planFilePath". The system remembers the last created or updated plan automatically.
- 
-Example (system uses tracked plan):
-<function_calls>
-<invoke name="plan">
-<parameter name="mode">update_plan</parameter>
-<parameter name="title">Authentication System Implementation</parameter>
-<parameter name="plan">
-## Overview
-Updated plan based on user feedback...
- 
-## Tasks
-1. Updated task list...
-</parameter>
-</invoke>
-</function_calls>
- 
+
 The updated plan replaces the existing file. User must click "Verify Plan" to continue.
- 
+
 ### Mode: handoff
 Signal readiness to switch to agent mode for implementation.
- 
+
 Parameters:
 - mode: "handoff"
 - summary: Brief summary of what will be implemented (optional)
- 
+
 Use when:
 - Plan has been verified by the user
 - Ready to start actual code implementation
 - All clarifications have been addressed
- 
-Example:
-<function_calls>
-<invoke name="plan">
-<parameter name="mode">handoff</parameter>
-<parameter name="summary">Will implement the authentication system as planned.</parameter>
-</invoke>
-</function_calls>
- 
+
 User must click "Start Implementation" to switch to Agent mode.
- 
+
 ### Important Behavior
 - After executing plan tool, STOP and wait for user interaction
 - Do NOT continue generating content after plan tool execution

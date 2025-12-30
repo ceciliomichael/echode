@@ -1,20 +1,23 @@
 /**
- * Get run_terminal tool instructions
- * @param fullAccessEnabled - If true, show unrestricted mode instructions
+ * Shared run_terminal tool instructions
+ * Supports restricted and unrestricted modes
  */
-export const getRunTerminalInstructions = (fullAccessEnabled: boolean = false): string => {
-  if (fullAccessEnabled) {
-    return getUnrestrictedInstructions();
-  }
-  return getRestrictedInstructions();
-};
 
-/**
- * Unrestricted mode - all commands allowed
- */
+export interface RunTerminalOptions {
+    fullAccessEnabled?: boolean;
+}
+
+export function getRunTerminalInstructions(options: RunTerminalOptions = {}): string {
+    const { fullAccessEnabled = false } = options;
+
+    if (fullAccessEnabled) {
+        return getUnrestrictedInstructions();
+    }
+    return getRestrictedInstructions();
+}
+
 function getUnrestrictedInstructions(): string {
-  return `
-## run_terminal
+    return `## run_terminal
 Execute shell commands with real-time streaming output.
 
 MODE: UNRESTRICTED (Full Terminal Access enabled)
@@ -30,33 +33,11 @@ Behavior:
 - Executes the command and streams output in real-time
 - Waits for command to complete or timeout
 - Automatically terminates process if it exceeds timeout
-- Returns full output when done
-
-Example (installing dependencies):
-<function_calls>
-<function_calls>
-    <invoke name="run_terminal">
-        <parameter name="command">npm install</parameter>
-    </invoke>
-</function_calls>
-
-Example (running a build):
-<function_calls>
-<function_calls>
-    <invoke name="run_terminal">
-        <parameter name="command">npm run build</parameter>
-        <parameter name="timeout">60</parameter>
-    </invoke>
-</function_calls>
-`;
+- Returns full output when done`;
 }
 
-/**
- * Restricted mode - dev servers and long-running processes blocked
- */
 function getRestrictedInstructions(): string {
-  return `
-## run_terminal
+    return `## run_terminal
 Execute shell commands with real-time streaming output.
 
 CRITICAL RESTRICTIONS:
@@ -77,23 +58,5 @@ Behavior:
 - Executes the command and streams output in real-time
 - Waits for command to complete or timeout
 - Automatically terminates process if it exceeds timeout
-- Returns full output when done
-
-Example (installing dependencies):
-<function_calls>
-<function_calls>
-    <invoke name="run_terminal">
-        <parameter name="command">npm install</parameter>
-    </invoke>
-</function_calls>
-
-Example (running a build):
-<function_calls>
-<function_calls>
-    <invoke name="run_terminal">
-        <parameter name="command">npm run build</parameter>
-        <parameter name="timeout">60</parameter>
-    </invoke>
-</function_calls>
-`;
+- Returns full output when done`;
 }

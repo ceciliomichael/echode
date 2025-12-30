@@ -1,12 +1,13 @@
 /**
- * Agent Mode - apply_diff Instructions
+ * Shared apply_diff tool instructions
+ * Primary tool for ALL existing file edits
  */
 
 export function getApplyDiffInstructions(): string {
     return `## apply_diff
-🔧 **PRIMARY TOOL** - Use this for ALL existing file edits.
+**PRIMARY TOOL** - Use this for ALL existing file edits.
 
-This is your go-to tool. Whenever you need to modify an existing file, use \`apply_diff\`. Do NOT reach for \`write_to_file\` unless this tool fails twice.
+This is your default tool for modifying existing files. Use \`apply_diff\` for targeted edits, incremental changes, and all modifications to existing files. This approach is more efficient and preserves unchanged content.
 
 Parameters:
 - path: File path (required)
@@ -38,6 +39,7 @@ Parameters:
 
 ### SINGLE EDIT EXAMPLE
 Changing a function name at line 15:
+</function_calls>
 <function_calls>
 <invoke name="apply_diff">
     <parameter name="path">src/utils.ts</parameter>
@@ -96,10 +98,11 @@ console.log("new message");
 1. Call read_file to get FRESH content (file may have changed)
 2. Copy the EXACT lines from the NEW output (don't reuse old content)
 3. Retry with the fresh content
-4. If still failing after 2 attempts, use write_to_file instead
+4. If the file content has changed significantly, use your judgment on whether to continue with apply_diff or switch to write_to_file
 
 ### WHEN TO USE
-- **DEFAULT for ALL existing file edits** (any size change)
-- Adding/removing/modifying specific sections
-- Only fall back to write_to_file after 2 failed attempts`;
+- **ALL existing file edits** - this is the default choice for efficiency
+- Targeted modifications to specific sections
+- Incremental changes of any size
+- Adding, removing, or updating code in existing files`;
 }

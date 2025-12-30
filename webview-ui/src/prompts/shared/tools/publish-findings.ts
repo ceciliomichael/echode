@@ -1,5 +1,6 @@
 /**
- * Review Mode - publish_findings tool instructions
+ * Shared publish_findings tool instructions
+ * Used exclusively in Review mode
  */
 
 export function getPublishFindingsInstructions(): string {
@@ -20,10 +21,10 @@ IMPORTANT:
 Report Structure:
 1. Executive Summary (2-3 sentences)
 2. Metrics (files reviewed, issue counts, health score)
-3. Critical Issues (🔴)
-4. High Priority (🟠)
-5. Medium Priority (🟡)
-6. Low Priority (🔵)
-7. Suggestions (🟣)
-8. Summary & Next Steps`;
+3. Critical Issues
+4. High Priority
+5. Medium Priority
+6. Low Priority
+7. Suggestions
+8. Summary and Next Steps`;
 }

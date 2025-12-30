@@ -1,29 +1,29 @@
 /**
  * Plan Mode - Tool Instructions
- * Exports mode-specific instructions for each tool available in Plan mode
+ * Uses shared tool factories with XML format
  * NOTE: NO editing tools (apply_diff, write_to_file, delete_file) exist in Plan mode
  */
 
 import type { Tool } from '../../../types/tool';
-
-// Import individual tool instructions
-import { getReadFileInstructions } from './read-file';
-import { getEchoSearchInstructions } from './echo-search';
-import { getGrepSearchInstructions } from './grep-search';
-import { getGlobSearchInstructions } from './glob-search';
-import { getListFilesInstructions } from './list-files';
-import { getTodoWriteInstructions } from './todo-write';
-import { getTodoReadInstructions } from './todo-read';
-import { getPlanInstructions } from './plan';
+import {
+    getReadFileInstructions,
+    getEchoSearchInstructions,
+    getGrepSearchInstructions,
+    getGlobSearchInstructions,
+    getListFilesInstructions,
+    getTodoWriteInstructions,
+    getTodoReadInstructions,
+    getPlanInstructions,
+} from '../../shared/tools';
 
 const TOOL_INSTRUCTION_MAP: Record<string, () => string> = {
-    'read_file': getReadFileInstructions,
-    'echo_search': getEchoSearchInstructions,
-    'grep_search': getGrepSearchInstructions,
-    'glob_search': getGlobSearchInstructions,
-    'list_files': getListFilesInstructions,
-    'todo_write': getTodoWriteInstructions,
-    'todo_read': getTodoReadInstructions,
+    'read_file': () => getReadFileInstructions({ format: 'xml' }),
+    'echo_search': () => getEchoSearchInstructions({ format: 'xml' }),
+    'grep_search': () => getGrepSearchInstructions({ format: 'xml' }),
+    'glob_search': () => getGlobSearchInstructions({ format: 'xml' }),
+    'list_files': () => getListFilesInstructions({ format: 'xml' }),
+    'todo_write': () => getTodoWriteInstructions({ format: 'xml' }),
+    'todo_read': () => getTodoReadInstructions({ format: 'xml' }),
     'plan': getPlanInstructions,
 };
 

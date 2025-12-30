@@ -1,23 +1,23 @@
 /**
  * Ask Mode - Tool Instructions
- * Exports mode-specific instructions for Q&A mode (read-only exploration)
+ * Uses shared tool factories with XML format for Q&A mode (read-only exploration)
  */
 
 import type { Tool } from '../../../types/tool';
-
-// Import individual tool instructions
-import { getReadFileInstructions } from './read-file';
-import { getEchoSearchInstructions } from './echo-search';
-import { getGrepSearchInstructions } from './grep-search';
-import { getGlobSearchInstructions } from './glob-search';
-import { getListFilesInstructions } from './list-files';
+import {
+    getReadFileInstructions,
+    getEchoSearchInstructions,
+    getGrepSearchInstructions,
+    getGlobSearchInstructions,
+    getListFilesInstructions,
+} from '../../shared/tools';
 
 const TOOL_INSTRUCTION_MAP: Record<string, () => string> = {
-    'read_file': getReadFileInstructions,
-    'echo_search': getEchoSearchInstructions,
-    'grep_search': getGrepSearchInstructions,
-    'glob_search': getGlobSearchInstructions,
-    'list_files': getListFilesInstructions,
+    'read_file': () => getReadFileInstructions({ format: 'xml' }),
+    'echo_search': () => getEchoSearchInstructions({ format: 'xml' }),
+    'grep_search': () => getGrepSearchInstructions({ format: 'xml' }),
+    'glob_search': () => getGlobSearchInstructions({ format: 'xml' }),
+    'list_files': () => getListFilesInstructions({ format: 'xml' }),
 };
 
 /**

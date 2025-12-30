@@ -1,26 +1,26 @@
 /**
  * Review Mode - Tool Instructions
- * Aggregates mode-specific instructions for code review tools
+ * Uses shared tool factories with review-specific variants
  */
 
 import type { Tool } from '../../../types/tool';
-
-// Import individual tool instructions
-import { getReadFileInstructions } from './read-file';
-import { getListFilesInstructions } from './list-files';
-import { getGrepSearchInstructions } from './grep-search';
-import { getGlobSearchInstructions } from './glob-search';
-import { getEchoSearchInstructions } from './echo-search';
-import { getGetDiagnosticsInstructions } from './get-diagnostics';
-import { getPublishFindingsInstructions } from './publish-findings';
+import {
+    getReadFileInstructions,
+    getEchoSearchInstructions,
+    getGrepSearchInstructions,
+    getGlobSearchInstructions,
+    getListFilesInstructions,
+    getGetDiagnosticsInstructions,
+    getPublishFindingsInstructions,
+} from '../../shared/tools';
 
 const TOOL_INSTRUCTION_MAP: Record<string, () => string> = {
-    'read_file': getReadFileInstructions,
-    'list_files': getListFilesInstructions,
-    'grep_search': getGrepSearchInstructions,
-    'glob_search': getGlobSearchInstructions,
-    'echo_search': getEchoSearchInstructions,
-    'get_diagnostics': getGetDiagnosticsInstructions,
+    'read_file': () => getReadFileInstructions({ variant: 'review' }),
+    'echo_search': () => getEchoSearchInstructions(),
+    'grep_search': () => getGrepSearchInstructions(),
+    'glob_search': () => getGlobSearchInstructions(),
+    'list_files': () => getListFilesInstructions(),
+    'get_diagnostics': () => getGetDiagnosticsInstructions(),
     'publish_findings': getPublishFindingsInstructions,
 };
 

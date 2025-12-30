@@ -1,25 +1,25 @@
 /**
  * General Mode - Tool Instructions
- * Exports mode-specific instructions for file operations mode
+ * Uses shared tool factories for consistency across modes
  */
 
 import type { Tool } from '../../../types/tool';
-
-// Import individual tool instructions
-import { getReadFileInstructions } from './read-file';
-import { getApplyDiffInstructions } from './apply-diff';
-import { getWriteFileInstructions } from './write-file';
-import { getListFilesInstructions } from './list-files';
-import { getDeleteFileInstructions } from './delete-file';
-import { getGetDiagnosticsInstructions } from './get-diagnostics';
+import {
+    getReadFileInstructions,
+    getApplyDiffInstructions,
+    getWriteFileInstructions,
+    getListFilesInstructions,
+    getDeleteFileInstructions,
+    getGetDiagnosticsInstructions,
+} from '../../shared/tools';
 
 const TOOL_INSTRUCTION_MAP: Record<string, () => string> = {
-    'read_file': getReadFileInstructions,
+    'read_file': () => getReadFileInstructions(),
     'apply_diff': getApplyDiffInstructions,
     'write_to_file': getWriteFileInstructions,
-    'list_files': getListFilesInstructions,
-    'delete_file': getDeleteFileInstructions,
-    'get_diagnostics': getGetDiagnosticsInstructions,
+    'list_files': () => getListFilesInstructions(),
+    'delete_file': () => getDeleteFileInstructions(),
+    'get_diagnostics': () => getGetDiagnosticsInstructions(),
 };
 
 /**
