@@ -11,8 +11,10 @@ import {
     getListFilesInstructions,
     getDeleteFileInstructions,
     getGetDiagnosticsInstructions,
+    getRunTerminalInstructions,
 } from '../../shared/tools';
 
+/** Standard tool instructions that take no parameters */
 const TOOL_INSTRUCTION_MAP: Record<string, () => string> = {
     'read_file': () => getReadFileInstructions(),
     'apply_diff': getApplyDiffInstructions,
@@ -22,12 +24,28 @@ const TOOL_INSTRUCTION_MAP: Record<string, () => string> = {
     'get_diagnostics': () => getGetDiagnosticsInstructions(),
 };
 
+export interface ToolInstructionOptions {
+    /** Enable full terminal access (bypass command restrictions) */
+    fullTerminalAccess?: boolean;
+}
+
 /**
  * Get tool instructions for General mode based on enabled tools
+ * @param enabledTools - List of enabled tools
+ * @param options - Additional options for tool instructions
  */
-export function getGeneralToolInstructions(enabledTools: Tool[]): string {
+export function getGeneralToolInstructions(
+    enabledTools: Tool[],
+    options: ToolInstructionOptions = {}
+): string {
+    const { fullTerminalAccess = false } = options;
+
     const instructions = enabledTools
         .map(tool => {
+            // Handle run_terminal specially since it needs the fullAccess parameter
+            if (tool.id === 'run_terminal') {
+                return getRunTerminalInstructions({ fullAccessEnabled: fullTerminalAccess });
+            }
             const getInstructions = TOOL_INSTRUCTION_MAP[tool.id];
             return getInstructions ? getInstructions() : '';
         })
