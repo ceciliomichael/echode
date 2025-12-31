@@ -15,6 +15,7 @@ import { useTodoExtraction } from '../../hooks/use-todo-extraction';
 import { useContextUsage } from '../../hooks/use-context-usage';
 import { useWorkspaceContext } from '../../hooks/use-workspace-context';
 import { useCompressionHandler } from '../../hooks/use-compression-handler';
+import { useAutoScroll } from '../../hooks/use-auto-scroll';
 import { getSystemPrompt } from '../../utils/prompts';
 import { storageService } from '../../utils/storage';
 
@@ -92,6 +93,9 @@ export function ChatContainer() {
   // Scroll container refs
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const scrollContentRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll: scrolls to bottom on new content unless user has scrolled up
+  useAutoScroll(scrollContainerRef, visibleMessages);
 
   // Direct send function (bypasses queue, used for queue processing)
   const sendMessageDirect = useCallback(async (
