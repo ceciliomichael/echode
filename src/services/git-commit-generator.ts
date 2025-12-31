@@ -226,21 +226,7 @@ async function getInitialCommitContent(repository: Repository): Promise<string |
  * Get diff from Git (staged first, then unstaged as fallback)
  * Also handles initial commit when there's no HEAD
  */
-async function getGitDiff(): Promise<GitDiffResult | null> {
-  const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git');
-  if (!gitExtension) {
-    vscode.window.showErrorMessage('Git extension not found');
-    return null;
-  }
-
-  const git = gitExtension.exports.getAPI(1);
-  if (!git.repositories.length) {
-    vscode.window.showErrorMessage('No Git repository found');
-    return null;
-  }
-
-  const repository = git.repositories[0];
-
+async function getGitDiff(repository: Repository): Promise<GitDiffResult | null> {
   try {
     // Check if this is the initial commit (no HEAD)
     const initialCommit = await isInitialCommit(repository);
@@ -370,7 +356,12 @@ export async function generateGitCommitMessage(): Promise<void> {
     return;
   }
 
-  const repository = git.repositories[0];
+  // Find the active repository (handles multi-repo workspaces)
+  const repository = await findActiveRepository(git);
+  if (!repository) {
+    // User cancelled the picker or no valid repository found
+    return;
+  }
 
   // Show progress
   await vscode.window.withProgress(
@@ -385,7 +376,7 @@ export async function generateGitCommitMessage(): Promise<void> {
       });
 
       const generationTask = async () => {
-        const diff = await getGitDiff();
+        const diff = await getGitDiff(repository);
         if (!diff) {
           return;
         }
@@ -433,6 +424,82 @@ interface RepositoryState {
 interface Repository {
   inputBox: { value: string };
   state: RepositoryState;
+  rootUri: vscode.Uri;
   diff(staged: boolean): Promise<string>;
   getCommit(ref: string): Promise<unknown>;
+}
+
+/**
+ * Find the repository that matches the currently active file or has changes.
+ * Priority:
+ * 1. Repository containing the active editor's file
+ * 2. Repository with staged changes
+ * 3. Repository with unstaged changes
+ * 4. Let user pick if multiple repos exist and none match above criteria
+ */
+async function findActiveRepository(git: GitAPI): Promise<Repository | null> {
+  const repositories = git.repositories;
+  
+  if (repositories.length === 0) {
+    return null;
+  }
+  
+  if (repositories.length === 1) {
+    return repositories[0];
+  }
+  
+  // Try to find repository based on active editor
+  const activeEditor = vscode.window.activeTextEditor;
+  if (activeEditor) {
+    const activeFilePath = activeEditor.document.uri.fsPath;
+    for (const repo of repositories) {
+      const repoPath = repo.rootUri.fsPath;
+      if (activeFilePath.startsWith(repoPath)) {
+        return repo;
+      }
+    }
+  }
+  
+  // Find repositories with staged changes
+  const reposWithStagedChanges = repositories.filter(
+    repo => repo.state.indexChanges.length > 0
+  );
+  
+  if (reposWithStagedChanges.length === 1) {
+    return reposWithStagedChanges[0];
+  }
+  
+  // Find repositories with any changes (staged or unstaged)
+  const reposWithChanges = repositories.filter(
+    repo => repo.state.indexChanges.length > 0 || repo.state.workingTreeChanges.length > 0
+  );
+  
+  if (reposWithChanges.length === 1) {
+    return reposWithChanges[0];
+  }
+  
+  // Multiple repos with changes or no clear match - let user pick
+  const reposToShow = reposWithChanges.length > 0 ? reposWithChanges : repositories;
+  
+  const items = reposToShow.map(repo => {
+    const repoName = repo.rootUri.fsPath.split(/[/\\]/).pop() || repo.rootUri.fsPath;
+    const stagedCount = repo.state.indexChanges.length;
+    const unstagedCount = repo.state.workingTreeChanges.length;
+    const changeInfo = stagedCount > 0 || unstagedCount > 0
+      ? ` (${stagedCount} staged, ${unstagedCount} unstaged)`
+      : ' (no changes)';
+    
+    return {
+      label: repoName,
+      description: repo.rootUri.fsPath + changeInfo,
+      repository: repo
+    };
+  });
+  
+  const selected = await vscode.window.showQuickPick(items, {
+    placeHolder: 'Select repository to generate commit message for',
+    title: 'Multiple Git Repositories Found'
+  });
+  
+  return selected?.repository ?? null;
 }
