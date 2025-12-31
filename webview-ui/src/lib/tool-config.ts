@@ -11,6 +11,7 @@
 import type { Tool } from '../types/tool';
 import { getAllToolMetadata, getAllTools as getToolsFromRegistry } from './tool-registry';
 import type { ChatMode } from '../types/chat-mode';
+import { getMcpUsageRules } from '../prompts/shared/mcp-usage-rules';
 
 // ============================================================================
 // MODE-SPECIFIC TOOL SETS
@@ -152,10 +153,14 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
   if (enabledTools.length === 0) { return ''; }
 
   const allMetadata = getAllToolMetadata();
-  const toolIdsList = enabledTools.map(t => `\`${t.id}\``).join(', ');
 
-  // Build minimal tool list (just names and basic description)
-  const toolList = enabledTools
+  // Separate standard tools from MCP tools
+  const standardTools = enabledTools.filter(t => STANDARD_TOOL_IDS.has(t.id));
+  const mcpTools = enabledTools.filter(t => !STANDARD_TOOL_IDS.has(t.id));
+
+  // Build standard tools section
+  const standardIdsList = standardTools.map(t => `\`${t.id}\``).join(', ');
+  const standardToolList = standardTools
     .map((tool) => {
       const metadata = allMetadata.find((m) => m.id === tool.id);
       if (!metadata) { return ''; }
@@ -163,6 +168,44 @@ export function getToolSystemPrompt(enabledTools: Tool[]): string {
     })
     .filter(Boolean)
     .join('\n');
+
+  // Build MCP tools section (if any)
+  const mcpIdsList = mcpTools.map(t => `\`${t.id}\``).join(', ');
+  const mcpToolList = mcpTools
+    .map((tool) => {
+      const metadata = allMetadata.find((m) => m.id === tool.id);
+      if (!metadata) { return ''; }
+      return `- ${metadata.id}: ${metadata.description}`;
+    })
+    .filter(Boolean)
+    .join('\n');
+
+  // Get MCP usage rules if there are MCP tools
+  const mcpToolNames = mcpTools.map(t => t.id);
+  const mcpRules = getMcpUsageRules(mcpToolNames);
+
+  // Build the available_tools section (standard tools only)
+  const availableToolsSection = standardTools.length > 0
+    ? `<available_tools>
+Available: ${standardIdsList}
+Only use tools listed above. Do not hallucinate non existent tools. What you see is what you get
+
+${standardToolList}
+</available_tools>`
+    : '';
+
+  // Build the mcp_tools section (only if MCP tools exist)
+  const mcpToolsSection = mcpTools.length > 0
+    ? `
+<mcp_tools>
+EXTERNAL TOOLS (Use sparingly - only when absolutely necessary)
+
+Available: ${mcpIdsList}
+
+${mcpToolList}
+${mcpRules}
+</mcp_tools>`
+    : '';
 
   return `<tools>
 <tool_format>
@@ -195,11 +238,6 @@ FORMAT RULES:
 4. XML tags must be properly closed.
 </tool_format>
 
-<available_tools>
-Available: ${toolIdsList}
-Only use tools listed above. Do not hallucinate non existent tools. What you see is what you get
-
-${toolList}
-</available_tools>
+${availableToolsSection}${mcpToolsSection}
 </tools>`;
 }

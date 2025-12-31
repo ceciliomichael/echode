@@ -17,10 +17,8 @@ ${commonRules}
 </rules>`;
     }
 
+    // No-tools mode: Don't mention tools at all - just focus on conversation
     return `<rules>
 ${commonRules}
-*   **No File Access**: You cannot read, create, or edit files in the workspace
-*   **Pure Conversation**: You are in a text-only mode
-*   **No Hallucinations**: Do not pretend to take actions you cannot perform
 </rules>`;
 }

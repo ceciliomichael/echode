@@ -10,3 +10,4 @@ export { IMAGE_AWARENESS_RULES } from './image-awareness';
 export { INTERACTION_RULES } from './interaction-rules';
 export { PRESERVATION_RULES } from './preservation-rules';
 export { getIsolationRules } from './isolation';
+export { getMcpUsageRules } from './mcp-usage-rules';

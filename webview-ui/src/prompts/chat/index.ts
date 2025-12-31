@@ -1,11 +1,11 @@
 /**
  * Chat Mode - Main prompt builder
- * Pure conversation mode - NO tools, minimal system info
+ * Pure conversation mode - NO workspace context, NO system info
+ * Just a plain conversational AI assistant
  */
 
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
-import { getUserRules, getMinimalSystemInfo } from '../shared';
 import { getChatPrompt } from './prompt';
 
 export interface ChatPromptOptions {
@@ -16,24 +16,11 @@ export interface ChatPromptOptions {
 /**
  * Build the complete Chat mode system prompt
  * Note: Supports MCP tools if enabled, otherwise conversation only
+ * NO workspace rules, NO system info - pure chat experience
  */
 export function buildChatPrompt(options: ChatPromptOptions): string {
     const { workspace, enabledTools = [] } = options;
 
-    // Monolithic prompt (rules + mode description)
-    const prompt = getChatPrompt(workspace, enabledTools);
-
-    const userRules = getUserRules(workspace);
-
-    // Chat mode gets minimal system info (no file list)
-    const systemInfo = getMinimalSystemInfo();
-
-    // Assemble - Note: NO tools section
-    const sections = [
-        prompt,
-        userRules,
-        systemInfo,
-    ].filter(Boolean);
-
-    return sections.join('\n\n').trim();
+    // Just the chat prompt - no workspace context, no system info
+    return getChatPrompt(workspace, enabledTools);
 }
