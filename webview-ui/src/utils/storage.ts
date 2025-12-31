@@ -111,7 +111,7 @@ export const storageService = {
     }
 
     // If we only found messages that were stripped away (e.g. just history/files)
-    const hasHistory = messages.some(m => m.content.includes('<compressed_history>'));
+    const hasHistory = messages.some(m => m.content.trimStart().startsWith('<compressed_history>'));
     if (hasHistory) {
       return 'Restored Session';
     }

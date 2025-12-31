@@ -63,9 +63,9 @@ Write-Host "Packaging to: $outputFile" -ForegroundColor Cyan
 vsce package --out $outputFile
 
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "✅ Successfully built echode-$newVersion.vsix" -ForegroundColor Green
-    Write-Host "📦 Location: $outputFile" -ForegroundColor Blue
+    Write-Host "[SUCCESS] Successfully built echode-$newVersion.vsix" -ForegroundColor Green
+    Write-Host "[PACKAGE] Location: $outputFile" -ForegroundColor Blue
 } else {
-    Write-Host "❌ Build failed" -ForegroundColor Red
+    Write-Host "[FAILED] Build failed" -ForegroundColor Red
     exit 1
 }

@@ -89,6 +89,7 @@ interface ContextIndicatorProps {
   onCancelCompress?: () => void;
   isCompressing?: boolean;
   disableCompress?: boolean;
+  isStreaming?: boolean;
 }
 
 /**
@@ -127,7 +128,7 @@ function formatTokens(tokens: number): string {
   return tokens.toString();
 }
 
-export function ContextIndicator({ usage, disabled = false, mode, onCompress, onCancelCompress, isCompressing = false, disableCompress = false }: ContextIndicatorProps) {
+export function ContextIndicator({ usage, disabled = false, mode, onCompress, onCancelCompress, isCompressing = false, disableCompress = false, isStreaming = false }: ContextIndicatorProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const [isTopTooltip, setIsTopTooltip] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState<'above' | 'below'>('above');
@@ -347,18 +348,18 @@ export function ContextIndicator({ usage, disabled = false, mode, onCompress, on
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (onCompress && !disableCompress) {
+                    if (onCompress && !disableCompress && !isStreaming) {
                       onCompress();
                     }
                   }}
-                  disabled={disableCompress}
+                  disabled={disableCompress || isStreaming}
                   className="w-full px-3 py-2.5 text-xs font-medium rounded-xl border transition-all hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
                     backgroundColor: 'var(--vscode-button-background)',
                     color: 'var(--vscode-button-foreground)',
                     borderColor: 'var(--vscode-button-border)',
                   }}
-                  title={disableCompress ? 'Already a new chat session' : 'Compress chat history and start new chat'}
+                  title={isStreaming ? 'AI is currently working' : (disableCompress ? 'Already a new chat session' : 'Compress chat history and start new chat')}
                 >
                   <Archive className="w-3.5 h-3.5" />
                   <span>Compress & New Chat</span>

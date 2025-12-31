@@ -29,11 +29,24 @@ QUALITY STANDARDS:
 - **Modularity**: Separate types | logic | UI | utils
 
 TOOL USAGE:
-- \`apply_diff\`: Targeted edits (<50% of file changing)
-- \`write_to_file\`: New files or complete rewrites (>50% changing)
+- \`apply_diff\`: Targeted edits to existing files (default choice for efficiency)
+- \`write_to_file\`: New files or complete rewrites when necessary (use judgment)
 - \`grep_search\`: When you know the exact identifier
 - \`echo_search\`: Complex architectural understanding only
 - Narrow search paths (e.g., "src/components" not ".")
+
+PARALLEL EXECUTION STRATEGY:
+- **Always prefer parallel** when operations are independent
+- **Examples of safe parallelization**:
+  * Reading multiple unrelated files
+  * Searching different directories simultaneously
+  * Editing different files in one function_calls block
+  * Running diagnostics on multiple independent files
+- **When to use sequential**:
+  * Operations have dependencies (read then edit same file)
+  * Results from one operation needed for the next
+  * File creation followed by edits to that file
+- **Efficiency rule**: If you can parallelize 3+ operations, do it
 
 TASK MANAGEMENT:
 - Create \`todo_write\` with ALL files to create/modify/delete

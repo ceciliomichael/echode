@@ -22,9 +22,9 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, is
   const isAwaitingUser = toolCall.status === 'awaiting_user';
   const isPlanTool = toolCall.toolName === 'plan';
   const isPublishFindingsTool = toolCall.toolName === 'publish_findings';
-  
+
   // Check if we have streamed content to preserve
-  const hasStreamedContent = 
+  const hasStreamedContent =
     (toolCall.toolName === 'write_to_file' && toolCall.parameters.content) ||
     (toolCall.toolName === 'echo_search');
 
@@ -50,9 +50,8 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, is
 
   return (
     <div
-      className={`overflow-hidden transition-[max-height,opacity] duration-200 ease-out ${
-        isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
-      }`}
+      className={`overflow-hidden transition-[max-height,opacity] duration-200 ease-out ${isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+        }`}
     >
       {shouldRenderInnerContent && (
         <div className="border-t max-h-[400px] flex flex-col" style={{ borderColor: 'var(--vscode-input-border)' }}>
@@ -71,9 +70,9 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, is
                 </div>
               ) : toolCall.toolName === 'echo_search' ? (
                 <div className="px-3 py-3 overflow-y-auto">
-                  <EchoSearchProgressIndicator 
-                    progress={(toolCall.progress as any) || { iteration: 0, toolsIteration: 0, maxIterations: 4, phase: 'starting', tools: [], message: '' }} 
-                    isAborted={isAborted} 
+                  <EchoSearchProgressIndicator
+                    progress={(toolCall.progress as any) || { iteration: 0, toolsIteration: 0, maxIterations: 4, phase: 'starting', tools: [], message: '' }}
+                    isAborted={isAborted}
                   />
                 </div>
               ) : toolCall.toolName === 'run_terminal' ? (
@@ -94,8 +93,8 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, is
                         overflowY: 'auto'
                       }}
                     >
-                      {typeof toolCall.progress === 'string' && toolCall.progress 
-                        ? toolCall.progress 
+                      {typeof toolCall.progress === 'string' && toolCall.progress
+                        ? toolCall.progress
                         : <span className="opacity-50 italic">Waiting for output...</span>}
                     </pre>
                   </div>
@@ -107,19 +106,19 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, is
           {/* Result - only show if not aborted (aborted handled above) */}
           {toolCall.result && !isAborted && (
             <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-              {toolCall.result.success ? (
+              {/* For run_terminal, always use the normal renderer (even on failure) to show full output */}
+              {toolCall.toolName === 'run_terminal' ? (
                 <div className="flex-1 min-h-0 flex flex-col" style={{ color: 'var(--vscode-editor-foreground)' }}>
-                  {/* For run_terminal, pass progress to renderer for complete output */}
-                  {toolCall.toolName === 'run_terminal' ? (
-                    renderToolResult(
-                      toolCall.toolName,
-                      { ...toolCall.result.data as object, progress: toolCall.progress },
-                      fileInfo.displayName
-                    )
-                  ) : (
-                    renderToolResult(toolCall.toolName, toolCall.result.data, fileInfo.displayName)
+                  {renderToolResult(
+                    toolCall.toolName,
+                    { ...toolCall.result.data as object, progress: toolCall.progress },
+                    fileInfo.displayName
                   )}
-                  
+                </div>
+              ) : toolCall.result.success ? (
+                <div className="flex-1 min-h-0 flex flex-col" style={{ color: 'var(--vscode-editor-foreground)' }}>
+                  {renderToolResult(toolCall.toolName, toolCall.result.data, fileInfo.displayName)}
+
                   {/* Plan tool action buttons */}
                   {showPlanActions && (
                     <div className="px-3 pb-3">
@@ -135,9 +134,9 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, is
                   )}
                 </div>
               ) : (
-                toolCall.status === 'rejected' || 
-                toolCall.result.error?.includes('REJECTED_BY_USER') ||
-                toolCall.result.error?.toLowerCase().includes('rejected by user') ? (
+                toolCall.status === 'rejected' ||
+                  toolCall.result.error?.includes('REJECTED_BY_USER') ||
+                  toolCall.result.error?.toLowerCase().includes('rejected by user') ? (
                   <div
                     className="px-3 py-3"
                     style={{

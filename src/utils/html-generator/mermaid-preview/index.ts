@@ -44,11 +44,10 @@ export function getMermaidPreviewHtml(
   </div>
   <div id="container">
     <div id="diagram-wrapper">
-      <div class="mermaid">
-${code}
-      </div>
+      <div id="mermaid-output"></div>
     </div>
   </div>
+  <script type="text/plain" id="mermaid-code">${code.replace(/</g, '<').replace(/>/g, '>')}</script>
   <div id="footer">Scroll to zoom • Drag to pan • Double-click to reset</div>
   <script>${getMermaidScripts(theme)}</script>
 </body>

@@ -63,7 +63,7 @@ export function ChatInput({
   isCompressing = false,
   disableCompress = false
 }: ChatInputProps) {
-  // Show stop button when streaming OR executing a tool (like echo_search)
+  // Show stop button only when streaming OR executing a tool (NOT during compression)
   const showStopButton = isStreaming || isExecutingTool;
 
   // Get refactor scan results

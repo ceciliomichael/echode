@@ -113,8 +113,10 @@ export function InputToolbar({
             onCancelCompress={onCancelCompress}
             isCompressing={isCompressing}
             disableCompress={disableCompress}
+            isStreaming={showStopButton}
           />
         )}
+        {/* Stop button: only show when streaming/tool executing AND no input */}
         {showStopButton && !hasInput ? (
           <button
             type="button"
@@ -137,9 +139,10 @@ export function InputToolbar({
               backgroundColor: '#ffffff',
               color: '#000000'
             }}
-            title={showStopButton ? "Add to queue" : "Send message"}
+            title={(showStopButton || isCompressing) ? "Add to queue" : "Send message"}
           >
-            {showStopButton ? (
+            {/* Show queue icon (Clock) when AI is busy (streaming, tool, or compressing) */}
+            {(showStopButton || isCompressing) ? (
               <Clock className="w-3.5 h-3.5" />
             ) : (
               <ArrowUp className="w-3.5 h-3.5" />

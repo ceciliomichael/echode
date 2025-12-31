@@ -162,7 +162,7 @@ export function useStreamingChat(
         if (last.role === 'assistant' && prev.role === 'user' && !prev.hidden) {
           // If the message contains compressed history, do NOT restore it to input or remove it.
           // Just stop the stream and keep the messages as is.
-          if (prev.content.includes('<compressed_history>')) {
+          if (prev.content.trimStart().startsWith('<compressed_history>')) {
             state.abortAndReset();
             return;
           }

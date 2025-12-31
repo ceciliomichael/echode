@@ -50,7 +50,8 @@ const MermaidBlockComponent = ({ code, isGenerating = false }: MermaidBlockProps
         // Only respond if the closed panel matches our ID (or if no ID provided for legacy support)
         if (!message.id || message.id === uniqueId) {
           setIsOpenInTab(false);
-          // Keep diagram collapsed when preview tab closes
+          // Re-expand diagram in chat when preview tab closes
+          setIsExpanded(true);
         }
       }
     };

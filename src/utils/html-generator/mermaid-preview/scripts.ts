@@ -5,10 +5,42 @@ export function getMermaidScripts(theme: string): string {
   return `
     const vscode = acquireVsCodeApi();
     mermaid.initialize({
-      startOnLoad: true,
+      startOnLoad: false,
       theme: '${theme}',
       securityLevel: 'loose',
     });
+
+    // Render mermaid diagram manually
+    async function renderMermaid() {
+      const codeElement = document.getElementById('mermaid-code');
+      const outputElement = document.getElementById('mermaid-output');
+      
+      if (!codeElement || !outputElement) {
+        console.error('Mermaid elements not found');
+        return;
+      }
+
+      const code = codeElement.textContent.trim();
+      
+      try {
+        // Validate syntax first
+        const parseResult = await mermaid.parse(code, { suppressErrors: true });
+        if (parseResult === false) {
+          outputElement.innerHTML = '<div style="color: var(--vscode-errorForeground); padding: 20px; text-align: center;">Invalid Mermaid syntax</div>';
+          return;
+        }
+
+        // Render the diagram
+        const { svg } = await mermaid.render('mermaid-diagram', code);
+        outputElement.innerHTML = svg;
+        
+        // Wait for SVG to be ready then auto-fit
+        waitForSvgAndFit();
+      } catch (error) {
+        console.error('Mermaid rendering error:', error);
+        outputElement.innerHTML = '<div style="color: var(--vscode-errorForeground); padding: 20px; text-align: center;">Failed to render diagram</div>';
+      }
+    }
 
     // Pan/Zoom state
     let scale = 1;
@@ -112,8 +144,8 @@ export function getMermaidScripts(theme: string): string {
       }
     }
     
-    // Start checking after mermaid has had time to initialize
-    setTimeout(waitForSvgAndFit, 100);
+    // Render the diagram on load
+    renderMermaid();
 
     // Listen for close event
     window.addEventListener('beforeunload', () => {

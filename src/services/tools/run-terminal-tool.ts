@@ -60,7 +60,7 @@ export class RunTerminalTool implements ITool {
 
             // Command prompt prefix for display
             const commandPrefix = `$ ${command}\n`;
-            
+
             // Show the command being executed
             if (onProgress) {
                 onProgress(commandPrefix);
@@ -94,13 +94,18 @@ export class RunTerminalTool implements ITool {
             }
 
             // Process finished normally
+            const isSuccess = result.exitCode === 0 || result.exitCode === null;
+            const output = result.output || '(No output)';
+
             return {
-                success: result.exitCode === 0 || result.exitCode === null,
+                success: isSuccess,
                 data: {
                     command,
-                    output: result.output || '(No output)',
+                    output,
                     exitCode: result.exitCode
-                }
+                },
+                // Include output in error field when command fails so AI can see what went wrong
+                ...(isSuccess ? {} : { error: `Command failed with exit code ${result.exitCode}:\n${output}` })
             };
         } catch (error) {
             return {

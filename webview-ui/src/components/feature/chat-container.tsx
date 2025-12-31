@@ -131,7 +131,7 @@ export function ChatContainer() {
 
   // Process queue when AI finishes working
   useEffect(() => {
-    const isAiWorking = isStreaming || isExecutingTool;
+    const isAiWorking = isStreaming || isExecutingTool || isCompressing;
     
     // When AI stops working and we have queued messages, process the next one
     if (!isAiWorking && queuedMessages.length > 0 && !isProcessingQueueRef.current) {
@@ -165,7 +165,7 @@ export function ChatContainer() {
     forceEchoSearch: boolean = false,
     overrideMessages?: Message[]
   ) => {
-    const isAiWorking = isStreaming || isExecutingTool;
+    const isAiWorking = isStreaming || isExecutingTool || isCompressing;
     
     // If AI is busy, queue the message (unless overrideMessages is provided for special flows)
     if (isAiWorking && overrideMessages === undefined) {
@@ -177,7 +177,7 @@ export function ChatContainer() {
     sendMessageDirect(content, attachments, forceEchoSearch, overrideMessages);
   }, [isStreaming, isExecutingTool, addToQueue, sendMessageDirect]);
 
-  const onNewChat = useCallback(() => {
+  const onNewChat = useCallback((preserveQueue: boolean = false) => {
     // Persist the current session (if any messages) before starting a new chat
     if (messages.length > 0) {
       saveCurrentSession(messages);
@@ -186,7 +186,11 @@ export function ChatContainer() {
     abortStream();
     clearChat();
     clearTodos();
-    setQueuedMessages([]); // Clear message queue on new chat
+    
+    // Only clear queue if not preserving (e.g., during compression flow)
+    if (!preserveQueue) {
+      setQueuedMessages([]);
+    }
 
     // Also clear backend todos (they are stored separately in the extension)
     window.vscode.postMessage({ type: 'clearTodos' });
@@ -205,7 +209,7 @@ export function ChatContainer() {
   const shouldDisableCompress = messages.length === 0 || (messages.length <= 2 && 
     messages.length > 0 && 
     messages[0].role === 'user' && 
-    messages[0].content.includes('<compressed_history>'));
+    messages[0].content.trimStart().startsWith('<compressed_history>'));
 
   const {
     isHistoryOpen,

@@ -62,9 +62,7 @@ function AssistantMessageView({
 
           return (
             <AssistantMessageItem
-              key={token.type === 'think'
-                ? `think-${messageId}-${token.content.slice(0, 50).replace(/\s/g, '')}`
-                : `${token.type}-${messageId}-${token.index}`}
+              key={`${token.type}-${messageId}-${token.index}`}
               token={token}
               prevToken={prevToken}
               index={index}

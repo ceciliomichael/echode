@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import mermaid from 'mermaid';
 import {
-  getMermaidThemeConfig,
   makeResponsiveSvg,
   createOffscreenContainer,
   removeContainer,
@@ -10,7 +9,7 @@ import {
 // Initialize mermaid with base config (theme will be set per-render)
 mermaid.initialize({
   startOnLoad: false,
-  theme: 'base',
+  theme: 'dark',
   securityLevel: 'loose',
 });
 
@@ -68,15 +67,11 @@ export const useMermaidRenderer = ({
           return;
         }
 
-        // Get theme config from VS Code CSS variables
-        const themeVariables = getMermaidThemeConfig();
-
-        // Re-initialize with computed theme colors before each render
+        // Use Mermaid's built-in dark theme (same as preview)
         mermaid.initialize({
           startOnLoad: false,
-          theme: 'base',
+          theme: 'dark',
           securityLevel: 'loose',
-          themeVariables,
         });
 
         const { svg: renderedSvg } = await mermaid.render(

@@ -4,39 +4,68 @@ import type { MermaidThemeConfig } from './types';
  * Helper to get computed CSS variable value
  */
 export const getCssVar = (varName: string, fallback: string): string => {
-  if (typeof document === 'undefined') {return fallback;}
+  if (typeof document === 'undefined') { return fallback; }
   const value = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
   return value || fallback;
 };
 
 /**
- * Get mermaid theme configuration from VS Code CSS variables
+ * Get mermaid theme configuration with improved colors
+ * Uses a balanced color scheme that works well in both light and dark modes
  */
 export const getMermaidThemeConfig = (): MermaidThemeConfig => {
   const bgColor = getCssVar('--vscode-editor-background', '#1e1e1e');
-  const fgColor = getCssVar('--vscode-foreground', '#cccccc');
-  const primaryColor = getCssVar('--vscode-button-background', '#0e639c');
-  const borderColor = getCssVar('--vscode-input-border', '#3c3c3c');
 
-  return {
-    primaryColor: primaryColor,
-    primaryTextColor: fgColor,
-    primaryBorderColor: borderColor,
-    lineColor: fgColor,
-    secondaryColor: bgColor,
-    tertiaryColor: bgColor,
-    background: bgColor,
-    mainBkg: bgColor,
-    nodeBorder: borderColor,
-    clusterBkg: bgColor,
-    clusterBorder: borderColor,
-    titleColor: fgColor,
-    edgeLabelBackground: bgColor,
-    textColor: fgColor,
-    edgeLabelColor: fgColor,
-    noteBkgColor: bgColor,
-    noteBorderColor: borderColor,
-  };
+  // Detect if we're in dark mode by checking background brightness
+  const isDarkMode = bgColor.startsWith('#1') || bgColor.startsWith('#2') || bgColor.startsWith('#0');
+
+  if (isDarkMode) {
+    return {
+      primaryColor: '#3b82f6',
+      primaryTextColor: '#ffffff',
+      primaryBorderColor: '#60a5fa',
+      lineColor: '#6b7280',
+      secondaryColor: '#8b5cf6',
+      tertiaryColor: '#ec4899',
+      background: '#1e1e1e',
+      mainBkg: '#2d2d2d',
+      secondaryBkg: '#3b82f6',
+      tertiaryBkg: '#8b5cf6',
+      nodeBorder: '#6b7280',
+      clusterBkg: '#2d2d2d',
+      clusterBorder: '#6b7280',
+      titleColor: '#ffffff',
+      edgeLabelBackground: '#2d2d2d',
+      textColor: '#e5e7eb',
+      edgeLabelColor: '#e5e7eb',
+      noteBkgColor: '#374151',
+      noteBorderColor: '#6b7280',
+      noteTextColor: '#e5e7eb',
+    };
+  } else {
+    return {
+      primaryColor: '#2563eb',
+      primaryTextColor: '#1f2937',
+      primaryBorderColor: '#3b82f6',
+      lineColor: '#6b7280',
+      secondaryColor: '#7c3aed',
+      tertiaryColor: '#db2777',
+      background: '#ffffff',
+      mainBkg: '#f3f4f6',
+      secondaryBkg: '#3b82f6',
+      tertiaryBkg: '#7c3aed',
+      nodeBorder: '#9ca3af',
+      clusterBkg: '#f3f4f6',
+      clusterBorder: '#9ca3af',
+      titleColor: '#1f2937',
+      edgeLabelBackground: '#f3f4f6',
+      textColor: '#1f2937',
+      edgeLabelColor: '#1f2937',
+      noteBkgColor: '#e5e7eb',
+      noteBorderColor: '#9ca3af',
+      noteTextColor: '#1f2937',
+    };
+  }
 };
 
 /**

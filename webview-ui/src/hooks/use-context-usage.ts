@@ -70,7 +70,7 @@ export function useContextUsage({
 
     effectiveMessages.forEach((message) => {
       // Check for compressed history
-      if (message.content.includes('<compressed_history>')) {
+      if (message.content.trimStart().startsWith('<compressed_history>')) {
         const contentTokens = estimateTokens(message.content);
         compressedHistoryTokens += contentTokens;
       } else {

@@ -7,7 +7,7 @@ import { getProviderDefaults } from '../types/api-settings';
 
 interface UseCompressionHandlerProps {
   messages: Message[];
-  onNewChat: () => void;
+  onNewChat: (preserveQueue?: boolean) => void;
   sendMessage: (content: string, attachments?: ImageAttachment[], forceEchoSearch?: boolean, overrideMessages?: Message[]) => void;
   saveCurrentSession: (messages: Message[]) => void;
 }
@@ -126,8 +126,8 @@ export function useCompressionHandler({
       // Save current session before clearing
       saveCurrentSession(messages);
 
-      // Create new chat
-      onNewChat();
+      // Create new chat (preserve queue so queued messages aren't lost)
+      onNewChat(true);
 
       // Format the compressed message
       const compressedMessage = `<compressed_history>
@@ -142,19 +142,25 @@ Here is the compressed history from our previous session. Please acknowledge tha
       // Pass empty array as overrideMessages to ensure fresh chat (bypasses stale closure)
       setTimeout(() => {
         sendMessage(compressedMessage, undefined, false, []);
+        // Reset isCompressing AFTER sendMessage is called to prevent race condition
+        // This ensures isStreaming becomes true before isCompressing becomes false,
+        // preventing the queue processor from firing prematurely
+        setIsCompressing(false);
       }, 150);
 
     } catch (error) {
       // Don't show error if cancelled by user
       if (error instanceof Error && error.name === 'AbortError') {
         console.log('Compression cancelled by user');
+        setIsCompressing(false);
         return;
       }
       console.error('Compression error:', error);
       alert(`Failed to compress history: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setIsCompressing(false);
     } finally {
       abortControllerRef.current = null;
-      setIsCompressing(false);
+      // Note: setIsCompressing(false) is handled in setTimeout (success) or catch (error)
     }
   }, [messages, onNewChat, sendMessage, saveCurrentSession]);
 

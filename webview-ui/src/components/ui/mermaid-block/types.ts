@@ -40,6 +40,8 @@ export interface MermaidThemeConfig {
   tertiaryColor: string;
   background: string;
   mainBkg: string;
+  secondaryBkg: string;
+  tertiaryBkg: string;
   nodeBorder: string;
   clusterBkg: string;
   clusterBorder: string;
@@ -49,4 +51,5 @@ export interface MermaidThemeConfig {
   edgeLabelColor: string;
   noteBkgColor: string;
   noteBorderColor: string;
+  noteTextColor: string;
 }
