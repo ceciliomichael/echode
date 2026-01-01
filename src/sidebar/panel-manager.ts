@@ -4,6 +4,7 @@ import { handleApiRequest } from '../handlers/api-handler';
 import { handleModelFetch } from '../handlers/model-fetching-handler';
 import { getSettingsService } from '../services/settings-service';
 import { handleMcpMessage, setupMcpStatusListener } from './handlers/mcp-handler';
+import { handleGetWorkflows, handleSaveWorkflow, handleDeleteWorkflow } from './handlers/workflow-handler';
 import type { AutocompleteService } from '../autocomplete';
 
 /**
@@ -92,6 +93,15 @@ export class PanelManager {
         case 'clearApiSettings':
           getSettingsService().clearSettings();
           panel.webview.postMessage({ type: 'apiSettingsCleared' });
+          break;
+        case 'getWorkflows':
+          await handleGetWorkflows(data, panel);
+          break;
+        case 'saveWorkflow':
+          await handleSaveWorkflow(data, panel);
+          break;
+        case 'deleteWorkflow':
+          await handleDeleteWorkflow(data, panel);
           break;
         default:
           if (data.type && data.type.startsWith('mcp.')) {

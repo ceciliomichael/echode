@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   shouldShowContextMenu,
+  shouldShowSlashMenu,
   insertMention,
   ContextMenuOptionType,
   getContextMenuOptions,
-  type SearchResult
+  type SearchResult,
+  type ContextMenuTrigger
 } from '../utils/context-mentions';
 import { vscode } from '../utils/vscode';
 
@@ -26,6 +28,7 @@ interface ContextMenuState {
   selectedMenuIndex: number;
   selectedMenuType: ContextMenuOptionType | null;
   fileSearchResults: SearchResult[];
+  currentTrigger: ContextMenuTrigger;
 }
 
 interface ContextMenuHandlers {
@@ -52,15 +55,18 @@ export function useContextMenu({
   const [selectedMenuIndex, setSelectedMenuIndex] = useState(0);
   const [selectedMenuType, setSelectedMenuType] = useState<ContextMenuOptionType | null>(null);
   const [fileSearchResults, setFileSearchResults] = useState<SearchResult[]>([]);
+  const [currentTrigger, setCurrentTrigger] = useState<ContextMenuTrigger>(null);
   
   // Map to store filename -> path for short display mentions
   const mentionPathMap = useRef<Map<string, string>>(new Map());
 
-  // Listen for file search results from extension
+  // Listen for file/workflow search results from extension
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
       if (message.type === 'fileSearchResults') {
+        setFileSearchResults(message.results || []);
+      } else if (message.type === 'workflowSearchResults') {
         setFileSearchResults(message.results || []);
       }
     };
@@ -68,14 +74,24 @@ export function useContextMenu({
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
-  // Trigger file/folder search when query or type changes
+  // Trigger file/folder/workflow search when query or type changes
   useEffect(() => {
     if (showContextMenu) {
       // Skip search for Problems - it's a static option
       if (selectedMenuType === ContextMenuOptionType.Problems) {
         return;
       }
+
+      // Handle slash command workflow search
+      if (currentTrigger === '/') {
+        vscode.postMessage({
+          type: 'searchWorkflows',
+          query: searchQuery
+        });
+        return;
+      }
       
+      // Handle @ mention search
       if (selectedMenuType !== null) {
         vscode.postMessage({
           type: 'searchFiles',
@@ -91,13 +107,33 @@ export function useContextMenu({
         });
       }
     }
-  }, [showContextMenu, searchQuery, selectedMenuType]);
+  }, [showContextMenu, searchQuery, selectedMenuType, currentTrigger]);
 
   const updateCursorPosition = useCallback((newValue: string, newCursorPos: number) => {
     setCursorPosition(newCursorPos);
 
+    // Check for slash command trigger first
+    if (shouldShowSlashMenu(newValue, newCursorPos)) {
+      setShowContextMenu(true);
+      setCurrentTrigger('/');
+      setSelectedMenuType(ContextMenuOptionType.Workflow);
+      
+      // Reset to first item when menu opens
+      if (!showContextMenu) {
+        setSelectedMenuIndex(0);
+      }
+      
+      const lastSlashIndex = newValue.lastIndexOf('/', newCursorPos - 1);
+      const query = newValue.slice(lastSlashIndex + 1, newCursorPos);
+      setSearchQuery(query);
+      return;
+    }
+
+    // Check for @ mention trigger
     if (shouldShowContextMenu(newValue, newCursorPos)) {
       setShowContextMenu(true);
+      setCurrentTrigger('@');
+      
       // Reset to first item when menu opens
       if (!showContextMenu) {
         setSelectedMenuIndex(0);
@@ -111,13 +147,47 @@ export function useContextMenu({
         setSelectedMenuType(null);
         setFileSearchResults([]); // Clear stale results to show category menu
       }
-    } else {
-      setShowContextMenu(false);
-      setSelectedMenuType(null);
+      return;
     }
+    
+    // No trigger found, close menu
+    setShowContextMenu(false);
+    setSelectedMenuType(null);
+    setCurrentTrigger(null);
   }, [showContextMenu, selectedMenuType]);
 
   const handleMentionSelect = useCallback((type: ContextMenuOptionType, value?: string) => {
+    // Handle workflow selection - insert as /[command] (highlighted with brackets like @mentions)
+    if (type === ContextMenuOptionType.Workflow && value) {
+      setShowContextMenu(false);
+      setSelectedMenuType(null);
+      setCurrentTrigger(null);
+      
+      // Extract command name from path, handling both / and \ separators (Windows compatibility)
+      const commandName = value.split(/[/\\]/).pop()?.replace(/\.md$/i, '') || value;
+      
+      // Find where the / trigger started
+      const beforeCursor = input.slice(0, cursorPosition);
+      const slashIndex = beforeCursor.lastIndexOf('/');
+      
+      // Build the new value with /[command] format (similar to @[mention])
+      const beforeSlash = slashIndex !== -1 ? input.slice(0, slashIndex) : input.slice(0, cursorPosition);
+      const afterCursor = input.slice(cursorPosition).replace(/^[^\s]*/, ''); // Remove partial text after cursor
+      const slashCommand = `/[${commandName}]`;
+      const newValue = beforeSlash + slashCommand + ' ' + afterCursor;
+      const newCursorPos = beforeSlash.length + slashCommand.length + 1;
+      
+      setInput(newValue);
+      
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+          textareaRef.current.focus();
+        }
+      }, 0);
+      return;
+    }
+
     // If this is a category selection (File or Folder without a value), enter that category
     // and reset the input text to just "@" for a clean search
     if ((type === ContextMenuOptionType.File || type === ContextMenuOptionType.Folder) && !value) {
@@ -157,6 +227,7 @@ export function useContextMenu({
     // Otherwise, complete the mention selection
     setShowContextMenu(false);
     setSelectedMenuType(null);
+    setCurrentTrigger(null);
 
     if (value) {
       // Determine the display label
@@ -240,6 +311,7 @@ export function useContextMenu({
     selectedMenuIndex,
     selectedMenuType,
     fileSearchResults,
+    currentTrigger,
     mentionPathMap,
     // Handlers
     handleMentionSelect,

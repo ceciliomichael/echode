@@ -6,19 +6,24 @@ export const mentionRegexGlobal = /(@\[[^\]]+\](?:\([^)]+\))?)/g;
 
 export interface SearchResult {
     path: string;
-    type: "file" | "folder";
+    type: "file" | "folder" | "workflow";
     label?: string;
+    description?: string;
 }
 
 export const ContextMenuOptionType = {
     File: "file",
     Folder: "folder",
     Problems: "problems",
+    Workflow: "workflow",
     NoResults: "noResults",
     SectionHeader: "sectionHeader",
 } as const;
 
 export type ContextMenuOptionType = typeof ContextMenuOptionType[keyof typeof ContextMenuOptionType];
+
+// Trigger types for context menu
+export type ContextMenuTrigger = '@' | '/' | null;
 
 export interface ContextMenuQueryItem {
     type: ContextMenuOptionType;
@@ -32,12 +37,14 @@ export function insertMention(
     text: string,
     position: number,
     value: string,
-    label?: string
+    label?: string,
+    triggerChar: '@' | '/' = '@'
 ): { newValue: string; mentionIndex: number; insertedLabel: string } {
     const beforeCursor = text.slice(0, position);
     const afterCursor = text.slice(position);
 
-    const lastAtIndex = beforeCursor.lastIndexOf("@");
+    // Find the trigger character position
+    const triggerIndex = beforeCursor.lastIndexOf(triggerChar);
 
     // Extract filename/folder name for label if not provided
     const effectiveLabel = label || value.split('/').pop() || value;
@@ -49,12 +56,12 @@ export function insertMention(
     let newValue: string;
     let mentionIndex: number;
 
-    if (lastAtIndex !== -1) {
-        const beforeMention = text.slice(0, lastAtIndex);
-        // Remove partial mention text after @ if present
+    if (triggerIndex !== -1) {
+        const beforeMention = text.slice(0, triggerIndex);
+        // Remove partial mention text after trigger if present
         const afterCursorContent = afterCursor.replace(/^[^\s]*/, "");
         newValue = beforeMention + mentionText + " " + afterCursorContent;
-        mentionIndex = lastAtIndex;
+        mentionIndex = triggerIndex;
     } else {
         newValue = beforeCursor + mentionText + " " + afterCursor;
         mentionIndex = position;
@@ -113,6 +120,28 @@ export function getContextMenuOptions(
         ];
     }
 
+    // Handle Workflow selection - show workflow search results
+    if (selectedType === ContextMenuOptionType.Workflow) {
+        const workflowResults = dynamicSearchResults
+            .filter(result => result.type === "workflow")
+            .map((result) => ({
+                type: ContextMenuOptionType.Workflow,
+                value: result.path,
+                label: result.label || result.path.split('/').pop()?.replace('.md', '') || result.path,
+                description: result.description || result.path
+            }));
+
+        if (workflowResults.length > 0) {
+            return workflowResults;
+        }
+
+        if (!query) {
+            return [{ type: ContextMenuOptionType.NoResults, label: "Type to search workflows..." }];
+        }
+
+        return [{ type: ContextMenuOptionType.NoResults, label: "No workflows found" }];
+    }
+
     // Convert search results to menu items based on selected type
     const searchResultItems = dynamicSearchResults
         .filter(result => result.type === selectedType)
@@ -153,4 +182,107 @@ export function shouldShowContextMenu(text: string, position: number): boolean {
     }
 
     return true;
+}
+
+/**
+ * Check if slash command menu should be shown
+ * Only triggers when `/` is at start of line or after a space
+ */
+export function shouldShowSlashMenu(text: string, position: number): boolean {
+    const beforeCursor = text.slice(0, position);
+    
+    // Find the last `/` before cursor
+    const slashIndex = beforeCursor.lastIndexOf("/");
+    
+    if (slashIndex === -1) {
+        return false;
+    }
+    
+    // Check if `/` is at start of line or preceded by whitespace
+    const charBeforeSlash = slashIndex > 0 ? beforeCursor[slashIndex - 1] : '';
+    const isValidTrigger = slashIndex === 0 || charBeforeSlash === ' ' || charBeforeSlash === '\n';
+    
+    if (!isValidTrigger) {
+        return false;
+    }
+    
+    const textAfterSlash = beforeCursor.slice(slashIndex + 1);
+    // If there's a space after the command text, menu should close
+    if (textAfterSlash.includes(" ")) {
+        return false;
+    }
+    
+    return true;
+}
+
+/**
+ * Get the current trigger type and position
+ * Returns which menu should be shown (@ or /) and the trigger position
+ */
+export function getContextMenuTrigger(text: string, position: number): { 
+    trigger: ContextMenuTrigger; 
+    triggerIndex: number;
+    query: string;
+} {
+    const beforeCursor = text.slice(0, position);
+    
+    // Check for slash command first (higher priority if at start of input)
+    const slashIndex = beforeCursor.lastIndexOf("/");
+    if (slashIndex !== -1) {
+        const charBeforeSlash = slashIndex > 0 ? beforeCursor[slashIndex - 1] : '';
+        const isValidSlashTrigger = slashIndex === 0 || charBeforeSlash === ' ' || charBeforeSlash === '\n';
+        const textAfterSlash = beforeCursor.slice(slashIndex + 1);
+        
+        if (isValidSlashTrigger && !textAfterSlash.includes(" ")) {
+            return {
+                trigger: '/',
+                triggerIndex: slashIndex,
+                query: textAfterSlash
+            };
+        }
+    }
+    
+    // Check for @ mention
+    const atIndex = beforeCursor.lastIndexOf("@");
+    if (atIndex !== -1) {
+        const textAfterAt = beforeCursor.slice(atIndex + 1);
+        if (!textAfterAt.includes(" ")) {
+            return {
+                trigger: '@',
+                triggerIndex: atIndex,
+                query: textAfterAt
+            };
+        }
+    }
+    
+    return { trigger: null, triggerIndex: -1, query: '' };
+}
+
+/**
+ * Insert a slash command into the text
+ * Replaces the partial command with the full command name
+ */
+export function insertSlashCommand(
+    text: string,
+    position: number,
+    commandName: string
+): { newValue: string; newCursorPos: number } {
+    const beforeCursor = text.slice(0, position);
+    const afterCursor = text.slice(position);
+    
+    const slashIndex = beforeCursor.lastIndexOf("/");
+    
+    if (slashIndex === -1) {
+        // No slash found, just insert at cursor
+        const newValue = beforeCursor + `/${commandName} ` + afterCursor;
+        return { newValue, newCursorPos: position + commandName.length + 2 };
+    }
+    
+    // Replace from slash to cursor with the full command
+    const beforeSlash = text.slice(0, slashIndex);
+    const afterCursorContent = afterCursor.replace(/^[^\s]*/, ""); // Remove any partial text
+    const newValue = beforeSlash + `/${commandName} ` + afterCursorContent;
+    const newCursorPos = slashIndex + commandName.length + 2; // +2 for "/" and " "
+    
+    return { newValue, newCursorPos };
 }

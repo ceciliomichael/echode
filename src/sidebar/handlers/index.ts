@@ -39,4 +39,5 @@ export {
 // Search handlers
 export {
   handleSearchFiles,
+  handleSearchWorkflows,
 } from './search-handler';

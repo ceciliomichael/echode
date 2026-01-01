@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { File, Folder, Info } from 'lucide-react';
+import { File, Folder, Info, Zap } from 'lucide-react';
 
 import {
     ContextMenuOptionType,
@@ -63,6 +63,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             }
             case ContextMenuOptionType.Folder:
                 return <Folder className="w-4 h-4 mr-2 flex-shrink-0 text-yellow-400" />;
+            case ContextMenuOptionType.Workflow:
+                return <Zap className="w-4 h-4 mr-2 flex-shrink-0 text-purple-400" />;
             default:
                 return <Info className="w-4 h-4 mr-2 flex-shrink-0" />;
         }

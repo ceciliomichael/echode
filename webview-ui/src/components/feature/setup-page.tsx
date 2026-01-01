@@ -11,6 +11,7 @@ import { ContextSettingsTab } from './context-settings-tab';
 import { CommitMessageTab } from './commit-message-tab';
 import { MCPTab } from './mcp-tab';
 import { MiscellaneousTab } from './miscellaneous-tab';
+import { WorkflowsTab } from './workflows-tab';
 
 import { useProviderSettings } from '../../hooks/provider-settings';
 import { getAllTools } from '../../lib/tool-config';
@@ -43,7 +44,7 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
   const [miscellaneousSettings, setMiscellaneousSettings] = useState<MiscellaneousSettings>(
     initialSettings.miscellaneousSettings || DEFAULT_MISCELLANEOUS_SETTINGS
   );
-  const [activeTab, setActiveTab] = useState<'api' | 'system' | 'tools' | 'indexing' | 'autocomplete' | 'context' | 'commit-message' | 'mcp' | 'miscellaneous'>('api');
+  const [activeTab, setActiveTab] = useState<'api' | 'system' | 'tools' | 'indexing' | 'autocomplete' | 'context' | 'commit-message' | 'mcp' | 'miscellaneous' | 'workflows'>('api');
   const [showDropdown, setShowDropdown] = useState(false);
 
   const {
@@ -144,7 +145,7 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
             className="text-sm sm:text-base font-semibold"
             style={{ color: 'var(--vscode-foreground)' }}
           >
-            {activeTab === 'api' ? 'API Configuration' : activeTab === 'system' ? 'System Prompt' : activeTab === 'tools' ? 'Tool Configuration' : activeTab === 'indexing' ? 'Indexing / Code Search' : activeTab === 'autocomplete' ? 'Autocomplete' : activeTab === 'context' ? 'Context Management' : activeTab === 'commit-message' ? 'Commit Message' : activeTab === 'mcp' ? 'MCP Servers' : activeTab === 'miscellaneous' ? 'Miscellaneous' : ''}
+            {activeTab === 'api' ? 'API Configuration' : activeTab === 'system' ? 'System Prompt' : activeTab === 'tools' ? 'Tool Configuration' : activeTab === 'indexing' ? 'Indexing / Code Search' : activeTab === 'autocomplete' ? 'Autocomplete' : activeTab === 'context' ? 'Context Management' : activeTab === 'commit-message' ? 'Commit Message' : activeTab === 'mcp' ? 'MCP Servers' : activeTab === 'miscellaneous' ? 'Miscellaneous' : activeTab === 'workflows' ? 'Workflows' : ''}
           </h1>
         </div>
 
@@ -222,6 +223,10 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
               enabledTools={enabledTools}
               onChange={setMiscellaneousSettings}
             />
+          )}
+
+          {activeTab === 'workflows' && (
+            <WorkflowsTab />
           )}
         </div>
       </div>

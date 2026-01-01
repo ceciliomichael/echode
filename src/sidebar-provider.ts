@@ -4,7 +4,8 @@ import { handleChatStream } from './handlers/chat-streaming-handler';
 import { handleModelFetch } from './handlers/model-fetching-handler';
 import { handleToolExecution, setFileModificationCallback } from './handlers/tool-execution-handler';
 import { handleMcpMessage } from './sidebar/handlers/mcp-handler';
-import { handleSearchFiles } from './sidebar/handlers/search-handler';
+import { handleSearchFiles, handleSearchWorkflows } from './sidebar/handlers/search-handler';
+import { handleGetWorkflows, handleSaveWorkflow, handleDeleteWorkflow } from './sidebar/handlers/workflow-handler';
 import { getMainWebviewHtml } from './utils/html-generator';
 import { ChatHistoryService } from './services/chat-history-service';
 import { ToolHistoryService } from './services/tool-history';
@@ -191,6 +192,18 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
           break;
         case 'searchFiles':
           await handleSearchFiles(data, webviewView);
+          break;
+        case 'searchWorkflows':
+          await handleSearchWorkflows(data, webviewView);
+          break;
+        case 'getWorkflows':
+          await handleGetWorkflows(data, webviewView);
+          break;
+        case 'saveWorkflow':
+          await handleSaveWorkflow(data, webviewView);
+          break;
+        case 'deleteWorkflow':
+          await handleDeleteWorkflow(data, webviewView);
           break;
       }
     });

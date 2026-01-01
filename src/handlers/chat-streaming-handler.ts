@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { LLMFactory } from '../services/llm/llm-factory';
 import { ChatMessage, ChatStreamSettings } from '../services/llm/llm-provider.interface';
 import { mergeSameRoleChatMessages } from '../utils/message-merger';
@@ -8,6 +9,7 @@ import { MCPToolAdapter } from '../services/mcp/mcp-tool-adapter';
 import { LLMValidator } from '../services/llm/llm-validator';
 import { getOpenFilesDiagnostics } from '../services/diagnostics';
 import { getWorkspaceRoot } from '../services/tools/utils/workspace-utils';
+import { resolveSlashCommands } from '../services/workflow/slash-command-resolver';
 
 interface ChatStreamRequest {
   requestId: number;
@@ -59,6 +61,9 @@ export async function handleChatStream(
 
     // Resolve @[problems](__problems__) mentions with actual diagnostics
     await resolveProblemsMemntions(messagesWithTodos);
+
+    // Resolve slash commands (/command) with workflow file content
+    await resolveSlashCommands(messagesWithTodos);
 
     if (messagesWithTodos.length > 0) {
       const lastMessage = messagesWithTodos[messagesWithTodos.length - 1];
@@ -210,3 +215,4 @@ async function resolveProblemsMemntions(messages: ChatMessage[]): Promise<void> 
     }
   }
 }
+

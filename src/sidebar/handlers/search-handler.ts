@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 import { getWorkspaceFiles } from '../../utils/workspace-scanner';
+import { getGlobalWorkflowsDir } from '../../utils/workflow-paths';
 
 /**
  * Search Handler
@@ -9,13 +11,18 @@ import { getWorkspaceFiles } from '../../utils/workspace-scanner';
 
 export interface SearchResult {
   path: string;
-  type: 'file' | 'folder';
+  type: 'file' | 'folder' | 'workflow';
   label?: string;
+  description?: string;
 }
 
 interface SearchData {
   query?: string;
   searchType?: 'file' | 'folder' | 'all';
+}
+
+interface WorkflowSearchData {
+  query?: string;
 }
 
 /**
@@ -141,6 +148,87 @@ export async function handleSearchFiles(
     console.error('[SearchHandler] Error searching files:', error);
     webview.webview.postMessage({ 
       type: 'fileSearchResults', 
+      results: [] 
+    });
+  }
+}
+
+/**
+ * Handle workflow search requests for slash commands
+ * Scans .echode/workflows/*.md files from both workspace and global directories
+ */
+export async function handleSearchWorkflows(
+  data: WorkflowSearchData,
+  webview: vscode.WebviewView
+): Promise<void> {
+  const query = (data.query || '').trim().toLowerCase();
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  const workspaceRoot = workspaceFolders?.[0]?.uri.fsPath;
+
+  try {
+    const allResults: SearchResult[] = [];
+    const seenNames = new Set<string>();
+
+    // 1. Search workspace workflows (if workspace is open)
+    if (workspaceRoot) {
+      const workflowPattern = new vscode.RelativePattern(
+        workspaceRoot,
+        '.echode/workflows/*.md'
+      );
+      
+      const workflowFiles = await vscode.workspace.findFiles(workflowPattern, null, 50);
+      
+      for (const file of workflowFiles) {
+        const relativePath = path.relative(workspaceRoot, file.fsPath);
+        const fileName = path.basename(file.fsPath, '.md');
+        seenNames.add(fileName);
+        allResults.push({
+          path: relativePath,
+          type: 'workflow' as const,
+          label: fileName,
+          description: `/[${fileName}]`
+        });
+      }
+    }
+
+    // 2. Search global workflows (~/.echode/workflows)
+    const globalDir = getGlobalWorkflowsDir();
+    try {
+      const globalFiles = await fs.promises.readdir(globalDir);
+      for (const file of globalFiles) {
+        if (file.endsWith('.md')) {
+          const fileName = path.basename(file, '.md');
+          // Skip if already found in workspace (workspace takes priority)
+          if (!seenNames.has(fileName)) {
+            allResults.push({
+              path: path.join(globalDir, file),
+              type: 'workflow' as const,
+              label: fileName,
+              description: `/[${fileName}] (global)`
+            });
+          }
+        }
+      }
+    } catch {
+      // Global directory might not exist, ignore
+    }
+
+    // Filter by query and limit results
+    const filteredResults = allResults
+      .filter(result => {
+        if (!query) return true;
+        return result.label?.toLowerCase().includes(query) ?? false;
+      })
+      .slice(0, 30);
+
+    webview.webview.postMessage({ 
+      type: 'workflowSearchResults', 
+      results: filteredResults 
+    });
+  } catch (error) {
+    console.error('[SearchHandler] Error searching workflows:', error);
+    webview.webview.postMessage({ 
+      type: 'workflowSearchResults', 
       results: [] 
     });
   }

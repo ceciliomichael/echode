@@ -1,6 +1,6 @@
-import { Settings, FileText, Wrench, Search, Zap, Brain, GitCommit, Network, Settings2 } from 'lucide-react';
+import { Settings, FileText, Wrench, Search, Zap, Brain, GitCommit, Network, Settings2, ScrollText } from 'lucide-react';
 
-type TabType = 'api' | 'system' | 'tools' | 'indexing' | 'autocomplete' | 'context' | 'commit-message' | 'mcp' | 'miscellaneous';
+type TabType = 'api' | 'system' | 'tools' | 'indexing' | 'autocomplete' | 'context' | 'commit-message' | 'mcp' | 'miscellaneous' | 'workflows';
 
 interface SettingsSidebarProps {
   activeTab: TabType;
@@ -112,6 +112,28 @@ export function SettingsSidebar({ activeTab, onTabChange }: SettingsSidebarProps
           >
             <Network size={14} strokeWidth={1.5} />
             <span className="font-medium">MCP Servers</span>
+          </button>
+          <button
+            onClick={() => onTabChange('workflows')}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs rounded-xl transition-all border"
+            style={{
+              backgroundColor: activeTab === 'workflows' ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent',
+              color: activeTab === 'workflows' ? 'var(--vscode-list-activeSelectionForeground)' : 'var(--vscode-foreground)',
+              borderColor: activeTab === 'workflows' ? 'var(--vscode-focusBorder)' : 'transparent'
+            }}
+            onMouseEnter={(e) => {
+              if (activeTab !== 'workflows') {
+                e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (activeTab !== 'workflows') {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }
+            }}
+          >
+            <ScrollText size={14} strokeWidth={1.5} />
+            <span className="font-medium">Workflows</span>
           </button>
           <button
             onClick={() => onTabChange('indexing')}

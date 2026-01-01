@@ -1,6 +1,6 @@
-import { Settings, FileText, Wrench, ChevronDown, Search, Zap, Brain, GitCommit, Network, Settings2 } from 'lucide-react';
+import { Settings, FileText, Wrench, ChevronDown, Search, Zap, Brain, GitCommit, Network, Settings2, ScrollText } from 'lucide-react';
 
-type TabType = 'api' | 'system' | 'tools' | 'indexing' | 'autocomplete' | 'context' | 'commit-message' | 'mcp' | 'miscellaneous';
+type TabType = 'api' | 'system' | 'tools' | 'indexing' | 'autocomplete' | 'context' | 'commit-message' | 'mcp' | 'miscellaneous' | 'workflows';
 
 interface SettingsDropdownProps {
   activeTab: TabType;
@@ -24,7 +24,7 @@ export function SettingsDropdown({ activeTab, onTabChange, isOpen, onToggle }: S
         <div className="flex items-center gap-2">
           <Settings size={16} strokeWidth={1.5} />
           <span className="text-sm font-semibold">
-            {activeTab === 'api' ? 'API Configuration' : activeTab === 'system' ? 'System Prompt' : activeTab === 'tools' ? 'Tools' : activeTab === 'indexing' ? 'Indexing' : activeTab === 'autocomplete' ? 'Autocomplete' : activeTab === 'context' ? 'Context' : activeTab === 'mcp' ? 'MCP Servers' : activeTab === 'miscellaneous' ? 'Miscellaneous' : 'Commit Message'}
+            {activeTab === 'api' ? 'API Configuration' : activeTab === 'system' ? 'System Prompt' : activeTab === 'tools' ? 'Tools' : activeTab === 'indexing' ? 'Indexing' : activeTab === 'autocomplete' ? 'Autocomplete' : activeTab === 'context' ? 'Context' : activeTab === 'mcp' ? 'MCP Servers' : activeTab === 'miscellaneous' ? 'Miscellaneous' : activeTab === 'workflows' ? 'Workflows' : 'Commit Message'}
           </span>
         </div>
         <ChevronDown
@@ -242,6 +242,31 @@ export function SettingsDropdown({ activeTab, onTabChange, isOpen, onToggle }: S
             >
               <Network size={14} strokeWidth={1.5} />
               <span className="font-medium">MCP Servers</span>
+            </button>
+            <button
+              onClick={() => {
+                onTabChange('workflows');
+                onToggle();
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs rounded-xl transition-all border"
+              style={{
+                backgroundColor: activeTab === 'workflows' ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent',
+                color: activeTab === 'workflows' ? 'var(--vscode-list-activeSelectionForeground)' : 'var(--vscode-foreground)',
+                borderColor: activeTab === 'workflows' ? 'var(--vscode-focusBorder)' : 'transparent'
+              }}
+              onMouseEnter={(e) => {
+                if (activeTab !== 'workflows') {
+                  e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeTab !== 'workflows') {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
+              }}
+            >
+              <ScrollText size={14} strokeWidth={1.5} />
+              <span className="font-medium">Workflows</span>
             </button>
             <button
               onClick={() => {
