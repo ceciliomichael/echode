@@ -52,4 +52,19 @@ export interface MermaidThemeConfig {
   noteBkgColor: string;
   noteBorderColor: string;
   noteTextColor: string;
+  // Sequence diagram specific - rect/loop/alt blocks
+  labelBoxBkgColor: string;
+  labelBoxBorderColor: string;
+  labelTextColor: string;
+  loopTextColor: string;
+  activationBorderColor: string;
+  activationBkgColor: string;
+  // Actor styling
+  actorBkg: string;
+  actorBorder: string;
+  actorTextColor: string;
+  actorLineColor: string;
+  // Signal/message colors
+  signalColor: string;
+  signalTextColor: string;
 }

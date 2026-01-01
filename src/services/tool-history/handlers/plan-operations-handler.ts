@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import type { IToolHistoryHandler } from './handler.interface';
 import type { ToolHistoryResult, ToolDataRecord } from '../types';
-import { PlanViewerManager } from '../../plan-viewer/plan-viewer-manager';
+import { MarkdownViewerManager } from '../../markdown-viewer/markdown-viewer-manager';
 
 /**
  * Handler for plan tool operations
@@ -69,9 +69,9 @@ export class PlanOperationsHandler implements IToolHistoryHandler {
       console.log(`[PlanOperationsHandler] Restored previous plan content: ${planFilePath}`);
       
       // Update the plan viewer if open
-      if (PlanViewerManager.isInitialized) {
+      if (MarkdownViewerManager.isInitialized) {
         const planTitle = (data.planTitle as string) || 'Implementation Plan';
-        PlanViewerManager.instance.openPlan(planTitle, previousPlanContent, planFilePath);
+        MarkdownViewerManager.instance.openDocument(planTitle, previousPlanContent, planFilePath, 'Plan');
       }
 
       return { success: true };
@@ -154,9 +154,9 @@ export class PlanOperationsHandler implements IToolHistoryHandler {
       await vscode.workspace.fs.writeFile(uri, Buffer.from(planContent, 'utf-8'));
       
       // Open plan in custom viewer
-      if (PlanViewerManager.isInitialized) {
+      if (MarkdownViewerManager.isInitialized) {
         const planTitle = (data.planTitle as string) || 'Implementation Plan';
-        PlanViewerManager.instance.openPlan(planTitle, planContent, planFilePath);
+        MarkdownViewerManager.instance.openDocument(planTitle, planContent, planFilePath, 'Plan');
       }
 
       console.log(`[PlanOperationsHandler] Recreated plan file: ${planFilePath}`);

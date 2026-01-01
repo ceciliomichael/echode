@@ -4,12 +4,13 @@ import {
   makeResponsiveSvg,
   createOffscreenContainer,
   removeContainer,
+  getMermaidThemeConfig,
 } from './utils';
 
 // Initialize mermaid with base config (theme will be set per-render)
 mermaid.initialize({
   startOnLoad: false,
-  theme: 'dark',
+  theme: 'base',
   securityLevel: 'loose',
 });
 
@@ -67,11 +68,13 @@ export const useMermaidRenderer = ({
           return;
         }
 
-        // Use Mermaid's built-in dark theme (same as preview)
+        // Apply custom theme with proper dark mode colors for all diagram elements
+        const themeConfig = getMermaidThemeConfig();
         mermaid.initialize({
           startOnLoad: false,
-          theme: 'dark',
+          theme: 'base',
           securityLevel: 'loose',
+          themeVariables: themeConfig,
         });
 
         const { svg: renderedSvg } = await mermaid.render(

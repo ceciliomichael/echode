@@ -2,11 +2,12 @@ import * as vscode from 'vscode';
 import { generateWebviewHtml } from '../../utils/html-generator/base-webview';
 
 /**
- * Singleton manager for the Plan Viewer webview panel.
- * Opens plans in a custom webview with the same rendering as AI responses.
+ * Singleton manager for the Markdown Viewer webview panel.
+ * Opens markdown files in a custom webview with full mermaid diagram support.
+ * Works with all .md files, not just plan/review files.
  */
-export class PlanViewerManager {
-  private static _instance: PlanViewerManager | null = null;
+export class MarkdownViewerManager {
+  private static _instance: MarkdownViewerManager | null = null;
   private panel: vscode.WebviewPanel | null = null;
   private context: vscode.ExtensionContext;
 
@@ -19,8 +20,8 @@ export class PlanViewerManager {
    * Must be called once during extension activation.
    */
   static initialize(context: vscode.ExtensionContext): void {
-    if (!PlanViewerManager._instance) {
-      PlanViewerManager._instance = new PlanViewerManager(context);
+    if (!MarkdownViewerManager._instance) {
+      MarkdownViewerManager._instance = new MarkdownViewerManager(context);
     }
   }
 
@@ -28,31 +29,31 @@ export class PlanViewerManager {
    * Get the singleton instance.
    * Throws if not initialized.
    */
-  static get instance(): PlanViewerManager {
-    if (!PlanViewerManager._instance) {
-      throw new Error('PlanViewerManager not initialized. Call initialize() first.');
+  static get instance(): MarkdownViewerManager {
+    if (!MarkdownViewerManager._instance) {
+      throw new Error('MarkdownViewerManager not initialized. Call initialize() first.');
     }
-    return PlanViewerManager._instance;
+    return MarkdownViewerManager._instance;
   }
 
   /**
    * Check if manager has been initialized
    */
   static get isInitialized(): boolean {
-    return PlanViewerManager._instance !== null;
+    return MarkdownViewerManager._instance !== null;
   }
 
   /**
-   * Open a plan or review in the custom viewer.
+   * Open a markdown document in the custom viewer.
    * Creates a new panel or reveals/updates the existing one.
    * @param title - The display title for the document
    * @param content - The markdown content to display
    * @param filePath - Optional file path for workspace state tracking
-   * @param docType - The document type label (defaults to 'Plan')
+   * @param docType - The document type label (defaults to 'Document')
    */
-  openPlan(title: string, content: string, filePath?: string, docType: string = 'Plan'): void {
+  openDocument(title: string, content: string, filePath?: string, docType: string = 'Document'): void {
     if (filePath) {
-      this.context.workspaceState.update('echode.currentPlanPath', filePath);
+      this.context.workspaceState.update('echode.currentDocumentPath', filePath);
     }
 
     if (this.panel) {
@@ -66,27 +67,25 @@ export class PlanViewerManager {
   }
 
   /**
-   * Close the plan viewer panel if open
+   * Close the markdown viewer panel if open
    */
   close(): void {
     if (this.panel) {
       this.panel.dispose();
       this.panel = null;
-      // We purposefully don't clear the workspace state path on close,
-      // so it remembers the last active plan even if the viewer is closed.
     }
   }
 
   /**
-   * Get the current plan file path
+   * Get the current document file path
    */
-  getCurrentPlanPath(): string | undefined {
-    return this.context.workspaceState.get<string>('echode.currentPlanPath');
+  getCurrentDocumentPath(): string | undefined {
+    return this.context.workspaceState.get<string>('echode.currentDocumentPath');
   }
 
-  private createPanel(title: string, content: string, docType: string = 'Plan'): void {
+  private createPanel(title: string, content: string, docType: string = 'Document'): void {
     this.panel = vscode.window.createWebviewPanel(
-      'echode.planViewer',
+      'echode.markdownViewer',
       `${title}`,
       {
         viewColumn: vscode.ViewColumn.Active,
@@ -115,7 +114,7 @@ export class PlanViewerManager {
     });
   }
 
-  private updatePanelContent(title: string, content: string, docType: string = 'Plan'): void {
+  private updatePanelContent(title: string, content: string, docType: string = 'Document'): void {
     if (!this.panel) return;
 
     this.panel.title = `${title}`;
@@ -132,10 +131,9 @@ export class PlanViewerManager {
 
   private handleWebviewMessage(message: { type: string }): void {
     switch (message.type) {
-      case 'closePlanViewer':
+      case 'closeMarkdownViewer':
         this.close();
         break;
-      // Add more message handlers as needed
     }
   }
 }

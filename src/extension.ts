@@ -7,15 +7,15 @@ import { clearListFilesGitignoreCache } from './services/tools/list-files-tool';
 import { generateGitCommitMessage } from './services/git-commit-generator';
 import { getGlobalServerManager } from './services/mcp/mcp-server-manager';
 import { defaultRegistry } from './services/tools/tool-registry';
-import { PlanViewerManager } from './services/plan-viewer/plan-viewer-manager';
+import { MarkdownViewerManager } from './services/markdown-viewer/markdown-viewer-manager';
 import { ApprovalViewerManager } from './services/approval/approval-viewer-manager';
 
 export function activate(context: vscode.ExtensionContext) {
   // Initialize MCP Server Manager with context for global storage access
   getGlobalServerManager(defaultRegistry, context);
 
-  // Initialize Plan Viewer Manager
-  PlanViewerManager.initialize(context);
+  // Initialize Markdown Viewer Manager (for all .md files with mermaid support)
+  MarkdownViewerManager.initialize(context);
 
   // Initialize Approval Viewer Manager for Manual Mode
   ApprovalViewerManager.initialize(context);
@@ -89,12 +89,9 @@ export function activate(context: vscode.ExtensionContext) {
       const document = editor.document;
       const filePath = document.uri.fsPath;
       const normalizedPath = filePath.replace(/\\/g, '/');
-      
-      // Check if this is an EchoDE plan or review file
-      const isPlanFile = normalizedPath.includes('/.echode/plan/');
-      const isReviewFile = normalizedPath.includes('/.echode/codereview/');
 
-      if ((isPlanFile || isReviewFile) && PlanViewerManager.isInitialized) {
+      // Use custom markdown viewer for ALL .md files (unified experience with mermaid support)
+      if (MarkdownViewerManager.isInitialized) {
         const content = document.getText();
         // Extract title from first line (e.g. "# Title") or use filename
         const firstLine = content.split('\n')[0].trim();
@@ -102,10 +99,17 @@ export function activate(context: vscode.ExtensionContext) {
           ? firstLine.replace(/^#+\s*/, '') 
           : path.basename(filePath);
 
-        const docType = isReviewFile ? 'Review' : 'Plan';
-        PlanViewerManager.instance.openPlan(title, content, filePath, docType);
+        // Determine document type based on path for better labeling
+        let docType = 'Markdown';
+        if (normalizedPath.includes('/.echode/plan/')) {
+          docType = 'Plan';
+        } else if (normalizedPath.includes('/.echode/codereview/')) {
+          docType = 'Review';
+        }
+
+        MarkdownViewerManager.instance.openDocument(title, content, filePath, docType);
       } else {
-        // Fallback to default markdown preview for non-plan/review files
+        // Fallback to default markdown preview if manager not initialized
         await vscode.commands.executeCommand('markdown.showPreview', document.uri);
       }
     })

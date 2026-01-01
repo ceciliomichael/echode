@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import { ITool, ToolExecutionResult, ChatMode } from './tool.interface';
-import { PlanViewerManager } from '../plan-viewer/plan-viewer-manager';
+import { MarkdownViewerManager } from '../markdown-viewer/markdown-viewer-manager';
 
 /**
  * Generate a short 8-character ID using Node's crypto module
@@ -138,8 +138,8 @@ export class PlanTool implements ITool {
       await vscode.workspace.fs.writeFile(planFileUri, Buffer.from(fullContent, 'utf-8'));
 
       // Open plan in custom viewer
-      if (PlanViewerManager.isInitialized) {
-        PlanViewerManager.instance.openPlan(title, fullContent, planFilePath);
+      if (MarkdownViewerManager.isInitialized) {
+        MarkdownViewerManager.instance.openDocument(title, fullContent, planFilePath, 'Plan');
       }
 
       // YOLO mode: Auto-verify, no user action needed
@@ -189,8 +189,8 @@ export class PlanTool implements ITool {
       // Auto-discover the latest plan file if path is not provided
       if (!existingPlanFilePath || typeof existingPlanFilePath !== 'string') {
         // First check if we have a tracked plan in the viewer manager (persistent across reloads)
-        if (PlanViewerManager.isInitialized) {
-          const trackedPath = PlanViewerManager.instance.getCurrentPlanPath();
+        if (MarkdownViewerManager.isInitialized) {
+          const trackedPath = MarkdownViewerManager.instance.getCurrentDocumentPath();
           if (trackedPath) {
             existingPlanFilePath = trackedPath;
           }
@@ -261,8 +261,8 @@ export class PlanTool implements ITool {
       await vscode.workspace.fs.writeFile(planFileUri, Buffer.from(fullContent, 'utf-8'));
 
       // Open plan in custom viewer
-      if (PlanViewerManager.isInitialized) {
-        PlanViewerManager.instance.openPlan(title, fullContent, existingPlanFilePath);
+      if (MarkdownViewerManager.isInitialized) {
+        MarkdownViewerManager.instance.openDocument(title, fullContent, existingPlanFilePath, 'Plan');
       }
 
       const planFileName = path.basename(existingPlanFilePath);
@@ -309,8 +309,8 @@ export class PlanTool implements ITool {
     
     // Auto-discover the latest plan file to pass to agent mode
     let planFilePath: string | undefined;
-    if (PlanViewerManager.isInitialized) {
-      planFilePath = PlanViewerManager.instance.getCurrentPlanPath();
+    if (MarkdownViewerManager.isInitialized) {
+      planFilePath = MarkdownViewerManager.instance.getCurrentDocumentPath();
     }
 
     // YOLO mode: Auto-start implementation, no user action needed
