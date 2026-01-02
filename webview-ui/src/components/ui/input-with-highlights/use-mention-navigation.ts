@@ -100,5 +100,32 @@ export function useMentionNavigation({
         onKeyDown(e);
     }, [value, onKeyDown, onValueChange, textareaRef]);
 
-    return { handleKeyDown };
+    const handleClick = useCallback((_e: React.MouseEvent<HTMLTextAreaElement>) => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+
+        // If user is selecting text (dragging), don't interfere
+        if (textarea.selectionStart !== textarea.selectionEnd) {
+            return;
+        }
+
+        const cursorPos = textarea.selectionStart;
+        
+        // Check if we clicked inside a mention
+        const mention = getMentionAtPosition(value, cursorPos);
+        
+        if (mention) {
+            // Only move if we are strictly inside (not at edges)
+            if (cursorPos > mention.start && cursorPos < mention.end) {
+                // Calculate nearest edge
+                const mid = (mention.start + mention.end) / 2;
+                const newPos = cursorPos < mid ? mention.start : mention.end;
+                
+                // Move cursor
+                textarea.setSelectionRange(newPos, newPos);
+            }
+        }
+    }, [value, textareaRef]);
+
+    return { handleKeyDown, handleClick };
 }

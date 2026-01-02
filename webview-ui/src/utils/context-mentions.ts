@@ -3,6 +3,7 @@
 // This format distinguishes selected mentions from manually typed @text
 export const mentionRegex = /@\[([^\]]+)\](?:\(([^)]+)\))?/g;
 export const mentionRegexGlobal = /(@\[[^\]]+\](?:\([^)]+\))?)/g;
+export const slashCommandRegex = /\/\[([^\]]+)\]/g;
 
 export interface SearchResult {
     path: string;
@@ -274,15 +275,15 @@ export function insertSlashCommand(
     
     if (slashIndex === -1) {
         // No slash found, just insert at cursor
-        const newValue = beforeCursor + `/${commandName} ` + afterCursor;
-        return { newValue, newCursorPos: position + commandName.length + 2 };
+        const newValue = beforeCursor + `/[${commandName}] ` + afterCursor;
+        return { newValue, newCursorPos: position + commandName.length + 4 }; // +4 for / [ ] space
     }
     
     // Replace from slash to cursor with the full command
     const beforeSlash = text.slice(0, slashIndex);
     const afterCursorContent = afterCursor.replace(/^[^\s]*/, ""); // Remove any partial text
-    const newValue = beforeSlash + `/${commandName} ` + afterCursorContent;
-    const newCursorPos = slashIndex + commandName.length + 2; // +2 for "/" and " "
+    const newValue = beforeSlash + `/[${commandName}] ` + afterCursorContent;
+    const newCursorPos = slashIndex + commandName.length + 4; // +4 for / [ ] space
     
     return { newValue, newCursorPos };
 }

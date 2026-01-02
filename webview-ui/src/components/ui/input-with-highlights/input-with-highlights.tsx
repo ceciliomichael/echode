@@ -69,7 +69,7 @@ export const InputWithHighlights = forwardRef<InputWithHighlightsRef, InputWithH
 
         // Use custom hooks for behavior
         const { handleScroll, scrollOffset } = useScrollSync({ textareaRef });
-        const { handleKeyDown } = useMentionNavigation({
+        const { handleKeyDown, handleClick } = useMentionNavigation({
             value,
             onKeyDown,
             onValueChange,
@@ -122,6 +122,7 @@ export const InputWithHighlights = forwardRef<InputWithHighlightsRef, InputWithH
                     value={value}
                     onChange={onChange}
                     onKeyDown={handleKeyDown}
+                    onClick={handleClick}
                     onPaste={onPaste}
                     onBlur={onBlur}
                     onFocus={onFocus}

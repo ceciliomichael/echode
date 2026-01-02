@@ -64,7 +64,6 @@ async function readWorkflowsFromDir(
   const dirUri = vscode.Uri.file(dirPath);
   
   try {
-    await ensureDirectoryExists(dirPath);
     const entries = await vscode.workspace.fs.readDirectory(dirUri);
     
     for (const [filename, fileType] of entries) {

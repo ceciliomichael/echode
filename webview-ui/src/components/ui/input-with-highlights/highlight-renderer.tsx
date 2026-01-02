@@ -1,5 +1,5 @@
 import React from 'react';
-import { mentionRegex } from '../../../utils/context-mentions';
+import { mentionRegex, slashCommandRegex } from '../../../utils/context-mentions';
 
 interface HighlightRendererProps {
     value: string;
@@ -35,19 +35,13 @@ export function HighlightRenderer({ value }: HighlightRendererProps) {
         });
     }
 
-    // Find /[command] slash commands (with brackets, similar to @[mention])
-    // Use a simpler regex without lookbehind for broader compatibility
-    const slashMatches = value.matchAll(/(?:^|\s)(\/\[[a-zA-Z0-9_-]+\])(?=\s|$)/g);
-    for (const slashMatch of slashMatches) {
-        const commandText = slashMatch[1]; // The captured group (just /command)
-        const fullMatch = slashMatch[0];
-        // Calculate the actual start of /command (after any leading whitespace)
-        const commandIndex = slashMatch.index! + (fullMatch.length - commandText.length);
-        
+    // Find /[command] slash commands
+    const slashRegexInstance = new RegExp(slashCommandRegex.source, 'g');
+    while ((match = slashRegexInstance.exec(value)) !== null) {
         allMatches.push({
-            index: commandIndex,
-            length: commandText.length,
-            text: commandText,
+            index: match.index,
+            length: match[0].length,
+            text: match[0],
             type: 'slashCommand'
         });
     }

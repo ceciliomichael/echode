@@ -1,15 +1,29 @@
-import { mentionRegex } from '../../../utils/context-mentions';
+import { mentionRegex, slashCommandRegex } from '../../../utils/context-mentions';
 import type { MentionMatch } from './types';
 
 /**
- * Find all mentions in text using the @[label](path) format
+ * Find all mentions and slash commands in text
+ * Mentions: @[label](path)
+ * Slash Commands: /[command]
  */
 export function findMentions(text: string): MentionMatch[] {
     const mentions: MentionMatch[] = [];
-    const regex = new RegExp(mentionRegex.source, 'g');
+    
+    // Find Mentions
+    const mentionRegexInstance = new RegExp(mentionRegex.source, 'g');
     let match;
     
-    while ((match = regex.exec(text)) !== null) {
+    while ((match = mentionRegexInstance.exec(text)) !== null) {
+        mentions.push({
+            start: match.index,
+            end: match.index + match[0].length,
+            match: match[0]
+        });
+    }
+
+    // Find Slash Commands
+    const slashRegexInstance = new RegExp(slashCommandRegex.source, 'g');
+    while ((match = slashRegexInstance.exec(text)) !== null) {
         mentions.push({
             start: match.index,
             end: match.index + match[0].length,
@@ -17,7 +31,8 @@ export function findMentions(text: string): MentionMatch[] {
         });
     }
     
-    return mentions;
+    // Sort by start position
+    return mentions.sort((a, b) => a.start - b.start);
 }
 
 /**
