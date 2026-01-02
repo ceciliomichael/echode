@@ -46,6 +46,11 @@
     --vscode-chat-surface: rgba(255, 255, 255, 0.03);
   }
 
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
+
   body {
     background-color: var(--vscode-editor-background);
     color: var(--vscode-editor-foreground);
@@ -54,6 +59,11 @@
     padding: 0;
     margin-left: auto;
     margin-right: auto;
+    width: 100%;
+  }
+
+  #root {
+    height: 100%;
   }
 
   * {

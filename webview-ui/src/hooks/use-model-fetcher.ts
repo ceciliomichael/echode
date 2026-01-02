@@ -142,6 +142,15 @@ export function useModelFetcher(
     setLoadingModels(true);
 
     const baseURL = customBaseUrl?.trim() || getProviderDefaults(provider).baseUrl;
+    
+    // Abort if openai-compatible or custom provider has no base URL configured
+    const requiresBaseUrl = provider === 'openai-compatible' || isCustomProvider(provider);
+    if (requiresBaseUrl && !baseURL) {
+      setLoadingModels(false);
+      setModels([]);
+      return;
+    }
+
     // Use counter + timestamp + provider to ensure unique request IDs across simultaneous calls
     requestIdCounter += 1;
     const requestId = `${Date.now()}-${requestIdCounter}-${provider}`;

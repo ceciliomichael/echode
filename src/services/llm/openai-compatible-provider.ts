@@ -56,6 +56,11 @@ export class OpenAICompatibleProvider implements ILLMProvider {
     signal: AbortSignal,
     timeoutMs: number
   ): Promise<void> {
+    // Validate that baseURL is configured
+    if (!settings.baseURL || settings.baseURL.trim() === '') {
+      throw new Error('Base URL is required for OpenAI Compatible provider. Please configure a Base URL in settings.');
+    }
+
     // Add /v1 to baseURL for OpenAI-compatible APIs
     const baseURL = `${settings.baseURL}/v1`;
 

@@ -121,7 +121,7 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
 
   return (
     <div
-      className="flex flex-col sm:flex-row h-screen"
+      className="flex flex-col sm:flex-row h-full"
       style={{ backgroundColor: 'var(--vscode-editor-background)' }}
     >
       <SettingsDropdown
@@ -149,7 +149,7 @@ export function SetupPage({ initialSettings, onSave }: SetupPageProps) {
           </h1>
         </div>
 
-        <div className="flex-1 overflow-y-auto py-4 sm:py-6 px-4 sm:px-5">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-5 pt-4 sm:pt-6 pb-4">
           {activeTab === 'api' && (
             <ApiConfigTab
               provider={provider}

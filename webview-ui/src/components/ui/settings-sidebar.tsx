@@ -10,7 +10,7 @@ interface SettingsSidebarProps {
 export function SettingsSidebar({ activeTab, onTabChange }: SettingsSidebarProps) {
   return (
     <div
-      className="hidden sm:block w-56 lg:w-64 border-r shrink-0"
+      className="hidden sm:block w-56 lg:w-64 border-r shrink-0 overflow-y-auto h-full"
       style={{
         borderColor: 'var(--vscode-panel-border)',
         backgroundColor: 'var(--vscode-sideBar-background)'

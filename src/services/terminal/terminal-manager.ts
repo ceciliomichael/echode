@@ -68,7 +68,12 @@ export class TerminalManager extends EventEmitter {
         const processInstance = cp.spawn(this.defaultShell, [...this.shellArgs, command], {
             cwd: workingDir,
             shell: false,
-            stdio: ['pipe', 'pipe', 'pipe']
+            stdio: ['pipe', 'pipe', 'pipe'],
+            env: {
+                ...process.env,
+                // Force Python to use unbuffered stdout/stderr for real-time streaming
+                PYTHONUNBUFFERED: '1'
+            }
         });
 
         const session: CommandSession = {

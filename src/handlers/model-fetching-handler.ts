@@ -27,6 +27,17 @@ export async function handleModelFetch(
     const isCustom = provider.startsWith('custom-');
     const isOptionalKey = provider === 'vscode-lm' || provider === 'qwen-code' || provider === 'openai-compatible' || isCustom;
     
+    // Require base URL for openai-compatible and custom providers
+    const requiresBaseUrl = provider === 'openai-compatible' || isCustom;
+    if (requiresBaseUrl && (!baseURL || baseURL.trim() === '')) {
+      webview.webview.postMessage({
+        type: 'modelsResponse',
+        requestId,
+        models: []
+      });
+      return;
+    }
+
     if (!isOptionalKey && (!apiKey || apiKey.trim() === '')) {
       webview.webview.postMessage({
         type: 'modelsResponse',

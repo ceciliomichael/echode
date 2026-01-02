@@ -125,12 +125,12 @@ function App() {
 
   // Show nothing while loading settings from backend
   if (isLoading) {
-    return <div className="h-screen" />;
+    return <div className="h-full" />;
   }
 
   if (window.isSettingsPanel || showSetup) {
     return (
-      <div className="h-screen">
+      <div className="h-full">
         <SetupPage
           initialSettings={settings}
           onSave={handleSaveSettings}
@@ -141,7 +141,7 @@ function App() {
   }
 
   return (
-    <div className="h-screen">
+    <div className="h-full">
       <ChatContainer />
     </div>
   );

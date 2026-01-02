@@ -36,7 +36,7 @@ export function SettingsDropdown({ activeTab, onTabChange, isOpen, onToggle }: S
       </button>
       {isOpen && (
         <div
-          className="absolute top-full left-0 right-0 z-50 border-b shadow-lg"
+          className="absolute top-full left-0 right-0 z-50 border-b shadow-lg max-h-[60vh] overflow-y-auto"
           style={{
             borderColor: 'var(--vscode-panel-border)',
             backgroundColor: 'var(--vscode-sideBar-background)'

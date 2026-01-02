@@ -223,7 +223,7 @@ export const PROVIDER_DEFAULTS = {
     temperature: 1.0,
   },
   'openai-compatible': {
-    baseUrl: 'http://localhost:1234',
+    baseUrl: '',
     maxTokens: 4096,
     temperature: 1.0,
   },

@@ -34,14 +34,24 @@ export class RunTerminalTool implements ITool {
     async execute(
         parameters: Record<string, unknown>,
         onProgress?: ToolProgressCallback,
-        _signal?: AbortSignal,
+        signal?: AbortSignal,
         _mode?: ChatMode
     ): Promise<ToolExecutionResult> {
+        let abortHandler: (() => void) | undefined;
+
         try {
             const command = parameters.command as string;
             const id = (parameters.id as string) || 'default';
             const timeout = Number(parameters.timeout) || DEFAULT_TIMEOUT_SECONDS;
             const manager = TerminalManager.getInstance();
+
+            // Check if already aborted before starting
+            if (signal?.aborted) {
+                return {
+                    success: false,
+                    error: 'Execution aborted'
+                };
+            }
 
             if (!command) {
                 return {
@@ -68,6 +78,17 @@ export class RunTerminalTool implements ITool {
 
             // Execute command (spawns process directly)
             manager.executeCommand(id, command);
+
+            // Setup abort handler to kill the process if user cancels
+            if (signal) {
+                abortHandler = () => {
+                    manager.killSession(id);
+                    if (onProgress) {
+                        onProgress('\n[Aborted by user]\n');
+                    }
+                };
+                signal.addEventListener('abort', abortHandler);
+            }
 
             // Wait for output with streaming until process exits or timeout
             const result = await manager.waitForOutput(id, timeout, (data) => {
@@ -112,6 +133,11 @@ export class RunTerminalTool implements ITool {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error executing terminal command'
             };
+        } finally {
+            // Clean up abort listener to prevent memory leaks
+            if (signal && abortHandler) {
+                signal.removeEventListener('abort', abortHandler);
+            }
         }
     }
 }

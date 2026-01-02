@@ -89,7 +89,7 @@ export function ProviderConfigSection({
             type="text"
             value={customBaseUrl}
             onChange={(e) => onCustomBaseUrlChange(e.target.value)}
-            placeholder={getProviderDefaults(provider).baseUrl}
+            placeholder={provider === 'openai-compatible' ? 'http://localhost:1234' : getProviderDefaults(provider).baseUrl}
             className="w-full px-3 py-2 text-sm rounded-xl border transition-colors"
             style={{
               backgroundColor: 'var(--vscode-input-background)',

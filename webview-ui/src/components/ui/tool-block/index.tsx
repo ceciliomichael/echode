@@ -30,9 +30,9 @@ const ToolBlockComponent = ({
   const hasError = toolCall.status === 'error' || toolCall.result?.success === false;
 
   // echo_search and run_terminal start expanded by default to show progress
-  // BUT keep collapsed if there's an error (especially when loading from history)
+  // BUT keep collapsed if there's an error or already completed (history load)
   const [isExpanded, setIsExpanded] = useState(
-    (isEchoSearch || isRunTerminal) && !hasError
+    (isEchoSearch || isRunTerminal) && !hasError && toolCall.status !== 'completed'
   );
 
   // Auto-expand when awaiting user action (e.g. Plan tool) - only for the last message
@@ -54,6 +54,15 @@ const ToolBlockComponent = ({
       }, 0);
     }
   }, [isEchoSearch, toolCall.status]);
+
+  // Auto-collapse run_terminal when completed successfully
+  useEffect(() => {
+    if (isRunTerminal && toolCall.status === 'completed' && !hasError) {
+      setTimeout(() => {
+        setIsExpanded(false);
+      }, 500);
+    }
+  }, [isRunTerminal, toolCall.status, hasError]);
 
   // Auto-collapse plan tool when:
   // 1. User clicked a button (status becomes 'completed' with userAction)
