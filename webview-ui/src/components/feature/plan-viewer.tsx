@@ -32,6 +32,7 @@ export function PlanViewer() {
 
   return (
     <div 
+      id="plan-scroll-container"
       className="h-screen overflow-auto"
       style={{ backgroundColor: 'var(--vscode-editor-background)' }}
     >
