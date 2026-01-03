@@ -3,6 +3,7 @@ import * as path from 'path';
 import type { IToolHistoryHandler } from './handler.interface';
 import type { ToolHistoryResult, ToolDataRecord } from '../types';
 import { cleanupEmptyDirectories } from '../utils/directory-cleanup';
+import { deleteFileWithRetry, writeFileWithRetry } from '../../../utils/fs-retry';
 
 /**
  * Handler for file operation tools: write_to_file, apply_diff, delete_file
@@ -83,8 +84,8 @@ export class FileOperationsHandler implements IToolHistoryHandler {
           console.log(`[ToolHistory] Closed ${tabsToClose.length} tab(s) for deleted file: ${filePath}`);
         }
 
-        // Delete the file
-        await vscode.workspace.fs.delete(uri, { recursive: false, useTrash: false });
+        // Delete the file with retry logic (handles EBUSY from dev servers/linters)
+        await deleteFileWithRetry(uri);
 
         // Clean up empty directories that were created
         await cleanupEmptyDirectories(createdDirectories, workspacePath);
@@ -100,7 +101,7 @@ export class FileOperationsHandler implements IToolHistoryHandler {
       // File was modified, restore old content
       try {
         const contentBytes = Buffer.from(oldContent, 'utf8');
-        await vscode.workspace.fs.writeFile(uri, contentBytes);
+        await writeFileWithRetry(uri, contentBytes);
         return { success: true };
       } catch (error) {
         return {
@@ -127,9 +128,9 @@ export class FileOperationsHandler implements IToolHistoryHandler {
     const uri = vscode.Uri.file(absolutePath);
 
     try {
-      // Restore original content before diff was applied
+      // Restore original content before diff was applied (with retry for locked files)
       const contentBytes = Buffer.from(oldContent, 'utf8');
-      await vscode.workspace.fs.writeFile(uri, contentBytes);
+      await writeFileWithRetry(uri, contentBytes);
       return { success: true };
     } catch (error) {
       return {
@@ -162,9 +163,9 @@ export class FileOperationsHandler implements IToolHistoryHandler {
         // Directory might already exist
       }
 
-      // Restore deleted file
+      // Restore deleted file (with retry for locked files)
       const contentBytes = Buffer.from(deletedContent, 'utf8');
-      await vscode.workspace.fs.writeFile(uri, contentBytes);
+      await writeFileWithRetry(uri, contentBytes);
       return { success: true };
     } catch (error) {
       return {
@@ -199,7 +200,7 @@ export class FileOperationsHandler implements IToolHistoryHandler {
       }
 
       const contentBytes = Buffer.from(newContent, 'utf8');
-      await vscode.workspace.fs.writeFile(uri, contentBytes);
+      await writeFileWithRetry(uri, contentBytes);
 
       // If file was originally created, reopen it in editor (matches diagnostics flow)
       if (action === 'created') {
@@ -239,9 +240,9 @@ export class FileOperationsHandler implements IToolHistoryHandler {
     const uri = vscode.Uri.file(absolutePath);
 
     try {
-      // Re-apply diff content
+      // Re-apply diff content (with retry for locked files)
       const contentBytes = Buffer.from(newContent, 'utf8');
-      await vscode.workspace.fs.writeFile(uri, contentBytes);
+      await writeFileWithRetry(uri, contentBytes);
       return { success: true };
     } catch (error) {
       return {
@@ -264,7 +265,8 @@ export class FileOperationsHandler implements IToolHistoryHandler {
     const uri = vscode.Uri.file(absolutePath);
 
     try {
-      await vscode.workspace.fs.delete(uri, { recursive: false, useTrash: false });
+      // Delete with retry logic (handles EBUSY from dev servers/linters)
+      await deleteFileWithRetry(uri);
       return { success: true };
     } catch (error) {
       return {
