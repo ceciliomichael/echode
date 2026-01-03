@@ -74,6 +74,11 @@ const PROVIDER_DEFAULT_URLS: Record<string, string> = {
 };
 
 /**
+ * Providers that can operate without an API key (local LLMs, built-in auth, etc.)
+ */
+const PROVIDERS_ALLOWING_EMPTY_KEY = ['vscode-lm', 'qwen-code', 'openai-compatible'];
+
+/**
  * Helper to get the chat stream settings for commit message generation.
  * Uses dedicated commitMessageSettings if configured, otherwise falls back to chat model.
  */
@@ -92,6 +97,19 @@ function getChatStreamSettings(apiSettings: ApiSettings): ChatStreamSettings & {
   let maxTokens = 4096;
   let baseURL = '';
   let temperature = 0.3;
+
+  if (provider.startsWith('custom-')) {
+    // Custom providers have IDs prefixed with 'custom-' in the UI, but stored without it in customProviders list
+    // logic in SettingsModelSelector: const providerId = `custom-${cp.id}`;
+    const customConfig = apiSettings.customProviders?.find(p => `custom-${p.id}` === provider);
+    if (customConfig) {
+      apiKey = customConfig.apiKey || '';
+      model = commitModel || customConfig.model;
+      maxTokens = customConfig.maxTokens;
+      baseURL = customConfig.baseUrl;
+      temperature = customConfig.temperature;
+    }
+  }
 
   switch (provider) {
     case 'anthropic':
@@ -282,7 +300,7 @@ async function generateCommitMessage(diffResult: GitDiffResult): Promise<string 
   const apiSettings = getSettingsService().getSettings();
   const settings = getChatStreamSettings(apiSettings);
 
-  if (!settings.apiKey && settings.provider !== 'vscode-lm' && settings.provider !== 'qwen-code') {
+  if (!settings.apiKey && !PROVIDERS_ALLOWING_EMPTY_KEY.includes(settings.provider) && !settings.provider.startsWith('custom-')) {
     vscode.window.showErrorMessage('Please configure API settings in EchoDE settings first.');
     return null;
   }
