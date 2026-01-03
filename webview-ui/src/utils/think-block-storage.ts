@@ -13,12 +13,18 @@ const STORAGE_KEY = 'think_block_durations';
 
 /**
  * Generate a stable key for a think block using content hash
+ * Uses only the first 200 characters to ensure hash stability when 
+ * thought content is merged back into think blocks during preprocessing
  */
 export function generateThinkBlockKey(
   _messageId: string | number,
   thinkContent: string
 ): string {
-  const contentHash = thinkContent
+  // Use only first 200 characters for hash stability
+  // This prevents hash changes when thought content is appended to think blocks
+  const stableContent = thinkContent.slice(0, 200);
+
+  const contentHash = stableContent
     .split('')
     .reduce((acc, char) => {
       const hash = ((acc << 5) - acc + char.charCodeAt(0)) | 0;

@@ -9,6 +9,106 @@ import {
 import { extractAllInvokeBlocks, parseXMLParameters } from './xml-parser';
 
 /**
+ * Fix leaked <thought> tags that appear after closing </think> or </thinking> tags.
+ * During streaming, the AI sometimes "leaks" content outside the thinking block with a <thought> tag.
+ * This function detects such cases and moves the content back inside the previous think block.
+ * 
+ * Pattern detected:
+ * </think><thought>leaked content    -> </think>leaked content (thought tag removed, content stays in think)
+ * </thinking><thought>leaked content -> </thinking>leaked content (thought tag removed, content stays in think)
+ */
+function fixLeakedThoughtTags(content: string): string {
+    let result = content;
+
+    // Pattern: </think> followed by optional whitespace then <thought>
+    // We need to move the <thought> content back BEFORE the </think>
+    // Use non-capturing group for the end tag since we don't need it
+    result = result.replace(
+        /(<\/think>)\s*<thought>([\s\S]*?)(?:<\/thought>|$)/gi,
+        (_, closeTag: string, thoughtContent: string) => {
+            // Move the thought content before the closing tag
+            return thoughtContent + closeTag;
+        }
+    );
+
+    // Same for </thinking>
+    result = result.replace(
+        /(<\/thinking>)\s*<thought>([\s\S]*?)(?:<\/thought>|$)/gi,
+        (_, closeTag: string, thoughtContent: string) => {
+            return thoughtContent + closeTag;
+        }
+    );
+
+    // Handle case where <thought> appears right after an unclosed <think> block
+    // Pattern: <think>content<thought>more content (streaming case)
+    // This happens when AI starts thinking, then adds <thought> mid-stream
+    result = result.replace(
+        /(<think>[\s\S]*?)<thought>([\s\S]*?)(?:<\/thought>|$)/gi,
+        (match, thinkContent: string, thoughtContent: string) => {
+            // Don't match if there's already a </think> in between
+            if (thinkContent.includes('</think>')) {
+                return match;
+            }
+            return thinkContent + thoughtContent;
+        }
+    );
+
+    result = result.replace(
+        /(<thinking>[\s\S]*?)<thought>([\s\S]*?)(?:<\/thought>|$)/gi,
+        (match, thinkContent: string, thoughtContent: string) => {
+            // Don't match if there's already a </thinking> in between
+            if (thinkContent.includes('</thinking>')) {
+                return match;
+            }
+            return thinkContent + thoughtContent;
+        }
+    );
+
+    return result;
+}
+
+/**
+ * Merge consecutive think/thinking blocks into a single block.
+ * The AI sometimes outputs multiple thinking blocks in a row, which should be displayed as one.
+ * 
+ * Patterns handled:
+ * </think><think> -> merge into one
+ * </think>\n<think> -> merge into one  
+ * </thinking><thinking> -> merge into one
+ * </think><thinking> -> merge into one (mixed tags)
+ */
+function mergeConsecutiveThinkBlocks(content: string): string {
+    let result = content;
+
+    // Merge </think> followed by <think> (with optional whitespace between)
+    // Remove the closing and opening tags, keeping just the content
+    result = result.replace(
+        /<\/think>\s*<think>/gi,
+        '\n\n' // Replace with double newline to separate content visually
+    );
+
+    // Merge </thinking> followed by <thinking>
+    result = result.replace(
+        /<\/thinking>\s*<thinking>/gi,
+        '\n\n'
+    );
+
+    // Handle mixed: </think> followed by <thinking>
+    result = result.replace(
+        /<\/think>\s*<thinking>/gi,
+        '\n\n'
+    );
+
+    // Handle mixed: </thinking> followed by <think>
+    result = result.replace(
+        /<\/thinking>\s*<think>/gi,
+        '\n\n'
+    );
+
+    return result;
+}
+
+/**
  * Find the next <think> tag that is NOT inside a parameter value.
  * This prevents incorrectly treating think tags in file content as thinking blocks.
  */
@@ -136,8 +236,14 @@ function hasPotentialUnparsedTools(content: string, parsedTokens: ContentToken[]
  * Process sequentially to avoid parsing content inside think blocks
  */
 export function tokenizeContent(content: string, messageId: string = 'unknown'): ContentToken[] {
+    // First, fix any leaked <thought> tags that should be inside think blocks
+    const fixedThoughtContent = fixLeakedThoughtTags(content);
+
+    // Merge consecutive think blocks into one
+    const mergedThinkContent = mergeConsecutiveThinkBlocks(fixedThoughtContent);
+
     // Preprocess to fix corrupted tool call formats
-    const processedContent = preprocessToolTags(content);
+    const processedContent = preprocessToolTags(mergedThinkContent);
 
     const tokens: ContentToken[] = [];
     let position = 0;
