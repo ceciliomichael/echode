@@ -1,11 +1,11 @@
 /**
  * Chat Mode - Main prompt builder
- * Pure conversation mode - NO workspace context, NO system info
- * Just a plain conversational AI assistant
+ * Conversational AI assistant with AGENTS.md context support
  */
 
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
+import { getUserRules } from '../shared';
 import { getChatPrompt } from './prompt';
 
 export interface ChatPromptOptions {
@@ -15,12 +15,13 @@ export interface ChatPromptOptions {
 
 /**
  * Build the complete Chat mode system prompt
- * Note: Supports MCP tools if enabled, otherwise conversation only
- * NO workspace rules, NO system info - pure chat experience
+ * Includes AGENTS.md and custom system prompt if present
  */
 export function buildChatPrompt(options: ChatPromptOptions): string {
     const { workspace, enabledTools = [] } = options;
 
-    // Just the chat prompt - no workspace context, no system info
-    return getChatPrompt(workspace, enabledTools);
+    const prompt = getChatPrompt(workspace, enabledTools);
+    const userRules = getUserRules(workspace);
+
+    return [prompt, userRules].filter(Boolean).join('\n\n').trim();
 }
