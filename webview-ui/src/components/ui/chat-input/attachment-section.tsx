@@ -25,14 +25,14 @@ export function AttachmentSection({
   const hasAttachments = attachments.length > 0 || imageAttachments.length > 0;
 
   return (
-    <div className="w-full px-1.5 pt-1.5">
-      <div className="flex flex-wrap items-center gap-1 min-h-[28px]">
+    <div className="w-full px-1.5 pt-1.5 overflow-hidden">
+      <div className="flex items-center gap-1 min-h-[28px] overflow-hidden flex-nowrap">
         {!hasAttachments ? (
           <button
             type="button"
             onClick={onAttachmentClick}
             disabled={disabled}
-            className="text-xs border border-dashed rounded-xl px-2 py-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="text-xs border border-dashed rounded-xl px-2 py-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden text-ellipsis whitespace-nowrap min-w-0 max-w-full"
             style={{
               color: 'var(--vscode-descriptionForeground)',
               borderColor: 'var(--vscode-input-border)',
@@ -72,7 +72,7 @@ export function AttachmentSection({
                 type="button"
                 onClick={onAttachmentClick}
                 disabled={disabled}
-                className="text-xs border border-dashed rounded-xl px-2 py-1 flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="text-xs border border-dashed rounded-xl px-2 py-1 flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden text-ellipsis whitespace-nowrap min-w-0 shrink-0"
                 style={{
                   color: 'var(--vscode-descriptionForeground)',
                   borderColor: 'var(--vscode-input-border)',

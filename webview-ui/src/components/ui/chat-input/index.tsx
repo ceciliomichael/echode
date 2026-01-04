@@ -218,6 +218,7 @@ export function ChatInput({
               placeholder="Type your message..."
               disabled={disabled}
               rows={1}
+              maxHeight={100}
               className="w-full px-1.5 py-1 rounded-xl bg-transparent text-sm leading-normal min-h-[36px] max-h-[100px] overflow-y-auto resize-none border-0 disabled:opacity-50 disabled:cursor-not-allowed placeholder:opacity-50 relative"
               style={{
                 color: 'var(--vscode-input-foreground)',
