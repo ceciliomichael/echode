@@ -121,7 +121,6 @@ export function MessageEditForm({
               onPaste={handlePaste}
               placeholder="Type your message..."
               rows={1}
-              maxHeight={100}
               className="w-full px-1.5 py-1 rounded-xl bg-transparent text-sm leading-normal min-h-[36px] max-h-[100px] overflow-y-auto resize-none border-0 relative"
               style={{
                 color: 'var(--vscode-input-foreground)',

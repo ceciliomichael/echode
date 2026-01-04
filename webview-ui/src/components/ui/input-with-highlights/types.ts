@@ -16,8 +16,6 @@ export interface InputWithHighlightsProps {
     className?: string;
     style?: React.CSSProperties;
     onValueChange?: (newValue: string, newCursorPos: number) => void;
-    /** Maximum height in pixels. When set, clamps the auto-resize height and enables scrolling. */
-    maxHeight?: number;
 }
 
 /**

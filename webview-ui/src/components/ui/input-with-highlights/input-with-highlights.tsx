@@ -57,8 +57,7 @@ export const InputWithHighlights = forwardRef<InputWithHighlightsRef, InputWithH
         rows = 1,
         className,
         style,
-        onValueChange,
-        maxHeight
+        onValueChange
     }, ref) => {
         const textareaRef = useRef<HTMLTextAreaElement>(null);
         const backdropRef = useRef<HTMLDivElement>(null);
@@ -134,20 +133,19 @@ export const InputWithHighlights = forwardRef<InputWithHighlightsRef, InputWithH
                 // Sync computed styles (font, padding, borders) from textarea to backdrop
                 syncStyles();
 
-                // Auto-resize height (clamped to maxHeight if provided)
+                // Auto-resize height
                 textareaRef.current.style.height = 'auto';
                 backdropRef.current.style.height = 'auto';
-                const scrollHeight = textareaRef.current.scrollHeight;
-                const heightToSet = maxHeight ? Math.min(scrollHeight, maxHeight) : scrollHeight;
-                if (heightToSet > 0) {
-                    textareaRef.current.style.height = `${heightToSet}px`;
-                    backdropRef.current.style.height = `${heightToSet}px`;
+                const newHeight = textareaRef.current.scrollHeight;
+                if (newHeight > 0) {
+                    textareaRef.current.style.height = `${newHeight}px`;
+                    backdropRef.current.style.height = `${newHeight}px`;
                 }
 
                 // Sync scroll position after resize to catch auto-scroll
                 handleScroll();
             }
-        }, [value, handleScroll, syncStyles, className, style, maxHeight]);
+        }, [value, handleScroll, syncStyles, className, style]);
 
         return (
             <div className="relative w-full">
@@ -159,7 +157,7 @@ export const InputWithHighlights = forwardRef<InputWithHighlightsRef, InputWithH
                     style={{
                         ...baseStyles,
                         minHeight: '36px',
-                        maxHeight: maxHeight ? `${maxHeight}px` : undefined,
+                        maxHeight: '100px',
                     }}
                     aria-hidden="true"
                 >

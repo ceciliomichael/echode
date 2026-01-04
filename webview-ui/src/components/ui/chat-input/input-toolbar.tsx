@@ -68,8 +68,8 @@ export function InputToolbar({
   const isMaxAttachments = attachmentCount >= maxAttachments;
 
   return (
-    <div className="flex justify-between items-center gap-1 px-1.5 pb-1.5 overflow-hidden">
-      <div className="flex items-center gap-1 min-w-0 overflow-hidden">
+    <div className="flex justify-between items-center gap-1 px-1.5 pb-1.5">
+      <div className="flex items-center gap-1">
         <button
           type="button"
           onClick={onAttachmentClick}
