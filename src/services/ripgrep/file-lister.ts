@@ -41,8 +41,17 @@ export async function listFilesWithRipgrep(
     }
 
     // Add include glob patterns
+    // Normalize patterns: add **/ prefix if not present to match anywhere in tree
+    // This matches user expectation that "resources/*.json" finds files in any "resources" folder
     for (const pattern of globPatterns) {
-        args.push('-g', pattern);
+        let normalizedPattern = pattern;
+        
+        // Only add **/ if pattern doesn't already have a glob prefix or absolute indicator
+        if (!pattern.startsWith('**/') && !pattern.startsWith('/') && !pattern.startsWith('!')) {
+            normalizedPattern = `**/${pattern}`;
+        }
+        
+        args.push('-g', normalizedPattern);
     }
 
     args.push(workspacePath);
