@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { ImageAttachment, Message, QueuedMessage } from '../../types/chat';
+import type { ChatMode } from '../../types/chat-mode';
 import { MessageBubble } from '../ui/message-bubble';
 import { ChatInput } from '../ui/chat-input';
 import { ChatEmptyState } from '../ui/chat-empty-state';
@@ -23,7 +24,7 @@ export function ChatContainer() {
   const { tasks, updateTodos, clearTodos } = useTodo();
   
   // Get current chat mode
-  const { mode, handleModeChange, setHotkeyDisabled } = useChatMode();
+  const { mode, handleModeChange: globalHandleModeChange, setHotkeyDisabled } = useChatMode();
   
   // Per-mode model selection (each mode can have its own model)
   const { provider, model, setActiveProviderAndModel } = useChatModel(mode);
@@ -55,7 +56,14 @@ export function ChatContainer() {
     abortedUserInput,
     abortedAttachments,
     abortedImageAttachments,
-  } = useStreamingChat(tasks, mode, handleModeChange);
+  } = useStreamingChat(tasks, mode, globalHandleModeChange);
+
+  // Wrap mode change to abort any active streaming/tool execution first
+  // This prevents "stuck" states when switching modes mid-execution
+  const handleModeChange = useCallback((newMode: ChatMode) => {
+    abortStream();
+    globalHandleModeChange(newMode);
+  }, [abortStream, globalHandleModeChange]);
 
   // Disable mode switching hotkey (Ctrl+.) when AI is actively streaming or executing tools
   useEffect(() => {

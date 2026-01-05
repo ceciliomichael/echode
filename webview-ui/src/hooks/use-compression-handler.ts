@@ -3,7 +3,7 @@ import type { Message, ImageAttachment } from '../types/chat';
 import type { Provider } from '../types/api-settings';
 import { UnifiedChatService } from '../services/unified-chat-service';
 import { storageService } from '../utils/storage';
-import { getProviderDefaults } from '../types/api-settings';
+import { getProviderDefaults, isCustomProvider } from '../types/api-settings';
 
 interface UseCompressionHandlerProps {
   messages: Message[];
@@ -42,9 +42,17 @@ export function useCompressionHandler({
         throw new Error('Please configure a compression model in Context settings');
       }
 
+      // Look up custom provider if applicable
+      // Custom provider IDs are stored without prefix (e.g., "123"), but compressionProvider has prefix (e.g., "custom-123")
+      const customProvider = isCustomProvider(compressionProvider)
+        ? settings.customProviders?.find(p => `custom-${p.id}` === compressionProvider)
+        : undefined;
+
       // Get provider-specific settings
       let apiKey = '';
-      if (compressionProvider === 'anthropic') {
+      if (customProvider) {
+        apiKey = customProvider.apiKey || '';
+      } else if (compressionProvider === 'anthropic') {
         apiKey = settings.anthropicApiKey || settings.apiKey || '';
       } else if (compressionProvider === 'openai') {
         apiKey = settings.openaiApiKey || settings.apiKey || '';
@@ -64,7 +72,8 @@ export function useCompressionHandler({
 
       // Get base URL
       const providerDefaults = getProviderDefaults(compressionProvider);
-      const baseURL = (compressionProvider === 'anthropic' && settings.anthropicCustomUrl) ||
+      const baseURL = customProvider?.baseUrl ||
+                     (compressionProvider === 'anthropic' && settings.anthropicCustomUrl) ||
                      (compressionProvider === 'openai' && settings.openaiCustomUrl) ||
                      (compressionProvider === 'openai-compatible' && settings.openaiCompatibleCustomUrl) ||
                      (compressionProvider === 'megallm' && settings.megallmCustomUrl) ||
@@ -73,7 +82,9 @@ export function useCompressionHandler({
 
       // Get max tokens - use provider-specific or default
       let maxTokens = 4096;
-      if (compressionProvider === 'anthropic') {
+      if (customProvider) {
+        maxTokens = customProvider.maxTokens || 4096;
+      } else if (compressionProvider === 'anthropic') {
         maxTokens = settings.anthropicMaxTokens || 4096;
       } else if (compressionProvider === 'openai') {
         maxTokens = settings.openaiMaxTokens || 4096;
