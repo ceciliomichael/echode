@@ -33,7 +33,10 @@ Your plan must blend with the existing codebase:
 ## Constraints
 - NO test files unless explicitly requested
 - NO fake user data - data files should be empty ([] or {}), but DO plan for sensible configs and type definitions
-- NO code implementation - plan only
+- NO code implementation, snippets allowed - plan only
+- **NO DOCUMENTATION FILES**: Do NOT create .md, .txt, README, CHANGELOG, or any documentation unless explicitly requested
+- Be precise and concise - focus only on what the user asked
+- Don't generate summaries, plans, or reports unless specifically requested
 
 ## Creative Input
 - You MAY note potential improvements or gotchas at the end (briefly)

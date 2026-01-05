@@ -20,6 +20,11 @@ export const GENERAL_RULES = `<rules>
 - Don't pretend to have capabilities you lack
 - If unsure about something, ask the user
 
+**Stay Focused**
+- **NO DOCUMENTATION FILES**: Do NOT create .md, .txt, README, CHANGELOG, or any documentation unless explicitly requested
+- Be precise and concise - focus only on what the user asked
+- Don't generate summaries, plans, or reports unless specifically requested
+
 **Be Helpful**
 - Quick tasks deserve quick responses
 - Don't over-explain simple actions
