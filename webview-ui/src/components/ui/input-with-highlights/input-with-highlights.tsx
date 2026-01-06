@@ -29,6 +29,8 @@ const SYNC_STYLE_PROPERTIES = [
     'wordSpacing',
     'textIndent',
     'textTransform',
+    'whiteSpace',
+    'wordBreak',
     'paddingTop',
     'paddingBottom',
     'paddingLeft',
@@ -114,8 +116,12 @@ export const InputWithHighlights = forwardRef<InputWithHighlightsRef, InputWithH
                 backdrop.style.setProperty(cssProperty, value);
             }
 
+            // Sync the exact width from textarea to backdrop
+            backdrop.style.width = `${textarea.offsetWidth}px`;
+
             // Calculate scrollbar width and add to backdrop's padding-right
-            // This ensures text wrapping matches when a scrollbar is present
+            // This is CRITICAL: textarea content width is reduced by scrollbar, so backdrop must compensate
+            // otherwise text in backdrop will wrap later than text in textarea
             const borderLeftWidth = parseFloat(computedStyle.borderLeftWidth) || 0;
             const borderRightWidth = parseFloat(computedStyle.borderRightWidth) || 0;
             const scrollbarWidth = textarea.offsetWidth - textarea.clientWidth - borderLeftWidth - borderRightWidth;
@@ -129,22 +135,35 @@ export const InputWithHighlights = forwardRef<InputWithHighlightsRef, InputWithH
         // Auto-resize textarea and backdrop based on content, sync styles, then sync scroll
         // Using useLayoutEffect ensures everything syncs before paint
         useLayoutEffect(() => {
-            if (textareaRef.current && backdropRef.current) {
-                // Sync computed styles (font, padding, borders) from textarea to backdrop
-                syncStyles();
+            const textarea = textareaRef.current;
+            const backdrop = backdropRef.current;
+            if (!textarea || !backdrop) return;
 
-                // Auto-resize height
-                textareaRef.current.style.height = 'auto';
-                backdropRef.current.style.height = 'auto';
-                const newHeight = textareaRef.current.scrollHeight;
-                if (newHeight > 0) {
-                    textareaRef.current.style.height = `${newHeight}px`;
-                    backdropRef.current.style.height = `${newHeight}px`;
-                }
+            // Sync computed styles (font, padding, borders) from textarea to backdrop
+            syncStyles();
 
-                // Sync scroll position after resize to catch auto-scroll
-                handleScroll();
+            // Auto-resize height
+            textarea.style.height = 'auto';
+            backdrop.style.height = 'auto';
+            const newHeight = textarea.scrollHeight;
+            if (newHeight > 0) {
+                textarea.style.height = `${newHeight}px`;
+                backdrop.style.height = `${newHeight}px`;
             }
+
+            // Sync scroll position after resize to catch auto-scroll
+            handleScroll();
+
+            // Add ResizeObserver to sync styles on resize (e.g. window resize)
+            const resizeObserver = new ResizeObserver(() => {
+                syncStyles();
+                handleScroll();
+            });
+            resizeObserver.observe(textarea);
+
+            return () => {
+                resizeObserver.disconnect();
+            };
         }, [value, handleScroll, syncStyles, className, style]);
 
         return (
@@ -153,7 +172,7 @@ export const InputWithHighlights = forwardRef<InputWithHighlightsRef, InputWithH
                 {/* Styles (font, padding, etc.) are synchronized from textarea via syncStyles() */}
                 <div
                     ref={backdropRef}
-                    className="absolute top-0 left-0 right-0 pointer-events-none overflow-hidden"
+                    className="absolute top-0 left-0 pointer-events-none overflow-hidden"
                     style={{
                         ...baseStyles,
                         minHeight: '36px',

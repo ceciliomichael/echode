@@ -77,6 +77,9 @@ export function HighlightRenderer({ value }: HighlightRendererProps) {
                     backgroundColor: bgColor,
                     borderRadius: '3px',
                     color: 'transparent',
+                    // Allow highlight to break across lines and style each fragment
+                    WebkitBoxDecorationBreak: 'clone',
+                    boxDecorationBreak: 'clone',
                 }}
             >
                 {matchInfo.text}
