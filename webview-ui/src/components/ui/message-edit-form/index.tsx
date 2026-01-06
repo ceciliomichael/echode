@@ -1,5 +1,6 @@
 import type { FormEvent } from 'react';
 import { useMessageEditForm } from '../../../hooks/use-message-edit-form';
+import { useWorkflowValidation } from '../../../hooks/use-workflow-validation';
 import { ContextMenu } from '../context-menu';
 import { InputWithHighlights } from '../input-with-highlights';
 import { EditFormAttachmentSection } from './edit-form-attachment-section';
@@ -43,6 +44,9 @@ export function MessageEditForm({
   onModelChange,
   contextUsage
 }: MessageEditFormProps) {
+  // Get valid workflow names for slash command validation
+  const { validWorkflowNames } = useWorkflowValidation();
+
   const {
     editContent,
     textareaRef,
@@ -127,6 +131,8 @@ export function MessageEditForm({
                 outline: 'none',
               }}
               onValueChange={handleValueChange}
+              validWorkflowNames={validWorkflowNames}
+              validMentionLabels={contextMenu.mentionPathMap.current}
             />
           </div>
 

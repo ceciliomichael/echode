@@ -1,6 +1,7 @@
 import type { FormEvent, KeyboardEvent } from 'react';
 import { useChatInput } from '../../../hooks/use-chat-input';
 import { useRefactorScan } from '../../../hooks/use-refactor-scan';
+import { useWorkflowValidation } from '../../../hooks/use-workflow-validation';
 import { buildRefactorMessage } from '../../../utils/message-builders';
 import { QueueBlock } from './queue-block';
 import { ContextMenu } from '../context-menu';
@@ -68,6 +69,9 @@ export function ChatInput({
 
   // Get refactor scan results
   const { largeFiles, isScanning: isRefactorScanning } = useRefactorScan();
+
+  // Get valid workflow names for slash command validation
+  const { validWorkflowNames } = useWorkflowValidation();
 
   // Use the consolidated chat input hook
   const {
@@ -226,6 +230,8 @@ export function ChatInput({
               onValueChange={handleValueChange}
               onBlur={handleBlur}
               onFocus={handleFocus}
+              validWorkflowNames={validWorkflowNames}
+              validMentionLabels={contextMenu.mentionPathMap.current}
             />
           </div>
 

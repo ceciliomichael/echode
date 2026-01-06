@@ -16,6 +16,10 @@ export interface InputWithHighlightsProps {
     className?: string;
     style?: React.CSSProperties;
     onValueChange?: (newValue: string, newCursorPos: number) => void;
+    /** Valid workflow command names for slash command validation */
+    validWorkflowNames?: string[];
+    /** Map of valid mention labels to their paths (from context menu selections) */
+    validMentionLabels?: Map<string, string>;
 }
 
 /**

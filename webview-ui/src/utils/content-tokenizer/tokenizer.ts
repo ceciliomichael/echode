@@ -11,37 +11,39 @@ import { extractAllInvokeBlocks, parseXMLParameters } from './xml-parser';
 /**
  * Fix leaked <thought> tags that appear after closing </think> or </thinking> tags.
  * During streaming, the AI sometimes "leaks" content outside the thinking block with a <thought> tag.
- * This function detects such cases and moves the content back inside the previous think block.
  * 
- * Pattern detected:
- * </think><thought>leaked content    -> </think>leaked content (thought tag removed, content stays in think)
- * </thinking><thought>leaked content -> </thinking>leaked content (thought tag removed, content stays in think)
+ * IMPORTANT: We do NOT move thought content before the closing tag, as this would change
+ * the hash of the original think block content, breaking duration tracking.
+ * Instead, we just strip the <thought> wrapper tags. The tokenizer will handle the content
+ * by finding it before the closing tag during re-parsing when the block is still open.
+ * 
+ * For closed blocks: </think><thought>content</thought> -> </think>content
+ * For open blocks: <think>...<thought>content -> <think>...content (just strip wrapper)
  */
 function fixLeakedThoughtTags(content: string): string {
     let result = content;
 
-    // Pattern: </think> followed by optional whitespace then <thought>
-    // We need to move the <thought> content back BEFORE the </think>
-    // Use non-capturing group for the end tag since we don't need it
+    // For CLOSED blocks: </think> or </thinking> followed by <thought>
+    // Just strip the <thought> wrapper tags, leave content after the closing tag
+    // This content will be treated as regular text, NOT as part of the think block
+    // This preserves the original think block content and its hash
     result = result.replace(
-        /(<\/think>)\s*<thought>([\s\S]*?)(?:<\/thought>|$)/gi,
-        (_, closeTag: string, thoughtContent: string) => {
-            // Move the thought content before the closing tag
-            return thoughtContent + closeTag;
+        /<\/think>\s*<thought>([\s\S]*?)(?:<\/thought>|$)/gi,
+        (_, thoughtContent: string) => {
+            return '</think>' + thoughtContent;
         }
     );
 
-    // Same for </thinking>
     result = result.replace(
-        /(<\/thinking>)\s*<thought>([\s\S]*?)(?:<\/thought>|$)/gi,
-        (_, closeTag: string, thoughtContent: string) => {
-            return thoughtContent + closeTag;
+        /<\/thinking>\s*<thought>([\s\S]*?)(?:<\/thought>|$)/gi,
+        (_, thoughtContent: string) => {
+            return '</thinking>' + thoughtContent;
         }
     );
 
-    // Handle case where <thought> appears right after an unclosed <think> block
-    // Pattern: <think>content<thought>more content (streaming case)
-    // This happens when AI starts thinking, then adds <thought> mid-stream
+    // Handle case where <thought> appears inside an unclosed <think> block (streaming)
+    // Pattern: <think>content<thought>more content
+    // Just strip the <thought> wrapper, keeping content inside the think block
     result = result.replace(
         /(<think>[\s\S]*?)<thought>([\s\S]*?)(?:<\/thought>|$)/gi,
         (match, thinkContent: string, thoughtContent: string) => {

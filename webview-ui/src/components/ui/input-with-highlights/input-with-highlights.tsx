@@ -1,4 +1,4 @@
-import React, { useRef, useLayoutEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
+import React, { useRef, useLayoutEffect, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
 import type { InputWithHighlightsProps, InputWithHighlightsRef } from './types';
 import { useMentionNavigation } from './use-mention-navigation';
 import { useScrollSync } from './use-scroll-sync';
@@ -59,7 +59,9 @@ export const InputWithHighlights = forwardRef<InputWithHighlightsRef, InputWithH
         rows = 1,
         className,
         style,
-        onValueChange
+        onValueChange,
+        validWorkflowNames,
+        validMentionLabels
     }, ref) => {
         const textareaRef = useRef<HTMLTextAreaElement>(null);
         const backdropRef = useRef<HTMLDivElement>(null);
@@ -87,13 +89,21 @@ export const InputWithHighlights = forwardRef<InputWithHighlightsRef, InputWithH
             }
         }));
 
+        // Convert Map to array of keys for the navigation hook
+        const validMentionLabelsArray = useMemo(
+            () => validMentionLabels ? Array.from(validMentionLabels.keys()) : undefined,
+            [validMentionLabels]
+        );
+
         // Use custom hooks for behavior
         const { handleScroll, scrollOffset } = useScrollSync({ textareaRef });
         const { handleKeyDown, handleClick } = useMentionNavigation({
             value,
             onKeyDown,
             onValueChange,
-            textareaRef
+            textareaRef,
+            validWorkflowNames,
+            validMentionLabels: validMentionLabelsArray
         });
 
         /**
@@ -186,7 +196,11 @@ export const InputWithHighlights = forwardRef<InputWithHighlightsRef, InputWithH
                             transform: `translate(${-scrollOffset.left}px, ${-scrollOffset.top}px)`,
                         }}
                     >
-                        <HighlightRenderer value={value} />
+                        <HighlightRenderer 
+                            value={value} 
+                            validWorkflowNames={validWorkflowNames}
+                            validMentionLabels={validMentionLabels}
+                        />
                     </div>
                 </div>
 
