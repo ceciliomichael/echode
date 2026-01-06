@@ -129,6 +129,9 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
     instruction += '\n[Use <tool_results> for exact content. Stay focused.]';
   }
 
+  // Strengthen focus on the latest message to prevent regression to earlier tasks
+  instruction += '\n[IMPORTANT: This is the CURRENT task. Focus on this instruction and ignore outdated requests from previous messages.]';
+
   const finalUserMessage = buildChatMessage(
     'user',
     content + instruction,

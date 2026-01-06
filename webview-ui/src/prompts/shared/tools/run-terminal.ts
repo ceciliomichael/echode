@@ -43,6 +43,7 @@ Execute shell commands with real-time streaming output.
 CRITICAL RESTRICTIONS:
 - Use this tool ONLY when absolutely necessary for short-lived commands that complete quickly.
 - ALLOWED: npm install, npm run build, npm run lint, pip install, cargo build, go build, dotnet build, composer install, bundle install, mvn package, gradle build, make, checking versions, running tests.
+- INSTALLATION RULE: Do NOT run installation commands immediately. Always check configuration files (package.json, requirements.txt, etc.) first. If the package is already listed, DO NOT run the install command.
 - FORBIDDEN AND BLOCKED (The tool will reject these):
   * Development servers: npm run dev, npm start, yarn dev, pnpm dev, python manage.py runserver, flask run, rails server, cargo run, go run, dotnet run, php artisan serve, etc.
   * Watch modes: npm run watch, tsc --watch, nodemon, webpack --watch, gulp watch.

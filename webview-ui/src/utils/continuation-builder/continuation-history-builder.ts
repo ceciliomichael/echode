@@ -70,8 +70,12 @@ function buildNormalHistory(
   );
   continuationHistory.push(...remainingMsgResults);
 
-  // Only add user message on first iteration - subsequent iterations have it in currentMessages
-  if (isFirstIteration) {
+  // Only add user message if it's not already the last message in history
+  // This prevents duplication when currentMessages already includes the latest user prompt
+  const lastMessage = currentMessages[currentMessages.length - 1];
+  const isDuplicate = lastMessage && lastMessage.role === 'user' && lastMessage.content === userContent;
+
+  if (isFirstIteration && !isDuplicate) {
     const currentUserMessage = buildChatMessage(
       'user',
       userContent,

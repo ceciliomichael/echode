@@ -41,12 +41,28 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
   const [isSingleLine, setIsSingleLine] = useState(true);
   const displayContent = stripAttachedFileBlocks(content);
 
-  // Scroll to make edit form visible when entering edit mode
+  // Scroll to place edit form near top of viewport for maximum dropdown space
   useEffect(() => {
     if (isEditing && containerRef.current) {
       // Small delay to ensure DOM has updated
       setTimeout(() => {
-        containerRef.current?.scrollIntoView({ behavior: 'auto', block: 'center' });
+        const element = containerRef.current;
+        if (!element) return;
+        
+        // Get the scroll container (parent with overflow-y-auto)
+        const scrollContainer = element.closest('.overflow-y-auto');
+        if (scrollContainer) {
+          // Calculate position to leave ~80px margin from top
+          const elementRect = element.getBoundingClientRect();
+          const containerRect = scrollContainer.getBoundingClientRect();
+          const currentScrollTop = scrollContainer.scrollTop;
+          const targetScrollTop = currentScrollTop + (elementRect.top - containerRect.top) - 80;
+          
+          scrollContainer.scrollTop = Math.max(0, targetScrollTop);
+        } else {
+          // Fallback to scrollIntoView
+          element.scrollIntoView({ behavior: 'auto', block: 'start' });
+        }
       }, 50);
     }
   }, [isEditing]);
@@ -104,7 +120,7 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
 
   if (isEditing) {
     return (
-      <div ref={containerRef} data-message-id={messageId} className="relative z-50">
+      <div ref={containerRef} data-message-id={messageId} className="relative z-[100]">
         <MessageEditForm
           initialContent={content}
           onSubmit={handleSubmit}

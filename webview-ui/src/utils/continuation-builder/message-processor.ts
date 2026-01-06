@@ -59,6 +59,11 @@ export function processFirstMessage(
     ? summarizeToolSections(msg.content)
     : msg.content;
 
+  // If truncated, wrap in a block to distinguish it as historical context
+  if (wasTruncated && msg.role === 'user') {
+    cleanedContent = `<historical_context description="This is the original task/request from the start of the conversation. Focus on the LATEST user message at the bottom for the current instruction.">\n${cleanedContent}\n</historical_context>`;
+  }
+
   // For assistant messages, strip tool call XML for tools not available in current mode
   if (msg.role === 'assistant') {
     cleanedContent = stripUnavailableToolCalls(cleanedContent, mode);

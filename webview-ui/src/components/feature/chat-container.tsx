@@ -24,7 +24,7 @@ export function ChatContainer() {
   const { tasks, updateTodos, clearTodos } = useTodo();
   
   // Get current chat mode
-  const { mode, handleModeChange: globalHandleModeChange, setHotkeyDisabled } = useChatMode();
+  const { mode, handleModeChange: globalHandleModeChange } = useChatMode();
   
   // Per-mode model selection (each mode can have its own model)
   const { provider, model, setActiveProviderAndModel } = useChatModel(mode);
@@ -61,14 +61,10 @@ export function ChatContainer() {
   // Wrap mode change to abort any active streaming/tool execution first
   // This prevents "stuck" states when switching modes mid-execution
   const handleModeChange = useCallback((newMode: ChatMode) => {
-    abortStream();
+    // Do not abort stream on mode change - allow user to switch context for next message
+    // while current one finishes
     globalHandleModeChange(newMode);
-  }, [abortStream, globalHandleModeChange]);
-
-  // Disable mode switching hotkey (Ctrl+.) when AI is actively streaming or executing tools
-  useEffect(() => {
-    setHotkeyDisabled(isStreaming || isExecutingTool);
-  }, [isStreaming, isExecutingTool, setHotkeyDisabled]);
+  }, [globalHandleModeChange]);
 
   // Context usage tracking
   const workspace = useWorkspaceContext();
@@ -277,7 +273,7 @@ export function ChatContainer() {
           ref={scrollContainerRef}
           data-chat-scroll-container="true"
           data-chat-message-list-boundary="true"
-          className={`flex-1 ${editingMessageId ? 'overflow-y-hidden' : 'overflow-y-auto'}`}
+          className="flex-1 overflow-y-auto"
           style={{
             scrollbarGutter: 'stable',
             overflowAnchor: 'none',

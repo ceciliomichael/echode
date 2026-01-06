@@ -70,7 +70,7 @@ export function MessageEditForm({
   };
 
   return (
-    <div ref={containerRef} className="relative z-[60]">
+    <div ref={containerRef} className="relative z-[100]">
       <section
         className="w-full rounded-xl shadow-sm border p-1 transition-colors"
         style={{
