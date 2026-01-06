@@ -276,15 +276,27 @@ export function useContextMenu({
     }
 
     if (e.key === 'Enter' || e.key === 'Tab') {
-      e.preventDefault();
       const options = getContextMenuOptions(searchQuery, selectedMenuType, fileSearchResults);
-      if (options.length > 0 && selectedMenuIndex >= 0 && selectedMenuIndex < options.length) {
+      
+      // Check if there are valid selectable options
+      const hasValidOptions = options.length > 0 && 
+        options.some(opt => opt.type !== ContextMenuOptionType.NoResults);
+      
+      if (hasValidOptions && selectedMenuIndex >= 0 && selectedMenuIndex < options.length) {
         const option = options[selectedMenuIndex];
         if (option.type !== ContextMenuOptionType.NoResults) {
+          e.preventDefault();
           handleMentionSelect(option.type, option.value);
+          return true;
         }
       }
-      return true;
+      
+      // No valid options - close menu and let the message be sent
+      // (Don't prevent default, don't return true - let the keydown propagate)
+      setShowContextMenu(false);
+      setSelectedMenuType(null);
+      setCurrentTrigger(null);
+      return false;
     }
 
     return false;

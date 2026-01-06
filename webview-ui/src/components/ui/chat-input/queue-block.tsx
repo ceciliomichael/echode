@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, ChevronDown, ChevronRight, Clock, ImageIcon } from 'lucide-react';
 import type { QueuedMessage } from '../../../types/chat';
+import { Mention } from '../mention';
 
 interface QueueBlockProps {
   queuedMessages: QueuedMessage[];
@@ -88,13 +89,13 @@ export function QueueBlock({ queuedMessages, onRemove }: QueueBlockProps) {
                   {index + 1}
                 </div>
 
-                {/* Message content - full display */}
+                {/* Message content - full display with highlighted mentions */}
                 <div className="flex-1 min-w-0">
                   <p
                     className="text-sm leading-relaxed break-words"
                     style={{ color: 'var(--vscode-input-foreground)' }}
                   >
-                    {getDisplayContent(message.content)}
+                    <Mention text={getDisplayContent(message.content)} />
                   </p>
                   
                   {/* Image attachments indicator */}
