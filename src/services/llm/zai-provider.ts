@@ -52,6 +52,7 @@ export class ZaiProvider implements ILLMProvider {
     const url = `${baseURL}/chat/completions`;
 
     // Track stream state
+    let hasReceivedFirstChunk = false;
     let hasReceivedContent = false;
     let timeoutId: NodeJS.Timeout | null = null;
     const internalAbortController = new AbortController();
@@ -64,7 +65,7 @@ export class ZaiProvider implements ILLMProvider {
     // Create timeout promise
     const timeoutPromise = new Promise<never>((_, reject) => {
       timeoutId = setTimeout(() => {
-        if (!hasReceivedContent) {
+        if (!hasReceivedFirstChunk) {
           internalAbortController.abort();
           reject(new StreamingTimeoutError('No streaming data received within timeout'));
         }
@@ -113,10 +114,14 @@ export class ZaiProvider implements ILLMProvider {
         let isInThinkingBlock = false;
 
         while (true) {
-          if (combinedAborted()) break;
+          if (combinedAborted()) {
+            break;
+          }
 
           const { done, value } = await reader.read();
-          if (done) break;
+          if (done) {
+            break;
+          }
 
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split('\n');
@@ -125,9 +130,23 @@ export class ZaiProvider implements ILLMProvider {
           buffer = lines.pop() || '';
 
           for (const line of lines) {
-            if (combinedAborted()) break;
-            if (line.trim() === '') continue;
-            if (line.trim() === 'data: [DONE]') continue;
+            if (combinedAborted()) {
+              break;
+            }
+            if (line.trim() === '') {
+              continue;
+            }
+            if (line.trim() === 'data: [DONE]') {
+              continue;
+            }
+
+            if (!hasReceivedFirstChunk) {
+              hasReceivedFirstChunk = true;
+              if (timeoutId) {
+                clearTimeout(timeoutId);
+                timeoutId = null;
+              }
+            }
             
             if (line.startsWith('data: ')) {
               try {
@@ -138,16 +157,15 @@ export class ZaiProvider implements ILLMProvider {
                 const choice = chunk.choices?.[0];
                 const delta = choice?.delta;
                 
-                if (!delta) continue;
+                if (!delta) {
+                  continue;
+                }
 
                 // Handle reasoning_content (Z.ai thinking mode)
                 const reasoningContent = delta.reasoning_content;
                 
                 if (reasoningContent) {
-                  if (!hasReceivedContent) {
-                    hasReceivedContent = true;
-                    if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
-                  }
+                  hasReceivedContent = true;
 
                   if (!isInThinkingBlock) {
                     isInThinkingBlock = true;
@@ -168,10 +186,7 @@ export class ZaiProvider implements ILLMProvider {
                 // Handle regular content
                 const content = delta.content;
                 if (content) {
-                  if (!hasReceivedContent) {
-                    hasReceivedContent = true;
-                    if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
-                  }
+                  hasReceivedContent = true;
 
                   // Close thinking block before regular content
                   if (isInThinkingBlock) {
@@ -218,14 +233,20 @@ export class ZaiProvider implements ILLMProvider {
       }
 
     } catch (error) {
-      if (timeoutId) clearTimeout(timeoutId);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
        
       if (combinedAborted()) {
-        if (error instanceof StreamingTimeoutError) throw error;
+        if (error instanceof StreamingTimeoutError) {
+          throw error;
+        }
         return;
       }
 
-      if (error instanceof StreamingTimeoutError) throw error;
+      if (error instanceof StreamingTimeoutError) {
+        throw error;
+      }
 
       if (hasReceivedContent) {
         webview.webview.postMessage({
@@ -238,7 +259,9 @@ export class ZaiProvider implements ILLMProvider {
       throw error;
     } finally {
       signal.removeEventListener('abort', abortHandler);
-      if (timeoutId) clearTimeout(timeoutId);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     }
   }
 }

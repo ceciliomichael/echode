@@ -64,20 +64,31 @@ export class OpenAIProvider implements ILLMProvider {
     });
 
     // Track stream state to handle late errors gracefully
+    let hasReceivedFirstChunk = false;
     let hasReceivedContent = false;
     let timeoutId: NodeJS.Timeout | null = null;
+
+    // Internal abort controller to stop the stream on timeout
+    // This prevents duplicate responses when retry occurs
+    const internalAbortController = new AbortController();
+    const combinedAborted = () => signal.aborted || internalAbortController.signal.aborted;
+
+    // Forward external abort to internal controller
+    const abortHandler = () => internalAbortController.abort();
+    signal.addEventListener('abort', abortHandler);
 
     // Create timeout promise for first chunk
     const timeoutPromise = new Promise<never>((_, reject) => {
       timeoutId = setTimeout(() => {
-        if (!hasReceivedContent) {
+        if (!hasReceivedFirstChunk) {
+          internalAbortController.abort();
           reject(new StreamingTimeoutError('No streaming data received within timeout'));
         }
       }, timeoutMs);
     });
 
     try {
-      const stream = await this.createChatCompletionStream(client, messages, settings) as AsyncIterable<ChatCompletionChunkLike>;
+      const stream = await this.createChatCompletionStream(client, messages, settings, internalAbortController.signal) as AsyncIterable<ChatCompletionChunkLike>;
 
       // Track reasoning/thinking state
       let isInThinkingBlock = false;
@@ -85,8 +96,17 @@ export class OpenAIProvider implements ILLMProvider {
       const processStream = async () => {
         for await (const chunk of stream) {
           // Check for abort
-          if (signal.aborted) {
+          if (combinedAborted()) {
             break;
+          }
+
+          // Mark first chunk received and clear timeout (some models send metadata before content)
+          if (!hasReceivedFirstChunk) {
+            hasReceivedFirstChunk = true;
+            if (timeoutId) {
+              clearTimeout(timeoutId);
+              timeoutId = null;
+            }
           }
 
           const delta = chunk.choices[0]?.delta;
@@ -97,14 +117,7 @@ export class OpenAIProvider implements ILLMProvider {
           // Handle reasoning content
           const reasoningContent = delta.reasoning_content;
           if (reasoningContent) {
-            // Mark first chunk received and clear timeout
-            if (!hasReceivedContent) {
-              hasReceivedContent = true;
-              if (timeoutId) {
-                clearTimeout(timeoutId);
-                timeoutId = null;
-              }
-            }
+            hasReceivedContent = true;
 
             // Start thinking block if not already in one
             if (!isInThinkingBlock) {
@@ -127,14 +140,7 @@ export class OpenAIProvider implements ILLMProvider {
           // Handle regular content
           const content = delta.content;
           if (content) {
-            // Mark first chunk received and clear timeout
-            if (!hasReceivedContent) {
-              hasReceivedContent = true;
-              if (timeoutId) {
-                clearTimeout(timeoutId);
-                timeoutId = null;
-              }
-            }
+            hasReceivedContent = true;
 
             // Close thinking block if we were in one
             if (isInThinkingBlock) {
@@ -172,7 +178,7 @@ export class OpenAIProvider implements ILLMProvider {
       ]);
 
       // Signal completion only if not aborted
-      if (!signal.aborted) {
+      if (!combinedAborted()) {
         webview.webview.postMessage({
           type: 'chatStreamComplete',
           requestId
@@ -184,8 +190,11 @@ export class OpenAIProvider implements ILLMProvider {
         clearTimeout(timeoutId);
       }
 
-      if (signal.aborted) {
+      if (combinedAborted()) {
         // Stream was aborted, don't throw
+        if (error instanceof StreamingTimeoutError) {
+          throw error;
+        }
         return;
       }
 
@@ -204,6 +213,7 @@ export class OpenAIProvider implements ILLMProvider {
 
       throw new Error(`OpenAI API Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
+      signal.removeEventListener('abort', abortHandler);
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
@@ -214,6 +224,7 @@ export class OpenAIProvider implements ILLMProvider {
     client: OpenAI,
     messages: ChatMessage[],
     settings: ChatStreamSettings,
+    signal: AbortSignal,
   ) {
     const basePayload = {
       model: settings.model,
@@ -238,11 +249,13 @@ export class OpenAIProvider implements ILLMProvider {
     try {
       return await client.chat.completions.create(
         maxTokensPayload as unknown as OpenAI.ChatCompletionCreateParams,
+        { signal },
       );
     } catch (error: unknown) {
       if (this.isMaxTokensUnsupportedError(error)) {
         return await client.chat.completions.create(
           maxCompletionTokensPayload as unknown as OpenAI.ChatCompletionCreateParams,
+          { signal },
         );
       }
       throw error;

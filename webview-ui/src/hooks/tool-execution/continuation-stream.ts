@@ -27,6 +27,8 @@ const MAX_RETRY_DELAY_MS = 5000;
 export function isRetryableError(errorMessage: string): boolean {
   const lowerError = errorMessage.toLowerCase();
   return (
+    lowerError.includes('streamingtimeouterror') ||
+    lowerError.includes('no streaming data received within timeout') ||
     lowerError.includes('http') ||
     lowerError.includes('500') ||
     lowerError.includes('502') ||

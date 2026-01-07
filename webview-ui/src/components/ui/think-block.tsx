@@ -145,7 +145,6 @@ export const ThinkBlock = memo(ThinkBlockComponent, (prevProps, nextProps) => {
   if (prevProps.isStreaming !== nextProps.isStreaming) return false;
   if (prevProps.isClosed !== nextProps.isClosed) return false;
   if (prevProps.messageId !== nextProps.messageId) return false;
-  // Only compare content if not streaming (during streaming, content always changes)
-  if (!nextProps.isStreaming && prevProps.content !== nextProps.content) return false;
+  if (prevProps.content !== nextProps.content) return false;
   return true;
 });

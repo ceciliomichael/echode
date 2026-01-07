@@ -18,6 +18,8 @@ export class UnifiedChatService implements IChatService {
     controller: ReadableStreamDefaultController<string>;
     resolve: () => void;
     reject: (error: Error) => void;
+    firstChunkTimeoutId: ReturnType<typeof setTimeout> | null;
+    hasReceivedFirstChunk: boolean;
   }>();
   private messageHandler: ((event: MessageEvent) => void) | null = null;
   private compressionService: CompressionService;
@@ -81,12 +83,23 @@ export class UnifiedChatService implements IChatService {
         switch (message.type) {
           case 'chatStreamChunk': {
             // Stream chunk from backend
+            if (!pending.hasReceivedFirstChunk) {
+              pending.hasReceivedFirstChunk = true;
+              if (pending.firstChunkTimeoutId) {
+                clearTimeout(pending.firstChunkTimeoutId);
+                pending.firstChunkTimeoutId = null;
+              }
+            }
             pending.controller.enqueue(message.chunk);
             break;
           }
 
           case 'chatStreamComplete': {
             // Stream complete
+            if (pending.firstChunkTimeoutId) {
+              clearTimeout(pending.firstChunkTimeoutId);
+              pending.firstChunkTimeoutId = null;
+            }
             pending.controller.close();
             pending.resolve();
             this.pendingStreams.delete(message.requestId);
@@ -96,6 +109,10 @@ export class UnifiedChatService implements IChatService {
           case 'chatStreamError': {
             // Stream error - use controller.error() to properly propagate errors
             const error = new Error(message.error);
+            if (pending.firstChunkTimeoutId) {
+              clearTimeout(pending.firstChunkTimeoutId);
+              pending.firstChunkTimeoutId = null;
+            }
             pending.controller.error(error);
             pending.reject(error);
             this.pendingStreams.delete(message.requestId);
@@ -125,6 +142,8 @@ export class UnifiedChatService implements IChatService {
     };
     const effectiveProvider = configOverride?.provider || this.provider;
 
+    const firstChunkTimeoutMs = effectiveConfig.streamingTimeout ?? 5000;
+
     // Create a ReadableStream for streaming chunks
     const stream = new ReadableStream<string>({
       start: (controller) => {
@@ -132,15 +151,43 @@ export class UnifiedChatService implements IChatService {
           this.pendingStreams.set(requestId, {
             controller,
             resolve,
-            reject
+            reject,
+            firstChunkTimeoutId: null,
+            hasReceivedFirstChunk: false,
           });
         });
+
+        // Webview-side watchdog: if backend never delivers a first chunk (e.g., stuck retrying),
+        // terminate so upper layers can retry and UI doesn't get stuck in loading.
+        const pendingOnStart = this.pendingStreams.get(requestId);
+        if (pendingOnStart) {
+          pendingOnStart.firstChunkTimeoutId = setTimeout(() => {
+            const pendingNow = this.pendingStreams.get(requestId);
+            if (!pendingNow || pendingNow.hasReceivedFirstChunk) {
+              return;
+            }
+
+            const error = new Error('No streaming data received within timeout');
+            pendingNow.controller.error(error);
+            pendingNow.reject(error);
+            this.pendingStreams.delete(requestId);
+
+            window.vscode.postMessage({
+              type: 'chatStreamAbort',
+              requestId,
+            });
+          }, firstChunkTimeoutMs);
+        }
 
         // Handle abort signal
         if (signal) {
           signal.addEventListener('abort', () => {
             const pending = this.pendingStreams.get(requestId);
             if (pending) {
+              if (pending.firstChunkTimeoutId) {
+                clearTimeout(pending.firstChunkTimeoutId);
+                pending.firstChunkTimeoutId = null;
+              }
               pending.controller.close();
               this.pendingStreams.delete(requestId);
               // Notify backend to cancel stream
