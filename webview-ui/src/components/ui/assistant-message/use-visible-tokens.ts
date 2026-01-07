@@ -19,10 +19,6 @@ export function useVisibleTokens(content: string, messageId: string) {
       if (token.type === 'text' && token.content.trim() === '') {
         return false;
       }
-      // Hide think/thinking blocks until they have actual content
-      if (token.type === 'think' && token.content.trim() === '') {
-        return false;
-      }
       // For tool blocks, show as soon as tool name is known (to display loading state)
       if (token.type === 'tool') {
         // Must have a valid tool name to display

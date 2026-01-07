@@ -28,7 +28,6 @@ export {
 
 export {
   cleanToolCallContent,
-  removeThinkBlocks,
   removeCodeBlocks,
   preprocessContent,
 } from './content-cleaner';

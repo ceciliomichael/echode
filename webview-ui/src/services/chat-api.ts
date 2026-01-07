@@ -5,6 +5,7 @@ import { getProviderDefaults, isCustomProvider } from '../types/api-settings';
 import type { Provider } from '../types/api-settings';
 import { UnifiedChatService } from './unified-chat-service';
 import { getToolsForMode } from '../lib/tool-config';
+import type { ChatStreamEvent } from './base-chat-service';
 
 export interface LockedModelConfig {
   provider: Provider;
@@ -27,7 +28,7 @@ export class ChatApiService {
     signal?: AbortSignal,
     mode: ChatMode = 'agent',
     lockedConfig?: LockedModelConfig
-  ): AsyncGenerator<string, void, unknown> {
+  ): AsyncGenerator<ChatStreamEvent, void, unknown> {
     const settings = storageService.getSettings();
 
     // Use locked config if provided (for continuations), otherwise get from storage

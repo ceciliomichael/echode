@@ -7,6 +7,8 @@ interface LoadingIndicatorProps {
   tokens: ContentToken[];
   visibleTokens: ContentToken[];
   toolExecutions?: Map<string, ToolExecutionState>;
+  hasActiveThinkingAtBottom?: boolean;
+  isLastMessage?: boolean;
 }
 
 /**
@@ -18,8 +20,11 @@ export function LoadingIndicator({
   tokens,
   visibleTokens,
   toolExecutions,
+  hasActiveThinkingAtBottom,
+  isLastMessage,
 }: LoadingIndicatorProps) {
-  if (!isStreaming) {
+  // If the last visible item is an active ThinkBlock (shimmering), it acts as the progress indicator.
+  if (hasActiveThinkingAtBottom) {
     return null;
   }
 
@@ -56,15 +61,34 @@ export function LoadingIndicator({
     return null;
   }
 
+  const lastToken = visibleTokens.length > 0 ? visibleTokens[visibleTokens.length - 1] : null;
+  const lastToolStatus =
+    lastToken?.type === 'tool'
+      ? toolExecutions?.get(lastToken.toolExecutionId)?.status
+      : undefined;
+
+  // When a tool finishes, there's often a short gap before the AI continuation stream starts.
+  // During that gap, isStreaming can be false; still show dots so the assistant bubble doesn't look empty.
+  const isWaitingAfterTool =
+    !isStreaming &&
+    Boolean(isLastMessage) &&
+    !hasActiveToolExecutions &&
+    lastToken?.type === 'tool' &&
+    lastToken.isClosed &&
+    (lastToolStatus === 'completed' || lastToolStatus === 'error' || lastToolStatus === 'aborted');
+
+  if (!isStreaming && !isWaitingAfterTool) {
+    return null;
+  }
+
   // If there are visible tokens, check the last one
-  if (visibleTokens.length > 0) {
-    const lastToken = visibleTokens[visibleTokens.length - 1];
+  if (visibleTokens.length > 0 && lastToken) {
 
     // PRIORITY: If there are filtered tool blocks (streaming but not yet closed),
     // show loading dots regardless of what the last visible token is
     if (hasFilteredToolBlocks) {
       return (
-        <div className="mt-2" style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
+        <div className={isWaitingAfterTool ? '' : 'mt-2'} style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
           <LoadingDots label="Thinking" />
         </div>
       );
@@ -110,7 +134,7 @@ export function LoadingIndicator({
           if (allFilesCompleted) {
             return (
               <div
-                className="mt-2"
+                className={isWaitingAfterTool ? '' : 'mt-2'}
                 style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}
               >
                 <LoadingDots label="Thinking" />
@@ -126,7 +150,7 @@ export function LoadingIndicator({
       if (status === 'completed' || status === 'error' || status === 'aborted') {
         return (
           <div
-            className="mt-2"
+            className={isWaitingAfterTool ? '' : 'mt-2'}
             style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}
           >
             <LoadingDots label="Thinking" />
@@ -135,19 +159,8 @@ export function LoadingIndicator({
       }
     }
 
-    // Case 2: Think block - show dots after thinking has completed (closed)
-    // and no tools are yet visible. While the think block itself is streaming,
-    // it already acts as the primary progress indicator so we avoid extra dots.
-    if (lastToken.type === 'think' && lastToken.isClosed && !hasVisibleToolToken) {
-      return (
-        <div
-          className="mt-2"
-          style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}
-        >
-          <LoadingDots label="Thinking" />
-        </div>
-      );
-    }
+    // Note: Think blocks are no longer represented as tokens.
+    // If reasoning is present, hasReasoningContent short-circuits earlier.
   } else if (tokens.length > 0) {
     // Case 4: Have tokens but all filtered (incomplete tool blocks or empty think) - show loading dots
     return (

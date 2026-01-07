@@ -5,6 +5,8 @@ export interface ChatSessionMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  reasoningBlocks?: string[];
+  reasoningContent?: string;
   timestamp: string | Date;
   toolExecutions?: Array<[string, ToolExecutionState]>;
   hidden?: boolean;

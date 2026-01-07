@@ -56,6 +56,7 @@ function MessageBubbleComponent({ message, onEdit, onUpdate, isEditing, onEditSt
       <div className="w-full">
         <AssistantMessage
           content={message.content}
+          reasoningBlocks={message.reasoningBlocks}
           messageId={message.id}
           isStreaming={isStreaming}
           isLastMessage={isLastMessage}

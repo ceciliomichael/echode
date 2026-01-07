@@ -5,7 +5,6 @@ import type { ContextSettings } from '../types/api-settings';
 import { DEFAULT_CONTEXT_SETTINGS } from '../types/api-settings';
 import { formatToolResultForAI } from '../utils/tool-execution-helpers';
 import { stripUnavailableToolCalls, isToolAvailableInMode } from '../utils/tool-history-filter';
-import { removeThinkBlocks } from '../utils/think-block-parser';
 
 /**
  * Estimate token count from text using ~4 characters per token
@@ -75,9 +74,7 @@ export function useContextUsage({
         compressedHistoryTokens += contentTokens;
       } else {
         // Apply filtering to content to match what is sent to LLM
-        // Remove think blocks first, then strip unavailable tool calls (mirrors chat-history-builder.ts)
-        const contentWithoutThink = removeThinkBlocks(message.content);
-        const filteredContent = stripUnavailableToolCalls(contentWithoutThink, mode);
+        const filteredContent = stripUnavailableToolCalls(message.content, mode);
         historyTokens += estimateTokens(filteredContent);
       }
 

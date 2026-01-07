@@ -111,7 +111,6 @@ export class ZaiProvider implements ILLMProvider {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
-        let isInThinkingBlock = false;
 
         while (true) {
           if (combinedAborted()) {
@@ -125,7 +124,6 @@ export class ZaiProvider implements ILLMProvider {
 
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split('\n');
-          
           // Keep the last incomplete line in buffer
           buffer = lines.pop() || '';
 
@@ -154,8 +152,7 @@ export class ZaiProvider implements ILLMProvider {
                 const chunk = JSON.parse(jsonStr);
 
                 // Extract delta from the raw JSON - no SDK filtering
-                const choice = chunk.choices?.[0];
-                const delta = choice?.delta;
+                const delta = chunk.choices?.[0].delta;
                 
                 if (!delta) {
                   continue;
@@ -167,17 +164,8 @@ export class ZaiProvider implements ILLMProvider {
                 if (reasoningContent) {
                   hasReceivedContent = true;
 
-                  if (!isInThinkingBlock) {
-                    isInThinkingBlock = true;
-                    webview.webview.postMessage({
-                      type: 'chatStreamChunk',
-                      requestId,
-                      chunk: '<' + 'thinking>'
-                    });
-                  }
-
                   webview.webview.postMessage({
-                    type: 'chatStreamChunk',
+                    type: 'chatStreamReasoningChunk',
                     requestId,
                     chunk: reasoningContent
                   });
@@ -187,16 +175,6 @@ export class ZaiProvider implements ILLMProvider {
                 const content = delta.content;
                 if (content) {
                   hasReceivedContent = true;
-
-                  // Close thinking block before regular content
-                  if (isInThinkingBlock) {
-                    isInThinkingBlock = false;
-                    webview.webview.postMessage({
-                      type: 'chatStreamChunk',
-                      requestId,
-                      chunk: '</' + 'thinking>'
-                    });
-                  }
 
                   webview.webview.postMessage({
                     type: 'chatStreamChunk',
@@ -213,14 +191,7 @@ export class ZaiProvider implements ILLMProvider {
           }
         }
         
-        // Close thinking block if still open at end of stream
-        if (isInThinkingBlock) {
-          webview.webview.postMessage({
-            type: 'chatStreamChunk',
-            requestId,
-            chunk: '</' + 'thinking>'
-          });
-        }
+        // No need to close thinking block anymore
       })();
 
       await Promise.race([fetchPromise, timeoutPromise]);

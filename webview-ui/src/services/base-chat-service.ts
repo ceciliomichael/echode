@@ -1,5 +1,9 @@
 import type { ChatMessage } from '../types/chat-api';
 
+export type ChatStreamEvent =
+  | { type: 'content'; chunk: string }
+  | { type: 'reasoning'; chunk: string };
+
 /**
  * Configuration for chat service initialization
  */
@@ -32,5 +36,5 @@ export interface StreamChatParams {
  * Base interface for chat service implementations
  */
 export interface IChatService {
-  streamChat(params: StreamChatParams): AsyncGenerator<string, void, unknown>;
+  streamChat(params: StreamChatParams): AsyncGenerator<ChatStreamEvent, void, unknown>;
 }

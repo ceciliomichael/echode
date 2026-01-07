@@ -55,7 +55,9 @@ export class CompressionService {
     // 5. Aggregate the stream chunks
     const chunks: string[] = [];
     for await (const chunk of stream) {
-      chunks.push(chunk);
+      if (chunk.type === 'content') {
+        chunks.push(chunk.chunk);
+      }
     }
 
     return chunks.join('');

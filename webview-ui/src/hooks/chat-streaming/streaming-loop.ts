@@ -211,6 +211,7 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
   } = ctx;
 
   let assistantContent = '';
+  const assistantReasoningBlocks: string[] = [''];
   let pendingUpdate = false;
 
   // Batched update function for smooth 60fps rendering
@@ -218,7 +219,7 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
     setMessages((prev) =>
       prev.map((msg) =>
         msg.id === assistantMessageId
-          ? { ...msg, content: assistantContent }
+          ? { ...msg, content: assistantContent, reasoningBlocks: [...assistantReasoningBlocks] }
           : msg
       )
     );
@@ -237,6 +238,7 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
       // Reset content on retry
       if (retryCount > 0) {
         assistantContent = '';
+        assistantReasoningBlocks[0] = '';
         // Update UI to clear error message
         updateUI();
       }
@@ -247,7 +249,7 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
       const parallelExecutions: Map<number, Promise<ParallelToolResult>> = new Map();
 
       console.log('[StreamingLoop] STARTING chatApi.streamChat call with PARALLEL tool execution');
-      for await (const chunk of chatApi.streamChat(finalChatHistory, abortController.signal, mode, lockedConfig)) {
+      for await (const event of chatApi.streamChat(finalChatHistory, abortController.signal, mode, lockedConfig)) {
 
         if (isStoppingRef.current) {
           streamSuccess = true;
@@ -259,7 +261,11 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
           break;
         }
 
-        assistantContent += chunk;
+        if (event.type === 'content') {
+          assistantContent += event.chunk;
+        } else if (event.type === 'reasoning') {
+          assistantReasoningBlocks[assistantReasoningBlocks.length - 1] += event.chunk;
+        }
         if (!hasStreamedContentRef.current && assistantContent.length > 0) {
           hasStreamedContentRef.current = true;
         }

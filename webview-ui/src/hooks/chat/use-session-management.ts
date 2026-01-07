@@ -148,15 +148,21 @@ export function useSessionManagement({
         }
 
         // Helper to convert session messages to Message type
-        const convertMessages = (msgs: typeof session.messages): Message[] => msgs.map(msg => ({
-          id: msg.id,
-          role: msg.role,
-          content: msg.content,
-          timestamp: new Date(msg.timestamp),
-          hidden: msg.hidden,
-          attachments: msg.attachments,
-          toolExecutions: msg.toolExecutions ? new Map(
-            msg.toolExecutions.map(([id, execution]) => {
+        const convertMessages = (msgs: typeof session.messages): Message[] => msgs.map(msg => {
+          const reasoningBlocks =
+            msg.reasoningBlocks ??
+            (msg.reasoningContent && msg.reasoningContent.trim() ? [msg.reasoningContent] : undefined);
+
+          return {
+            id: msg.id,
+            role: msg.role,
+            content: msg.content,
+            reasoningBlocks,
+            timestamp: new Date(msg.timestamp),
+            hidden: msg.hidden,
+            attachments: msg.attachments,
+            toolExecutions: msg.toolExecutions ? new Map(
+              msg.toolExecutions.map(([id, execution]) => {
               let fixedExecution = execution;
 
               // Fix interrupted executions that have results
@@ -167,13 +173,15 @@ export function useSessionManagement({
 
               // Fix plan tools that should be awaiting_user but were saved with wrong status
               // This handles cases where the tool has awaitsUserAction but status wasn't updated
-              const resultData = fixedExecution.result?.data as any;
+              const resultData = fixedExecution.result?.data as Record<string, unknown> | undefined;
               const isPlanTool = fixedExecution.toolName === 'plan';
-              const hasUserAction = !!resultData?.userAction;
+              const hasUserAction = Boolean(resultData && 'userAction' in resultData && resultData.userAction);
               
               // Check if this is a plan tool in a mode that requires user action
-              const executionMode = resultData?.mode || fixedExecution.parameters?.mode;
-              const actionType = resultData?.actionType;
+              const executionMode =
+                (resultData && 'mode' in resultData ? (resultData.mode as string | undefined) : undefined) ||
+                (fixedExecution.parameters?.mode as string | undefined);
+              const actionType = resultData && 'actionType' in resultData ? (resultData.actionType as string | undefined) : undefined;
               
               // Check both mode and actionType to be more robust
               const isInteractivePlanMode = isPlanTool && (
@@ -182,7 +190,8 @@ export function useSessionManagement({
               );
               
               // Check if explicitly marked as awaiting user action
-              const explicitlyAwaitsUser = resultData?.awaitsUserAction === true;
+              const explicitlyAwaitsUser =
+                Boolean(resultData && 'awaitsUserAction' in resultData && resultData.awaitsUserAction === true);
 
               // If it should await user action AND hasn't been acted upon yet, force status
               if ((isInteractivePlanMode || explicitlyAwaitsUser) && !hasUserAction && fixedExecution.status !== 'awaiting_user') {
@@ -190,9 +199,10 @@ export function useSessionManagement({
               }
 
               return [id, fixedExecution];
-            })
-          ) : undefined,
-        }));
+              })
+            ) : undefined,
+          };
+        });
 
         setMessages(convertMessages(session.messages));
       } else if (message.type === 'sessionDeleted' && message.sessionId) {

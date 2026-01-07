@@ -237,17 +237,30 @@ export async function runContinuationStream(config: ContinuationStreamConfig): P
   } = config;
 
   let continuationContent = assistantContent;
+  const continuationReasoningBlocks: string[] = [''];
+  let baseReasoningBlocks: string[] | null = null;
   let pendingUpdate = false;
   let retryCount = 0;
   let streamSuccess = false;
 
   const updateUI = () => {
     setMessages((prev) =>
-      prev.map((msg) =>
-        msg.id === assistantMessageId
-          ? { ...msg, content: continuationContent }
-          : msg
-      )
+      prev.map((msg) => {
+        if (msg.id !== assistantMessageId) {
+          return msg;
+        }
+
+        // Capture the pre-continuation reasoning blocks once so we don't re-append on every frame.
+        if (!baseReasoningBlocks) {
+          baseReasoningBlocks = msg.reasoningBlocks ? [...msg.reasoningBlocks] : [];
+        }
+
+        return {
+          ...msg,
+          content: continuationContent,
+          reasoningBlocks: baseReasoningBlocks.concat(continuationReasoningBlocks),
+        };
+      })
     );
     pendingUpdate = false;
   };
@@ -260,6 +273,9 @@ export async function runContinuationStream(config: ContinuationStreamConfig): P
       // Reset continuation content on retry (keep original assistant content)
       if (retryCount > 0) {
         continuationContent = assistantContent;
+
+        // Reset this continuation's reasoning block as well
+        continuationReasoningBlocks[0] = '';
       }
 
       // Track parallel executions (like in streaming-loop.ts)
@@ -277,7 +293,11 @@ export async function runContinuationStream(config: ContinuationStreamConfig): P
           break;
         }
 
-        continuationContent += chunk;
+        if (chunk.type === 'content') {
+          continuationContent += chunk.chunk;
+        } else if (chunk.type === 'reasoning') {
+          continuationReasoningBlocks[continuationReasoningBlocks.length - 1] += chunk.chunk;
+        }
 
         // Check for tool blocks in the NEW content only (after the previous assistant content)
         const newContent = continuationContent.slice(assistantContent.length);

@@ -15,6 +15,7 @@ export interface Message {
   id: string;
   role: MessageRole;
   content: string;
+  reasoningBlocks?: string[];
   timestamp: Date;
   toolExecutions?: Map<string, ToolExecutionState>;
   hidden?: boolean;

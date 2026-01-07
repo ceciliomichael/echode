@@ -1,4 +1,4 @@
-import type { IChatService, ChatServiceConfig, StreamChatParams } from './base-chat-service';
+import type { IChatService, ChatServiceConfig, StreamChatParams, ChatStreamEvent } from './base-chat-service';
 import type { Provider } from '../types/api-settings';
 import type { Message } from '../types/chat';
 import { CompressionService } from './compression/compression-service';
@@ -15,7 +15,7 @@ export class UnifiedChatService implements IChatService {
   private provider: Provider;
   private requestCounter = 0;
   private pendingStreams = new Map<number, {
-    controller: ReadableStreamDefaultController<string>;
+    controller: ReadableStreamDefaultController<ChatStreamEvent>;
     resolve: () => void;
     reject: (error: Error) => void;
     firstChunkTimeoutId: ReturnType<typeof setTimeout> | null;
@@ -90,7 +90,20 @@ export class UnifiedChatService implements IChatService {
                 pending.firstChunkTimeoutId = null;
               }
             }
-            pending.controller.enqueue(message.chunk);
+            pending.controller.enqueue({ type: 'content', chunk: message.chunk });
+            break;
+          }
+
+          case 'chatStreamReasoningChunk': {
+            // Reasoning chunk from backend
+            if (!pending.hasReceivedFirstChunk) {
+              pending.hasReceivedFirstChunk = true;
+              if (pending.firstChunkTimeoutId) {
+                clearTimeout(pending.firstChunkTimeoutId);
+                pending.firstChunkTimeoutId = null;
+              }
+            }
+            pending.controller.enqueue({ type: 'reasoning', chunk: message.chunk });
             break;
           }
 
@@ -128,7 +141,7 @@ export class UnifiedChatService implements IChatService {
   /**
    * Stream chat completion through VSCode extension backend
    */
-  async *streamChat({ messages, signal, configOverride }: StreamChatParams): AsyncGenerator<string, void, unknown> {
+  async *streamChat({ messages, signal, configOverride }: StreamChatParams): AsyncGenerator<ChatStreamEvent, void, unknown> {
     if (typeof window === 'undefined' || !window.vscode) {
       throw new Error('VSCode API not available');
     }
@@ -145,7 +158,7 @@ export class UnifiedChatService implements IChatService {
     const firstChunkTimeoutMs = effectiveConfig.streamingTimeout ?? 5000;
 
     // Create a ReadableStream for streaming chunks
-    const stream = new ReadableStream<string>({
+    const stream = new ReadableStream<ChatStreamEvent>({
       start: (controller) => {
         const streamPromise = new Promise<void>((resolve, reject) => {
           this.pendingStreams.set(requestId, {

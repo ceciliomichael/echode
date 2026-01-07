@@ -1,4 +1,3 @@
-import { ThinkBlock } from '../think-block';
 import { ToolBlock } from '../tool-block';
 import { MermaidBlock } from '../mermaid-block';
 import { StreamingText } from '../streaming-text';
@@ -9,7 +8,6 @@ import type { ContentToken } from '../../../utils/content-tokenizer';
 
 interface AssistantMessageItemProps {
   token: ContentToken;
-  prevToken: ContentToken | null;
   index: number;
   messageId: string;
   isStreaming: boolean;
@@ -17,6 +15,7 @@ interface AssistantMessageItemProps {
   toolExecutions?: Map<string, ToolExecutionState>;
   mode?: ChatMode;
   contentMaxWidth: string;
+  marginTop?: string;
 }
 
 /**
@@ -25,7 +24,6 @@ interface AssistantMessageItemProps {
  */
 export function AssistantMessageItem({
   token,
-  prevToken,
   index,
   messageId,
   isStreaming,
@@ -33,31 +31,10 @@ export function AssistantMessageItem({
   toolExecutions,
   mode,
   contentMaxWidth,
+  marginTop: customMarginTop, // Rename to avoid conflict
 }: AssistantMessageItemProps) {
   // Margin logic: consistent spacing for all content types
-  const marginTop = index === 0 ? '0' : '0.75rem';
-
-  // Think block
-  if (token.type === 'think') {
-    return (
-      <div
-        key={`think-${messageId}-${token.index}`}
-        style={{
-          marginTop,
-          paddingLeft: '1.25rem',
-          paddingRight: '1.25rem',
-          maxWidth: contentMaxWidth,
-        }}
-      >
-        <ThinkBlock
-          content={token.content}
-          messageId={`${messageId}-${token.index}`}
-          isStreaming={isStreaming && !token.isClosed}
-          isClosed={token.isClosed}
-        />
-      </div>
-    );
-  }
+  const marginTop = customMarginTop ?? (index === 0 ? '0' : '0.75rem');
 
   // Tool block
   if (token.type === 'tool') {
@@ -155,8 +132,7 @@ export function AssistantMessageItem({
     // visibleTokens already filtered out empty text, but double check just in case
     if (!token.content.trim()) return null;
 
-    // Reduce spacing when text follows a think block for tighter visual flow
-    const textMarginTop = prevToken?.type === 'think' ? '0.1rem' : marginTop;
+    const textMarginTop = marginTop;
 
     const sanitizedContent = sanitizeAssistantText(token.content);
 

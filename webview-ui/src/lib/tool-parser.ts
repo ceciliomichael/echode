@@ -136,21 +136,12 @@ export function trimToLastCompleteToolBlock(content: string): string {
   }
 
   if (lastValidBlock) {
-    // Find the end of the last thinking block in original content
-    let searchStart = 0;
-    for (const tag of ['</thinking>', '</think>']) {
-      const idx = content.lastIndexOf(tag);
-      if (idx !== -1 && idx + tag.length > searchStart) {
-        searchStart = idx + tag.length;
-      }
-    }
-
-    // Find all function_calls blocks AFTER thinking blocks in original content
+    // Find all function_calls blocks in original content
     // Use balanced matching to handle nested function_calls inside parameter values
     const openTag = '<function_calls>';
     const closingTag = '</function_calls>';
     let lastClosePos = -1;
-    let searchPos = searchStart;
+    let searchPos = 0;
 
     while (searchPos < content.length) {
       const openPos = content.indexOf(openTag, searchPos);
@@ -190,31 +181,13 @@ export function trimToFirstCompleteToolBlock(content: string): string {
     if (parsedBlocks.length > 0) {
       // Found a valid tool block in preprocessed content
       // Find where this block's closing tag appears in original content
-      // We need to find it AFTER any thinking blocks
       const closingTag = '</function_calls>';
 
-      // Find the end of the last thinking block in original content
-      let searchStart = 0;
-      const thinkEndMatch = content.match(/<\/thinking>|<\/think>/g);
-      if (thinkEndMatch) {
-        // Find the last occurrence
-        let lastThinkEnd = -1;
-        for (const tag of ['</thinking>', '</think>']) {
-          const idx = content.lastIndexOf(tag);
-          if (idx > lastThinkEnd) {
-            lastThinkEnd = idx + tag.length;
-          }
-        }
-        if (lastThinkEnd > 0) {
-          searchStart = lastThinkEnd;
-        }
-      }
-
-      // Find the closing tag of the first real function_calls after thinking
-      const openTagAfterThink = content.indexOf('<function_calls>', searchStart);
-      if (openTagAfterThink !== -1) {
+      // Find the closing tag of the first real function_calls
+      const openTagPos = content.indexOf('<function_calls>');
+      if (openTagPos !== -1) {
         // Use balanced tag matching to find the correct closing tag
-        const openTagEnd = openTagAfterThink + '<function_calls>'.length;
+        const openTagEnd = openTagPos + '<function_calls>'.length;
         const closePos = findMatchingClosingTag(content, openTagEnd, '<function_calls>', closingTag);
         if (closePos !== -1) {
           return content.slice(0, closePos + closingTag.length);

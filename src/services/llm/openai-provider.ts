@@ -90,9 +90,6 @@ export class OpenAIProvider implements ILLMProvider {
     try {
       const stream = await this.createChatCompletionStream(client, messages, settings, internalAbortController.signal) as AsyncIterable<ChatCompletionChunkLike>;
 
-      // Track reasoning/thinking state
-      let isInThinkingBlock = false;
-
       const processStream = async () => {
         for await (const chunk of stream) {
           // Check for abort
@@ -119,19 +116,9 @@ export class OpenAIProvider implements ILLMProvider {
           if (reasoningContent) {
             hasReceivedContent = true;
 
-            // Start thinking block if not already in one
-            if (!isInThinkingBlock) {
-              isInThinkingBlock = true;
-              webview.webview.postMessage({
-                type: 'chatStreamChunk',
-                requestId,
-                chunk: '<thinking>'
-              });
-            }
-
-            // Send reasoning content inside thinking block
+            // Send reasoning content separately (do not inject <thinking> tags into content)
             webview.webview.postMessage({
-              type: 'chatStreamChunk',
+              type: 'chatStreamReasoningChunk',
               requestId,
               chunk: reasoningContent
             });
@@ -142,16 +129,6 @@ export class OpenAIProvider implements ILLMProvider {
           if (content) {
             hasReceivedContent = true;
 
-            // Close thinking block if we were in one
-            if (isInThinkingBlock) {
-              isInThinkingBlock = false;
-              webview.webview.postMessage({
-                type: 'chatStreamChunk',
-                requestId,
-                chunk: '</thinking>'
-              });
-            }
-
             // Send regular content
             webview.webview.postMessage({
               type: 'chatStreamChunk',
@@ -159,15 +136,6 @@ export class OpenAIProvider implements ILLMProvider {
               chunk: content
             });
           }
-        }
-
-        // Close thinking block if stream ends while in thinking
-        if (isInThinkingBlock) {
-          webview.webview.postMessage({
-            type: 'chatStreamChunk',
-            requestId,
-            chunk: '</thinking>'
-          });
         }
       };
 
