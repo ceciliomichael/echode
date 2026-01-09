@@ -66,7 +66,8 @@ export function useCompressionHandler({
         apiKey = settings.apiKey || '';
       }
       
-      if (!apiKey && compressionProvider !== 'qwen-code' && compressionProvider !== 'vscode-lm') {
+      // Allow empty API keys for custom providers (local models), qwen-code (OAuth), and vscode-lm
+      if (!apiKey && !isCustomProvider(compressionProvider) && compressionProvider !== 'qwen-code' && compressionProvider !== 'vscode-lm') {
         throw new Error(`API key not configured for ${compressionProvider}`);
       }
 
