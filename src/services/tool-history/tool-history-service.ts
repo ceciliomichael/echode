@@ -147,7 +147,6 @@ export class ToolHistoryService {
       'list_files',
       'grep_search',
       'glob_search',
-      'todo_read',
       'echo_search',
       'get_diagnostics',
     ];

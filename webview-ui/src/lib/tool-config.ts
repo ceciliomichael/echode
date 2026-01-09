@@ -28,7 +28,6 @@ export const PLAN_MODE_TOOL_IDS = [
   'glob_search',
   'echo_search',
   'todo_write',
-  'todo_read',
   'plan',
 ] as const;
 
@@ -73,7 +72,6 @@ const STANDARD_TOOL_IDS = new Set([
   'glob_search',
   'delete_file',
   'todo_write',
-  'todo_read',
   'apply_diff',
   'get_diagnostics',
   'echo_search',

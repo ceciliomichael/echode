@@ -68,3 +68,16 @@ export interface MermaidThemeConfig {
   signalColor: string;
   signalTextColor: string;
 }
+
+/**
+ * Mermaid parse result with success property from mermaid.parse()
+ * Used to validate diagram syntax before rendering (Mermaid v11.x)
+ */
+export interface MermaidParseResult {
+  success: boolean;
+  error?: {
+    message: string;
+    str?: string;
+    hash?: string;
+  };
+}

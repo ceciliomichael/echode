@@ -70,9 +70,20 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
     // Strip reasoning blocks from message content
     let processedContent = removeThinkBlocks(msg.content);
 
+    const historicalWrapperPrefix = '<historical_context description="Previous conversation context. The current instruction is the final user message at the bottom.">\n';
+    const historicalWrapperSuffix = '\n</historical_context>';
+
     // For assistant messages, strip tool call XML for tools not available in current mode
     if (msg.role === 'assistant') {
       processedContent = stripUnavailableToolCalls(processedContent, mode);
+      processedContent = processedContent
+        .replace(/<function_calls>[\s\S]*?<\/function_calls>/gi, '[Tool calls executed - see <tool_results>]')
+        .trim();
+    }
+
+    // Treat all previous messages as historical context
+    if (!processedContent.trim().startsWith('<historical_context')) {
+      processedContent = historicalWrapperPrefix + processedContent + historicalWrapperSuffix;
     }
 
     // Build message with vision support if available
@@ -96,9 +107,10 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
 
       if (toolResults.length > 0) {
         const toolResultsContent = `<tool_results>\n${toolResults.join('\n\n---\n\n')}\n</tool_results>`;
+        const wrappedToolResultsContent = `<historical_context description="Previous tool results (background context).">\n${toolResultsContent}\n</historical_context>`;
         chatHistory.push({
           role: 'user',
-          content: toolResultsContent,
+          content: wrappedToolResultsContent,
         });
       }
     }
@@ -162,6 +174,15 @@ export function buildMinimalChatHistory(
     // For assistant messages, strip tool call XML for tools not available in current mode
     if (msg.role === 'assistant') {
       processedContent = stripUnavailableToolCalls(processedContent, mode);
+      processedContent = processedContent
+        .replace(/<function_calls>[\s\S]*?<\/function_calls>/gi, '[Tool calls executed - see <tool_results>]')
+        .trim();
+    }
+
+    const historicalWrapperPrefix = '<historical_context description="Previous conversation context. The current instruction is the final user message at the bottom.">\n';
+    const historicalWrapperSuffix = '\n</historical_context>';
+    if (!processedContent.trim().startsWith('<historical_context')) {
+      processedContent = historicalWrapperPrefix + processedContent + historicalWrapperSuffix;
     }
 
     const chatMessage = buildChatMessage(

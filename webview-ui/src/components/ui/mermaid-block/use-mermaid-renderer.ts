@@ -6,6 +6,7 @@ import {
   removeContainer,
   getMermaidThemeConfig,
 } from './utils';
+import type { MermaidParseResult } from './types';
 
 // Initialize mermaid with base config (theme will be set per-render)
 mermaid.initialize({
@@ -60,8 +61,8 @@ export const useMermaidRenderer = ({
       try {
         // First, validate syntax only. If Mermaid considers this invalid, skip rendering entirely
         // so that its internal error renderer is never invoked.
-        const parseResult = await mermaid.parse(trimmed, { suppressErrors: true });
-        if (parseResult === false) {
+        const parseResult = await mermaid.parse(trimmed, { suppressErrors: true }) as MermaidParseResult | false;
+        if (parseResult === false || parseResult.success === false) {
           if (!cancelled) {
             setSvg('');
           }

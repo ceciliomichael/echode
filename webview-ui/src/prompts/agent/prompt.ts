@@ -12,7 +12,7 @@ import { getAgentIdentity, AGENT_WORKFLOW, getAgentRules } from './sections';
 const AGENT_TOOLS = [
     'read_file', 'apply_diff', 'write_to_file', 'delete_file',
     'echo_search', 'grep_search', 'glob_search', 'list_files',
-    'get_diagnostics', 'todo_write', 'todo_read'
+    'get_diagnostics', 'todo_write'
 ] as const;
 
 export function getAgentPrompt(

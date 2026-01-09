@@ -71,7 +71,7 @@ export function getToolStatusDisplay(
       executingText = 'Listing';
     } else if (toolName === 'grep_search') {
       executingText = 'Searching';
-    } else if (toolName === 'todo_write' || toolName === 'todo_read') {
+    } else if (toolName === 'todo_write') {
       executingText = 'Processing';
     } else if (toolName === 'apply_diff') {
       executingText = 'Editing';
@@ -197,8 +197,8 @@ export function getToolStatusDisplay(
     return renderWaveLabel('Editing');
   }
 
-  // todo_write, todo_read: show todo count
-  if (toolName === 'todo_write' || toolName === 'todo_read') {
+  // todo_write: show todo count
+  if (toolName === 'todo_write') {
     if (toolCall.result?.success && toolCall.result.data) {
       const data = toolCall.result.data as { tasks?: Array<{ status: string }> };
       const tasks = data.tasks || [];

@@ -151,7 +151,7 @@ export function usePlanContinuationHandler({
         toolResultData = {
           userAction: 'start_implementation',
           approved: true,
-          message: 'User approved the plan. The plan is already in the conversation above - refer to it there. Begin implementation immediately using todo_read to check tasks.',
+          message: 'User approved the plan. The plan is already in the conversation above - refer to it there. Begin implementation immediately by executing the first pending task.',
         };
         
         // Switch to agent mode for handoff (unless in YOLO mode)

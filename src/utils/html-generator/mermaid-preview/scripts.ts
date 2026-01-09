@@ -25,7 +25,7 @@ export function getMermaidScripts(theme: string): string {
       try {
         // Validate syntax first
         const parseResult = await mermaid.parse(code, { suppressErrors: true });
-        if (parseResult === false) {
+        if (parseResult.success === false) {
           outputElement.innerHTML = '<div style="color: var(--vscode-errorForeground); padding: 20px; text-align: center;">Invalid Mermaid syntax</div>';
           return;
         }

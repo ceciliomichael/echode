@@ -60,13 +60,16 @@ export function processFirstMessage(
     : msg.content;
 
   // If truncated, wrap in a block to distinguish it as historical context
-  if (wasTruncated && msg.role === 'user') {
+  if (wasTruncated && msg.role === 'user' && !cleanedContent.trim().startsWith('<historical_context')) {
     cleanedContent = `<historical_context description="This is the original task/request from the start of the conversation. Focus on the LATEST user message at the bottom for the current instruction.">\n${cleanedContent}\n</historical_context>`;
   }
 
   // For assistant messages, strip tool call XML for tools not available in current mode
   if (msg.role === 'assistant') {
     cleanedContent = stripUnavailableToolCalls(cleanedContent, mode);
+    cleanedContent = cleanedContent
+      .replace(/<function_calls>[\s\S]*?<\/function_calls>/gi, '[Tool calls executed - see <tool_results>]')
+      .trim();
   }
 
   const chatMessage = buildChatMessage(
@@ -129,6 +132,9 @@ export function processRemainingMessages(
     // For assistant messages, strip tool call XML for tools not available in current mode
     if (msg.role === 'assistant') {
       processedContent = stripUnavailableToolCalls(processedContent, mode);
+      processedContent = processedContent
+        .replace(/<function_calls>[\s\S]*?<\/function_calls>/gi, '[Tool calls executed - see <tool_results>]')
+        .trim();
     }
 
     // Build message with vision support if available

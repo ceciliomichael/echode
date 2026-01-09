@@ -78,7 +78,7 @@ export class TodoWriteTool implements ITool {
     }
   }
 
-  // Static method to get current todos (used by TodoReadTool)
+  // Static method to get current todos
   static getTodos(sessionKey: string = 'default'): TodoTask[] {
     return todoStorage.get(sessionKey) || [];
   }

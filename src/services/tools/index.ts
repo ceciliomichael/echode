@@ -5,7 +5,6 @@ export { GrepSearchTool } from './grep-search-tool';
 export { GlobSearchTool } from './glob-search-tool';
 export { DeleteFileTool } from './delete-file-tool';
 export { TodoWriteTool } from './todo-write-tool';
-export { TodoReadTool } from './todo-read-tool';
 export { ApplyDiffTool } from './apply-diff-tool';
 export { ITool, ToolExecutionResult } from './tool.interface';
 export { GetDiagnosticsTool } from './get-diagnostics-tool';

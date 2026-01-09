@@ -15,7 +15,6 @@ export { getGrepSearchInstructions, type GrepSearchOptions } from './grep-search
 export { getGlobSearchInstructions, type GlobSearchOptions } from './glob-search';
 export { getDeleteFileInstructions, type DeleteFileOptions } from './delete-file';
 export { getGetDiagnosticsInstructions, type GetDiagnosticsOptions } from './get-diagnostics';
-export { getTodoReadInstructions, type TodoReadOptions } from './todo-read';
 export { getTodoWriteInstructions, type TodoWriteOptions } from './todo-write';
 export { getRunTerminalInstructions, type RunTerminalOptions } from './run-terminal';
 export { getPlanInstructions } from './plan';

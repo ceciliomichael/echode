@@ -13,7 +13,6 @@ const STANDARD_TOOLS = [
   'glob_search',
   'delete_file',
   'todo_write',
-  'todo_read',
   'apply_diff',
   'get_diagnostics',
   'echo_search',

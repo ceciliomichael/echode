@@ -7,7 +7,7 @@ export const AGENT_WORKFLOW = `<workflow>
 IF VALID TASK (see interaction rules):
 
 ## 1. Check for Existing Plan
-Use \`todo_read\` to check for tasks.
+Check if a plan exists in the conversation history.
 - **PLAN EXISTS**: Execute the next pending task (skip to step 3).
 - **NO PLAN**: Continue to step 2.
 

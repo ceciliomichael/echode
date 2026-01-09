@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { defaultRegistry } from '../services/tools/tool-registry';
-import { ReadFileTool, WriteFileTool, ListFilesTool, GrepSearchTool, GlobSearchTool, DeleteFileTool, TodoWriteTool, TodoReadTool, ApplyDiffTool, GetDiagnosticsTool, EchoSearchTool, PlanTool, PublishFindingsTool, RunTerminalTool } from '../services/tools';
+import { ReadFileTool, WriteFileTool, ListFilesTool, GrepSearchTool, GlobSearchTool, DeleteFileTool, TodoWriteTool, ApplyDiffTool, GetDiagnosticsTool, EchoSearchTool, PlanTool, PublishFindingsTool, RunTerminalTool } from '../services/tools';
 import { getWorkspaceFiles, getAgentsConfig } from '../utils/workspace-scanner';
 import { ApprovalViewerManager } from '../services/approval/approval-viewer-manager';
 import type { ChatMode } from '../services/tools/tool.interface';
@@ -30,7 +30,6 @@ defaultRegistry.registerTool(new GrepSearchTool());
 defaultRegistry.registerTool(new GlobSearchTool());
 defaultRegistry.registerTool(new DeleteFileTool());
 defaultRegistry.registerTool(new TodoWriteTool());
-defaultRegistry.registerTool(new TodoReadTool());
 defaultRegistry.registerTool(new ApplyDiffTool());
 defaultRegistry.registerTool(new GetDiagnosticsTool());
 defaultRegistry.registerTool(new EchoSearchTool());

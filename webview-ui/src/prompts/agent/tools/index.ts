@@ -15,7 +15,6 @@ import {
     getDeleteFileInstructions,
     getGetDiagnosticsInstructions,
     getTodoWriteInstructions,
-    getTodoReadInstructions,
     getRunTerminalInstructions,
 } from '../../shared/tools';
 
@@ -31,7 +30,6 @@ const TOOL_INSTRUCTION_MAP: Record<string, () => string> = {
     'delete_file': () => getDeleteFileInstructions(),
     'get_diagnostics': () => getGetDiagnosticsInstructions(),
     'todo_write': () => getTodoWriteInstructions(),
-    'todo_read': () => getTodoReadInstructions(),
 };
 
 export interface ToolInstructionOptions {

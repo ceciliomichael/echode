@@ -12,7 +12,6 @@ import {
     getGlobSearchInstructions,
     getListFilesInstructions,
     getTodoWriteInstructions,
-    getTodoReadInstructions,
     getPlanInstructions,
 } from '../../shared/tools';
 
@@ -23,7 +22,6 @@ const TOOL_INSTRUCTION_MAP: Record<string, () => string> = {
     'glob_search': () => getGlobSearchInstructions({ format: 'xml' }),
     'list_files': () => getListFilesInstructions({ format: 'xml' }),
     'todo_write': () => getTodoWriteInstructions({ format: 'xml' }),
-    'todo_read': () => getTodoReadInstructions({ format: 'xml' }),
     'plan': getPlanInstructions,
 };
 
