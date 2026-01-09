@@ -88,7 +88,8 @@ export class GrepSearchTool implements ITool {
           target.root,
           target.searchPath,
           query,
-          globPattern
+          globPattern,
+          caseSensitive
         );
 
         // If searching across multiple workspaces, prefix the file paths

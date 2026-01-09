@@ -3,10 +3,10 @@ import {
     findNextToolStart,
     findNextMermaidStart,
     findMermaidClose,
-    findMatchingFunctionCallsClose,
-    isInsideFunctionCallsParameterValue
+    findMatchingFunctionCallsClose
 } from './tag-utils';
 import { extractAllInvokeBlocks, parseXMLParameters } from './xml-parser';
+import { REQUEST_BOUNDARY_MARKER } from '../think-block-parser';
 
 /**
  * Fix leaked <thought> tags that appear after closing </think> or </thinking> tags.
@@ -111,54 +111,6 @@ function mergeConsecutiveThinkBlocks(content: string): string {
 }
 
 /**
- * Find the next <think> tag that is NOT inside a parameter value.
- * This prevents incorrectly treating think tags in file content as thinking blocks.
- */
-function findNextValidThinkStart(content: string, fromPosition: number): number {
-    const tag = '<think>';
-    let pos = fromPosition;
-
-    while (pos < content.length) {
-        const found = content.indexOf(tag, pos);
-        if (found === -1) return -1;
-
-        // Check if this position is inside a parameter value
-        if (!isInsideFunctionCallsParameterValue(content, found)) {
-            return found;
-        }
-
-        // Skip this occurrence and look for the next one
-        pos = found + tag.length;
-    }
-
-    return -1;
-}
-
-/**
- * Find the next <thinking> tag that is NOT inside a parameter value.
- * This prevents incorrectly treating thinking tags in file content as thinking blocks.
- */
-function findNextValidThinkingStart(content: string, fromPosition: number): number {
-    const tag = '<thinking>';
-    let pos = fromPosition;
-
-    while (pos < content.length) {
-        const found = content.indexOf(tag, pos);
-        if (found === -1) return -1;
-
-        // Check if this position is inside a parameter value
-        if (!isInsideFunctionCallsParameterValue(content, found)) {
-            return found;
-        }
-
-        // Skip this occurrence and look for the next one
-        pos = found + tag.length;
-    }
-
-    return -1;
-}
-
-/**
  * Preprocess content to fix corrupted AI tool call formats
  * This ensures the tokenizer can properly recognize tool blocks
  * 
@@ -238,14 +190,16 @@ function hasPotentialUnparsedTools(content: string, parsedTokens: ContentToken[]
  * Process sequentially to avoid parsing content inside think blocks
  */
 export function tokenizeContent(content: string, messageId: string = 'unknown'): ContentToken[] {
-    // First, fix any leaked <thought> tags that should be inside think blocks
-    const fixedThoughtContent = fixLeakedThoughtTags(content);
+    const firstSegment = content.split(REQUEST_BOUNDARY_MARKER, 1)[0] ?? '';
+    const hasLeadingThink = firstSegment.startsWith('<think>') || firstSegment.startsWith('<thinking>');
 
-    // Merge consecutive think blocks into one
-    const mergedThinkContent = mergeConsecutiveThinkBlocks(fixedThoughtContent);
+    // Only run think-specific repairs when the response starts with a think block.
+    // If think tags occur later in the response, they must remain literal text.
+    const maybeFixedThoughtContent = hasLeadingThink ? fixLeakedThoughtTags(content) : content;
+    const maybeMergedThinkContent = hasLeadingThink ? mergeConsecutiveThinkBlocks(maybeFixedThoughtContent) : maybeFixedThoughtContent;
 
     // Preprocess to fix corrupted tool call formats
-    const processedContent = preprocessToolTags(mergedThinkContent);
+    const processedContent = preprocessToolTags(maybeMergedThinkContent);
 
     const tokens: ContentToken[] = [];
     let position = 0;
@@ -255,8 +209,18 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
     while (position < processedContent.length) {
         // Check for think/thinking blocks, tool blocks, and mermaid blocks
         // Use validators that skip tags inside parameter values (e.g., in apply_diff/write_to_file content)
-        const thinkStart = findNextValidThinkStart(processedContent, position);
-        const thinkingStart = findNextValidThinkingStart(processedContent, position);
+        const hasBoundaryAtPosition = processedContent.startsWith(REQUEST_BOUNDARY_MARKER, position);
+        if (hasBoundaryAtPosition) {
+            position += REQUEST_BOUNDARY_MARKER.length;
+            continue;
+        }
+
+        const segmentStart = position;
+        const currentSegment = processedContent.slice(segmentStart);
+        const segmentHasLeadingThink = currentSegment.startsWith('<think>') || currentSegment.startsWith('<thinking>');
+
+        const thinkStart = segmentHasLeadingThink && currentSegment.startsWith('<think>') ? segmentStart : -1;
+        const thinkingStart = segmentHasLeadingThink && currentSegment.startsWith('<thinking>') ? segmentStart : -1;
         const toolStart = findNextToolStart(processedContent, position);
         const mermaidStart = findNextMermaidStart(processedContent, position);
 
@@ -280,7 +244,7 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
 
         // Add text before next block
         if (nextBlockStart !== -1 && nextBlockStart > position) {
-            const textContent = processedContent.slice(position, nextBlockStart);
+            const textContent = processedContent.slice(position, nextBlockStart).split(REQUEST_BOUNDARY_MARKER).join('');
 
             if (textContent) {
                 tokens.push({
@@ -299,7 +263,7 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
 
             if (closeTag !== -1) {
                 // Closed think block
-                const thinkContent = processedContent.slice(contentStart, closeTag);
+                const thinkContent = processedContent.slice(contentStart, closeTag).split(REQUEST_BOUNDARY_MARKER).join('');
                 tokens.push({
                     type: 'think',
                     content: thinkContent,
@@ -309,7 +273,7 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
                 position = closeTag + 8; // Skip past '</think>'
             } else {
                 // Unclosed think block (streaming)
-                const thinkContent = processedContent.slice(contentStart);
+                const thinkContent = processedContent.slice(contentStart).split(REQUEST_BOUNDARY_MARKER).join('');
                 tokens.push({
                     type: 'think',
                     content: thinkContent,
@@ -327,7 +291,7 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
 
             if (closeTag !== -1) {
                 // Closed thinking block
-                const thinkContent = processedContent.slice(contentStart, closeTag);
+                const thinkContent = processedContent.slice(contentStart, closeTag).split(REQUEST_BOUNDARY_MARKER).join('');
                 tokens.push({
                     type: 'think',
                     content: thinkContent,
@@ -337,7 +301,7 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
                 position = closeTag + 11; // Skip past '</thinking>'
             } else {
                 // Unclosed thinking block (streaming)
-                const thinkContent = processedContent.slice(contentStart);
+                const thinkContent = processedContent.slice(contentStart).split(REQUEST_BOUNDARY_MARKER).join('');
                 tokens.push({
                     type: 'think',
                     content: thinkContent,

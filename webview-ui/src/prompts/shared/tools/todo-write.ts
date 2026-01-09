@@ -29,6 +29,7 @@ function getXmlFormat(): string {
 *   Markdown: [ ] = pending, [-] = in_progress, [x] = completed
 *   JSON: objects with id, content, status fields
 *   Maximum 5-8 tasks total.
+*   **NEVER** create an empty task list.
 </notes>
 </tool_usage>`;
 }
@@ -59,6 +60,7 @@ COMMON ERRORS TO AVOID:
 - Invalid status value (use "completed" not "done")
 
 STRICT RULES:
+- **NEVER** create an empty task list. At least 1 task is required.
 - Maximum 5-8 tasks total - no exceptions
 - Group related steps into single tasks
 - Keep descriptions under 10 words

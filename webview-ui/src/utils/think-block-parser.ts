@@ -7,82 +7,138 @@ export interface ParsedContent {
   textContent: string;
 }
 
+ export const REQUEST_BOUNDARY_MARKER = '\u001E';
+
+ type LeadingThinkOpenTag = '<think>' | '<thinking>';
+
+ const THINK_OPEN = '<think>';
+ const THINKING_OPEN = '<thinking>';
+ const THINK_CLOSE = '</think>';
+ const THINKING_CLOSE = '</thinking>';
+
+ export function stripRequestBoundaryMarkers(content: string): string {
+   return content.split(REQUEST_BOUNDARY_MARKER).join('');
+ }
+
+ export function splitByRequestBoundary(content: string): string[] {
+   return content.split(REQUEST_BOUNDARY_MARKER);
+ }
+
+ export function isPotentialLeadingThinkPrefix(content: string): boolean {
+   if (!content) {
+     return false;
+   }
+
+   if (!content.startsWith('<')) {
+     return false;
+   }
+
+   return THINK_OPEN.startsWith(content) || THINKING_OPEN.startsWith(content);
+ }
+
+ export function getLeadingThinkOpenTag(content: string): LeadingThinkOpenTag | null {
+   if (content.startsWith(THINK_OPEN)) {
+     return THINK_OPEN;
+   }
+   if (content.startsWith(THINKING_OPEN)) {
+     return THINKING_OPEN;
+   }
+   return null;
+ }
+
+ export function getLeadingThinkCloseTag(openTag: LeadingThinkOpenTag): string {
+   return openTag === THINK_OPEN ? THINK_CLOSE : THINKING_CLOSE;
+ }
+
+ export function findLeadingThinkCloseIndex(content: string, openTag: LeadingThinkOpenTag): number {
+   const closeTag = getLeadingThinkCloseTag(openTag);
+   const start = openTag.length;
+   return content.indexOf(closeTag, start);
+ }
+
+ export function stripLeadingThinkBlock(content: string): {
+   strippedContent: string;
+   hadLeadingThink: boolean;
+ } {
+   const openTag = getLeadingThinkOpenTag(content);
+   if (!openTag) {
+     return { strippedContent: content, hadLeadingThink: false };
+   }
+
+   const closeTag = getLeadingThinkCloseTag(openTag);
+   const closeIndex = findLeadingThinkCloseIndex(content, openTag);
+   if (closeIndex === -1) {
+     return { strippedContent: '', hadLeadingThink: true };
+   }
+
+   return {
+     strippedContent: content.slice(closeIndex + closeTag.length),
+     hadLeadingThink: true,
+   };
+ }
+
+ export function stripLeadingThinkBlocksByRequestBoundary(content: string): {
+   strippedContent: string;
+   hadAnyLeadingThink: boolean;
+ } {
+   const segments = splitByRequestBoundary(content);
+   let hadAnyLeadingThink = false;
+
+   const strippedSegments = segments.map((segment) => {
+     const stripped = stripLeadingThinkBlock(segment);
+     if (stripped.hadLeadingThink) {
+       hadAnyLeadingThink = true;
+     }
+     return stripped.strippedContent;
+   });
+
+   return {
+     strippedContent: strippedSegments.join(REQUEST_BOUNDARY_MARKER),
+     hadAnyLeadingThink,
+   };
+ }
+
 /**
  * Remove all <think> and <thinking> blocks from content
  * Used to exclude thinking content from chat history
  */
 export function removeThinkBlocks(content: string): string {
-  return content
-    .replace(/<think>[\s\S]*?<\/think>/g, '')
-    .replace(/<thinking>[\s\S]*?<\/thinking>/g, '')
-    .replace(/<think>[\s\S]*$/g, '') // Remove unclosed <think> at end
-    .replace(/<thinking>[\s\S]*$/g, ''); // Remove unclosed <thinking> at end
+  return stripRequestBoundaryMarkers(stripLeadingThinkBlocksByRequestBoundary(content).strippedContent);
 }
 
 /**
  * Parse content to extract <think> and <thinking> blocks (including unclosed ones during streaming)
  */
 export function parseThinkBlocks(content: string): ParsedContent {
+  const segments = splitByRequestBoundary(content);
   const thinkBlocks: Array<{ content: string; index: number }> = [];
   let textContent = '';
 
-  // Process both <think> and <thinking> tags
-  const tagPatterns = [
-    { open: '<think>', close: '</think>', openLen: 7, closeLen: 8 },
-    { open: '<thinking>', close: '</thinking>', openLen: 10, closeLen: 11 }
-  ];
-
-  // Find all think/thinking blocks in order
-  const blocks: Array<{ start: number; end: number; content: string; tagType: string }> = [];
-
-  for (const pattern of tagPatterns) {
-    let searchPos = 0;
-    while (true) {
-      const openIndex = content.indexOf(pattern.open, searchPos);
-      if (openIndex === -1) { break; }
-
-      const contentStart = openIndex + pattern.openLen;
-      const closeIndex = content.indexOf(pattern.close, contentStart);
-
-      if (closeIndex !== -1) {
-        // Closed block
-        blocks.push({
-          start: openIndex,
-          end: closeIndex + pattern.closeLen,
-          content: content.slice(contentStart, closeIndex),
-          tagType: pattern.open
-        });
-        searchPos = closeIndex + pattern.closeLen;
-      } else {
-        // Unclosed block (streaming)
-        blocks.push({
-          start: openIndex,
-          end: content.length,
-          content: content.slice(contentStart),
-          tagType: pattern.open
-        });
-        break;
-      }
+  for (const segment of segments) {
+    const openTag = getLeadingThinkOpenTag(segment);
+    if (!openTag) {
+      textContent += segment;
+      continue;
     }
+
+    const closeTag = getLeadingThinkCloseTag(openTag);
+    const closeIndex = findLeadingThinkCloseIndex(segment, openTag);
+    const contentStart = openTag.length;
+
+    if (closeIndex === -1) {
+      const thinkContent = segment.slice(contentStart);
+      const index = thinkBlocks.length;
+      thinkBlocks.push({ content: thinkContent, index });
+      textContent += `__THINK_BLOCK_${index}__`;
+      continue;
+    }
+
+    const thinkContent = segment.slice(contentStart, closeIndex);
+    const after = segment.slice(closeIndex + closeTag.length);
+    const index = thinkBlocks.length;
+    thinkBlocks.push({ content: thinkContent, index });
+    textContent += `__THINK_BLOCK_${index}__${after}`;
   }
 
-  // Sort blocks by start position
-  blocks.sort((a, b) => a.start - b.start);
-
-  // Build textContent with placeholders
-  let lastIndex = 0;
-  for (const block of blocks) {
-    textContent += content.slice(lastIndex, block.start);
-    thinkBlocks.push({
-      content: block.content,
-      index: thinkBlocks.length
-    });
-    textContent += `__THINK_BLOCK_${thinkBlocks.length - 1}__`;
-    lastIndex = block.end;
-  }
-
-  // Add remaining text
-  textContent += content.slice(lastIndex);
-
-  return { thinkBlocks, textContent };
+  return { thinkBlocks, textContent: stripRequestBoundaryMarkers(textContent) };
 }

@@ -23,6 +23,7 @@ export async function regexSearchFiles(
     directoryPath: string,
     regex: string,
     filePattern?: string,
+    caseSensitive: boolean = false,
 ): Promise<string> {
     const vscodeAppRoot = vscode.env.appRoot;
     const rgPath = await getBinPath(vscodeAppRoot);
@@ -39,6 +40,10 @@ export async function regexSearchFiles(
     }
 
     const args = ['--json', '-e', regex];
+
+    if (!caseSensitive) {
+        args.push('-i');
+    }
 
     // All exclusions handled by ripgrep's native .gitignore support
 
@@ -83,6 +88,7 @@ export async function regexSearchFilesStructured(
     directoryPath: string,
     regex: string,
     filePattern?: string,
+    caseSensitive: boolean = false,
 ): Promise<GrepSearchResult> {
     const vscodeAppRoot = vscode.env.appRoot;
     const rgPath = await getBinPath(vscodeAppRoot);
@@ -104,6 +110,10 @@ export async function regexSearchFilesStructured(
     }
 
     const args = ['--json', '-e', regex];
+
+    if (!caseSensitive) {
+        args.push('-i');
+    }
 
     // All exclusions handled by ripgrep's native .gitignore support
 

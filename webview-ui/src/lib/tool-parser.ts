@@ -9,6 +9,8 @@ import {
   isInsideInvokeParameterValue,
 } from './parser';
 
+ import { stripLeadingThinkBlock } from '../utils/think-block-parser';
+
 // Legacy regex pattern kept for parseToolBlock backward compatibility
 const TOOL_BLOCK_REGEX = /<function_calls>([\s\S]*?)<\/function_calls>/;
 
@@ -136,14 +138,11 @@ export function trimToLastCompleteToolBlock(content: string): string {
   }
 
   if (lastValidBlock) {
-    // Find the end of the last thinking block in original content
-    let searchStart = 0;
-    for (const tag of ['</thinking>', '</think>']) {
-      const idx = content.lastIndexOf(tag);
-      if (idx !== -1 && idx + tag.length > searchStart) {
-        searchStart = idx + tag.length;
-      }
-    }
+    // Only skip a LEADING think block. Mid-response tags must remain literal text.
+    const leadingStripped = stripLeadingThinkBlock(content);
+    const searchStart = leadingStripped.hadLeadingThink
+      ? content.length - leadingStripped.strippedContent.length
+      : 0;
 
     // Find all function_calls blocks AFTER thinking blocks in original content
     // Use balanced matching to handle nested function_calls inside parameter values
@@ -190,24 +189,13 @@ export function trimToFirstCompleteToolBlock(content: string): string {
     if (parsedBlocks.length > 0) {
       // Found a valid tool block in preprocessed content
       // Find where this block's closing tag appears in original content
-      // We need to find it AFTER any thinking blocks
+      // We need to find it AFTER any LEADING think block
       const closingTag = '</function_calls>';
 
-      // Find the end of the last thinking block in original content
+      const leadingStripped = stripLeadingThinkBlock(content);
       let searchStart = 0;
-      const thinkEndMatch = content.match(/<\/thinking>|<\/think>/g);
-      if (thinkEndMatch) {
-        // Find the last occurrence
-        let lastThinkEnd = -1;
-        for (const tag of ['</thinking>', '</think>']) {
-          const idx = content.lastIndexOf(tag);
-          if (idx > lastThinkEnd) {
-            lastThinkEnd = idx + tag.length;
-          }
-        }
-        if (lastThinkEnd > 0) {
-          searchStart = lastThinkEnd;
-        }
+      if (leadingStripped.hadLeadingThink) {
+        searchStart = content.length - leadingStripped.strippedContent.length;
       }
 
       // Find the closing tag of the first real function_calls after thinking
@@ -289,14 +277,11 @@ export function extractCompleteInvokeBlocksIncremental(content: string): {
   const openTag = '<function_calls>';
   const closeTag = '</function_calls>';
 
-  // Find the end of the last thinking block
-  let searchStart = 0;
-  for (const tag of ['</thinking>', '</think>']) {
-    const idx = preprocessed.lastIndexOf(tag);
-    if (idx !== -1 && idx + tag.length > searchStart) {
-      searchStart = idx + tag.length;
-    }
-  }
+  // Only skip a LEADING think block. Mid-response tags must remain literal text.
+  const leadingStripped = stripLeadingThinkBlock(preprocessed);
+  const searchStart = leadingStripped.hadLeadingThink
+    ? preprocessed.length - leadingStripped.strippedContent.length
+    : 0;
 
   // Find a function_calls opening that is not inside a code block
   let openPos = searchStart;

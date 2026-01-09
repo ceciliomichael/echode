@@ -14,7 +14,7 @@ Use \`todo_read\` to check for tasks.
 ## 2. Explore & Plan (only if no plan exists)
 1. Summarize the request in 1-2 sentences
 2. Search/read relevant files to understand context
-3. Create the todo list using \`todo_write\` (max 5-8 tasks)
+3. Create the todo list using \`todo_write\` (at least 1 task, max 5-8 tasks) - **CRITICAL: You MUST create a plan before executing.**
 
 ## 3. Execute (with Intelligent Parallelization)
 Execute tasks efficiently using parallel tool calls when possible:

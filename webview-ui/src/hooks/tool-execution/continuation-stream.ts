@@ -18,6 +18,7 @@ import type { ToolExecutionState, ParsedToolBlock } from '../../types/tool';
 import type { ExecuteToolAndContinueFn } from './types';
 import { ToolExecutor } from '../../lib/tool-executor';
 import { generateToolExecutionId, createToolExecutionState, updateToolExecutionStatus } from '../../lib/tool-execution-tracker';
+import { REQUEST_BOUNDARY_MARKER } from '../../utils/think-block-parser';
 
 const MAX_RETRY_DELAY_MS = 5000;
 
@@ -236,7 +237,11 @@ export async function runContinuationStream(config: ContinuationStreamConfig): P
     lockedConfig,
   } = config;
 
-  let continuationContent = assistantContent;
+  const boundaryPrefix = assistantContent.endsWith(REQUEST_BOUNDARY_MARKER) ? '' : REQUEST_BOUNDARY_MARKER;
+  const continuationBaseContent = assistantContent + boundaryPrefix;
+  const continuationBaseLength = continuationBaseContent.length;
+
+  let continuationContent = continuationBaseContent;
   let pendingUpdate = false;
   let retryCount = 0;
   let streamSuccess = false;
@@ -259,7 +264,7 @@ export async function runContinuationStream(config: ContinuationStreamConfig): P
 
       // Reset continuation content on retry (keep original assistant content)
       if (retryCount > 0) {
-        continuationContent = assistantContent;
+        continuationContent = continuationBaseContent;
       }
 
       // Track parallel executions (like in streaming-loop.ts)
@@ -280,7 +285,7 @@ export async function runContinuationStream(config: ContinuationStreamConfig): P
         continuationContent += chunk;
 
         // Check for tool blocks in the NEW content only (after the previous assistant content)
-        const newContent = continuationContent.slice(assistantContent.length);
+        const newContent = continuationContent.slice(continuationBaseLength);
 
         // Use parallel execution if we have the required callbacks
         if (updateToolExecution && getToolExecutor) {
@@ -339,7 +344,7 @@ export async function runContinuationStream(config: ContinuationStreamConfig): P
           if (hasFunctionCallsClose && blocks.length > 0) {
             console.log(`[ContinuationStream] </function_calls> closed - waiting for ${parallelExecutions.size} parallel tool executions`);
 
-            const trimmedContinuation = assistantContent + trimToFirstCompleteToolBlock(newContent);
+            const trimmedContinuation = continuationBaseContent + trimToFirstCompleteToolBlock(newContent);
             continuationContent = trimmedContinuation;
             updateUI();
 
@@ -480,7 +485,7 @@ export async function runContinuationStream(config: ContinuationStreamConfig): P
         } else {
           // Fallback to sequential execution (when parallel execution callbacks not available)
           if (hasCompleteToolBlock(newContent)) {
-            const trimmedContinuation = assistantContent + trimToFirstCompleteToolBlock(newContent);
+            const trimmedContinuation = continuationBaseContent + trimToFirstCompleteToolBlock(newContent);
             continuationContent = trimmedContinuation;
             updateUI();
 

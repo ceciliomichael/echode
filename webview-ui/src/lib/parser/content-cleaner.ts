@@ -3,6 +3,8 @@
  * Single Responsibility: Clean and normalize tool call XML content
  */
 
+ import { stripLeadingThinkBlocksByRequestBoundary, stripRequestBoundaryMarkers } from '../../utils/think-block-parser';
+
 /**
  * Clean up common AI mistakes in tool call formatting
  * Handles cases like duplicate opening tags, unclosed tags, malformed closing tags
@@ -92,35 +94,14 @@ export function cleanToolCallContent(content: string): string {
 }
 
 /**
- * Remove think/thinking blocks from content
- * These blocks contain AI reasoning that should not be parsed as tool calls
- * 
- * Handles both:
- * 1. Complete blocks: <think>...</think>
- * 2. Incomplete/streaming blocks: <think>... (no closing tag yet)
+ * Remove a LEADING think/thinking block from content.
+ *
+ * IMPORTANT: We only remove a leading block (if the content literally starts with <think>/<thinking>).
+ * Any other occurrences must remain untouched (e.g., inside apply_diff/write_to_file payloads).
  */
 export function removeThinkBlocks(content: string): string {
-  let result = content;
-
-  // First, remove complete think blocks
-  result = result
-    .replace(/<think>[\s\S]*?<\/think>/g, '')
-    .replace(/<think>[\s\S]*?<\/think>/g, '')
-    .replace(/<thinking>[\s\S]*?<\/thinking>/g, '');
-
-  // Then, remove incomplete/unclosed think blocks (streaming case)
-  // If <think> exists without a closing </think>, remove from <think> to end
-  const unclosedThinkMatch = result.match(/<think>(?![\s\S]*<\/think>)/);
-  if (unclosedThinkMatch && unclosedThinkMatch.index !== undefined) {
-    result = result.slice(0, unclosedThinkMatch.index);
-  }
-
-  const unclosedThinkingMatch = result.match(/<thinking>(?![\s\S]*<\/thinking>)/);
-  if (unclosedThinkingMatch && unclosedThinkingMatch.index !== undefined) {
-    result = result.slice(0, unclosedThinkingMatch.index);
-  }
-
-  return result;
+  const stripped = stripLeadingThinkBlocksByRequestBoundary(content).strippedContent;
+  return stripRequestBoundaryMarkers(stripped);
 }
 
 /**

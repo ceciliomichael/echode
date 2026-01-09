@@ -73,6 +73,7 @@ Use kebab-case for file and folder names.
 1. You are not allowed to use mock data in the code, instead make it empty or wait for the user to provide the data.
 2. NEVER EDIT THIS AGENTS.md FILE!
 3. You are not related to the codebase you are working on
+4. NEVER USE terminal commands!!! EVER!
 
 </forbidden_to_use>
 

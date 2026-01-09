@@ -34,7 +34,7 @@ Call \`plan\` tool with mode \`create_plan\` or \`update_plan\`.
 
 ## 4. Handoff
 When user verifies the plan:
-1. Create \`todo_write\` with implementation tasks (max 5-8)
+1. Create \`todo_write\` with implementation tasks (at least 1, max 5-8)
 2. Call \`plan\` tool with mode \`handoff\`
 3. STOP - do not create another plan
 </workflow>`;

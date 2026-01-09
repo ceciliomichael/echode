@@ -92,6 +92,8 @@ export class OpenAIProvider implements ILLMProvider {
 
       // Track reasoning/thinking state
       let isInThinkingBlock = false;
+      let hasPostedNonThinkingChunk = false;
+      let hasEmittedThinkingOpen = false;
 
       const processStream = async () => {
         for await (const chunk of stream) {
@@ -119,14 +121,28 @@ export class OpenAIProvider implements ILLMProvider {
           if (reasoningContent) {
             hasReceivedContent = true;
 
-            // Start thinking block if not already in one
-            if (!isInThinkingBlock) {
-              isInThinkingBlock = true;
+            // Only allow emitting a <thinking> wrapper if thinking is the FIRST visible output.
+            // If normal output already started, stream reasoning as plain text (no wrappers) to avoid mid-response <thinking> tags.
+            if (!hasEmittedThinkingOpen && hasPostedNonThinkingChunk) {
               webview.webview.postMessage({
                 type: 'chatStreamChunk',
                 requestId,
-                chunk: '<thinking>'
+                chunk: reasoningContent
               });
+              continue;
+            }
+
+            // Start thinking block if not already in one
+            if (!isInThinkingBlock) {
+              isInThinkingBlock = true;
+              if (!hasEmittedThinkingOpen) {
+                hasEmittedThinkingOpen = true;
+                webview.webview.postMessage({
+                  type: 'chatStreamChunk',
+                  requestId,
+                  chunk: '<thinking>'
+                });
+              }
             }
 
             // Send reasoning content inside thinking block
@@ -143,7 +159,7 @@ export class OpenAIProvider implements ILLMProvider {
             hasReceivedContent = true;
 
             // Close thinking block if we were in one
-            if (isInThinkingBlock) {
+            if (hasEmittedThinkingOpen && isInThinkingBlock) {
               isInThinkingBlock = false;
               webview.webview.postMessage({
                 type: 'chatStreamChunk',
@@ -158,11 +174,12 @@ export class OpenAIProvider implements ILLMProvider {
               requestId,
               chunk: content
             });
+            hasPostedNonThinkingChunk = true;
           }
         }
 
         // Close thinking block if stream ends while in thinking
-        if (isInThinkingBlock) {
+        if (hasEmittedThinkingOpen && isInThinkingBlock) {
           webview.webview.postMessage({
             type: 'chatStreamChunk',
             requestId,

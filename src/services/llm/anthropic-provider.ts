@@ -128,6 +128,8 @@ export class AnthropicProvider implements ILLMProvider {
       let currentBlockIndex = -1;
       let currentBlockType: string | null = null;
       const thinkingBlocks = new Set<number>();
+      let hasPostedNonThinkingChunk = false;
+      let hasEmittedThinkingOpen = false;
 
       // Process stream with timeout race
       const processStream = async () => {
@@ -144,7 +146,13 @@ export class AnthropicProvider implements ILLMProvider {
 
             // If this is a thinking block, send opening tag
             if (currentBlockType === 'thinking') {
+              // Only allow thinking blocks if they are the FIRST visible output.
+              if (hasPostedNonThinkingChunk) {
+                continue;
+              }
+
               thinkingBlocks.add(currentBlockIndex);
+              hasEmittedThinkingOpen = true;
 
               // Mark first chunk received and clear timeout
               if (!hasReceivedFirstChunk) {
@@ -177,11 +185,14 @@ export class AnthropicProvider implements ILLMProvider {
             // Handle thinking deltas
             if (event.delta.type === 'thinking_delta') {
               const thinkingText = event.delta.thinking;
-              webview.webview.postMessage({
-                type: 'chatStreamChunk',
-                requestId,
-                chunk: thinkingText
-              });
+              // Only stream thinking content if we emitted the opening tag for this block.
+              if (hasEmittedThinkingOpen && thinkingBlocks.has(currentBlockIndex)) {
+                webview.webview.postMessage({
+                  type: 'chatStreamChunk',
+                  requestId,
+                  chunk: thinkingText
+                });
+              }
             }
             // Handle regular text deltas
             else if (event.delta.type === 'text_delta') {
@@ -191,6 +202,7 @@ export class AnthropicProvider implements ILLMProvider {
                 requestId,
                 chunk: text
               });
+              hasPostedNonThinkingChunk = true;
             }
           }
 
