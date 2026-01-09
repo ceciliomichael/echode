@@ -21,52 +21,63 @@ import { REQUEST_BOUNDARY_MARKER } from '../think-block-parser';
  * For open blocks: <think>...<thought>content -> <think>...content (just strip wrapper)
  */
 function fixLeakedThoughtTags(content: string): string {
-    let result = content;
+    const segments = content.split(REQUEST_BOUNDARY_MARKER);
 
-    // For CLOSED blocks: </think> or </thinking> followed by <thought>
-    // Just strip the <thought> wrapper tags, leave content after the closing tag
-    // This content will be treated as regular text, NOT as part of the think block
-    // This preserves the original think block content and its hash
-    result = result.replace(
-        /<\/think>\s*<thought>([\s\S]*?)(?:<\/thought>|$)/gi,
-        (_, thoughtContent: string) => {
-            return '</think>' + thoughtContent;
+    const fixedSegments = segments.map((segment) => {
+        // Only rewrite <thought> tags within segments that begin with a think block.
+        // This preserves the "leading-only" constraint per request segment.
+        const startsWithThink = segment.startsWith('<think>') || segment.startsWith('<thinking>');
+        if (!startsWithThink) {
+            return segment;
         }
-    );
 
-    result = result.replace(
-        /<\/thinking>\s*<thought>([\s\S]*?)(?:<\/thought>|$)/gi,
-        (_, thoughtContent: string) => {
-            return '</thinking>' + thoughtContent;
-        }
-    );
+        let result = segment;
 
-    // Handle case where <thought> appears inside an unclosed <think> block (streaming)
-    // Pattern: <think>content<thought>more content
-    // Just strip the <thought> wrapper, keeping content inside the think block
-    result = result.replace(
-        /(<think>[\s\S]*?)<thought>([\s\S]*?)(?:<\/thought>|$)/gi,
-        (match, thinkContent: string, thoughtContent: string) => {
-            // Don't match if there's already a </think> in between
-            if (thinkContent.includes('</think>')) {
-                return match;
+        // For CLOSED blocks: move <thought> content back inside the block so it renders as thinking.
+        // Pattern: </think><thought>content</thought> -> content</think>
+        result = result.replace(
+            /<\/think>\s*<thought>([\s\S]*?)(?:<\/thought>|$)/gi,
+            (_, thoughtContent: string) => {
+                return thoughtContent + '</think>';
             }
-            return thinkContent + thoughtContent;
-        }
-    );
+        );
 
-    result = result.replace(
-        /(<thinking>[\s\S]*?)<thought>([\s\S]*?)(?:<\/thought>|$)/gi,
-        (match, thinkContent: string, thoughtContent: string) => {
-            // Don't match if there's already a </thinking> in between
-            if (thinkContent.includes('</thinking>')) {
-                return match;
+        result = result.replace(
+            /<\/thinking>\s*<thought>([\s\S]*?)(?:<\/thought>|$)/gi,
+            (_, thoughtContent: string) => {
+                return thoughtContent + '</thinking>';
             }
-            return thinkContent + thoughtContent;
-        }
-    );
+        );
 
-    return result;
+        // Handle case where <thought> appears inside an unclosed think block (streaming)
+        // Pattern: <think>content<thought>more content -> <think>contentmore content
+        result = result.replace(
+            /(<think>[\s\S]*?)<thought>([\s\S]*?)(?:<\/thought>|$)/gi,
+            (match, thinkContent: string, thoughtContent: string) => {
+                if (thinkContent.includes('</think>')) {
+                    return match;
+                }
+                return thinkContent + thoughtContent;
+            }
+        );
+
+        result = result.replace(
+            /(<thinking>[\s\S]*?)<thought>([\s\S]*?)(?:<\/thought>|$)/gi,
+            (match, thinkContent: string, thoughtContent: string) => {
+                if (thinkContent.includes('</thinking>')) {
+                    return match;
+                }
+                return thinkContent + thoughtContent;
+            }
+        );
+
+        // Final cleanup: remove any leftover wrapper tags inside the thinking segment.
+        result = result.replace(/<\/?thought>/gi, '');
+
+        return result;
+    });
+
+    return fixedSegments.join(REQUEST_BOUNDARY_MARKER);
 }
 
 /**
@@ -190,8 +201,8 @@ function hasPotentialUnparsedTools(content: string, parsedTokens: ContentToken[]
  * Process sequentially to avoid parsing content inside think blocks
  */
 export function tokenizeContent(content: string, messageId: string = 'unknown'): ContentToken[] {
-    const firstSegment = content.split(REQUEST_BOUNDARY_MARKER, 1)[0] ?? '';
-    const hasLeadingThink = firstSegment.startsWith('<think>') || firstSegment.startsWith('<thinking>');
+    const segments = content.split(REQUEST_BOUNDARY_MARKER);
+    const hasLeadingThink = segments.some((segment) => segment.startsWith('<think>') || segment.startsWith('<thinking>'));
 
     // Only run think-specific repairs when the response starts with a think block.
     // If think tags occur later in the response, they must remain literal text.
