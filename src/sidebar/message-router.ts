@@ -3,6 +3,7 @@ import type { ChatHistoryService } from '../services/chat-history-service';
 import type { ToolHistoryService } from '../services/tool-history';
 import type { WorkspaceManager } from './workspace-manager';
 import type { PanelManager } from './panel-manager';
+import type { AutocompleteService } from '../autocomplete';
 
 /**
  * Message Router
@@ -18,6 +19,7 @@ export interface HandlerContext {
   toolHistoryService: ToolHistoryService;
   workspaceManager: WorkspaceManager;
   panelManager: PanelManager;
+  autocompleteService: AutocompleteService;
   setHistoryOpen: (open: boolean) => void;
 }
 
@@ -156,6 +158,10 @@ export function createMessageRouter(): MessageRouter {
 
   router.register('saveApiSettings', async (data, ctx) => {
     await handleSaveApiSettings(data, ctx.webview);
+    // Sync autocomplete service with updated settings
+    if (data.settings) {
+      ctx.autocompleteService.updateSettings(data.settings as Parameters<AutocompleteService['updateSettings']>[0]);
+    }
   });
 
   router.register('clearApiSettings', async (data, ctx) => {

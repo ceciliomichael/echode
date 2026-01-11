@@ -158,6 +158,7 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
       toolHistoryService: this._toolHistoryService,
       workspaceManager: this._workspaceManager,
       panelManager: this._panelManager,
+      autocompleteService: this._autocompleteService,
       setHistoryOpen: (open: boolean) => { this._isHistoryOpen = open; }
     };
 

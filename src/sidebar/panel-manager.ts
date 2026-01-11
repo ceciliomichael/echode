@@ -88,6 +88,8 @@ export class PanelManager {
           break;
         case 'saveApiSettings':
           getSettingsService().saveSettings(data.settings);
+          // Sync autocomplete service with updated settings
+          this._autocompleteService.updateSettings(data.settings);
           panel.webview.postMessage({ type: 'apiSettingsSaved' });
           break;
         case 'clearApiSettings':
