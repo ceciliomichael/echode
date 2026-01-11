@@ -1,16 +1,8 @@
 import * as vscode from 'vscode';
-import OpenAI from 'openai';
+import { AutocompleteConfig, ICompletionStrategy, createCompletionStrategy } from './strategies';
 
-export interface AutocompleteConfig {
-  enabled: boolean;
-  provider: string;
-  model: string;
-  apiKey: string;
-  baseUrl: string;
-  debounceMs: number;
-  maxTokens: number;
-  temperature: number; 
-}
+// Re-export config for backward compatibility
+export { AutocompleteConfig } from './strategies';
 
 // Simple, direct system prompt
 const SYSTEM_PROMPT = `You are a code completion engine. Output ONLY the text to INSERT at the cursor position.
@@ -35,78 +27,28 @@ Output:  > 0
 
 Output ONLY the insertion text.`;
 
+/**
+ * Providers that don't require an API key
+ */
+const KEYLESS_PROVIDERS = ['qwen-code', 'vscode-lm'];
+
 export class AutocompleteProvider implements vscode.InlineCompletionItemProvider {
   private config: AutocompleteConfig | null = null;
+  private strategy: ICompletionStrategy | null = null;
   private debounceTimer: NodeJS.Timeout | null = null;
   private lastRequest: AbortController | null = null;
 
   updateConfig(config: AutocompleteConfig): void {
+    // Check if provider changed - need new strategy
+    const providerChanged = this.config?.provider !== config.provider;
+    
     this.config = config;
-  }
 
-  private async createChatCompletion(
-    client: OpenAI,
-    userPrompt: string,
-  ): Promise<OpenAI.ChatCompletion> {
-    if (!this.config) {
-      throw new Error('Autocomplete config not available');
+    // Create or recreate strategy if provider changed
+    if (providerChanged || !this.strategy) {
+      this.strategy?.dispose?.();
+      this.strategy = createCompletionStrategy(config);
     }
-
-    const basePayload = {
-      model: this.config.model,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: userPrompt },
-      ] as OpenAI.ChatCompletionMessageParam[],
-      temperature: this.config.temperature || 0,
-      stop: ['\n\n', '```'],
-    };
-
-    const maxTokensPayload = {
-      ...basePayload,
-      max_tokens: this.config.maxTokens || 100,
-    };
-
-    const maxCompletionTokensPayload: Record<string, unknown> = {
-      ...basePayload,
-      max_completion_tokens: this.config.maxTokens || 100,
-    };
-
-    try {
-      return await client.chat.completions.create(
-        maxTokensPayload as unknown as OpenAI.ChatCompletionCreateParams,
-        {
-          signal: this.lastRequest?.signal,
-        },
-      ) as unknown as OpenAI.ChatCompletion;
-    } catch (error: unknown) {
-      if (this.isMaxTokensUnsupportedError(error)) {
-        return await client.chat.completions.create(
-          maxCompletionTokensPayload as unknown as OpenAI.ChatCompletionCreateParams,
-          {
-            signal: this.lastRequest?.signal,
-          },
-        ) as unknown as OpenAI.ChatCompletion;
-      }
-      throw error;
-    }
-  }
-
-  private isMaxTokensUnsupportedError(error: unknown): boolean {
-    if (!error || typeof error !== 'object') {
-      return false;
-    }
-
-    const message = (error as Error).message;
-    if (typeof message !== 'string') {
-      return false;
-    }
-
-    if (!message.includes('max_tokens')) {
-      return false;
-    }
-
-    return message.includes('Unsupported parameter') && message.includes('max_completion_tokens');
   }
 
   async provideInlineCompletionItems(
@@ -115,7 +57,17 @@ export class AutocompleteProvider implements vscode.InlineCompletionItemProvider
     _context: vscode.InlineCompletionContext,
     token: vscode.CancellationToken
   ): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList | null> {
-    if (!this.config?.enabled || !this.config.model || !this.config.apiKey) {
+    if (!this.config?.enabled || !this.config.model) {
+      return null;
+    }
+
+    // Check if API key is required for this provider
+    const needsApiKey = !KEYLESS_PROVIDERS.includes(this.config.provider);
+    if (needsApiKey && !this.config.apiKey) {
+      return null;
+    }
+
+    if (!this.strategy) {
       return null;
     }
 
@@ -180,38 +132,26 @@ export class AutocompleteProvider implements vscode.InlineCompletionItemProvider
     position: vscode.Position,
     token: vscode.CancellationToken
   ): Promise<string | null> {
-    if (!this.config) {
+    if (!this.config || !this.strategy) {
       return null;
     }
 
-    // Build context
+    // Build context and prompt
     const context = this.buildContext(document, position);
     const userPrompt = this.buildPrompt(document, position, context);
 
     this.lastRequest = new AbortController();
 
     try {
-      let baseURL = this.config.baseUrl;
-      if (!baseURL.endsWith('/v1')) {
-        baseURL = baseURL.replace(/\/$/, '') + '/v1';
-      }
-
-      const client = new OpenAI({
-        apiKey: this.config.apiKey,
-        baseURL,
-      });
-
-      const response = await this.createChatCompletion(
-        client,
+      // Delegate to strategy
+      const content = await this.strategy.generateCompletion(
         userPrompt,
+        SYSTEM_PROMPT,
+        this.config,
+        this.lastRequest.signal
       );
 
-      if (token.isCancellationRequested) {
-        return null;
-      }
-
-      const content = response.choices[0]?.message?.content;
-      if (!content) {
+      if (token.isCancellationRequested || !content) {
         return null;
       }
 
@@ -356,5 +296,6 @@ export class AutocompleteProvider implements vscode.InlineCompletionItemProvider
     if (this.lastRequest) {
       this.lastRequest.abort();
     }
+    this.strategy?.dispose?.();
   }
 }

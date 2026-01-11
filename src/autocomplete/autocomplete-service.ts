@@ -10,6 +10,16 @@ interface AutocompleteSettings {
   temperature: number;
 }
 
+interface CustomProviderConfig {
+  id: string;
+  name: string;
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  maxTokens: number;
+  temperature: number;
+}
+
 interface ApiSettings {
   provider: string;
   apiKey: string;
@@ -21,7 +31,9 @@ interface ApiSettings {
   openaiCustomUrl?: string;
   openaiCompatibleCustomUrl?: string;
   megallmCustomUrl?: string;
+  qwenCodeOauthPath?: string;
   autocompleteSettings?: AutocompleteSettings;
+  customProviders?: CustomProviderConfig[];
 }
 
 const PROVIDER_BASE_URLS: Record<string, string> = {
@@ -30,6 +42,20 @@ const PROVIDER_BASE_URLS: Record<string, string> = {
   'openai-compatible': 'http://localhost:1234',
   'megallm': 'https://ai.megallm.io',
 };
+
+/**
+ * Providers that don't require a traditional API key
+ * - qwen-code: Uses OAuth credentials from file
+ * - vscode-lm: Uses VS Code's built-in language model API (GitHub Copilot)
+ */
+const KEYLESS_PROVIDERS = ['qwen-code', 'vscode-lm'];
+
+/**
+ * Check if a provider is a custom provider (starts with 'custom-')
+ */
+function isCustomProvider(providerName: string): boolean {
+  return providerName.startsWith('custom-');
+}
 
 const SETTINGS_KEY = 'echode.autocompleteSettings';
 
@@ -81,22 +107,43 @@ export class AutocompleteService {
       return;
     }
 
-    // Get API key for the selected provider
-    const apiKey = this.getApiKeyForProvider(settings, autocomplete.provider);
-    if (!apiKey) {
-      this.disable();
-      return;
-    }
+    const providerName = autocomplete.provider;
+    const needsApiKey = !KEYLESS_PROVIDERS.includes(providerName);
 
-    // Get base URL for the selected provider
-    const baseUrl = this.getBaseUrlForProvider(settings, autocomplete.provider);
+    // Get API key for the selected provider (only if needed)
+    let apiKey: string | undefined;
+    let baseUrl: string | undefined;
+
+    if (isCustomProvider(providerName)) {
+      // Handle custom providers
+      const customProvider = this.getCustomProvider(settings, providerName);
+      if (!customProvider) {
+        this.disable();
+        return;
+      }
+      apiKey = customProvider.apiKey;
+      baseUrl = customProvider.baseUrl;
+    } else if (needsApiKey) {
+      // Standard providers that need API keys
+      apiKey = this.getApiKeyForProvider(settings, providerName);
+      if (!apiKey) {
+        this.disable();
+        return;
+      }
+      baseUrl = this.getBaseUrlForProvider(settings, providerName);
+    } else {
+      // Keyless providers (qwen-code, vscode-lm)
+      apiKey = undefined;
+      baseUrl = undefined;
+    }
 
     const config: AutocompleteConfig = {
       enabled: true,
-      provider: autocomplete.provider,
+      provider: providerName,
       model: autocomplete.model,
       apiKey,
       baseUrl,
+      qwenCodeOauthPath: settings.qwenCodeOauthPath,
       debounceMs: autocomplete.debounceMs || 150,
       maxTokens: autocomplete.maxTokens || 128,
       temperature: autocomplete.temperature || 0.2,
@@ -105,6 +152,13 @@ export class AutocompleteService {
     this.provider.updateConfig(config);
     this.enable();
     this.updateStatusBar(config);
+  }
+
+  private getCustomProvider(settings: ApiSettings, providerId: string): CustomProviderConfig | undefined {
+    if (!settings.customProviders) {
+      return undefined;
+    }
+    return settings.customProviders.find(p => `custom-${p.id}` === providerId);
   }
 
   private getApiKeyForProvider(settings: ApiSettings, provider: string): string {
@@ -117,6 +171,10 @@ export class AutocompleteService {
         return settings.openaiCompatibleApiKey || settings.apiKey || '';
       case 'megallm':
         return settings.megallmApiKey || settings.apiKey || '';
+      case 'qwen-code':
+      case 'vscode-lm':
+        // These don't use traditional API keys
+        return '';
       default:
         return settings.apiKey || '';
     }
@@ -132,6 +190,10 @@ export class AutocompleteService {
         return settings.openaiCompatibleCustomUrl || PROVIDER_BASE_URLS['openai-compatible'];
       case 'megallm':
         return settings.megallmCustomUrl || PROVIDER_BASE_URLS.megallm;
+      case 'qwen-code':
+      case 'vscode-lm':
+        // These providers handle their own URLs
+        return '';
       default:
         return PROVIDER_BASE_URLS['openai-compatible'];
     }
