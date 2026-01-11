@@ -20,6 +20,7 @@ export const CONTEXT_TRUNCATION_NOTICE =
   `The initial user task and the most recent exchanges have been retained for continuity.`;
 
 /**
- * Simple continuation instruction appended to tool results
+ * Continuation instruction appended to tool results
+ * Makes it clear that tools have completed and AI should proceed to next step
  */
-export const CONTINUATION_INSTRUCTION = '[Continue. Focus on the user\'s request.]';
+export const CONTINUATION_INSTRUCTION = '[Tool execution complete. Proceed with the next step. Do not re-verify completed actions.]';
