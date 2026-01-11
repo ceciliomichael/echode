@@ -128,7 +128,6 @@ export type ExecuteToolAndContinueFn = (
   toolIndex?: number,
   userAttachments?: ImageAttachment[],
   bufferedToolResults?: string[],
-  previousToolResults?: string[],
   lockedConfig?: LockedModelConfig
 ) => Promise<void>;
 

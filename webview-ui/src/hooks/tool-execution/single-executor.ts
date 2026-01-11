@@ -27,7 +27,6 @@ export interface SingleExecutionParams {
   context: ToolExecutionContext;
   executeToolAndContinue: ExecuteToolAndContinueFn;
   lockedConfig?: LockedModelConfig;
-  previousToolResults?: string[];
 }
 
 /**
@@ -57,7 +56,6 @@ export async function executeSingleTool(
     context,
     executeToolAndContinue,
     lockedConfig,
-    previousToolResults,
   } = params;
 
   const {
@@ -181,8 +179,7 @@ export async function executeSingleTool(
   }
 
   // Format tool results for AI context
-  const allToolResults = [...(previousToolResults || []), ...result.toolResults];
-  const toolResultText = allToolResults.join('\n\n');
+  const toolResultText = result.toolResults.join('\n\n');
 
   // Check if stopped
   if (isStoppingRef.current) {
@@ -230,7 +227,6 @@ export async function executeSingleTool(
     logPrefix: '[SingleExecutor]',
     mode,
     lockedConfig,
-    previousToolResults: allToolResults,
   });
 
   return { wasStopped: false, isPlanningTool: false, continueExecution: true };

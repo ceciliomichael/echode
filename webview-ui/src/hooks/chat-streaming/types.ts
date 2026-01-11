@@ -32,7 +32,6 @@ export interface ChatStreamingProps {
     toolIndex?: number,
     userAttachments?: ImageAttachment[],
     bufferedToolResults?: string[],
-    previousToolResults?: string[],
     lockedConfig?: LockedModelConfig
   ) => Promise<void>;
   updateToolExecution: (messageId: string, toolExecutionId: string, state: ToolExecutionState) => void;

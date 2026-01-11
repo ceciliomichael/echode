@@ -478,7 +478,6 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
             0,
             attachments,
             bufferedToolResults,
-            [], // Initial previousToolResults
             continuationConfig,
           );
           return { success: true, assistantContent, handledByToolExecution: true };
@@ -519,7 +518,6 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
           0,
           attachments,
           undefined,
-          [], // Initial previousToolResults
           lockedConfig,
         );
 

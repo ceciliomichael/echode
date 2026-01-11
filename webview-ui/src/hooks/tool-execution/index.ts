@@ -79,7 +79,6 @@ export function useToolExecution({
       toolIndex = 0,
       userAttachments?: ImageAttachment[],
       bufferedToolResults?: string[],
-      previousToolResults?: string[],
       lockedConfig?: LockedModelConfig
     ) => {
       // Determine effective mode: prefer locked mode if available
@@ -149,8 +148,7 @@ export function useToolExecution({
             effectiveUserAttachments,
             context,
             executeToolAndContinue,
-            lockedConfig,
-            previousToolResults
+            lockedConfig
           );
           return;
         }
@@ -180,7 +178,6 @@ export function useToolExecution({
           context,
           executeToolAndContinue,
           lockedConfig,
-          previousToolResults,
         });
       } catch (error) {
         console.error('[ToolExecution] Execution error:', error);
@@ -230,15 +227,12 @@ async function handleBufferedResults(
     toolIndex?: number,
     userAttachments?: ImageAttachment[],
     bufferedToolResults?: string[],
-    previousToolResults?: string[],
     lockedConfig?: LockedModelConfig
   ) => Promise<void>,
-  lockedConfig?: LockedModelConfig,
-  previousToolResults?: string[]
+  lockedConfig?: LockedModelConfig
 ): Promise<void> {
 
-  const allToolResults = [...(previousToolResults || []), ...bufferedToolResults];
-  const toolResultText = allToolResults.join('\n\n');
+  const toolResultText = bufferedToolResults.join('\n\n');
   
   // Fetch diagnostics for any files that were modified by the tools
   const diagnosticsText = await getDiagnosticsForToolResults(bufferedToolResults);
@@ -280,7 +274,6 @@ async function handleBufferedResults(
     logPrefix: '[ToolExecution:Buffered]',
     mode: context.mode,
     lockedConfig,
-    previousToolResults: allToolResults,
   });
 }
 

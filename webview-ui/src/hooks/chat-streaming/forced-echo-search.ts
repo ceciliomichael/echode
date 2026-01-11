@@ -65,8 +65,7 @@ export async function handleForcedEchoSearch(ctx: ForcedEchoSearchContext): Prom
     content,
     0,
     attachments,
-    undefined, // bufferedToolResults
-    [], // previousToolResults
+    undefined,
     lockedConfig
   );
 
