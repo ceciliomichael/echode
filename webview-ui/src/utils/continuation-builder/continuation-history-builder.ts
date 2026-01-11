@@ -15,7 +15,6 @@ import { buildTodoContext } from './todo-context-builder';
 import { buildToolResultMessage } from './tool-result-message-builder';
 import { truncateMessageHistory, processFirstMessage, processRemainingMessages } from './message-processor';
 import { injectCodeQualityReminder } from '../code-quality-reminder';
-import { summarizeToolSections } from '../tool-context-cleaner';
 
 /**
  * Build normal history with full message chain
@@ -34,10 +33,6 @@ function buildNormalHistory(
   modelSupportsVision: boolean,
   isFirstIteration: boolean
 ): ChatMessage[] {
-  const sanitizedAssistantContent = assistantContent
-    .replace(/<function_calls>[\s\S]*?<\/function_calls>/gi, '[Tool calls executed - see <tool_results>]')
-    .trim();
-
   const continuationHistory: ChatMessage[] = [
     {
       role: 'system',
@@ -50,16 +45,8 @@ function buildNormalHistory(
 
   // Add first message (original task context)
   if (messagesToInclude.length > 0) {
-    const firstMessage = messagesToInclude[0];
-    const processedFirstMessage = firstMessage.role === 'user'
-      ? {
-          ...firstMessage,
-          content: `<historical_context description="This is the original task/request from the start of the conversation. Focus on the LATEST user message at the bottom for the current instruction.">\n${summarizeToolSections(firstMessage.content)}\n</historical_context>`,
-        }
-      : firstMessage;
-
     const firstMsgResults = processFirstMessage(
-      processedFirstMessage,
+      messagesToInclude[0],
       wasTruncated,
       mode,
       modelSupportsVision
@@ -101,7 +88,7 @@ function buildNormalHistory(
   // Always add assistant response (contains tool calls)
   continuationHistory.push({
     role: 'assistant',
-    content: sanitizedAssistantContent,
+    content: assistantContent,
   });
 
   // Build the tool result message in a structured format

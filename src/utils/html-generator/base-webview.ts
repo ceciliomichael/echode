@@ -110,7 +110,7 @@ export function generateWebviewHtml(
   html = html.replace(
     '<head>',
     `<head>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; img-src ${webview.cspSource} https: data:; script-src ${webview.cspSource} 'unsafe-inline'; connect-src http: https:;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource}; img-src ${webview.cspSource} https: data:; script-src ${webview.cspSource} 'unsafe-inline' 'wasm-unsafe-eval'; worker-src blob: data: ${webview.cspSource}; connect-src http: https: ${webview.cspSource} vscode-webview:;">
     <script>${scriptContent}
     </script>`
   );

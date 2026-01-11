@@ -1,12 +1,13 @@
 /**
  * JavaScript functionality for Mermaid preview panel
  */
-export function getMermaidScripts(theme: string): string {
+export function getMermaidScripts(theme: string, themeVariables: any): string {
   return `
     const vscode = acquireVsCodeApi();
     mermaid.initialize({
       startOnLoad: false,
-      theme: '${theme}',
+      theme: 'base',
+      themeVariables: ${JSON.stringify(themeVariables)},
       securityLevel: 'loose',
     });
 

@@ -22,4 +22,4 @@ export const CONTEXT_TRUNCATION_NOTICE =
 /**
  * Simple continuation instruction appended to tool results
  */
-export const CONTINUATION_INSTRUCTION = '[Continue. Treat <tool_results> as the source of truth. Do not repeat successful tool actions; proceed to the next step.]';
+export const CONTINUATION_INSTRUCTION = '[Continue. Focus on the user\'s request.]';

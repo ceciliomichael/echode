@@ -85,6 +85,7 @@ export interface ContinuationStreamConfig {
   logPrefix?: string;
   mode: ChatMode;
   lockedConfig?: LockedModelConfig;
+  previousToolResults?: string[];
 }
 
 /**
@@ -235,6 +236,7 @@ export async function runContinuationStream(config: ContinuationStreamConfig): P
     getToolExecutor,
     mode,
     lockedConfig,
+    previousToolResults,
   } = config;
 
   const boundaryPrefix = assistantContent.endsWith(REQUEST_BOUNDARY_MARKER) ? '' : REQUEST_BOUNDARY_MARKER;
@@ -478,6 +480,7 @@ export async function runContinuationStream(config: ContinuationStreamConfig): P
               nextToolIndex,
               userAttachments,
               bufferedToolResults,
+              previousToolResults,
               continuationConfig
             );
             return true;
@@ -498,40 +501,40 @@ export async function runContinuationStream(config: ContinuationStreamConfig): P
               continuationHistory,
               messagesToSend,
               userContent,
-              nextToolIndex,
+              nextToolIndex + 1,
               userAttachments,
-              undefined,
+              undefined, // bufferedToolResults
+              previousToolResults,
               lockedConfig
             );
             return true;
           }
         }
-
-        if (!pendingUpdate) {
-          pendingUpdate = true;
-          requestAnimationFrame(updateUI);
-        }
       }
 
-      // Stream completed successfully
-      streamSuccess = true;
       // Final update
-      updateUI();
-    } catch (streamError) {
-      const errorMessage = streamError instanceof Error ? streamError.message : 'Unknown error';
-
-      // Check if user manually aborted
-      if (abortControllerRef.current?.signal.aborted || isStoppingRef.current) {
-        streamSuccess = true;
-      } else if (isRetryableError(errorMessage)) {
-        retryCount++;
-        await new Promise(resolve => setTimeout(resolve, calculateRetryDelay(retryCount)));
-      } else {
-        // Non-retryable error, rethrow
-        throw streamError;
+      if (pendingUpdate) {
+        updateUI();
       }
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        // Handle abort
+        return false;
+      }
+      
+      // Check if retryable
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (isRetryableError(errorMessage) && retryCount < 3) {
+        retryCount++;
+        const delay = calculateRetryDelay(retryCount);
+        console.log(`[ContinuationStream] Retryable error: ${errorMessage}. Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      throw error;
     }
   }
-
+  
   return streamSuccess;
 }

@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { getMermaidStyles } from './styles';
 import { getMermaidScripts } from './scripts';
+import { generateMermaidTheme } from '../../mermaid-theme-config';
 
 /**
  * Generate HTML for Mermaid preview panel
@@ -9,7 +10,9 @@ export function getMermaidPreviewHtml(
   webview: vscode.Webview,
   code: string
 ): string {
-  const theme = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark ? 'dark' : 'default';
+  const isDark = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
+  const theme = isDark ? 'dark' : 'default';
+  const themeVariables = generateMermaidTheme(isDark);
   
   return `<!DOCTYPE html>
 <html lang="en">
@@ -49,7 +52,7 @@ export function getMermaidPreviewHtml(
   </div>
   <script type="text/plain" id="mermaid-code">${code.replace(/</g, '<').replace(/>/g, '>')}</script>
   <div id="footer">Scroll to zoom • Drag to pan • Double-click to reset</div>
-  <script>${getMermaidScripts(theme)}</script>
+  <script>${getMermaidScripts(theme, themeVariables)}</script>
 </body>
 </html>`;
 }
