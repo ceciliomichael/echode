@@ -28,6 +28,14 @@ export function sanitizeAssistantText(content: string): string {
   const sanitizeSegment = (segment: string): string => {
     let sanitized = segment;
 
+    // Normalize common tool tags (whitespace/casing) so stripping is reliable
+    sanitized = sanitized.replace(/<\s*function_calls\s*>/gi, '<function_calls>');
+    sanitized = sanitized.replace(/<\s*\/\s*function_calls\s*>/gi, '</function_calls>');
+    sanitized = sanitized.replace(/<\s*invoke(\s+)/gi, '<invoke$1');
+    sanitized = sanitized.replace(/<\s*\/\s*invoke\s*>/gi, '</invoke>');
+    sanitized = sanitized.replace(/<\s*parameter(\s+)/gi, '<parameter$1');
+    sanitized = sanitized.replace(/<\s*\/\s*parameter\s*>/gi, '</parameter>');
+
     // Clean corrupted hybrid tool call formats first
     // Pattern: <tool_call>function_calls> -> remove entirely
     sanitized = sanitized.replace(/<tool_call>function_calls>/gi, '');
@@ -38,13 +46,13 @@ export function sanitizeAssistantText(content: string): string {
     sanitized = sanitized.replace(/<\|\/tool_call\|>/gi, '');
 
     for (const tag of INTERNAL_BLOCK_TAGS) {
-      const blockRegex = new RegExp(`<${tag}[^>]*>[\\s\\S]*?<\\/${tag}>`, 'g');
+      const blockRegex = new RegExp(`<${tag}[^>]*>[\\s\\S]*?<\\/${tag}>`, 'gi');
       sanitized = sanitized.replace(blockRegex, '');
     }
 
     // Remove any stray invoke/parameter blocks that might leak into text
-    sanitized = sanitized.replace(/<invoke[^>]*>[\s\S]*?<\/invoke>/g, '');
-    sanitized = sanitized.replace(/<parameter[^>]*>[\s\S]*?<\/parameter>/g, '');
+    sanitized = sanitized.replace(/<invoke[^>]*>[\s\S]*?<\/invoke>/gi, '');
+    sanitized = sanitized.replace(/<parameter[^>]*>[\s\S]*?<\/parameter>/gi, '');
 
     return sanitized;
   };

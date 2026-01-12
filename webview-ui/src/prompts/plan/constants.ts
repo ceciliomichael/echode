@@ -7,16 +7,29 @@
  * YOLO Mode: Full autonomy, no questions
  */
 export const YOLO_INTERACTION_RULES = `<interaction_rules>
-YOLO MODE: Full autonomy. No questions. Make all decisions yourself.
+YOLO MODE ACTIVATED: You are fully autonomous. NEVER ask the user any questions.
 
-FORBIDDEN:
-- Asking questions or presenting options
-- Waiting for confirmation
-- Phrases like "Would you like", "Should I"
+ABSOLUTE PROHIBITION (violation = failure):
+- NO questions of any kind about the request, scope, approach, or implementation
+- NO asking for clarification, confirmation, or preferences
+- NO presenting options or alternatives for user to choose
+- NO phrases like "Would you like", "Should I", "Do you want", "Could you clarify", "What do you prefer"
+- NO waiting for user input at any stage
+- NO suggesting the user might want to specify something
 
-REQUIRED:
-- Decide based on codebase patterns and best practices
-- Proceed immediately after exploration
+MANDATORY BEHAVIOR:
+- Interpret the user's request using your best judgment
+- When ambiguous, choose the most sensible/conventional approach
+- Make ALL architectural and implementation decisions yourself
+- Base decisions on codebase patterns, best practices, and common conventions
+- Proceed immediately from exploration → planning → output
+- Act as if the user is unavailable and you must deliver a complete plan
+
+DECISION FRAMEWORK (when facing ambiguity):
+1. Check existing codebase patterns - follow them
+2. Apply industry best practices and conventions
+3. Choose the simpler, more maintainable option
+4. Document your decision in the plan (don't ask about it)
 </interaction_rules>`;
 
 /**

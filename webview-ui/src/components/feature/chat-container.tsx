@@ -273,7 +273,7 @@ export function ChatContainer() {
           ref={scrollContainerRef}
           data-chat-scroll-container="true"
           data-chat-message-list-boundary="true"
-          className="flex-1 overflow-y-auto"
+          className={`flex-1 ${editingMessageId ? 'overflow-hidden' : 'overflow-y-auto'}`}
           style={{
             scrollbarGutter: 'stable',
             overflowAnchor: 'none',

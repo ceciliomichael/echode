@@ -12,7 +12,8 @@ import { YOLO_INTERACTION_RULES, STANDARD_INTERACTION_RULES } from './constants'
 import {
     PLAN_IDENTITY_STANDARD,
     PLAN_IDENTITY_YOLO,
-    PLAN_WORKFLOW,
+    PLAN_WORKFLOW_STANDARD,
+    PLAN_WORKFLOW_YOLO,
     PLAN_SCOPE_RULES
 } from './sections';
 
@@ -48,6 +49,7 @@ export function getPlanPrompt(
     // Mode-specific selections
     const identity = isYoloMode ? PLAN_IDENTITY_YOLO : PLAN_IDENTITY_STANDARD;
     const interactionRules = isYoloMode ? YOLO_INTERACTION_RULES : STANDARD_INTERACTION_RULES;
+    const workflow = isYoloMode ? PLAN_WORKFLOW_YOLO : PLAN_WORKFLOW_STANDARD;
 
     return `<plan_mode>
 ${identity}
@@ -61,7 +63,7 @@ ${getIsolationRules('context')}
 
 ${interactionRules}
 
-${PLAN_WORKFLOW}
+${workflow}
 
 ${PLAN_SCOPE_RULES}
 
