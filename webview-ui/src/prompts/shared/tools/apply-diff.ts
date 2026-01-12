@@ -13,6 +13,12 @@ Parameters:
 - path: File path (required)
 - diff: The diff content (required)
 
+### HARD REQUIREMENT (DO NOT BREAK)
+- **Exactly ONE** \`<<<<<<< SEARCH ... ======= ... >>>>>>> REPLACE\` block per \`apply_diff\` invocation.
+- If you need 2+ changes (even in the SAME file), you MUST emit 2+ separate \`<invoke name="apply_diff">\` blocks.
+- Do NOT try to “batch” edits by placing multiple \`<<<<<<< SEARCH\` blocks inside a single \`diff\`.
+- Do NOT use an \`edits\` parameter/array for \`apply_diff\`.
+
 ### FORMAT TEMPLATE
 \`\`\`
 <<<<<<< SEARCH

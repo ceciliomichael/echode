@@ -10,6 +10,7 @@ import { LLMValidator } from '../services/llm/llm-validator';
 import { getOpenFilesDiagnostics } from '../services/diagnostics';
 import { getWorkspaceRoot } from '../services/tools/utils/workspace-utils';
 import { resolveSlashCommands } from '../services/workflow/slash-command-resolver';
+import { injectMentionInstructions } from '../utils/mention-utils';
 
 interface ChatStreamRequest {
   requestId: number;
@@ -64,6 +65,9 @@ export async function handleChatStream(
 
     // Resolve slash commands (/command) with workflow file content
     await resolveSlashCommands(messagesWithTodos);
+
+    // Inject hints for generic file mentions to encourage reading them
+    injectMentionInstructions(messagesWithTodos);
 
     if (messagesWithTodos.length > 0) {
       const lastMessage = messagesWithTodos[messagesWithTodos.length - 1];

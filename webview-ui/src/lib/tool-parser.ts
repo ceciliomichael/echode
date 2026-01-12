@@ -14,6 +14,39 @@ import {
 // Legacy regex pattern kept for parseToolBlock backward compatibility
 const TOOL_BLOCK_REGEX = /<function_calls>([\s\S]*?)<\/function_calls>/;
 
+ function expandApplyDiffToolBlock(block: ParsedToolBlock): ParsedToolBlock[] {
+   if (block.toolName !== 'apply_diff') {
+     return [block];
+   }
+
+   const diffParam = block.parameters?.diff;
+   if (typeof diffParam !== 'string') {
+     return [block];
+   }
+
+   const matches = diffParam.match(/(^|\n)<<<<<<< SEARCH/g);
+   if (!matches || matches.length <= 1) {
+     return [block];
+   }
+
+   const parts = diffParam
+     .split(/(?=^<<<<<<< SEARCH)/m)
+     .map((p) => p.trim())
+     .filter(Boolean);
+
+   if (parts.length <= 1) {
+     return [block];
+   }
+
+   return parts.map((diffPart) => ({
+     ...block,
+     parameters: {
+       ...block.parameters,
+       diff: diffPart,
+     },
+   }));
+ }
+
 /**
  * Parse a single invoke block and return structured data
  * Extracts tool name from invoke tag attribute: <invoke name="TOOL_NAME">
@@ -59,7 +92,7 @@ function parseFunctionCallsBlock(
     if (block.toolName && typeof block.toolName === 'string') {
       const parsed = parseInvokeBlock(block.innerContent, block.toolName, rawContent);
       if (parsed) {
-        toolBlocks.push(parsed);
+        toolBlocks.push(...expandApplyDiffToolBlock(parsed));
       }
     }
   }
@@ -402,12 +435,16 @@ function parseInvokeBlockInternal(
 ): ParsedToolBlock | null {
   try {
     const parameters = parseXMLParameters(invokeContent);
-    return {
+    const parsed: ParsedToolBlock = {
       type: 'tool',
       toolName,
       parameters,
       rawContent,
     };
+
+    // Note: multi-block apply_diff invocations are expanded higher up in the call stack
+    // (parseFunctionCallsBlock / extractCompleteInvokeBlocksIncremental)
+    return parsed;
   } catch {
     return null;
   }

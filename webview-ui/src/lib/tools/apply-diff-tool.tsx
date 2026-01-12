@@ -24,6 +24,12 @@ registerToolPlugin({
         description: 'Targeted edits to existing files',
         aiDescription: `Targeted edits to existing files using SEARCH/REPLACE blocks.
 
+HARD REQUIREMENT (DO NOT BREAK):
+- Exactly ONE <<<<<<< SEARCH ... ======= ... >>>>>>> REPLACE block per apply_diff invocation.
+- If you need multiple changes (even in the same file), emit multiple <invoke name="apply_diff"> blocks.
+- Do NOT include multiple SEARCH blocks inside a single diff.
+- Do NOT use an edits parameter/array.
+
 Parameters:
 - path: File path (relative to workspace)
 - diff: Single SEARCH/REPLACE block (use multiple invocations for multiple changes)
