@@ -68,52 +68,44 @@ export function McpToolResult({ toolName, data }: McpToolResultProps) {
   const displayName = toolName.startsWith('mcp_') ? toolName.substring(4) : toolName;
 
   return (
-    <div className="px-3 py-3">
+    <div
+      className="rounded-lg overflow-hidden border flex flex-col flex-1 min-h-0"
+      style={{
+        borderColor: 'var(--vscode-input-border)',
+        backgroundColor: 'var(--vscode-textCodeBlock-background)',
+      }}
+    >
+      {/* Header */}
       <div
-        className="rounded-lg overflow-hidden border"
+        className="flex items-center gap-2 px-3 py-2 border-b shrink-0"
         style={{
           borderColor: 'var(--vscode-input-border)',
-          backgroundColor: 'var(--vscode-textCodeBlock-background)',
+          backgroundColor: 'var(--vscode-editor-background)',
         }}
       >
-        {/* Header */}
-        <div
-          className="flex items-center gap-2 px-3 py-2 border-b"
-          style={{
-            borderColor: 'var(--vscode-input-border)',
-            backgroundColor: 'var(--vscode-editor-background)',
-          }}
+        <Cable
+          className="w-3.5 h-3.5 shrink-0"
+          style={{ color: 'var(--vscode-charts-purple)' }}
+        />
+        <span
+          className="text-xs font-medium"
+          style={{ color: 'var(--vscode-foreground)' }}
         >
-          <Cable
-            className="w-3.5 h-3.5 shrink-0"
-            style={{ color: 'var(--vscode-charts-purple)' }}
-          />
-          <span
-            className="text-xs font-medium"
-            style={{ color: 'var(--vscode-foreground)' }}
-          >
-            {displayName}
-          </span>
-        </div>
+          {displayName}
+        </span>
+      </div>
 
-        {/* Content with proper formatting and scrollable */}
-        <div
-          className="p-3 overflow-auto"
+      {/* Content with proper formatting and scrollable */}
+      <div className="p-3 overflow-auto flex-1 min-h-0">
+        <pre
+          className="text-xs font-mono m-0"
           style={{
-            minHeight: '80px',
-            maxHeight: '400px',
+            color: 'var(--vscode-editor-foreground)',
+            whiteSpace: 'pre',
           }}
         >
-          <pre
-            className="text-xs font-mono m-0"
-            style={{
-              color: 'var(--vscode-editor-foreground)',
-              whiteSpace: 'pre',
-            }}
-          >
-            {formattedResult}
-          </pre>
-        </div>
+          {formattedResult}
+        </pre>
       </div>
     </div>
   );

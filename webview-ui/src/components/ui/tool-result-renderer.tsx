@@ -172,7 +172,11 @@ export function renderToolResult(
 
   // Special handling for MCP tools - show formatted result with word wrap
   if (toolName.startsWith('mcp_')) {
-    return <McpToolResult toolName={toolName} data={data} />;
+    return (
+      <div className="px-3 py-3 flex-1 min-h-0 flex flex-col overflow-hidden">
+        <McpToolResult toolName={toolName} data={data} />
+      </div>
+    );
   }
 
   // Use registered renderer for other tools

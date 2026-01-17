@@ -18,7 +18,6 @@ import type { ToolExecutionState, ParsedToolBlock } from '../../types/tool';
 import type { ExecuteToolAndContinueFn } from './types';
 import { ToolExecutor } from '../../lib/tool-executor';
 import { generateToolExecutionId, createToolExecutionState, updateToolExecutionStatus } from '../../lib/tool-execution-tracker';
-import { REQUEST_BOUNDARY_MARKER } from '../../utils/think-block-parser';
 
 const MAX_RETRY_DELAY_MS = 5000;
 
@@ -237,8 +236,7 @@ export async function runContinuationStream(config: ContinuationStreamConfig): P
     lockedConfig,
   } = config;
 
-  const boundaryPrefix = assistantContent.endsWith(REQUEST_BOUNDARY_MARKER) ? '' : REQUEST_BOUNDARY_MARKER;
-  const continuationBaseContent = assistantContent + boundaryPrefix;
+  const continuationBaseContent = assistantContent;
   const continuationBaseLength = continuationBaseContent.length;
 
   let continuationContent = continuationBaseContent;

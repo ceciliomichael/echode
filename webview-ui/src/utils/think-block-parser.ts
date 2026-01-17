@@ -7,45 +7,69 @@ export interface ParsedContent {
   textContent: string;
 }
 
- export const REQUEST_BOUNDARY_MARKER = '\u001E';
+const LEGACY_REQUEST_BOUNDARY_MARKER = '\u001E';
+export const REQUEST_BOUNDARY_MARKER = '\u001F__ECHODE_REQUEST_BOUNDARY__\u001F';
 
- type LeadingThinkOpenTag = '<think>' | '<thinking>';
+const REQUEST_BOUNDARY_SENTINEL = '__ECHODE_REQUEST_BOUNDARY__';
 
- const THINK_OPEN = '<think>';
- const THINKING_OPEN = '<thinking>';
- const THINK_CLOSE = '</think>';
- const THINKING_CLOSE = '</thinking>';
+function normalizeRequestBoundaryMarkers(content: string): string {
+  return content
+    .split(`\u001F${REQUEST_BOUNDARY_SENTINEL}\u001F`)
+    .join(REQUEST_BOUNDARY_MARKER)
+    .split(`\u241F${REQUEST_BOUNDARY_SENTINEL}\u241F`)
+    .join(REQUEST_BOUNDARY_MARKER)
+    .split(`\u001F${REQUEST_BOUNDARY_SENTINEL}`)
+    .join(REQUEST_BOUNDARY_MARKER)
+    .split(`${REQUEST_BOUNDARY_SENTINEL}\u001F`)
+    .join(REQUEST_BOUNDARY_MARKER)
+    .split(`\u241F${REQUEST_BOUNDARY_SENTINEL}`)
+    .join(REQUEST_BOUNDARY_MARKER)
+    .split(`${REQUEST_BOUNDARY_SENTINEL}\u241F`)
+    .join(REQUEST_BOUNDARY_MARKER)
+    .split(REQUEST_BOUNDARY_SENTINEL)
+    .join(REQUEST_BOUNDARY_MARKER)
+    .split(LEGACY_REQUEST_BOUNDARY_MARKER)
+    .join(REQUEST_BOUNDARY_MARKER);
+}
 
- export function stripRequestBoundaryMarkers(content: string): string {
-   return content.split(REQUEST_BOUNDARY_MARKER).join('');
- }
+type LeadingThinkOpenTag = '<think>' | '<thinking>';
 
- export function splitByRequestBoundary(content: string): string[] {
-   return content.split(REQUEST_BOUNDARY_MARKER);
- }
+const THINK_OPEN = '<think>';
+const THINKING_OPEN = '<thinking>';
+const THINK_CLOSE = '</think>';
+const THINKING_CLOSE = '</thinking>';
 
- export function isPotentialLeadingThinkPrefix(content: string): boolean {
-   if (!content) {
-     return false;
-   }
+export function stripRequestBoundaryMarkers(content: string): string {
+  return normalizeRequestBoundaryMarkers(content)
+    .split(REQUEST_BOUNDARY_MARKER)
+    .join('');
+}
 
-   if (!content.startsWith('<')) {
-     return false;
-   }
+export function splitByRequestBoundary(content: string): string[] {
+  return normalizeRequestBoundaryMarkers(content).split(REQUEST_BOUNDARY_MARKER);
+}
 
-   return THINK_OPEN.startsWith(content) || THINKING_OPEN.startsWith(content);
- }
+export function isPotentialLeadingThinkPrefix(content: string): boolean {
+  if (!content) {
+    return false;
+  }
 
- export function getLeadingThinkOpenTag(content: string): LeadingThinkOpenTag | null {
-   if (content.startsWith(THINK_OPEN)) {
-     return THINK_OPEN;
-   }
-   if (content.startsWith(THINKING_OPEN)) {
-     return THINKING_OPEN;
-   }
-   return null;
- }
+  if (!content.startsWith('<')) {
+    return false;
+  }
 
+  return THINK_OPEN.startsWith(content) || THINKING_OPEN.startsWith(content);
+}
+
+export function getLeadingThinkOpenTag(content: string): LeadingThinkOpenTag | null {
+  if (content.startsWith(THINK_OPEN)) {
+    return THINK_OPEN;
+  }
+  if (content.startsWith(THINKING_OPEN)) {
+    return THINKING_OPEN;
+  }
+  return null;
+}
  export function getLeadingThinkCloseTag(openTag: LeadingThinkOpenTag): string {
    return openTag === THINK_OPEN ? THINK_CLOSE : THINKING_CLOSE;
  }

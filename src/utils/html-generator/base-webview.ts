@@ -64,12 +64,17 @@ export function generateWebviewHtml(
 </html>`;
   }
 
+  const baseUri = webview.asWebviewUri(distPath);
+
   // Replace asset paths with webview URIs
   html = html.replace(
-    /(<link.+?href="|<script.+?src="|<img.+?src=")(?!https?:\/\/)(\.?\/)(.+?)"/g,
-    (_match, prefix, _slash, assetPath) => {
+    /(<link.+?href="|<script.+?src="|<img.+?src=")(?!https?:\/\/)(\.?\/|\/)(.+?)"/g,
+    (_match, prefix, _slash, assetPath: string) => {
+      const normalizedAssetPath = assetPath.startsWith('/')
+        ? assetPath.slice(1)
+        : assetPath;
       const assetUri = webview.asWebviewUri(
-        vscode.Uri.joinPath(distPath, assetPath)
+        vscode.Uri.joinPath(distPath, normalizedAssetPath)
       );
       return `${prefix}${assetUri}"`;
     }
@@ -106,10 +111,11 @@ export function generateWebviewHtml(
     scriptContent += `\n    window.workspaceContext = ${JSON.stringify(options.workspaceInfo)};`;
   }
 
-  // Insert CSP and scripts
+  // Insert base href (for Vite dynamic imports), CSP, and bootstrap script
   html = html.replace(
-    '<head>',
+    /<head\s*>/gi,
     `<head>
+    <base href="${baseUri.toString()}/">
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource}; img-src ${webview.cspSource} https: data:; script-src ${webview.cspSource} 'unsafe-inline' 'wasm-unsafe-eval'; worker-src blob: data: ${webview.cspSource}; connect-src http: https: ${webview.cspSource} vscode-webview:;">
     <script>${scriptContent}
     </script>`

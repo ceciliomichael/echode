@@ -6,7 +6,7 @@ import {
     findMatchingFunctionCallsClose
 } from './tag-utils';
 import { extractAllInvokeBlocks, parseXMLParameters } from './xml-parser';
-import { REQUEST_BOUNDARY_MARKER } from '../think-block-parser';
+import { REQUEST_BOUNDARY_MARKER, splitByRequestBoundary } from '../think-block-parser';
 
 /**
  * Fix leaked <thought> tags that appear after closing </think> or </thinking> tags.
@@ -201,12 +201,13 @@ function hasPotentialUnparsedTools(content: string, parsedTokens: ContentToken[]
  * Process sequentially to avoid parsing content inside think blocks
  */
 export function tokenizeContent(content: string, messageId: string = 'unknown'): ContentToken[] {
-    const segments = content.split(REQUEST_BOUNDARY_MARKER);
-    const hasLeadingThink = segments.some((segment) => segment.startsWith('<think>') || segment.startsWith('<thinking>'));
+    const boundarySegments = splitByRequestBoundary(content);
+    const normalizedContent = boundarySegments.join(REQUEST_BOUNDARY_MARKER);
+    const hasLeadingThink = boundarySegments.some((segment) => segment.startsWith('<think>') || segment.startsWith('<thinking>'));
 
     // Only run think-specific repairs when the response starts with a think block.
     // If think tags occur later in the response, they must remain literal text.
-    const maybeFixedThoughtContent = hasLeadingThink ? fixLeakedThoughtTags(content) : content;
+    const maybeFixedThoughtContent = hasLeadingThink ? fixLeakedThoughtTags(normalizedContent) : normalizedContent;
     const maybeMergedThinkContent = hasLeadingThink ? mergeConsecutiveThinkBlocks(maybeFixedThoughtContent) : maybeFixedThoughtContent;
 
     // Preprocess to fix corrupted tool call formats
@@ -482,6 +483,7 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
         // No more blocks
         else {
             let remainingText = processedContent.slice(position);
+            remainingText = remainingText.split(REQUEST_BOUNDARY_MARKER).join('');
 
             // Hide incomplete function_calls tag markers during streaming (e.g., "<", "<f", "<func", "<function_", etc.)
             // This prevents flashing when AI is still typing the opening tag

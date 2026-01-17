@@ -1,223 +1,655 @@
 /**
- * MCP Config Service - Manages mcp.json configuration in global storage
- * Implements Single Responsibility Principle - only handles config persistence
+ * MCP Config Service - Manages mcp.json configuration with dual-source support
+ * 
+ * Implements Roo-Code's robust configuration loading pattern:
+ * - Global config: Stored in extension's global storage
+ * - Project config: Stored in workspace's .echode/mcp.json
+ * - Project configs override global configs with the same name
+ * - File watching with debouncing for both sources
+ * - Zod validation for all configurations
  */
 
-import * as fs from 'fs';
+import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { MCPServerConfig } from './mcp-config-types';
+import deepEqual from 'fast-deep-equal';
+
+import { MCPServerConfig, MCPTransportType } from './mcp-config-types';
+import { 
+  McpSettingsSchema, 
+  ServerConfig, 
+  parseMcpSettings,
+  validateServerConfig 
+} from './mcp-validation';
+import { safeWriteJson, fileExistsAtPath } from './utils/filesystem';
+import { getWorkspacePath } from '../../utils/path-utils';
+
+// Configuration source types
+export type ConfigSource = 'global' | 'project';
+
+// Extended config with source tracking
+export interface MCPServerConfigWithSource extends MCPServerConfig {
+  source: ConfigSource;
+  projectPath?: string;
+}
+
+// Default MCP settings file content
+const DEFAULT_MCP_SETTINGS = {
+  mcpServers: {}
+};
+
+// Project config directory name
+const PROJECT_CONFIG_DIR = '.echode';
+const MCP_CONFIG_FILENAME = 'mcp.json';
 
 export class MCPConfigService {
-  private configPath: string | null = null;
-  private watchers: vscode.FileSystemWatcher[] = [];
+  private globalConfigPath: string | null = null;
+  private disposables: vscode.Disposable[] = [];
+  
+  // File watchers
+  private globalWatcher?: vscode.FileSystemWatcher;
+  private projectWatcher?: vscode.FileSystemWatcher;
+  
+  // Debounce timers for config changes
+  private configChangeTimers = new Map<string, NodeJS.Timeout>();
+  
+  // Flag to prevent watcher triggering during programmatic updates
+  private isProgrammaticUpdate = false;
+  private flagResetTimer?: NodeJS.Timeout;
+  
+  // Event emitters
+  private configChangeEmitter = new vscode.EventEmitter<MCPServerConfig[]>();
+  public onConfigChange = this.configChangeEmitter.event;
 
   constructor(storagePath?: string) {
     if (storagePath) {
-      this.configPath = path.join(storagePath, 'mcp.json');
+      this.globalConfigPath = path.join(storagePath, MCP_CONFIG_FILENAME);
     }
   }
 
   /**
-   * Get the config file path
+   * Initialize the config service and set up watchers
    */
-  public getConfigPath(): string | null {
-    return this.configPath;
+  async initialize(): Promise<void> {
+    await this.ensureGlobalConfigExists();
+    this.watchGlobalConfig();
+    await this.watchProjectConfig();
+    this.setupWorkspaceFoldersWatcher();
   }
 
   /**
-   * Ensure storage directory and mcp.json exist
+   * Get the global config file path
    */
-  public async ensureConfigExists(): Promise<void> {
-    if (!this.configPath) {
+  getGlobalConfigPath(): string | null {
+    return this.globalConfigPath;
+  }
+
+  /**
+   * Get the project config file path
+   */
+  async getProjectConfigPath(): Promise<string | null> {
+    const workspacePath = getWorkspacePath();
+    if (!workspacePath) {
+      return null;
+    }
+
+    const projectConfigPath = path.join(workspacePath, PROJECT_CONFIG_DIR, MCP_CONFIG_FILENAME);
+    
+    try {
+      await fs.access(projectConfigPath);
+      return projectConfigPath;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Ensure global storage directory and mcp.json exist
+   */
+  async ensureGlobalConfigExists(): Promise<void> {
+    if (!this.globalConfigPath) {
       throw new Error('Storage path not configured');
     }
 
-    const dirPath = path.dirname(this.configPath);
-    if (!fs.existsSync(dirPath)) {
-      await fs.promises.mkdir(dirPath, { recursive: true });
+    const dirPath = path.dirname(this.globalConfigPath);
+    
+    try {
+      await fs.mkdir(dirPath, { recursive: true });
+    } catch {
+      // Directory might already exist
     }
 
-    if (!fs.existsSync(this.configPath)) {
-      const defaultConfig = {
-        mcpServers: {}
-      };
-      await fs.promises.writeFile(this.configPath, JSON.stringify(defaultConfig, null, 2), 'utf8');
+    if (!await fileExistsAtPath(this.globalConfigPath)) {
+      await safeWriteJson(this.globalConfigPath, DEFAULT_MCP_SETTINGS);
     }
   }
 
   /**
-   * Load MCP configurations from file
+   * Watch global MCP settings file for changes
+   */
+  private watchGlobalConfig(): void {
+    if (!this.globalConfigPath || process.env.NODE_ENV === 'test') {
+      return;
+    }
+
+    // Clean up existing watcher
+    if (this.globalWatcher) {
+      this.globalWatcher.dispose();
+      this.globalWatcher = undefined;
+    }
+
+    const settingsDir = path.dirname(this.globalConfigPath);
+    const settingsFile = path.basename(this.globalConfigPath);
+    const pattern = new vscode.RelativePattern(settingsDir, settingsFile);
+
+    this.globalWatcher = vscode.workspace.createFileSystemWatcher(pattern);
+
+    const changeHandler = (uri: vscode.Uri) => {
+      this.debounceConfigChange(uri.fsPath, 'global');
+    };
+
+    this.disposables.push(
+      this.globalWatcher.onDidChange(changeHandler),
+      this.globalWatcher.onDidCreate(changeHandler),
+      this.globalWatcher
+    );
+  }
+
+  /**
+   * Watch project-level .echode/mcp.json for changes
+   */
+  private async watchProjectConfig(): Promise<void> {
+    if (process.env.NODE_ENV === 'test') {
+      return;
+    }
+
+    // Clean up existing watcher
+    if (this.projectWatcher) {
+      this.projectWatcher.dispose();
+      this.projectWatcher = undefined;
+    }
+
+    if (!vscode.workspace.workspaceFolders?.length) {
+      return;
+    }
+
+    const workspacePath = getWorkspacePath();
+    if (!workspacePath) {
+      return;
+    }
+
+    const projectPattern = new vscode.RelativePattern(
+      workspacePath, 
+      `${PROJECT_CONFIG_DIR}/${MCP_CONFIG_FILENAME}`
+    );
+
+    this.projectWatcher = vscode.workspace.createFileSystemWatcher(projectPattern);
+
+    // Watch for changes
+    const changeDisposable = this.projectWatcher.onDidChange((uri) => {
+      this.debounceConfigChange(uri.fsPath, 'project');
+    });
+
+    // Watch for creation
+    const createDisposable = this.projectWatcher.onDidCreate((uri) => {
+      this.debounceConfigChange(uri.fsPath, 'project');
+    });
+
+    // Watch for deletion
+    const deleteDisposable = this.projectWatcher.onDidDelete(async () => {
+      // Clean up project configs when file is deleted
+      await this.handleProjectConfigDeleted();
+    });
+
+    this.disposables.push(
+      vscode.Disposable.from(changeDisposable, createDisposable, deleteDisposable, this.projectWatcher)
+    );
+  }
+
+  /**
+   * Set up watcher for workspace folder changes
+   */
+  private setupWorkspaceFoldersWatcher(): void {
+    if (process.env.NODE_ENV === 'test') {
+      return;
+    }
+
+    this.disposables.push(
+      vscode.workspace.onDidChangeWorkspaceFolders(async () => {
+        await this.watchProjectConfig();
+        await this.notifyConfigChange();
+      })
+    );
+  }
+
+  /**
+   * Debounce config file change handling
+   */
+  private debounceConfigChange(filePath: string, source: ConfigSource): void {
+    // Skip if this is a programmatic update
+    if (this.isProgrammaticUpdate) {
+      return;
+    }
+
+    const key = `${source}-${filePath}`;
+
+    // Clear existing timer
+    const existingTimer = this.configChangeTimers.get(key);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    // Set new debounced timer
+    const timer = setTimeout(async () => {
+      this.configChangeTimers.delete(key);
+      await this.handleConfigFileChange(filePath, source);
+    }, 500);
+
+    this.configChangeTimers.set(key, timer);
+  }
+
+  /**
+   * Handle config file change after debounce
+   */
+  private async handleConfigFileChange(filePath: string, source: ConfigSource): Promise<void> {
+    try {
+      const content = await fs.readFile(filePath, 'utf-8');
+      const parseResult = parseMcpSettings(content);
+
+      if (!parseResult.success) {
+        vscode.window.showErrorMessage(
+          `Invalid MCP settings in ${source} config: ${parseResult.error}`
+        );
+        return;
+      }
+
+      await this.notifyConfigChange();
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT' && source === 'project') {
+        await this.handleProjectConfigDeleted();
+      } else {
+        console.error(`Failed to handle ${source} config change:`, error);
+      }
+    }
+  }
+
+  /**
+   * Handle project config file deletion
+   */
+  private async handleProjectConfigDeleted(): Promise<void> {
+    vscode.window.showInformationMessage('Project MCP configuration deleted');
+    await this.notifyConfigChange();
+  }
+
+  /**
+   * Notify listeners of config change
+   */
+  private async notifyConfigChange(): Promise<void> {
+    const configs = await this.loadConfigs();
+    this.configChangeEmitter.fire(configs);
+  }
+
+  /**
+   * Load and merge MCP configurations from both sources.
+   * Project configs override global configs with the same name.
    */
   async loadConfigs(): Promise<MCPServerConfig[]> {
+    const globalConfigs = await this.loadConfigsFromSource('global');
+    const projectConfigs = await this.loadConfigsFromSource('project');
+
+    // Merge: project overrides global by name
+    const configsByName = new Map<string, MCPServerConfig>();
+
+    // Add global configs first
+    for (const config of globalConfigs) {
+      configsByName.set(config.name, config);
+    }
+
+    // Override with project configs
+    for (const config of projectConfigs) {
+      configsByName.set(config.name, config);
+    }
+
+    return Array.from(configsByName.values());
+  }
+
+  /**
+   * Load configs from a specific source
+   */
+  private async loadConfigsFromSource(source: ConfigSource): Promise<MCPServerConfig[]> {
     try {
-      if (!this.configPath) {
+      let configPath: string | null;
+      
+      if (source === 'global') {
+        configPath = this.globalConfigPath;
+      } else {
+        configPath = await this.getProjectConfigPath();
+      }
+
+      if (!configPath || !await fileExistsAtPath(configPath)) {
         return [];
       }
 
-      if (!fs.existsSync(this.configPath)) {
+      const content = await fs.readFile(configPath, 'utf-8');
+      const parseResult = parseMcpSettings(content);
+
+      if (!parseResult.success || !parseResult.data) {
+        console.error(`Failed to parse ${source} MCP config:`, parseResult.error);
         return [];
       }
 
-      const content = await fs.promises.readFile(this.configPath, 'utf8');
-      const parsed = JSON.parse(content);
-
-      if (!parsed.mcpServers) {
-        return [];
-      }
-
-      return this.parseConfigs(parsed.mcpServers);
+      return this.convertToMCPServerConfigs(parseResult.data.mcpServers, source);
     } catch (error) {
-      console.error('Failed to load MCP config:', error);
+      console.error(`Failed to load ${source} MCP config:`, error);
       return [];
     }
   }
 
   /**
-   * Save MCP configurations to file
+   * Convert validated server configs to MCPServerConfig format
    */
-  async saveConfig(config: MCPServerConfig): Promise<void> {
-    await this.ensureConfigExists();
-    if (!this.configPath) {
-      return;
+  private convertToMCPServerConfigs(
+    mcpServers: Record<string, ServerConfig>,
+    source: ConfigSource
+  ): MCPServerConfig[] {
+    const configs: MCPServerConfig[] = [];
+
+    for (const [name, config] of Object.entries(mcpServers)) {
+      const id = this.generateServerId(name);
+      
+      // Determine transport type
+      let type: MCPTransportType = 'stdio';
+      if (config.type === 'sse' || config.type === 'streamable-http') {
+        type = 'http';
+      }
+
+      const serverConfig: MCPServerConfig = {
+        id,
+        name,
+        type,
+        enabled: !config.disabled,
+        autoConnect: false, // Default, can be extended
+        
+        // Source tracking (extended property)
+        ...(source === 'project' && { 
+          source,
+          projectPath: getWorkspacePath() 
+        }),
+      };
+
+      // Add stdio-specific fields
+      if (config.type === 'stdio') {
+        serverConfig.command = config.command;
+        serverConfig.args = config.args;
+        serverConfig.env = config.env;
+      }
+
+      // Add HTTP-specific fields
+      if (config.type === 'sse' || config.type === 'streamable-http') {
+        serverConfig.url = config.url;
+        serverConfig.headers = config.headers;
+      }
+
+      // Add tool configuration
+      if (config.alwaysAllow?.length || config.disabledTools?.length) {
+        serverConfig.tool_configuration = {
+          enabled: true,
+          allowed_tools: config.alwaysAllow,
+          disabled_tools: config.disabledTools,
+        };
+      }
+
+      configs.push(serverConfig);
     }
 
-    const content = await fs.promises.readFile(this.configPath, 'utf8');
-    let parsed: any = {};
+    return configs;
+  }
+
+  /**
+   * Generate a consistent server ID from name
+   */
+  private generateServerId(name: string): string {
+    return `mcp-${name.toLowerCase().replace(/[^a-z0-9-]/g, '-')}`;
+  }
+
+  /**
+   * Save MCP configuration to the appropriate file
+   * By default saves to global, unless the server is explicitly from project
+   */
+  async saveConfig(config: MCPServerConfig, targetSource?: ConfigSource): Promise<void> {
+    // Determine target source
+    const source = targetSource ?? this.determineConfigSource(config);
+    
+    let configPath: string | null;
+    if (source === 'project') {
+      configPath = await this.getOrCreateProjectConfigPath();
+    } else {
+      await this.ensureGlobalConfigExists();
+      configPath = this.globalConfigPath;
+    }
+
+    if (!configPath) {
+      throw new Error('Unable to determine config file path');
+    }
+
+    // Set programmatic update flag
+    this.setProgrammaticUpdateFlag();
+
     try {
-      parsed = JSON.parse(content);
+      // Read existing config
+      let existingConfig: { mcpServers: Record<string, unknown> } = { mcpServers: {} };
+      if (await fileExistsAtPath(configPath)) {
+        const content = await fs.readFile(configPath, 'utf-8');
+        try {
+          existingConfig = JSON.parse(content);
+        } catch {
+          existingConfig = { mcpServers: {} };
+        }
+      }
+
+      if (!existingConfig.mcpServers) {
+        existingConfig.mcpServers = {};
+      }
+
+      // Convert config to JSON format
+      existingConfig.mcpServers[config.name] = this.configToJsonFormat(config);
+
+      await safeWriteJson(configPath, existingConfig);
+    } finally {
+      // Flag will be reset by timer
+    }
+  }
+
+  /**
+   * Set the programmatic update flag to prevent watcher loops
+   */
+  private setProgrammaticUpdateFlag(): void {
+    if (this.flagResetTimer) {
+      clearTimeout(this.flagResetTimer);
+    }
+    
+    this.isProgrammaticUpdate = true;
+    
+    this.flagResetTimer = setTimeout(() => {
+      this.isProgrammaticUpdate = false;
+      this.flagResetTimer = undefined;
+    }, 600);
+  }
+
+  /**
+   * Determine which config source a server belongs to
+   */
+  private determineConfigSource(config: MCPServerConfig): ConfigSource {
+    // Check if config has source property (from extended type)
+    const extendedConfig = config as MCPServerConfigWithSource;
+    if (extendedConfig.source === 'project') {
+      return 'project';
+    }
+    return 'global';
+  }
+
+  /**
+   * Get or create project config path
+   */
+  private async getOrCreateProjectConfigPath(): Promise<string | null> {
+    const workspacePath = getWorkspacePath();
+    if (!workspacePath) {
+      return null;
+    }
+
+    const projectConfigDir = path.join(workspacePath, PROJECT_CONFIG_DIR);
+    const projectConfigPath = path.join(projectConfigDir, MCP_CONFIG_FILENAME);
+
+    // Create directory if needed
+    try {
+      await fs.mkdir(projectConfigDir, { recursive: true });
     } catch {
-      parsed = { mcpServers: {} };
+      // Directory might already exist
     }
 
-    if (!parsed.mcpServers) {
-      parsed.mcpServers = {};
+    // Create default config if file doesn't exist
+    if (!await fileExistsAtPath(projectConfigPath)) {
+      await safeWriteJson(projectConfigPath, DEFAULT_MCP_SETTINGS);
     }
 
-    // Convert config back to JSON format
-    parsed.mcpServers[config.name] = this.configToJson(config);
+    return projectConfigPath;
+  }
 
-    await fs.promises.writeFile(this.configPath, JSON.stringify(parsed, null, 2), 'utf8');
+  /**
+   * Convert MCPServerConfig to JSON format for saving
+   */
+  private configToJsonFormat(config: MCPServerConfig): Record<string, unknown> {
+    const jsonConfig: Record<string, unknown> = {};
+
+    // Set type based on transport
+    if (config.type === 'stdio') {
+      jsonConfig.type = 'stdio';
+      jsonConfig.command = config.command;
+      if (config.args) jsonConfig.args = config.args;
+      if (config.env) jsonConfig.env = config.env;
+    } else {
+      // HTTP types (sse or streamable-http)
+      jsonConfig.type = 'sse'; // Default to SSE for HTTP
+      jsonConfig.url = config.url;
+      if (config.headers) jsonConfig.headers = config.headers;
+    }
+
+    // Disabled state
+    if (!config.enabled) {
+      jsonConfig.disabled = true;
+    }
+
+    // Tool configuration
+    if (config.tool_configuration) {
+      if (config.tool_configuration.allowed_tools?.length) {
+        jsonConfig.alwaysAllow = config.tool_configuration.allowed_tools;
+      }
+      if (config.tool_configuration.disabled_tools?.length) {
+        jsonConfig.disabledTools = config.tool_configuration.disabled_tools;
+      }
+    }
+
+    return jsonConfig;
   }
 
   /**
    * Delete MCP configuration
    */
   async deleteConfig(serverId: string): Promise<void> {
-    if (!this.configPath || !fs.existsSync(this.configPath)) {
+    // Try to delete from both sources
+    await this.deleteConfigFromSource(serverId, 'global');
+    await this.deleteConfigFromSource(serverId, 'project');
+  }
+
+  /**
+   * Delete config from a specific source
+   */
+  private async deleteConfigFromSource(serverId: string, source: ConfigSource): Promise<void> {
+    let configPath: string | null;
+    
+    if (source === 'global') {
+      configPath = this.globalConfigPath;
+    } else {
+      configPath = await this.getProjectConfigPath();
+    }
+
+    if (!configPath || !await fileExistsAtPath(configPath)) {
       return;
     }
 
-    const content = await fs.promises.readFile(this.configPath, 'utf8');
-    const parsed = JSON.parse(content);
+    this.setProgrammaticUpdateFlag();
 
-    if (parsed.mcpServers) {
-      // Find key by matching generated ID logic or name
-      // Since we don't store ID in JSON, we need to find the entry that matches
-      // This is a simplification; ideally we'd store ID or match by name
-      // For now, let's assume serverId passed in is connected to a config we can find
-      // But wait, the UI passes ID. We need to map ID to name.
-      
-      // We'll iterate and check generated IDs
-      const keys = Object.keys(parsed.mcpServers);
-      for (const key of keys) {
-        const id = `mcp-${key.toLowerCase().replace(/[^a-z0-9-]/g, "-")}`;
-        if (id === serverId) {
-          delete parsed.mcpServers[key];
-          break;
+    try {
+      const content = await fs.readFile(configPath, 'utf-8');
+      const config = JSON.parse(content);
+
+      if (config.mcpServers) {
+        // Find key by matching generated ID
+        for (const key of Object.keys(config.mcpServers)) {
+          const id = this.generateServerId(key);
+          if (id === serverId) {
+            delete config.mcpServers[key];
+            await safeWriteJson(configPath, config);
+            break;
+          }
         }
       }
-
-      await fs.promises.writeFile(this.configPath, JSON.stringify(parsed, null, 2), 'utf8');
+    } catch (error) {
+      console.error(`Failed to delete config from ${source}:`, error);
     }
   }
 
   /**
-   * Watch for changes to the config file
+   * Watch for changes to the config file (legacy API compatibility)
    */
   watchConfig(callback: () => void): vscode.Disposable {
-    if (!this.configPath) {
-      return { dispose: () => {} };
-    }
-
-    const watcher = vscode.workspace.createFileSystemWatcher(this.configPath);
-    const disposable = watcher.onDidChange(() => callback());
-    this.watchers.push(watcher);
-    
-    return {
-      dispose: () => {
-        disposable.dispose();
-        watcher.dispose();
-      }
-    };
+    const disposable = this.onConfigChange(() => callback());
+    return disposable;
   }
 
-  // Helper to parse JSON format to internal config objects
-  private parseConfigs(mcpServers: any): MCPServerConfig[] {
-    const configs: MCPServerConfig[] = [];
-    
-    for (const [key, value] of Object.entries(mcpServers)) {
-      const config = value as any;
-      const id = `mcp-${key.toLowerCase().replace(/[^a-z0-9-]/g, "-")}`;
-      
-      // Determine type
-      let type: "stdio" | "http" = "stdio";
-      if (config.type) {
-        type = config.type;
-      } else if (config.url) {
-        type = "http";
-      }
-
-      configs.push({
-        id,
-        name: config.name || key,
-        type,
-        command: config.command,
-        args: config.args,
-        env: config.env,
-        url: config.url,
-        headers: config.headers,
-        authorization_token: config.authorization_token, // Handle specific auth token field
-        description: config.description,
-        tool_configuration: config.tool_configuration,
-        enabled: config.tool_configuration?.enabled ?? true,
-        autoConnect: config.autoConnect ?? false // Default to NOT auto-connect
-      });
-    }
-
-    return configs;
+  /**
+   * Get the config file path (legacy API - returns global path)
+   */
+  getConfigPath(): string | null {
+    return this.globalConfigPath;
   }
 
-  // Helper to convert internal config object to JSON format
-  private configToJson(config: MCPServerConfig): any {
-    const base: any = {
-      name: config.name,
-      type: config.type,
-      description: config.description,
-      autoConnect: config.autoConnect, // Persist auto-connect preference
-      tool_configuration: {
-        enabled: config.enabled,
-        allowed_tools: config.tool_configuration?.allowed_tools,
-        disabled_tools: config.tool_configuration?.disabled_tools
-      }
-    };
+  /**
+   * Ensure config file exists (legacy API)
+   */
+  async ensureConfigExists(): Promise<void> {
+    return this.ensureGlobalConfigExists();
+  }
 
-    if (config.type === 'stdio') {
-      base.command = config.command;
-      base.args = config.args;
-      if (config.env) {
-        base.env = config.env;
-      }
-    } else {
-      base.url = config.url;
-      if (config.headers) {
-        base.headers = config.headers;
-      }
-      if (config.authorization_token) {
-        base.authorization_token = config.authorization_token;
-      }
+  /**
+   * Dispose of all resources
+   */
+  dispose(): void {
+    // Clear all debounce timers
+    for (const timer of this.configChangeTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.configChangeTimers.clear();
+
+    // Clear flag reset timer
+    if (this.flagResetTimer) {
+      clearTimeout(this.flagResetTimer);
+      this.flagResetTimer = undefined;
     }
 
-    return base;
+    // Dispose watchers
+    if (this.globalWatcher) {
+      this.globalWatcher.dispose();
+    }
+    if (this.projectWatcher) {
+      this.projectWatcher.dispose();
+    }
+
+    // Dispose all disposables
+    this.disposables.forEach(d => d.dispose());
+    this.disposables = [];
+
+    // Dispose emitter
+    this.configChangeEmitter.dispose();
   }
 }

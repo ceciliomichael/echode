@@ -1,4 +1,5 @@
 import type { ToolExecutionState, EchoSearchProgress } from '../../../types/tool';
+import { REQUEST_BOUNDARY_MARKER } from '../../../utils/think-block-parser';
 
 /**
  * Internal block tags that should be stripped from user-visible text
@@ -27,6 +28,14 @@ export function sanitizeAssistantText(content: string): string {
 
   const sanitizeSegment = (segment: string): string => {
     let sanitized = segment;
+
+    sanitized = sanitized
+      .split(REQUEST_BOUNDARY_MARKER)
+      .join('')
+      .split('__ECHODE_REQUEST_BOUNDARY__')
+      .join('')
+      .split('\u001E')
+      .join('');
 
     // Normalize common tool tags (whitespace/casing) so stripping is reliable
     sanitized = sanitized.replace(/<\s*function_calls\s*>/gi, '<function_calls>');

@@ -192,6 +192,7 @@ const ToolBlockComponent = ({
           status={toolCall.status}
           isStreaming={isStreaming}
           canToggle={canToggle}
+          toolName={toolCall.toolName}
         />
 
         <ToolBlockContent

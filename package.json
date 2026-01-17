@@ -2,7 +2,7 @@
   "name": "echode",
   "displayName": "EchoDE Coder",
   "description": "Agentic Coding",
-  "version": "1.0.2018",
+  "version": "1.0.2023",
   "publisher": "EchoSphere",
   "icon": "icon.png",
   "repository": {
@@ -196,9 +196,11 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.70.0",
     "better-sqlite3": "^12.5.0",
+    "fast-deep-equal": "^3.1.3",
     "fastest-levenshtein": "^1.0.16",
     "openai": "^6.9.1",
     "react-virtuoso": "^4.17.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "zod": "^3.25.76"
   }
 }

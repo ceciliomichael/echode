@@ -2,6 +2,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { ToolFileInfo } from '../../../utils/tool-file-info';
 import type { ToolStatus } from '../../../types/tool';
+import { truncatePathMiddle } from '../../../utils/path-truncation';
 
 interface ToolBlockHeaderProps {
   isExpanded: boolean;
@@ -11,7 +12,11 @@ interface ToolBlockHeaderProps {
   status: ToolStatus;
   isStreaming?: boolean;
   canToggle: boolean;
+  toolName: string;
 }
+
+// Tools that should display the relative path
+const FILE_TOOLS = ['read_file', 'write_to_file', 'apply_diff', 'delete_file'];
 
 export function ToolBlockHeader({
   isExpanded,
@@ -21,7 +26,11 @@ export function ToolBlockHeader({
   status,
   isStreaming,
   canToggle,
+  toolName,
 }: ToolBlockHeaderProps) {
+  // Determine if we should show the path for this tool
+  const shouldShowPath = FILE_TOOLS.includes(toolName) && fileInfo.fullPath;
+  const truncatedPath = shouldShowPath ? truncatePathMiddle(fileInfo.fullPath, 45) : '';
   // Always show chevron on hover since users can always toggle
   const showChevron = canToggle;
 
@@ -60,14 +69,25 @@ export function ToolBlockHeader({
           ))}
         </div>
 
-        {/* Filename / Tool Name */}
-        <span
-          className="text-sm font-medium truncate"
-          style={{ color: 'var(--vscode-foreground)', opacity: 0.7 }}
-          title={fileInfo.displayName}
-        >
-          {fileInfo.displayName}
-        </span>
+        {/* Filename / Tool Name with optional path */}
+        <div className="flex items-center gap-1.5 min-w-0 truncate">
+          <span
+            className="text-sm font-medium shrink-0"
+            style={{ color: 'var(--vscode-foreground)', opacity: 0.7 }}
+            title={fileInfo.fullPath || fileInfo.displayName}
+          >
+            {fileInfo.displayName}
+          </span>
+          {shouldShowPath && truncatedPath !== fileInfo.displayName && (
+            <span
+              className="text-xs truncate"
+              style={{ color: 'var(--vscode-descriptionForeground)', opacity: 0.6 }}
+              title={fileInfo.fullPath}
+            >
+              {truncatedPath}
+            </span>
+          )}
+        </div>
 
         {/* Status indicator (no icon, just label) */}
         <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">

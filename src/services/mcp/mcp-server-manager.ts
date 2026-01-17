@@ -45,13 +45,53 @@ export class MCPServerManager {
   }
 
   private async initialize() {
-    // Watch for config changes
-    this.configService.watchConfig(async () => {
-      await this.refreshConfigs();
+    // Initialize the config service (sets up watchers for both global and project configs)
+    await this.configService.initialize();
+    
+    // Subscribe to config changes from the service
+    this.configService.onConfigChange(async (configs) => {
+      // Apply workspace overrides and emit to our listeners
+      const overriddenConfigs = this.applyWorkspaceOverrides(configs);
+      this.configChangeEmitter.fire(overriddenConfigs);
+      
+      // Handle connection changes based on new configs
+      await this.handleConfigUpdate(overriddenConfigs);
     });
 
     // Initial load
     await this.refreshConfigs();
+  }
+
+  /**
+   * Handle config updates - connect/disconnect servers as needed
+   */
+  private async handleConfigUpdate(configs: MCPServerConfig[]): Promise<void> {
+    // Track current server IDs
+    const newConfigIds = new Set(configs.map(c => c.id));
+    
+    // Disconnect servers that are no longer in config
+    for (const serverId of this.servers.keys()) {
+      if (!newConfigIds.has(serverId)) {
+        await this.disconnect(serverId).catch(console.error);
+      }
+    }
+    
+    // Connect/update servers
+    for (const config of configs) {
+      if (!this.servers.has(config.id) && config.autoConnect && config.enabled) {
+        // New server with auto-connect
+        this.connect(config).catch(console.error);
+      } else if (this.servers.has(config.id)) {
+        // Update existing server config
+        const server = this.servers.get(config.id)!;
+        server.config = config;
+        
+        // If disabled, disconnect
+        if (!config.enabled && server.status.status === 'connected') {
+          await this.disconnect(config.id).catch(console.error);
+        }
+      }
+    }
   }
 
   /**
@@ -98,21 +138,8 @@ export class MCPServerManager {
     // Emit config change event for UI updates (with overrides applied)
     this.configChangeEmitter.fire(configs);
     
-    // Connect to new auto-connect servers
-    for (const config of configs) {
-      if (!this.servers.has(config.id) && config.autoConnect && config.enabled) {
-        this.connect(config).catch(console.error);
-      } else if (this.servers.has(config.id)) {
-        // Update existing config
-        const server = this.servers.get(config.id)!;
-        server.config = config;
-        
-        // If disabled, disconnect
-        if (!config.enabled && server.status.status === 'connected') {
-          this.disconnect(config.id);
-        }
-      }
-    }
+    // Handle connection updates
+    await this.handleConfigUpdate(configs);
   }
 
   /**
@@ -406,6 +433,28 @@ export class MCPServerManager {
   async ensureConfigExists(): Promise<void> {
     await this.configService.ensureConfigExists();
   }
+
+  /**
+   * Get the project config file path
+   */
+  async getProjectConfigPath(): Promise<string | null> {
+    return this.configService.getProjectConfigPath();
+  }
+
+  /**
+   * Dispose of all resources
+   */
+  async dispose(): Promise<void> {
+    // Disconnect all servers
+    await this.disconnectAll();
+    
+    // Dispose config service
+    this.configService.dispose();
+    
+    // Dispose event emitters
+    this.statusChangeEmitter.dispose();
+    this.configChangeEmitter.dispose();
+  }
 }
 
 // Global instance
@@ -421,4 +470,14 @@ export function getGlobalServerManager(
     throw new Error("Server Manager not initialized");
   }
   return globalServerManager;
+}
+
+/**
+ * Cleanup the global server manager instance
+ */
+export async function cleanupGlobalServerManager(): Promise<void> {
+  if (globalServerManager) {
+    await globalServerManager.dispose();
+    globalServerManager = null;
+  }
 }
