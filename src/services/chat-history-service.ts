@@ -86,9 +86,20 @@ export class ChatHistoryService {
     if (!workspacePath) {
       return 'global';
     }
+    let normalizedPath = workspacePath;
+    try {
+      normalizedPath = path.resolve(workspacePath);
+      normalizedPath = path.normalize(normalizedPath);
+      if (process.platform === 'win32') {
+        normalizedPath = normalizedPath.toLowerCase();
+      }
+      normalizedPath = normalizedPath.replace(/[\\/]+$/, '');
+    } catch (_error) {
+      normalizedPath = workspacePath;
+    }
     let hash = 0;
-    for (let i = 0; i < workspacePath.length; i++) {
-      const char = workspacePath.charCodeAt(i);
+    for (let i = 0; i < normalizedPath.length; i++) {
+      const char = normalizedPath.charCodeAt(i);
       hash = ((hash << 5) - hash) + char;
       hash = hash & hash;
     }
@@ -100,20 +111,177 @@ export class ChatHistoryService {
     this.indexCache = null;
   }
 
+  private getLastOpenedSessionKey(): string {
+    return `echode.lastOpenedSession.${this.workspaceId}`;
+  }
+
+  public getLastOpenedSessionId(): string | null {
+    try {
+      return this.context.globalState.get<string>(this.getLastOpenedSessionKey()) ?? null;
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  public setLastOpenedSessionId(sessionId: string): void {
+    try {
+      void this.context.globalState.update(this.getLastOpenedSessionKey(), sessionId);
+    } catch (_error) {
+    }
+  }
+
+  private getSessionFilesOnDisk(): Map<string, string> {
+    const result = new Map<string, string>();
+    try {
+      if (!fs.existsSync(this.sessionsDir)) {
+        return result;
+      }
+
+      const files = fs.readdirSync(this.sessionsDir);
+      for (const file of files) {
+        if (file.endsWith('.json')) {
+          const sessionId = file.slice(0, -'.json'.length);
+          result.set(sessionId, path.join(this.sessionsDir, file));
+          continue;
+        }
+        if (file.endsWith('.json.tmp')) {
+          const sessionId = file.slice(0, -'.json.tmp'.length);
+          if (!result.has(sessionId)) {
+            result.set(sessionId, path.join(this.sessionsDir, file));
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[ChatHistory] Failed to list session files:', error);
+    }
+    return result;
+  }
+
+  private readSessionFromFilePath(filePath: string): ChatSession | null {
+    try {
+      if (!fs.existsSync(filePath)) {
+        return null;
+      }
+      const data = fs.readFileSync(filePath, 'utf-8');
+      return JSON.parse(data) as ChatSession;
+    } catch (error) {
+      console.error('[ChatHistory] Failed to read session file:', filePath, error);
+      return null;
+    }
+  }
+
+  private buildIndexEntry(session: ChatSession): IndexEntry | null {
+    if (!session?.id) {
+      return null;
+    }
+
+    const messageCount = session.metadata?.messageCount ?? session.messages?.length ?? 0;
+    const preview = session.metadata?.preview ?? '';
+    const timestamp = typeof session.timestamp === 'number'
+      ? session.timestamp
+      : (typeof session.createdAt === 'number' ? session.createdAt : Date.now());
+    const createdAt = typeof session.createdAt === 'number' ? session.createdAt : timestamp;
+    const title = typeof session.title === 'string' ? session.title : 'New Chat';
+    const workspaceId = typeof session.workspaceId === 'string' ? session.workspaceId : 'global';
+
+    return {
+      id: session.id,
+      workspaceId,
+      title,
+      timestamp,
+      createdAt,
+      messageCount,
+      preview,
+    };
+  }
+
+  private repairIndex(existing: IndexEntry[], forceRebuild: boolean): IndexEntry[] {
+    const sessionFiles = this.getSessionFilesOnDisk();
+    if (sessionFiles.size === 0) {
+      return existing;
+    }
+
+    const byId = new Map<string, IndexEntry>();
+    for (const entry of existing) {
+      if (entry?.id) {
+        byId.set(entry.id, entry);
+      }
+    }
+
+    let changed = false;
+    for (const [sessionId, filePath] of sessionFiles.entries()) {
+      if (!forceRebuild && byId.has(sessionId)) {
+        continue;
+      }
+
+      const session = this.readSessionFromFilePath(filePath);
+      if (!session) {
+        continue;
+      }
+
+      const indexEntry = this.buildIndexEntry(session);
+      if (!indexEntry) {
+        continue;
+      }
+
+      const existingEntry = byId.get(indexEntry.id);
+      if (!existingEntry) {
+        byId.set(indexEntry.id, indexEntry);
+        changed = true;
+        continue;
+      }
+
+      if (forceRebuild) {
+        byId.set(indexEntry.id, indexEntry);
+        changed = true;
+      }
+    }
+
+    const repaired = Array.from(byId.values());
+    if (changed) {
+      try {
+        this.writeIndex(repaired);
+      } catch (error) {
+        console.error('[ChatHistory] Failed to persist repaired index:', error);
+      }
+    }
+    return repaired;
+  }
+
   private readIndex(): IndexEntry[] {
     if (this.indexCache) {
       return this.indexCache;
     }
+    let forceRebuild = false;
     try {
       if (fs.existsSync(this.indexPath)) {
         const data = fs.readFileSync(this.indexPath, 'utf-8');
         this.indexCache = JSON.parse(data) as IndexEntry[];
-        return this.indexCache;
+      } else {
+        const tmpPath = this.indexPath + '.tmp';
+        if (fs.existsSync(tmpPath)) {
+          const data = fs.readFileSync(tmpPath, 'utf-8');
+          this.indexCache = JSON.parse(data) as IndexEntry[];
+          try {
+            fs.renameSync(tmpPath, this.indexPath);
+          } catch (_error) {
+          }
+        }
       }
     } catch (error) {
       console.error('[ChatHistory] Failed to read index:', error);
+      forceRebuild = true;
     }
-    this.indexCache = [];
+    if (!this.indexCache) {
+      this.indexCache = [];
+    }
+
+    const sessionFiles = this.getSessionFilesOnDisk();
+    const uniqueIndexIds = new Set(this.indexCache.map(e => e.id));
+    if (forceRebuild || sessionFiles.size > uniqueIndexIds.size) {
+      this.indexCache = this.repairIndex(this.indexCache, forceRebuild);
+    }
+
     return this.indexCache;
   }
 
@@ -140,6 +308,17 @@ export class ChatHistoryService {
         const data = fs.readFileSync(sessionPath, 'utf-8');
         return JSON.parse(data) as ChatSession;
       }
+
+      const tmpPath = sessionPath + '.tmp';
+      if (fs.existsSync(tmpPath)) {
+        const data = fs.readFileSync(tmpPath, 'utf-8');
+        const session = JSON.parse(data) as ChatSession;
+        try {
+          fs.renameSync(tmpPath, sessionPath);
+        } catch (_error) {
+        }
+        return session;
+      }
     } catch (error) {
       console.error('[ChatHistory] Failed to read session file:', sessionId, error);
     }
@@ -163,6 +342,11 @@ export class ChatHistoryService {
       const sessionPath = this.getSessionPath(sessionId);
       if (fs.existsSync(sessionPath)) {
         fs.unlinkSync(sessionPath);
+      }
+
+      const tmpPath = sessionPath + '.tmp';
+      if (fs.existsSync(tmpPath)) {
+        fs.unlinkSync(tmpPath);
       }
     } catch (error) {
       console.error('[ChatHistory] Failed to delete session file:', sessionId, error);
@@ -196,6 +380,9 @@ export class ChatHistoryService {
       const session = this.readSessionFile(sessionId);
       if (session?.workspaceId && session.workspaceId !== this.workspaceId) {
         return null;
+      }
+      if (session?.id) {
+        this.setLastOpenedSessionId(session.id);
       }
       return session;
     } catch (error) {
@@ -234,6 +421,8 @@ export class ChatHistoryService {
 
       // Write session file atomically
       this.writeSessionFile(session);
+
+      this.setLastOpenedSessionId(session.id);
 
       // Update index
       const index = this.readIndex();

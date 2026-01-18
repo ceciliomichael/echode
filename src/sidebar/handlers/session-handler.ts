@@ -74,6 +74,18 @@ export async function handleGetLatestSession(
   });
 }
 
+export async function handleGetLastOpenedSessionId(
+  _data: SessionData,
+  webview: vscode.WebviewView,
+  historyService: ChatHistoryService
+): Promise<void> {
+  const sessionId = historyService.getLastOpenedSessionId();
+  webview.webview.postMessage({
+    type: 'lastOpenedSessionId',
+    sessionId,
+  });
+}
+
 /**
  * Get all sessions for history display
  */

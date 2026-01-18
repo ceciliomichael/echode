@@ -4,6 +4,7 @@ import type { Message } from '../../types/chat';
 import type { ChatSession } from '../../types/chat-session';
 import { storageService } from '../../utils/storage';
 import { loadSessionUiState } from '../../utils/session-ui-state';
+import { requestWorkspaceInfo } from '../../utils/workspace-info';
 
 interface SessionManagementProps {
   messagesRef: React.MutableRefObject<Message[]>;
@@ -83,6 +84,46 @@ export function useSessionManagement({
       window.vscode.postMessage({ type: 'getSession', sessionId });
     }
   }, [isStreamingRef, isExecutingToolRef, messagesRef, saveCurrentSession, abortAndReset]);
+
+  useEffect(() => {
+    let handled = false;
+
+    const handleMessage = (event: MessageEvent) => {
+      const message = event.data;
+
+      if (message.type !== 'lastOpenedSessionId') {
+        return;
+      }
+
+      if (handled) {
+        return;
+      }
+      handled = true;
+
+      const sessionId = message.sessionId as string | null | undefined;
+      if (!sessionId) {
+        return;
+      }
+
+      if (currentSessionIdRef.current) {
+        return;
+      }
+
+      loadSession(sessionId);
+    };
+
+    const requestLastOpened = async () => {
+      if (!window.vscode) {
+        return;
+      }
+      await requestWorkspaceInfo();
+      window.vscode.postMessage({ type: 'getLastOpenedSessionId' });
+    };
+
+    window.addEventListener('message', handleMessage);
+    void requestLastOpened();
+    return () => window.removeEventListener('message', handleMessage);
+  }, [currentSessionIdRef, loadSession]);
 
   // Listen for session events from extension
   useEffect(() => {
@@ -167,13 +208,16 @@ export function useSessionManagement({
 
               // Fix plan tools that should be awaiting_user but were saved with wrong status
               // This handles cases where the tool has awaitsUserAction but status wasn't updated
-              const resultData = fixedExecution.result?.data as any;
+              const resultDataUnknown: unknown = fixedExecution.result?.data;
+              const resultData = (typeof resultDataUnknown === 'object' && resultDataUnknown !== null)
+                ? (resultDataUnknown as Record<string, unknown>)
+                : null;
               const isPlanTool = fixedExecution.toolName === 'plan';
-              const hasUserAction = !!resultData?.userAction;
+              const hasUserAction = !!resultData && resultData.userAction !== undefined;
               
               // Check if this is a plan tool in a mode that requires user action
-              const executionMode = resultData?.mode || fixedExecution.parameters?.mode;
-              const actionType = resultData?.actionType;
+              const executionMode = (resultData?.mode as string | undefined) || (fixedExecution.parameters?.mode as string | undefined);
+              const actionType = resultData?.actionType as string | undefined;
               
               // Check both mode and actionType to be more robust
               const isInteractivePlanMode = isPlanTool && (

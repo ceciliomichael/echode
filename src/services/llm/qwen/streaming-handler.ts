@@ -39,6 +39,11 @@ export class QwenStreamingHandler {
     const timeoutMs = settings.streamingTimeout ?? DEFAULT_STREAMING_TIMEOUT;
     const client = this.getOrCreateClient(credentials, baseUrl);
 
+    const internalAbortController = new AbortController();
+    const combinedAborted = () => signal.aborted || internalAbortController.signal.aborted;
+    const abortHandler = () => internalAbortController.abort();
+    signal.addEventListener('abort', abortHandler);
+
     let hasReceivedFirstChunk = false;
     let timeoutId: NodeJS.Timeout | null = null;
 
@@ -46,6 +51,7 @@ export class QwenStreamingHandler {
     const timeoutPromise = new Promise<never>((_, reject) => {
       timeoutId = setTimeout(() => {
         if (!hasReceivedFirstChunk) {
+          internalAbortController.abort();
           reject(new StreamingTimeoutError('No streaming data received within timeout'));
         }
       }, timeoutMs);
@@ -61,14 +67,14 @@ export class QwenStreamingHandler {
         max_tokens: settings.maxTokens,
         temperature: settings.temperature ?? 0.0,
         stream: true,
-      });
+      }, { signal: internalAbortController.signal });
 
       // Qwen returns cumulative content, not deltas - track full content to extract only new text
       let fullContent = '';
 
       const processStream = async () => {
         for await (const chunk of stream) {
-          if (signal.aborted) {
+          if (combinedAborted()) {
             break;
           }
 
@@ -106,8 +112,8 @@ export class QwenStreamingHandler {
         processStream(),
         timeoutPromise
       ]);
-      
-      if (!signal.aborted) {
+
+      if (!combinedAborted()) {
         webview.webview.postMessage({
           type: 'chatStreamComplete',
           requestId
@@ -119,16 +125,20 @@ export class QwenStreamingHandler {
         clearTimeout(timeoutId);
       }
 
-      if (signal.aborted) {
+      if (combinedAborted()) {
+        if (error instanceof StreamingTimeoutError) {
+          throw error;
+        }
         return;
       }
-      
+
       if (error instanceof StreamingTimeoutError) {
         throw error; // Let retry logic handle this
       }
-      
+
       throw new Error(`Qwen API Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
+      signal.removeEventListener('abort', abortHandler);
       if (timeoutId) {
         clearTimeout(timeoutId);
       }

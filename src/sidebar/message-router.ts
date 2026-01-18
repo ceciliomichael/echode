@@ -96,6 +96,7 @@ export function createMessageRouter(): MessageRouter {
     handleSaveSession,
     handleGetSession,
     handleGetLatestSession,
+    handleGetLastOpenedSessionId,
     handleGetAllSessions,
     handleDeleteSession,
     handleSetSessionUiState,
@@ -124,6 +125,10 @@ export function createMessageRouter(): MessageRouter {
 
   router.register('getLatestSession', async (data, ctx) => {
     await handleGetLatestSession(data, ctx.webview, ctx.historyService);
+  });
+
+  router.register('getLastOpenedSessionId', async (data, ctx) => {
+    await handleGetLastOpenedSessionId(data, ctx.webview, ctx.historyService);
   });
 
   router.register('getAllSessions', async (data, ctx) => {

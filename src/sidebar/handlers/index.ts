@@ -7,6 +7,7 @@ export {
   handleSaveSession,
   handleGetSession,
   handleGetLatestSession,
+  handleGetLastOpenedSessionId,
   handleGetAllSessions,
   handleDeleteSession,
   handleSetSessionUiState,

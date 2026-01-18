@@ -257,6 +257,10 @@ export async function runContinuationStream(config: ContinuationStreamConfig): P
 
   while (!streamSuccess && !isStoppingRef.current) {
     try {
+      if (abortControllerRef.current && !abortControllerRef.current.signal.aborted) {
+        abortControllerRef.current.abort();
+      }
+
       const newAbortController = new AbortController();
       abortControllerRef.current = newAbortController;
 

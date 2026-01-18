@@ -231,6 +231,10 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
 
   while (!streamSuccess && !isStoppingRef.current) {
     try {
+      if (abortControllerRef.current && !abortControllerRef.current.signal.aborted) {
+        abortControllerRef.current.abort();
+      }
+
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
 

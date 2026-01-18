@@ -51,6 +51,11 @@ export class AnthropicProvider implements ILLMProvider {
       baseURL: settings.baseURL,
     });
 
+    const internalAbortController = new AbortController();
+    const combinedAborted = () => signal.aborted || internalAbortController.signal.aborted;
+    const abortHandler = () => internalAbortController.abort();
+    signal.addEventListener('abort', abortHandler);
+
     // Separate system message from conversation messages
     const systemMessage = messages.find(m => m.role === 'system');
     const conversationMessages = messages
@@ -109,6 +114,7 @@ export class AnthropicProvider implements ILLMProvider {
     const timeoutPromise = new Promise<never>((_, reject) => {
       timeoutId = setTimeout(() => {
         if (!hasReceivedFirstChunk) {
+          internalAbortController.abort();
           reject(new StreamingTimeoutError('No streaming data received within timeout'));
         }
       }, timeoutMs);
@@ -122,7 +128,7 @@ export class AnthropicProvider implements ILLMProvider {
         messages: conversationMessages,
         system: systemContent,
         stream: true,
-      });
+      }, { signal: internalAbortController.signal });
 
       // Track content block state for thinking blocks
       let currentBlockIndex = -1;
@@ -135,7 +141,7 @@ export class AnthropicProvider implements ILLMProvider {
       const processStream = async () => {
         for await (const event of stream) {
           // Check for abort
-          if (signal.aborted) {
+          if (combinedAborted()) {
             break;
           }
 
@@ -230,7 +236,7 @@ export class AnthropicProvider implements ILLMProvider {
       ]);
 
       // Signal completion only if not aborted
-      if (!signal.aborted) {
+      if (!combinedAborted()) {
         webview.webview.postMessage({
           type: 'chatStreamComplete',
           requestId
@@ -242,8 +248,10 @@ export class AnthropicProvider implements ILLMProvider {
         clearTimeout(timeoutId);
       }
 
-      if (signal.aborted) {
-        // Stream was aborted, don't throw
+      if (combinedAborted()) {
+        if (error instanceof StreamingTimeoutError) {
+          throw error;
+        }
         return;
       }
 
@@ -253,6 +261,7 @@ export class AnthropicProvider implements ILLMProvider {
 
       throw new Error(`Anthropic API Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
+      signal.removeEventListener('abort', abortHandler);
       if (timeoutId) {
         clearTimeout(timeoutId);
       }

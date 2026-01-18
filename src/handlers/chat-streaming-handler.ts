@@ -41,6 +41,14 @@ export async function handleChatStream(
     return;
   }
 
+  // If a stream already exists for this requestId, abort it before starting a new one.
+  // This can happen if the webview reloads and reuses IDs, or if a previous stream got stuck.
+  const existingController = activeStreams.get(requestId);
+  if (existingController) {
+    existingController.abort();
+    activeStreams.delete(requestId);
+  }
+
   // Create abort controller for this stream
   const abortController = new AbortController();
   activeStreams.set(requestId, abortController);
@@ -193,7 +201,9 @@ async function resolveProblemsMemntions(messages: ChatMessage[]): Promise<void> 
   const cwd = getWorkspaceRoot() || '';
 
   for (const message of messages) {
-    if (message.role !== 'user') continue;
+    if (message.role !== 'user') {
+      continue;
+    }
 
     // Handle string content
     if (typeof message.content === 'string') {
