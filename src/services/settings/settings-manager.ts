@@ -34,6 +34,125 @@ export class SettingsManager {
     this.store.clearSettings();
   }
 
+  private migrateCustomProviderReferences(previous: ApiSettings, next: ApiSettings): ApiSettings {
+    const previousProviders = previous.customProviders;
+    const nextProviders = next.customProviders;
+
+    if (!Array.isArray(previousProviders) || !Array.isArray(nextProviders)) {
+      return next;
+    }
+
+    const usedPrevIds = new Set<string>();
+    const usedNextIds = new Set<string>();
+    const idMap = new Map<string, string>();
+
+    for (const np of nextProviders) {
+      const match = previousProviders.find(pp => pp.id === np.id);
+      if (match) {
+        usedPrevIds.add(match.id);
+        usedNextIds.add(np.id);
+      }
+    }
+
+    const norm = (v: string | undefined) => (v || '').trim().toLowerCase();
+
+    for (const np of nextProviders) {
+      if (usedNextIds.has(np.id)) {
+        continue;
+      }
+
+      const prevByBaseUrl = previousProviders.find(pp => !usedPrevIds.has(pp.id) && norm(pp.baseUrl) === norm(np.baseUrl));
+      if (prevByBaseUrl) {
+        idMap.set(prevByBaseUrl.id, np.id);
+        usedPrevIds.add(prevByBaseUrl.id);
+        usedNextIds.add(np.id);
+        continue;
+      }
+
+      const prevByName = previousProviders.find(pp => !usedPrevIds.has(pp.id) && norm(pp.name) === norm(np.name));
+      if (prevByName) {
+        idMap.set(prevByName.id, np.id);
+        usedPrevIds.add(prevByName.id);
+        usedNextIds.add(np.id);
+      }
+    }
+
+    for (let i = 0; i < nextProviders.length; i += 1) {
+      const np = nextProviders[i];
+      if (usedNextIds.has(np.id)) {
+        continue;
+      }
+      const pp = previousProviders[i];
+      if (!pp || usedPrevIds.has(pp.id)) {
+        continue;
+      }
+      idMap.set(pp.id, np.id);
+      usedPrevIds.add(pp.id);
+      usedNextIds.add(np.id);
+    }
+
+    if (idMap.size === 0) {
+      return next;
+    }
+
+    const remapProviderString = (provider: string | undefined): string | undefined => {
+      if (!provider || !provider.startsWith('custom-')) {
+        return provider;
+      }
+      const rawId = provider.slice('custom-'.length);
+      const newId = idMap.get(rawId);
+      return newId ? `custom-${newId}` : provider;
+    };
+
+    const migrated: ApiSettings = {
+      ...next,
+      provider: remapProviderString(next.provider) || next.provider,
+      indexingSettings: next.indexingSettings
+        ? {
+          ...next.indexingSettings,
+          provider: remapProviderString(next.indexingSettings.provider) || next.indexingSettings.provider,
+        }
+        : next.indexingSettings,
+      autocompleteSettings: next.autocompleteSettings
+        ? {
+          ...next.autocompleteSettings,
+          provider: remapProviderString(next.autocompleteSettings.provider) || next.autocompleteSettings.provider,
+        }
+        : next.autocompleteSettings,
+      commitMessageSettings: next.commitMessageSettings
+        ? {
+          ...next.commitMessageSettings,
+          provider: remapProviderString(next.commitMessageSettings.provider) || next.commitMessageSettings.provider,
+        }
+        : next.commitMessageSettings,
+      contextSettings: next.contextSettings
+        ? {
+          ...next.contextSettings,
+          ...(typeof (next.contextSettings as (typeof next.contextSettings & { compressionProvider?: string })).compressionProvider === 'string'
+            ? {
+              compressionProvider: remapProviderString(
+                (next.contextSettings as (typeof next.contextSettings & { compressionProvider?: string })).compressionProvider
+              ) || (next.contextSettings as (typeof next.contextSettings & { compressionProvider?: string })).compressionProvider,
+            }
+            : {}),
+        }
+        : next.contextSettings,
+      modeModelSettings: next.modeModelSettings
+        ? Object.fromEntries(
+          Object.entries(next.modeModelSettings).map(([mode, mm]) => [
+            mode,
+            {
+              ...mm,
+              provider: remapProviderString(mm.provider) || mm.provider,
+            },
+          ])
+        )
+        : next.modeModelSettings,
+    };
+
+    return migrated;
+  }
+
   /**
    * Generate a workspace ID from a workspace path
    */
@@ -85,12 +204,14 @@ export class SettingsManager {
     const globalSettings = this.store.readSettings();
     const workspaceId = this.generateWorkspaceId(workspacePath);
 
+    const migratedSettings = this.migrateCustomProviderReferences(globalSettings, newSettings);
+
     // 1. Prepare the workspace override object
     const workspaceOverride: Partial<ApiSettings> = {};
     WORKSPACE_SPECIFIC_FIELDS.forEach(field => {
-      if (field in newSettings) {
+      if (field in migratedSettings) {
         // @ts-ignore
-        workspaceOverride[field] = newSettings[field];
+        workspaceOverride[field] = migratedSettings[field];
       }
     });
 
@@ -104,18 +225,18 @@ export class SettingsManager {
 
     // Update global settings with ONLY non-workspace-specific fields from newSettings
     // This ensures keys/modeModelSettings are saved globally
-    Object.keys(newSettings).forEach((key) => {
+    Object.keys(migratedSettings).forEach((key) => {
       const k = key as keyof ApiSettings;
       // Skip workspace-specific fields and the workspaceSettings map itself
       if (!WORKSPACE_SPECIFIC_FIELDS.includes(k) && k !== 'workspaceSettings') {
         // @ts-ignore
-        updatedGlobal[k] = newSettings[k];
+        updatedGlobal[k] = migratedSettings[k];
       }
     });
 
     // Explicit check to ensure modeModelSettings is preserved if present
-    if (newSettings.modeModelSettings) {
-      updatedGlobal.modeModelSettings = newSettings.modeModelSettings;
+    if (migratedSettings.modeModelSettings) {
+      updatedGlobal.modeModelSettings = migratedSettings.modeModelSettings;
     }
 
     // 3. Save the workspace override if we are in a workspace
@@ -127,9 +248,9 @@ export class SettingsManager {
     } else {
       // If NOT in a workspace (global context), update global defaults for workspace fields
       WORKSPACE_SPECIFIC_FIELDS.forEach(field => {
-        if (field in newSettings) {
+        if (field in migratedSettings) {
           // @ts-ignore
-          updatedGlobal[field] = newSettings[field];
+          updatedGlobal[field] = migratedSettings[field];
         }
       });
     }
