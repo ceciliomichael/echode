@@ -35,12 +35,11 @@ export const MermaidBlockHeader = ({
 
   return (
     <div
-      className={`flex items-center justify-between px-3 py-2 select-none ${
+      className={`flex items-center justify-between pb-4 mb-4 select-none ${
         canToggle ? 'cursor-pointer' : 'cursor-default'
       }`}
       style={{
-        borderColor: 'var(--vscode-input-border)',
-        backgroundColor: 'var(--vscode-editor-background)',
+        borderBottom: '1px solid var(--vscode-input-border)',
         color: 'var(--vscode-descriptionForeground)',
       }}
       onClick={canToggle ? onToggle : undefined}

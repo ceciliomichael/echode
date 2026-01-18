@@ -56,6 +56,11 @@ export const getMermaidThemeConfig = (): MermaidThemeConfig => {
       // Signal/message colors
       signalColor: '#e5e7eb',
       signalTextColor: '#e5e7eb',
+      // Sequence diagram box syntax (box Actor1, Actor2)
+      box1BkgColor: '#2d2d2d',
+      box2BkgColor: '#3a3a3a',
+      boxBorderColor: '#666666',
+      boxTextColor: '#e5e7eb',
     };
   } else {
     return {
@@ -94,6 +99,11 @@ export const getMermaidThemeConfig = (): MermaidThemeConfig => {
       // Signal/message colors
       signalColor: '#1f2937',
       signalTextColor: '#1f2937',
+      // Sequence diagram box syntax (box Actor1, Actor2)
+      box1BkgColor: '#f3f4f6',
+      box2BkgColor: '#e5e7eb',
+      boxBorderColor: '#9ca3af',
+      boxTextColor: '#1f2937',
     };
   }
 };
@@ -138,13 +148,13 @@ const parseRgbFill = (fill: string): { r: number; g: number; b: number } | null 
 
 /**
  * Post-process SVG to make it responsive and fix light fills for dark mode
- * - Removes hardcoded width/height
+ * - Converts percentage widths to pixel values for proper sizing in absolute containers
  * - Replaces light rect fills with dark background for better contrast
  */
 export const makeResponsiveSvg = (svg: string): string => {
   // Replace light rect fills with dark background
   // This regex finds rect elements with fill attributes containing light colors
-  const processed = svg.replace(
+  let processed = svg.replace(
     /(<rect[^>]*fill=")([^"]+)("[^>]*>)/g,
     (match, prefix, fill, suffix) => {
       // Skip if this is an actor element (has class="actor")
@@ -161,10 +171,29 @@ export const makeResponsiveSvg = (svg: string): string => {
     }
   );
 
-  return processed
-    .replace(/width="[^"]*"/, '')
-    .replace(/height="[^"]*"/, '')
-    .replace(/style="[^"]*"/, 'style="max-width: 100%; max-height: 100%;"');
+  // Mermaid outputs width="100%" with max-width in style for the actual size.
+  // For absolute-positioned containers, we need a real pixel width.
+  // Extract max-width from style and use it as the width attribute.
+  const maxWidthMatch = processed.match(/style="[^"]*max-width:\s*(\d+(?:\.\d+)?px)[^"]*"/);
+  if (maxWidthMatch) {
+    const maxWidthValue = maxWidthMatch[1];
+    // Replace width="100%" with the actual max-width value
+    processed = processed.replace(/width="100%"/, `width="${maxWidthValue}"`);
+  }
+
+  // Extract viewBox height if width="100%" wasn't replaced and we have viewBox
+  if (processed.includes('width="100%"')) {
+    const viewBoxMatch = processed.match(/viewBox="[\d.]+ [\d.]+ ([\d.]+) ([\d.]+)"/);
+    if (viewBoxMatch) {
+      const viewBoxWidth = viewBoxMatch[1];
+      const viewBoxHeight = viewBoxMatch[2];
+      processed = processed
+        .replace(/width="100%"/, `width="${viewBoxWidth}"`)
+        .replace(/height="100%"/, `height="${viewBoxHeight}"`);
+    }
+  }
+
+  return processed;
 };
 
 /**

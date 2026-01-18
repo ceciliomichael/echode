@@ -2,7 +2,7 @@
   "name": "echode",
   "displayName": "EchoDE Coder",
   "description": "Agentic Coding",
-  "version": "1.0.2025",
+  "version": "1.0.2045",
   "publisher": "EchoSphere",
   "icon": "icon.png",
   "repository": {
@@ -189,6 +189,7 @@
     "@vscode/test-electron": "^2.5.2",
     "esbuild": "^0.27.0",
     "eslint": "^9.39.1",
+    "mermaid": "^11.4.0",
     "npm-run-all": "^4.1.5",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.3"

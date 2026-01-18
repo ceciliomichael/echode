@@ -69,26 +69,35 @@ const MermaidBlockComponent = ({ code, isGenerating = false }: MermaidBlockProps
 
   return (
     <div
-      className="my-2 rounded-xl overflow-hidden border"
+      className="my-2 p-2 rounded-2xl border shadow-sm"
       style={{
-        borderColor: 'var(--vscode-input-border)',
+        borderColor: 'var(--vscode-widget-border)',
         backgroundColor: 'var(--vscode-editor-background)',
       }}
     >
-      <MermaidBlockHeader
-        isExpanded={isExpanded}
-        isOpenInTab={isOpenInTab}
-        isReady={isReady}
-        copied={copied}
-        onToggle={toggleExpanded}
-        onCopy={handleCopy}
-        onOpenInTab={handleOpenInTab}
-      />
-      <MermaidBlockContent
-        isExpanded={isExpanded}
-        isGenerating={isGenerating}
-        svg={svg}
-      />
+      {/* Inner Shell */}
+      <div
+        className="rounded-xl border p-4"
+        style={{
+          borderColor: 'var(--vscode-input-border)',
+          backgroundColor: 'var(--vscode-editor-background)',
+        }}
+      >
+        <MermaidBlockHeader
+          isExpanded={isExpanded}
+          isOpenInTab={isOpenInTab}
+          isReady={isReady}
+          copied={copied}
+          onToggle={toggleExpanded}
+          onCopy={handleCopy}
+          onOpenInTab={handleOpenInTab}
+        />
+        <MermaidBlockContent
+          isExpanded={isExpanded}
+          isGenerating={isGenerating}
+          svg={svg}
+        />
+      </div>
       {/* Inject styles for SVG container */}
       <style>{MERMAID_CONTAINER_STYLES}</style>
     </div>

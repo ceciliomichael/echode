@@ -24,6 +24,9 @@ export interface WebviewHtmlOptions {
   planContent?: string;
   isToolApproval?: boolean;
   approvalData?: ApprovalData;
+  isMermaidPreview?: boolean;
+  mermaidCode?: string;
+  mermaidId?: string;
   workspaceInfo?: {
     path: string;
     name: string;
@@ -104,6 +107,16 @@ export function generateWebviewHtml(
     scriptContent += '\n    window.isToolApproval = true;';
     if (options.approvalData) {
       scriptContent += `\n    window.approvalData = ${JSON.stringify(options.approvalData)};`;
+    }
+  }
+
+  if (options.isMermaidPreview) {
+    scriptContent += '\n    window.isMermaidPreview = true;';
+    if (options.mermaidCode) {
+      scriptContent += `\n    window.mermaidCode = ${JSON.stringify(options.mermaidCode)};`;
+    }
+    if (options.mermaidId) {
+      scriptContent += `\n    window.mermaidId = ${JSON.stringify(options.mermaidId)};`;
     }
   }
 

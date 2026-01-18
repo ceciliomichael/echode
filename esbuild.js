@@ -1,7 +1,33 @@
 const esbuild = require("esbuild");
+const fs = require("fs");
+const path = require("path");
 
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
+
+/**
+ * Copy mermaid library to dist/vendor for offline use in webview panels
+ * Mermaid is a devDependency to avoid TypeScript type issues (d3 types require DOM lib)
+ */
+function copyMermaidLibrary() {
+	const srcPath = path.join(__dirname, 'node_modules', 'mermaid', 'dist', 'mermaid.min.js');
+	const destDir = path.join(__dirname, 'dist', 'vendor');
+	const destPath = path.join(destDir, 'mermaid.min.js');
+
+	// Create vendor directory if it doesn't exist
+	if (!fs.existsSync(destDir)) {
+		fs.mkdirSync(destDir, { recursive: true });
+	}
+
+	// Copy the file
+	if (fs.existsSync(srcPath)) {
+		fs.copyFileSync(srcPath, destPath);
+		console.log('[build] Copied mermaid.min.js to dist/vendor/');
+	} else {
+		console.warn('[build] Warning: mermaid.min.js not found in node_modules');
+		console.warn('[build] Run "npm install" first');
+	}
+}
 
 /**
  * @type {import('esbuild').Plugin}
@@ -24,6 +50,9 @@ const esbuildProblemMatcherPlugin = {
 };
 
 async function main() {
+	// Copy mermaid library for offline webview use
+	copyMermaidLibrary();
+
 	// Main extension bundle
 	const ctx = await esbuild.context({
 		entryPoints: [

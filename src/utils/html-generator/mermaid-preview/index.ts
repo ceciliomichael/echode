@@ -1,58 +1,25 @@
 import * as vscode from 'vscode';
-import { getMermaidStyles } from './styles';
-import { getMermaidScripts } from './scripts';
-import { generateMermaidTheme } from '../../mermaid-theme-config';
+import { generateWebviewHtml } from '../base-webview';
 
 /**
  * Generate HTML for Mermaid preview panel
+ * Uses the unified webview approach - loads the React bundle with mermaid preview flags
+ * 
+ * @param webview - The webview instance
+ * @param extensionUri - Extension URI for loading webview assets
+ * @param code - Mermaid diagram code
+ * @param id - Optional unique ID for the preview panel
  */
 export function getMermaidPreviewHtml(
   webview: vscode.Webview,
-  code: string
+  extensionUri: vscode.Uri,
+  code: string,
+  id?: string
 ): string {
-  const isDark = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
-  const theme = isDark ? 'dark' : 'default';
-  const themeVariables = generateMermaidTheme(isDark);
-  
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} https://cdn.jsdelivr.net 'unsafe-inline';">
-  <title>Mermaid Preview</title>
-  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-  <style>${getMermaidStyles()}</style>
-</head>
-<body>
-  <div id="toolbar">
-    <div class="toolbar-group">
-      <button onclick="zoomOut()" title="Zoom Out">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h14"/></svg>
-      </button>
-      <span id="zoom-level">100%</span>
-      <button onclick="zoomIn()" title="Zoom In">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>
-      </button>
-    </div>
-    <div class="save-group">
-      <button onclick="resetView()" title="Reset View">Reset</button>
-      <span class="button-divider"></span>
-      <button onclick="fitToView()" title="Fit to View">Fit</button>
-    </div>
-    <div style="flex: 1;"></div>
-    <div class="save-svg-group">
-      <button onclick="saveSvg()" title="Save as SVG">Save SVG</button>
-    </div>
-  </div>
-  <div id="container">
-    <div id="diagram-wrapper">
-      <div id="mermaid-output"></div>
-    </div>
-  </div>
-  <script type="text/plain" id="mermaid-code">${code.replace(/</g, '<').replace(/>/g, '>')}</script>
-  <div id="footer">Scroll to zoom • Drag to pan • Double-click to reset</div>
-  <script>${getMermaidScripts(theme, themeVariables)}</script>
-</body>
-</html>`;
+  return generateWebviewHtml(webview, extensionUri, {
+    title: 'Mermaid Preview',
+    isMermaidPreview: true,
+    mermaidCode: code,
+    mermaidId: id,
+  });
 }

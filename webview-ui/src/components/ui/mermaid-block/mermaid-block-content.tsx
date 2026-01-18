@@ -54,10 +54,8 @@ export const MermaidBlockContent = ({
       }`}
     >
       <div
-        className="p-4 flex items-center justify-center overflow-hidden border-t"
+        className="flex items-center justify-center overflow-hidden"
         style={{
-          backgroundColor: 'var(--vscode-editor-background)',
-          borderColor: 'var(--vscode-input-border)',
           height: isExpanded ? '300px' : '0',
         }}
       >

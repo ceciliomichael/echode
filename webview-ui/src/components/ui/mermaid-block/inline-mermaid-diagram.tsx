@@ -17,18 +17,27 @@ export const InlineMermaidDiagram = memo(function InlineMermaidDiagram({ code }:
   if (!svg) {
     return (
       <div
-        className="my-4 p-4 rounded-xl border flex items-center justify-center"
+        className="my-4 p-2 rounded-2xl border shadow-sm"
         style={{
-          borderColor: 'var(--vscode-input-border)',
+          borderColor: 'var(--vscode-widget-border)',
           backgroundColor: 'var(--vscode-editor-background)',
-          minHeight: '100px',
         }}
       >
+        {/* Inner Shell */}
         <div
-          className="text-sm"
-          style={{ color: 'var(--vscode-descriptionForeground)' }}
+          className="rounded-xl border p-6 flex items-center justify-center"
+          style={{
+            borderColor: 'var(--vscode-input-border)',
+            backgroundColor: 'var(--vscode-editor-background)',
+            minHeight: '100px',
+          }}
         >
-          Rendering diagram...
+          <div
+            className="text-sm"
+            style={{ color: 'var(--vscode-descriptionForeground)' }}
+          >
+            Rendering diagram...
+          </div>
         </div>
       </div>
     );
@@ -36,17 +45,26 @@ export const InlineMermaidDiagram = memo(function InlineMermaidDiagram({ code }:
 
   return (
     <div
-      className="my-4 p-4 rounded-xl border overflow-hidden"
+      className="my-4 p-2 rounded-2xl border shadow-sm"
       style={{
-        borderColor: 'var(--vscode-input-border)',
+        borderColor: 'var(--vscode-widget-border)',
         backgroundColor: 'var(--vscode-editor-background)',
       }}
     >
+      {/* Inner Shell */}
       <div
-        className="flex items-center justify-center w-full mermaid-svg-container"
-        style={{ minHeight: '100px' }}
-        dangerouslySetInnerHTML={{ __html: svg }}
-      />
+        className="rounded-xl border p-6 overflow-hidden"
+        style={{
+          borderColor: 'var(--vscode-input-border)',
+          backgroundColor: 'var(--vscode-editor-background)',
+        }}
+      >
+        <div
+          className="flex items-center justify-center w-full mermaid-svg-container"
+          style={{ minHeight: '100px' }}
+          dangerouslySetInnerHTML={{ __html: svg }}
+        />
+      </div>
       <style>{MERMAID_CONTAINER_STYLES}</style>
     </div>
   );

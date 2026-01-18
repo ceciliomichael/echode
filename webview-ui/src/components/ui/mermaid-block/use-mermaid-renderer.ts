@@ -23,6 +23,7 @@ interface UseMermaidRendererOptions {
 
 interface UseMermaidRendererResult {
   svg: string;
+  error: string | null;
 }
 
 /**
@@ -35,6 +36,7 @@ export const useMermaidRenderer = ({
   isGenerating,
 }: UseMermaidRendererOptions): UseMermaidRendererResult => {
   const [svg, setSvg] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     // Don't render while generating - wait for complete code
@@ -49,6 +51,7 @@ export const useMermaidRenderer = ({
       if (!trimmed) {
         if (!cancelled) {
           setSvg('');
+          setError(null);
         }
         return;
       }
@@ -65,6 +68,10 @@ export const useMermaidRenderer = ({
         if (parseResult === false || parseResult.success === false) {
           if (!cancelled) {
             setSvg('');
+            // Don't set error here as we just want to fail silently for invalid syntax while typing
+            // But for a full preview, we might want to know. 
+            // For now, keep behavior consistent but clear any previous error
+            setError(null);
           }
           return;
         }
@@ -91,10 +98,13 @@ export const useMermaidRenderer = ({
         // Post-process SVG to make it responsive
         const responsiveSvg = makeResponsiveSvg(renderedSvg);
         setSvg(responsiveSvg);
-      } catch {
+        setError(null);
+      } catch (error) {
         if (!cancelled) {
-          // Swallow mermaid errors; just don't render a diagram
+          // Log error for debugging, especially for dynamic import failures
+          console.error('[MermaidRenderer] Failed to render diagram:', error);
           setSvg('');
+          setError(error instanceof Error ? error.message : String(error));
         }
       } finally {
         // Always remove the sandbox container so no stray nodes remain
@@ -109,5 +119,5 @@ export const useMermaidRenderer = ({
     };
   }, [code, uniqueId, isGenerating]);
 
-  return { svg };
+  return { svg, error };
 };

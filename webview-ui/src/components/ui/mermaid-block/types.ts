@@ -59,6 +59,11 @@ export interface MermaidThemeConfig {
   loopTextColor: string;
   activationBorderColor: string;
   activationBkgColor: string;
+  // Sequence diagram box syntax (box Actor1, Actor2)
+  box1BkgColor: string;
+  box2BkgColor: string;
+  boxBorderColor: string;
+  boxTextColor: string;
   // Actor styling
   actorBkg: string;
   actorBorder: string;

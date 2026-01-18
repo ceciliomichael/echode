@@ -3,6 +3,7 @@ import { SetupPage } from './components/feature/setup-page';
 import { ChatContainer } from './components/feature/chat-container';
 import { PlanViewer } from './components/feature/plan-viewer';
 import { ApprovalViewer } from './components/feature/approval-viewer';
+import { MermaidPreviewPage } from './components/feature/mermaid-preview-page';
 import { storageService, initializeSettings } from './utils/storage';
 import { prefetchAllModels } from './hooks/use-model-fetcher';
 import { useMcpToolSync } from './hooks/use-mcp-tool-sync';
@@ -36,6 +37,9 @@ declare global {
     planContent?: string;
     isToolApproval?: boolean;
     approvalData?: ApprovalData;
+    isMermaidPreview?: boolean;
+    mermaidCode?: string;
+    mermaidId?: string;
   }
 }
 
@@ -121,6 +125,11 @@ function App() {
   // Tool Approval mode - render approval viewer for Manual Mode
   if (window.isToolApproval) {
     return <ApprovalViewer />;
+  }
+
+  // Mermaid Preview mode - render full-page mermaid diagram viewer
+  if (window.isMermaidPreview) {
+    return <MermaidPreviewPage />;
   }
 
   // Show nothing while loading settings from backend

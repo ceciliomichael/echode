@@ -116,6 +116,7 @@ export class PanelManager {
 
   /**
    * Open Mermaid preview panel
+   * Uses unified webview approach - loads the same React bundle as settings/sidebar
    */
   public openMermaidPreviewPanel(
     code: string,
@@ -134,7 +135,9 @@ export class PanelManager {
       vscode.ViewColumn.One,
       {
         enableScripts: true,
-        localResourceRoots: []
+        localResourceRoots: [
+          vscode.Uri.joinPath(this._extensionUri, 'webview-ui', 'dist')
+        ]
       }
     );
 
@@ -144,7 +147,7 @@ export class PanelManager {
     }
 
     panel.iconPath = vscode.Uri.joinPath(this._extensionUri, 'icon.svg');
-    panel.webview.html = getMermaidPreviewHtml(panel.webview, code);
+    panel.webview.html = getMermaidPreviewHtml(panel.webview, this._extensionUri, code, id);
 
     // Handle messages from the preview panel
     panel.webview.onDidReceiveMessage(async (data) => {
