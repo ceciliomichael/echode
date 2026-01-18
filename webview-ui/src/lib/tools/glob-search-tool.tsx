@@ -103,7 +103,7 @@ function GlobSearchRendererComponent({ data }: { data: unknown }) {
     return (
       <div className="rounded-xl overflow-hidden border border-[var(--vscode-input-border)] bg-[var(--vscode-editor-background)]">
         {/* Content */}
-        <div className="max-h-[400px] overflow-y-auto">
+        <div className="max-h-[350px] overflow-y-auto">
           {isEmpty ? (
             <div className="px-3 py-4 text-xs text-center opacity-50 italic">
               No files found

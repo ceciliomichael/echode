@@ -87,6 +87,17 @@ export async function handleGetLastOpenedSessionId(
 }
 
 /**
+ * Clear the last opened session ID (used when starting a new chat)
+ */
+export function handleClearLastOpenedSessionId(
+  _data: SessionData,
+  _webview: vscode.WebviewView,
+  historyService: ChatHistoryService
+): void {
+  historyService.clearLastOpenedSessionId();
+}
+
+/**
  * Get all sessions for history display
  */
 export async function handleGetAllSessions(

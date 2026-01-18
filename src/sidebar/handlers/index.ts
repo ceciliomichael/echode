@@ -8,6 +8,7 @@ export {
   handleGetSession,
   handleGetLatestSession,
   handleGetLastOpenedSessionId,
+  handleClearLastOpenedSessionId,
   handleGetAllSessions,
   handleDeleteSession,
   handleSetSessionUiState,

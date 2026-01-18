@@ -130,6 +130,13 @@ export class ChatHistoryService {
     }
   }
 
+  public clearLastOpenedSessionId(): void {
+    try {
+      void this.context.globalState.update(this.getLastOpenedSessionKey(), undefined);
+    } catch (_error) {
+    }
+  }
+
   private getSessionFilesOnDisk(): Map<string, string> {
     const result = new Map<string, string>();
     try {

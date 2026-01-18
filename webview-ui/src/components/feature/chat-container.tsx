@@ -17,6 +17,7 @@ import { useContextUsage } from '../../hooks/use-context-usage';
 import { useWorkspaceContext } from '../../hooks/use-workspace-context';
 import { useCompressionHandler } from '../../hooks/use-compression-handler';
 import { useAutoScroll } from '../../hooks/use-auto-scroll';
+import { useChatHistory } from '../../hooks/use-chat-history';
 import { getSystemPrompt } from '../../utils/prompts';
 import { storageService } from '../../utils/storage';
 
@@ -28,6 +29,10 @@ export function ChatContainer() {
   
   // Per-mode model selection (each mode can have its own model)
   const { provider, model, setActiveProviderAndModel } = useChatModel(mode);
+
+  // Chat history for recent sessions display in empty state
+  const { sessions } = useChatHistory();
+  const recentSessions = sessions.slice(0, 3);
 
   // Message queue state - allows users to queue messages while AI is working
   const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>([]);
@@ -281,7 +286,10 @@ export function ChatContainer() {
         >
           {visibleMessages.length === 0 ? (
             <div className={`${contentWidthClass} mx-auto h-full py-3 sm:py-4 lg:py-6 ${horizontalPaddingClass}`}>
-              <ChatEmptyState />
+              <ChatEmptyState 
+                recentSessions={recentSessions}
+                onLoadSession={loadSession}
+              />
             </div>
           ) : (
             <div

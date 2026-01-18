@@ -143,6 +143,12 @@ export function useStreamingChat(
     setAbortedUserInput(null);
     setAbortedAttachments(null);
     setAbortedImageAttachments(null);
+    
+    // Notify extension to clear the last opened session ID
+    // This ensures VS Code reload won't restore the previous session
+    if (window.vscode) {
+      window.vscode.postMessage({ type: 'clearLastOpenedSessionId' });
+    }
   }, [state]);
 
   // Abort stream and tool execution

@@ -231,7 +231,7 @@ function EchoSearchRendererComponent({ data }: { data: unknown }) {
         </div>
 
         {/* Content */}
-        <div>
+        <div className="max-h-[250px] overflow-y-auto">
           {isEmpty ? (
             <div className="px-3 py-4 text-xs text-center opacity-50 italic">
               No relevant code found

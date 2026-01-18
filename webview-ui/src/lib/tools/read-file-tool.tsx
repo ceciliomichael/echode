@@ -53,20 +53,22 @@ Parameters:
                         : '';
 
                 return (
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs font-semibold opacity-70">
+                    <div className="flex flex-col flex-1 min-h-0">
+                        <div className="flex items-center justify-between text-xs font-semibold opacity-70 px-3 py-2 shrink-0">
                             <span>File: {result.path}</span>
                             {lineRangeText && <span>{lineRangeText}</span>}
                         </div>
-                        <pre
-                            className="text-xs font-mono whitespace-pre-wrap overflow-x-auto p-2 rounded"
-                            style={{
-                                backgroundColor: 'var(--vscode-textCodeBlock-background)',
-                                color: 'var(--vscode-editor-foreground)',
-                            }}
-                        >
-                            {result.content}
-                        </pre>
+                        <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-3">
+                            <pre
+                                className="text-xs font-mono whitespace-pre-wrap overflow-x-auto p-2 rounded"
+                                style={{
+                                    backgroundColor: 'var(--vscode-textCodeBlock-background)',
+                                    color: 'var(--vscode-editor-foreground)',
+                                }}
+                            >
+                                {result.content}
+                            </pre>
+                        </div>
                     </div>
                 );
             }

@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
-import type { ChatSessionSummary } from '../../types/chat-session';
+import { useState, useMemo } from 'react';
 import { Search, ClipboardList, CircleCheckBig, Loader2, Trash2 } from 'lucide-react';
+import { useChatHistory } from '../../hooks/use-chat-history';
 
 interface HistoryDropdownProps {
   onLoadSession: (sessionId: string) => void;
@@ -8,33 +8,9 @@ interface HistoryDropdownProps {
 }
 
 export function HistoryDropdown({ onLoadSession, onClose }: HistoryDropdownProps) {
-  const [sessions, setSessions] = useState<ChatSessionSummary[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { sessions, isLoading, deleteSession } = useChatHistory();
   const [searchQuery, setSearchQuery] = useState('');
   const [nowTime] = useState(() => Date.now());
-
-  useEffect(() => {
-    if (window.vscode) {
-      window.vscode.postMessage({ type: 'getAllSessions' });
-    }
-
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      
-      switch (message.type) {
-        case 'sessionsLoaded':
-          setSessions(message.sessions || []);
-          setIsLoading(false);
-          break;
-        case 'sessionsUpdated':
-          setSessions(message.sessions || []);
-          break;
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
 
   const filteredSessions = useMemo(() => {
     if (!searchQuery.trim()) return sessions;
@@ -51,9 +27,7 @@ export function HistoryDropdown({ onLoadSession, onClose }: HistoryDropdownProps
 
   const handleDeleteSession = (sessionId: string, event: React.MouseEvent) => {
     event.stopPropagation();
-    if (window.vscode) {
-      window.vscode.postMessage({ type: 'deleteSession', sessionId });
-    }
+    deleteSession(sessionId);
   };
 
   const formatTime = (timestamp: number) => {

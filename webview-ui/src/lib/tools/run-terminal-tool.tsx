@@ -65,22 +65,22 @@ Usage: Always use "execute" then "read" with timeout to get streaming output.`,
         }
         
         return (
-            <div className="space-y-2">
-                <div className="text-xs font-semibold opacity-70 flex items-center gap-1">
+            <div className="flex flex-col flex-1 min-h-0">
+                <div className="text-xs font-semibold opacity-70 flex items-center gap-1 px-3 py-2 shrink-0">
                     <Terminal size={12} />
                     <span>Terminal Output</span>
                 </div>
-                <pre
-                    className="text-xs font-mono whitespace-pre-wrap break-all p-2 rounded"
-                    style={{
-                        backgroundColor: 'var(--vscode-textCodeBlock-background)',
-                        color: 'var(--vscode-editor-foreground)',
-                        maxHeight: '300px',
-                        overflowY: 'auto',
-                    }}
-                >
-                    {displayContent || '(No output)'}
-                </pre>
+                <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-3">
+                    <pre
+                        className="text-xs font-mono whitespace-pre-wrap break-all p-2 rounded"
+                        style={{
+                            backgroundColor: 'var(--vscode-textCodeBlock-background)',
+                            color: 'var(--vscode-editor-foreground)',
+                        }}
+                    >
+                        {displayContent || '(No output)'}
+                    </pre>
+                </div>
             </div>
         );
     },
