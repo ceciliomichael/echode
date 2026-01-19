@@ -32,7 +32,7 @@ function AssistantMessageView({
   const contentMaxWidth = 'min(110ch, 100%)';
 
   // Get tokenized and filtered content
-  const { tokens, visibleTokens } = useVisibleTokens(content, messageId);
+  const { tokens, visibleTokens } = useVisibleTokens(content, messageId, toolExecutions);
 
   // Handle empty content with streaming state
   if (!content) {

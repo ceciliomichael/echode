@@ -14,7 +14,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import deepEqual from 'fast-deep-equal';
 
-import { MCPServerConfig, MCPTransportType } from './mcp-config-types';
+import { MCPServerConfig, MCPTransportType, ConfigSource, MCPServerConfigWithSource } from './mcp-config-types';
 import { 
   McpSettingsSchema, 
   ServerConfig, 
@@ -23,15 +23,7 @@ import {
 } from './mcp-validation';
 import { safeWriteJson, fileExistsAtPath } from './utils/filesystem';
 import { getWorkspacePath } from '../../utils/path-utils';
-
-// Configuration source types
-export type ConfigSource = 'global' | 'project';
-
-// Extended config with source tracking
-export interface MCPServerConfigWithSource extends MCPServerConfig {
-  source: ConfigSource;
-  projectPath?: string;
-}
+import { convertToMCPServerConfigs, generateServerId } from './mcp-config-adapter';
 
 // Default MCP settings file content
 const DEFAULT_MCP_SETTINGS = {
@@ -338,78 +330,11 @@ export class MCPConfigService {
         return [];
       }
 
-      return this.convertToMCPServerConfigs(parseResult.data.mcpServers, source);
+      return convertToMCPServerConfigs(parseResult.data.mcpServers, source);
     } catch (error) {
       console.error(`Failed to load ${source} MCP config:`, error);
       return [];
     }
-  }
-
-  /**
-   * Convert validated server configs to MCPServerConfig format
-   */
-  private convertToMCPServerConfigs(
-    mcpServers: Record<string, ServerConfig>,
-    source: ConfigSource
-  ): MCPServerConfig[] {
-    const configs: MCPServerConfig[] = [];
-
-    for (const [name, config] of Object.entries(mcpServers)) {
-      const id = this.generateServerId(name);
-      
-      // Determine transport type
-      let type: MCPTransportType = 'stdio';
-      if (config.type === 'sse' || config.type === 'streamable-http') {
-        type = 'http';
-      }
-
-      const serverConfig: MCPServerConfig = {
-        id,
-        name,
-        type,
-        enabled: !config.disabled,
-        autoConnect: false, // Default, can be extended
-        
-        // Source tracking (extended property)
-        ...(source === 'project' && { 
-          source,
-          projectPath: getWorkspacePath() 
-        }),
-      };
-
-      // Add stdio-specific fields
-      if (config.type === 'stdio') {
-        serverConfig.command = config.command;
-        serverConfig.args = config.args;
-        serverConfig.env = config.env;
-      }
-
-      // Add HTTP-specific fields
-      if (config.type === 'sse' || config.type === 'streamable-http') {
-        serverConfig.url = config.url;
-        serverConfig.headers = config.headers;
-      }
-
-      // Add tool configuration
-      if (config.alwaysAllow?.length || config.disabledTools?.length) {
-        serverConfig.tool_configuration = {
-          enabled: true,
-          allowed_tools: config.alwaysAllow,
-          disabled_tools: config.disabledTools,
-        };
-      }
-
-      configs.push(serverConfig);
-    }
-
-    return configs;
-  }
-
-  /**
-   * Generate a consistent server ID from name
-   */
-  private generateServerId(name: string): string {
-    return `mcp-${name.toLowerCase().replace(/[^a-z0-9-]/g, '-')}`;
   }
 
   /**
@@ -586,7 +511,7 @@ export class MCPConfigService {
       if (config.mcpServers) {
         // Find key by matching generated ID
         for (const key of Object.keys(config.mcpServers)) {
-          const id = this.generateServerId(key);
+          const id = generateServerId(key);
           if (id === serverId) {
             delete config.mcpServers[key];
             await safeWriteJson(configPath, config);

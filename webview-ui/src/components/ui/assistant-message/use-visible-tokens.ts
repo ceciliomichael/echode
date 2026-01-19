@@ -1,11 +1,17 @@
 import { useMemo } from 'react';
 import { tokenizeContent } from '../../../utils/content-tokenizer';
+import type { ToolExecutionState } from '../../../types/tool';
 
 /**
  * Custom hook that tokenizes content and filters out non-visible tokens.
  * Handles empty text, incomplete think blocks, and file modification tools without paths.
  */
-export function useVisibleTokens(content: string, messageId: string) {
+export function useVisibleTokens(
+  content: string,
+  messageId: string,
+  toolExecutions?: Map<string, ToolExecutionState>
+) {
+
   // Tokenize content into stable segments
   const tokens = useMemo(
     () => tokenizeContent(content, messageId),
@@ -15,6 +21,7 @@ export function useVisibleTokens(content: string, messageId: string) {
   // Filter out empty text tokens, empty think blocks, and incomplete tool blocks
   const visibleTokens = useMemo(() => {
     return tokens.filter((token) => {
+
       // Filter empty text
       if (token.type === 'text' && token.content.trim() === '') {
         return false;
@@ -25,6 +32,7 @@ export function useVisibleTokens(content: string, messageId: string) {
       }
       // For tool blocks, show as soon as tool name is known (to display loading state)
       if (token.type === 'tool') {
+
         // Must have a valid tool name to display
         if (!token.toolName || token.toolName.trim() === '') {
           return false;
@@ -33,7 +41,9 @@ export function useVisibleTokens(content: string, messageId: string) {
         const isFileModificationTool =
           token.toolName === 'write_to_file' || token.toolName === 'apply_diff';
         if (isFileModificationTool) {
-          const path = token.parameters.path as string | undefined;
+          const tokenPath = token.parameters.path as string | undefined;
+          const executionPath = (toolExecutions?.get(token.toolExecutionId)?.parameters?.path as string | undefined);
+          const path = tokenPath || executionPath;
           // Show if path is present and not empty
           if (path && path.trim() !== '') {
             return true;
@@ -41,13 +51,14 @@ export function useVisibleTokens(content: string, messageId: string) {
           // Hide if path is missing or empty
           return false;
         }
+
         // For all other tools, show immediately once tool name is known
         // This allows displaying loading states like "Planning", "Searching", etc.
         return true;
       }
       return true;
     });
-  }, [tokens]);
+  }, [tokens, toolExecutions]);
 
   return { tokens, visibleTokens };
 }

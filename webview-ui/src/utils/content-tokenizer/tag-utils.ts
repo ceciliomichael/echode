@@ -264,32 +264,20 @@ export function findMatchingFunctionCallsClose(content: string, openTagEnd: numb
  */
 export function findNextToolStart(content: string, fromPosition: number): number {
     const tag = '<function_calls>';
-    let inFence = false;
+    let searchPos = Math.max(0, fromPosition);
 
-    for (let i = 0; i < content.length;) {
-        if (content.startsWith('```', i)) {
-            inFence = !inFence;
-            i += 3;
+    while (searchPos < content.length) {
+        const openPos = content.indexOf(tag, searchPos);
+        if (openPos === -1) {
+            return -1;
+        }
 
-            if (inFence) {
-                while (i < content.length && content[i] !== '\n' && content[i] !== '\r') {
-                    i++;
-                }
-            }
-
+        if (openPos > 0 && content[openPos - 1] === '`') {
+            searchPos = openPos + tag.length;
             continue;
         }
 
-        if (i >= fromPosition && !inFence && content.startsWith(tag, i)) {
-            if (i > 0 && content[i - 1] === '`') {
-                i += tag.length;
-                continue;
-            }
-
-            return i;
-        }
-
-        i++;
+        return openPos;
     }
 
     return -1;

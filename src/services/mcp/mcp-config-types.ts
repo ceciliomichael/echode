@@ -65,3 +65,12 @@ export interface MCPConnectionLog {
   type: "info" | "error" | "warning";
   message: string;
 }
+
+// Configuration source types
+export type ConfigSource = 'global' | 'project';
+
+// Extended config with source tracking
+export interface MCPServerConfigWithSource extends MCPServerConfig {
+  source: ConfigSource;
+  projectPath?: string;
+}

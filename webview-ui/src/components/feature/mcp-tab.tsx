@@ -1,5 +1,6 @@
 import { FileJson } from "lucide-react";
 import { MCPServerList } from "../mcp/mcp-server-list";
+import { MCPConfigGuide } from "../mcp/mcp-config-guide";
 import { useMCPSettings } from "../../hooks/use-mcp-settings";
 
 export function MCPTab() {
@@ -32,6 +33,7 @@ export function MCPTab() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
+        <MCPConfigGuide />
         <MCPServerList
           configs={configs}
           statuses={statuses}
