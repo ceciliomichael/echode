@@ -51,11 +51,10 @@ export async function handleMcpMessage(
       }
 
       case 'mcp.connect': {
-        // Set autoConnect to true when user explicitly connects
-        const configToConnect = { ...message.config, autoConnect: true };
-        await serverManager.connect(configToConnect);
-        // Persist the autoConnect preference
-        await serverManager.saveConfig(configToConnect);
+        // Connect the server
+        await serverManager.connect(message.config);
+        // Persist autoConnect preference to state service (not mcp.json)
+        await serverManager.getStateService().setAutoConnect(message.config.name, true);
         // Status updates are handled by the event listener, but we can force a refresh
         const statuses = serverManager.getAllStatuses();
         panel.webview.postMessage({ type: 'mcp.statuses', statuses });
@@ -63,11 +62,10 @@ export async function handleMcpMessage(
       }
 
       case 'mcp.disconnect': {
-        // Set autoConnect to false when user explicitly disconnects
+        // Persist autoConnect preference to state service (not mcp.json)
         const configToDisconnect = serverManager.getConfig(message.serverId);
         if (configToDisconnect) {
-          const updatedConfig = { ...configToDisconnect, autoConnect: false };
-          await serverManager.saveConfig(updatedConfig);
+          await serverManager.getStateService().setAutoConnect(configToDisconnect.name, false);
         }
         await serverManager.disconnect(message.serverId);
         // Status updates are handled by the event listener

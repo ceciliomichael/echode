@@ -45,7 +45,8 @@ export function convertToMCPServerConfigs(
       name,
       type,
       enabled: !config.disabled,
-      // Auto-connect enabled servers on startup (fixes reconnect after restart)
+      // autoConnect is managed separately by MCPStateService
+      // Default to true for enabled servers (will be overridden by state service)
       autoConnect: !config.disabled,
       
       // Source tracking for project-specific configs

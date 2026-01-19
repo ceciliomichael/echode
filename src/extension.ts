@@ -11,8 +11,8 @@ import { MarkdownViewerManager } from './services/markdown-viewer/markdown-viewe
 import { ApprovalViewerManager } from './services/approval/approval-viewer-manager';
 
 export function activate(context: vscode.ExtensionContext) {
-  // Initialize MCP Server Manager with context for global storage access
-  getGlobalServerManager(defaultRegistry, context);
+  // Initialize MCP Server Manager (uses ~/.echode/mcp/ for global config)
+  getGlobalServerManager(defaultRegistry);
 
   // Initialize Markdown Viewer Manager (for all .md files with mermaid support)
   MarkdownViewerManager.initialize(context);

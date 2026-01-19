@@ -1,15 +1,16 @@
 /**
  * MCP Config Service - Manages mcp.json configuration with dual-source support
  * 
- * Implements Roo-Code's robust configuration loading pattern:
- * - Global config: Stored in extension's global storage
- * - Project config: Stored in workspace's .echode/mcp.json
+ * Configuration locations:
+ * - Global config: ~/.echode/mcp/mcp.json (user's home folder)
+ * - Project config: {workspace}/.echode/mcp/mcp.json
  * - Project configs override global configs with the same name
  * - File watching with debouncing for both sources
  * - Zod validation for all configurations
  */
 
 import * as fs from 'fs/promises';
+import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import deepEqual from 'fast-deep-equal';
@@ -30,12 +31,27 @@ const DEFAULT_MCP_SETTINGS = {
   mcpServers: {}
 };
 
-// Project config directory name
-const PROJECT_CONFIG_DIR = '.echode';
+// Config directory structure: .echode/mcp/
+const ECHODE_DIR = '.echode';
+const MCP_SUBDIR = 'mcp';
 const MCP_CONFIG_FILENAME = 'mcp.json';
 
+/**
+ * Get the global MCP config directory path (~/.echode/mcp/)
+ */
+function getGlobalMcpDir(): string {
+  return path.join(os.homedir(), ECHODE_DIR, MCP_SUBDIR);
+}
+
+/**
+ * Get the global MCP config file path (~/.echode/mcp/mcp.json)
+ */
+function getGlobalMcpConfigPath(): string {
+  return path.join(getGlobalMcpDir(), MCP_CONFIG_FILENAME);
+}
+
 export class MCPConfigService {
-  private globalConfigPath: string | null = null;
+  private globalConfigPath: string;
   private disposables: vscode.Disposable[] = [];
   
   // File watchers
@@ -53,10 +69,9 @@ export class MCPConfigService {
   private configChangeEmitter = new vscode.EventEmitter<MCPServerConfig[]>();
   public onConfigChange = this.configChangeEmitter.event;
 
-  constructor(storagePath?: string) {
-    if (storagePath) {
-      this.globalConfigPath = path.join(storagePath, MCP_CONFIG_FILENAME);
-    }
+  constructor() {
+    // Use ~/.echode/mcp/mcp.json for global config
+    this.globalConfigPath = getGlobalMcpConfigPath();
   }
 
   /**
@@ -72,12 +87,12 @@ export class MCPConfigService {
   /**
    * Get the global config file path
    */
-  getGlobalConfigPath(): string | null {
+  getGlobalConfigPath(): string {
     return this.globalConfigPath;
   }
 
   /**
-   * Get the project config file path
+   * Get the project config file path ({workspace}/.echode/mcp/mcp.json)
    */
   async getProjectConfigPath(): Promise<string | null> {
     const workspacePath = getWorkspacePath();
@@ -85,7 +100,7 @@ export class MCPConfigService {
       return null;
     }
 
-    const projectConfigPath = path.join(workspacePath, PROJECT_CONFIG_DIR, MCP_CONFIG_FILENAME);
+    const projectConfigPath = path.join(workspacePath, ECHODE_DIR, MCP_SUBDIR, MCP_CONFIG_FILENAME);
     
     try {
       await fs.access(projectConfigPath);
@@ -96,13 +111,9 @@ export class MCPConfigService {
   }
 
   /**
-   * Ensure global storage directory and mcp.json exist
+   * Ensure global ~/.echode/mcp/ directory and mcp.json exist
    */
   async ensureGlobalConfigExists(): Promise<void> {
-    if (!this.globalConfigPath) {
-      throw new Error('Storage path not configured');
-    }
-
     const dirPath = path.dirname(this.globalConfigPath);
     
     try {
@@ -148,7 +159,7 @@ export class MCPConfigService {
   }
 
   /**
-   * Watch project-level .echode/mcp.json for changes
+   * Watch project-level .echode/mcp/mcp.json for changes
    */
   private async watchProjectConfig(): Promise<void> {
     if (process.env.NODE_ENV === 'test') {
@@ -172,7 +183,7 @@ export class MCPConfigService {
 
     const projectPattern = new vscode.RelativePattern(
       workspacePath, 
-      `${PROJECT_CONFIG_DIR}/${MCP_CONFIG_FILENAME}`
+      `${ECHODE_DIR}/${MCP_SUBDIR}/${MCP_CONFIG_FILENAME}`
     );
 
     this.projectWatcher = vscode.workspace.createFileSystemWatcher(projectPattern);
@@ -414,7 +425,7 @@ export class MCPConfigService {
   }
 
   /**
-   * Get or create project config path
+   * Get or create project config path ({workspace}/.echode/mcp/mcp.json)
    */
   private async getOrCreateProjectConfigPath(): Promise<string | null> {
     const workspacePath = getWorkspacePath();
@@ -422,7 +433,7 @@ export class MCPConfigService {
       return null;
     }
 
-    const projectConfigDir = path.join(workspacePath, PROJECT_CONFIG_DIR);
+    const projectConfigDir = path.join(workspacePath, ECHODE_DIR, MCP_SUBDIR);
     const projectConfigPath = path.join(projectConfigDir, MCP_CONFIG_FILENAME);
 
     // Create directory if needed

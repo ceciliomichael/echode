@@ -14,6 +14,7 @@ import { ToolRegistry } from '../tools/tool-registry';
 import { ITool } from '../tools/tool.interface';
 import { MCPToolAdapter } from './mcp-tool-adapter';
 import { getSettingsService } from '../settings-service';
+import { MCPStateService } from './mcp-state-service';
 
 /**
  * Manages lifecycle of MCP server connections
@@ -30,6 +31,7 @@ export class MCPServerManager {
   >();
   
   private configService: MCPConfigService;
+  private stateService: MCPStateService;
   private toolRegistry: ToolRegistry;
   private statusChangeEmitter = new vscode.EventEmitter<MCPServerStatus>();
   private configChangeEmitter = new vscode.EventEmitter<MCPServerConfig[]>();
@@ -37,9 +39,17 @@ export class MCPServerManager {
   public onStatusChange = this.statusChangeEmitter.event;
   public onConfigChange = this.configChangeEmitter.event;
 
-  constructor(toolRegistry: ToolRegistry, context: vscode.ExtensionContext) {
-    const storagePath = context.globalStorageUri.fsPath;
-    this.configService = new MCPConfigService(storagePath);
+  /**
+   * Get the state service for managing autoConnect preferences
+   */
+  getStateService(): MCPStateService {
+    return this.stateService;
+  }
+
+  constructor(toolRegistry: ToolRegistry) {
+    // Services now use ~/.echode/mcp/ and {workspace}/.echode/mcp/ paths
+    this.configService = new MCPConfigService();
+    this.stateService = new MCPStateService();
     this.toolRegistry = toolRegistry;
     this.initialize();
   }
@@ -48,14 +58,18 @@ export class MCPServerManager {
     // Initialize the config service (sets up watchers for both global and project configs)
     await this.configService.initialize();
     
+    // Initialize the state service (loads autoConnect preferences)
+    await this.stateService.initialize();
+    
     // Subscribe to config changes from the service
     this.configService.onConfigChange(async (configs) => {
-      // Apply workspace overrides and emit to our listeners
+      // Apply workspace overrides and state service autoConnect values
       const overriddenConfigs = this.applyWorkspaceOverrides(configs);
-      this.configChangeEmitter.fire(overriddenConfigs);
+      const configsWithState = this.applyStateServiceAutoConnect(overriddenConfigs);
+      this.configChangeEmitter.fire(configsWithState);
       
       // Handle connection changes based on new configs
-      await this.handleConfigUpdate(overriddenConfigs);
+      await this.handleConfigUpdate(configsWithState);
     });
 
     // Initial load
@@ -129,11 +143,31 @@ export class MCPServerManager {
     });
   }
 
+  /**
+   * Apply autoConnect state from MCPStateService to configs
+   * State service stores user's explicit connect/disconnect preferences
+   */
+  private applyStateServiceAutoConnect(configs: MCPServerConfig[]): MCPServerConfig[] {
+    return configs.map(config => {
+      const storedAutoConnect = this.stateService.getAutoConnect(config.name);
+      if (storedAutoConnect !== undefined) {
+        return {
+          ...config,
+          autoConnect: storedAutoConnect,
+        };
+      }
+      return config;
+    });
+  }
+
   private async refreshConfigs() {
     const rawConfigs = await this.configService.loadConfigs();
     
     // Apply workspace-specific overrides (enabled/disabled per workspace)
-    const configs = this.applyWorkspaceOverrides(rawConfigs);
+    const overriddenConfigs = this.applyWorkspaceOverrides(rawConfigs);
+    
+    // Apply state service autoConnect preferences
+    const configs = this.applyStateServiceAutoConnect(overriddenConfigs);
     
     // Emit config change event for UI updates (with overrides applied)
     this.configChangeEmitter.fire(configs);
@@ -461,11 +495,10 @@ export class MCPServerManager {
 let globalServerManager: MCPServerManager | null = null;
 
 export function getGlobalServerManager(
-  toolRegistry?: ToolRegistry,
-  context?: vscode.ExtensionContext
+  toolRegistry?: ToolRegistry
 ): MCPServerManager {
-  if (!globalServerManager && toolRegistry && context) {
-    globalServerManager = new MCPServerManager(toolRegistry, context);
+  if (!globalServerManager && toolRegistry) {
+    globalServerManager = new MCPServerManager(toolRegistry);
   } else if (!globalServerManager) {
     throw new Error("Server Manager not initialized");
   }
