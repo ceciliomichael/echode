@@ -104,25 +104,37 @@ export class WriteFileTool implements ITool {
     }
 
     const absolutePath = resolveAbsolutePath(filePath, workspaceRoot);
-    let oldContent: string | null = null;
-    let fileExists = false;
+    const uri = vscode.Uri.file(absolutePath);
+    let fileExistsOnDisk = false;
 
     try {
-      const uri = vscode.Uri.file(absolutePath);
-      const document = await vscode.workspace.openTextDocument(uri);
-      oldContent = document.getText();
-      fileExists = true;
+      await vscode.workspace.fs.stat(uri);
+      fileExistsOnDisk = true;
     } catch {
-      // File doesn't exist - this is a new file
-      fileExists = false;
+      fileExistsOnDisk = false;
     }
 
-    const action = fileExists ? 'Modify' : 'Create';
+    let oldContent: string | null = null;
+    if (fileExistsOnDisk) {
+      try {
+        const document = await vscode.workspace.openTextDocument(uri);
+        oldContent = document.getText();
+      } catch {
+        try {
+          const bytes = await vscode.workspace.fs.readFile(uri);
+          oldContent = Buffer.from(bytes).toString('utf8');
+        } catch {
+          oldContent = null;
+        }
+      }
+    }
+
+    const action = fileExistsOnDisk ? 'Modify' : 'Create';
 
     return {
       toolName: this.name,
       title: `${action} File: ${filePath}`,
-      message: fileExists
+      message: fileExistsOnDisk
         ? `This will modify the existing file "${filePath}".`
         : `This will create a new file "${filePath}".`,
       diff: {
@@ -254,30 +266,40 @@ export class WriteFileTool implements ITool {
 
       // Check if file exists and capture old content
       let oldContent: string | null = null;
-      let fileExisted = false;
+      let fileExistsOnDisk = false;
       let existingDocument: vscode.TextDocument | null = null;
 
       try {
-        // Try to open as text document first (handles dirty state)
-        existingDocument = await vscode.workspace.openTextDocument(uri);
-        oldContent = existingDocument.getText();
-        fileExisted = true;
+        await vscode.workspace.fs.stat(uri);
+        fileExistsOnDisk = true;
       } catch {
-        // If verify fails, try stat to see if it exists on disk but can't be opened as text
-        try {
-          await vscode.workspace.fs.stat(uri);
-          // It exists but openTextDocument failed (maybe binary? or other issue). 
-          // Try reading raw.
-          const oldFileContent = await vscode.workspace.fs.readFile(uri);
-          oldContent = Buffer.from(oldFileContent).toString('utf8');
-          fileExisted = true;
-        } catch {
-          // File really doesn't exist
-          fileExisted = false;
-        }
+        fileExistsOnDisk = false;
       }
 
-      if (fileExisted && oldContent !== null) {
+      // Try to open the document (may succeed even if file doesn't exist on disk)
+      try {
+        existingDocument = await vscode.workspace.openTextDocument(uri);
+      } catch {
+        existingDocument = null;
+      }
+
+      if (fileExistsOnDisk) {
+        if (existingDocument) {
+          oldContent = existingDocument.getText();
+        } else {
+          try {
+            const oldFileContent = await vscode.workspace.fs.readFile(uri);
+            oldContent = Buffer.from(oldFileContent).toString('utf8');
+          } catch {
+            oldContent = null;
+          }
+        }
+      } else {
+        // Treat missing-on-disk as a new file even if a cached editor exists
+        oldContent = null;
+      }
+
+      if (fileExistsOnDisk && oldContent !== null) {
         // Check for identical content (no-op)
         if (oldContent === content) {
           console.log('[WRITE_FILE] Content matches existing file, skipping write');
@@ -310,7 +332,7 @@ export class WriteFileTool implements ITool {
       }
 
       // Write new content
-      if (fileExisted && existingDocument) {
+      if (existingDocument) {
         // Use WorkspaceEdit for existing text documents to handle dirty state and synchronization
         const edit = new vscode.WorkspaceEdit();
         const lastLine = existingDocument.lineAt(existingDocument.lineCount - 1);
@@ -330,7 +352,7 @@ export class WriteFileTool implements ITool {
 
         // If we just created it, try to open it to make it visible
         // Skip in manual mode since user already reviewed the diff
-        if (!fileExisted && mode !== 'manual') {
+        if (!fileExistsOnDisk && mode !== 'manual') {
           try {
             const doc = await vscode.workspace.openTextDocument(uri);
             await vscode.window.showTextDocument(doc, { preview: false, preserveFocus: true });
@@ -377,7 +399,7 @@ export class WriteFileTool implements ITool {
       const lineCount = content.split(/\r?\n/).length;
       let largeFileReminder: string | undefined;
       if (lineCount > 300 && (mode === 'agent' || mode === 'general' || mode === undefined)) {
-        const action = fileExisted ? 'MODIFIED' : 'CREATED';
+        const action = fileExistsOnDisk ? 'MODIFIED' : 'CREATED';
         largeFileReminder = `[${action} LARGE FILE - ${lineCount} LINES] This file exceeds the 300-line threshold. Consider refactoring into smaller, focused modules to maintain code quality.`;
       }
 
@@ -397,13 +419,13 @@ export class WriteFileTool implements ITool {
       return {
         success: true,
         data: {
-          message: `Successfully ${fileExisted ? 'modified' : 'created'} ${filePath}${diagnosticsText}`,
+          message: `Successfully ${fileExistsOnDisk ? 'modified' : 'created'} ${filePath}${diagnosticsText}`,
           path: filePath,
           absolutePath,
-          action: fileExisted ? 'modified' : 'created',
+          action: fileExistsOnDisk ? 'modified' : 'created',
           oldContent: oldContent,
           newContent: content,
-          createdDirectories: fileExisted ? [] : createdDirectories,
+          createdDirectories: fileExistsOnDisk ? [] : createdDirectories,
           lineCount,
           largeFileReminder,
           refactorNotice,

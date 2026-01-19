@@ -46,8 +46,8 @@ export function convertToMCPServerConfigs(
       type,
       enabled: !config.disabled,
       // autoConnect is managed separately by MCPStateService
-      // Default to true for enabled servers (will be overridden by state service)
-      autoConnect: !config.disabled,
+      // Default to false - servers are disconnected by default on new projects
+      autoConnect: false,
       
       // Source tracking for project-specific configs
       ...(source === 'project' && { 
