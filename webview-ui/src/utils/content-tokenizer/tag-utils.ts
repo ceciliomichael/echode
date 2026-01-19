@@ -48,6 +48,72 @@ export function isInsideFunctionCallsParameterValue(content: string, position: n
     return openCount > closeCount;
 }
 
+export function isInsideThinkBlock(content: string, position: number): boolean {
+    const tags = [
+        { open: '<think>', close: '</think>' },
+        { open: '<thinking>', close: '</thinking>' },
+    ];
+
+    const depths = new Map<string, number>();
+    for (const tag of tags) {
+        depths.set(tag.open, 0);
+    }
+
+    let i = 0;
+    while (i < position) {
+        let nextPos = -1;
+        let nextTag: { kind: 'open' | 'close'; open: string; close: string } | null = null;
+
+        for (const tag of tags) {
+            const openPos = content.indexOf(tag.open, i);
+            if (openPos !== -1 && openPos < position && (nextPos === -1 || openPos < nextPos)) {
+                nextPos = openPos;
+                nextTag = { kind: 'open', open: tag.open, close: tag.close };
+            }
+
+            const closePos = content.indexOf(tag.close, i);
+            if (closePos !== -1 && closePos < position && (nextPos === -1 || closePos < nextPos)) {
+                nextPos = closePos;
+                nextTag = { kind: 'close', open: tag.open, close: tag.close };
+            }
+        }
+
+        if (nextPos === -1 || !nextTag) {
+            break;
+        }
+
+        // Ignore tags inside <parameter> values (e.g. apply_diff/write_to_file payloads)
+        if (isInsideFunctionCallsParameterValue(content, nextPos)) {
+            i = nextPos + (nextTag.kind === 'open' ? nextTag.open.length : nextTag.close.length);
+            continue;
+        }
+
+        // Ignore tags in inline code / backtick contexts
+        if (nextPos > 0 && content[nextPos - 1] === '`') {
+            i = nextPos + (nextTag.kind === 'open' ? nextTag.open.length : nextTag.close.length);
+            continue;
+        }
+
+        const key = nextTag.open;
+        const currentDepth = depths.get(key) ?? 0;
+
+        if (nextTag.kind === 'open') {
+            depths.set(key, currentDepth + 1);
+            i = nextPos + nextTag.open.length;
+        } else {
+            depths.set(key, Math.max(0, currentDepth - 1));
+            i = nextPos + nextTag.close.length;
+        }
+    }
+
+    for (const depth of depths.values()) {
+        if (depth > 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /**
  * Check if a position is inside a <parameter> value
  * Used to skip invoke tags that appear as examples inside parameter content
@@ -273,6 +339,11 @@ export function findNextToolStart(content: string, fromPosition: number): number
         }
 
         if (openPos > 0 && content[openPos - 1] === '`') {
+            searchPos = openPos + tag.length;
+            continue;
+        }
+
+        if (isInsideThinkBlock(content, openPos)) {
             searchPos = openPos + tag.length;
             continue;
         }

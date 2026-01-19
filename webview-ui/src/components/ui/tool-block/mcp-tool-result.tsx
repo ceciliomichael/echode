@@ -1,36 +1,8 @@
 import { Cable } from 'lucide-react';
-import { MarkdownRenderer } from '../markdown-renderer';
 
 interface McpToolResultProps {
   toolName: string;
   data: unknown;
-}
-
-/**
- * Detects if content appears to be markdown rather than plain text/JSON
- */
-function isMarkdownContent(content: string): boolean {
-  // Check for common markdown patterns
-  const markdownPatterns = [
-    /^#{1,6}\s+/m,           // Headers: # Header
-    /\*\*[^*]+\*\*/,         // Bold: **text**
-    /\*[^*]+\*/,             // Italic: *text*
-    /^[-*+]\s+/m,            // Unordered lists: - item
-    /^\d+\.\s+/m,            // Ordered lists: 1. item
-    /\[([^\]]+)\]\([^)]+\)/, // Links: [text](url)
-    /^>\s+/m,                // Blockquotes: > quote
-    /`[^`]+`/,               // Inline code: `code`
-    /^```/m,                 // Code blocks: ```
-  ];
-
-  // If it starts with { or [, it's likely JSON
-  const trimmed = content.trim();
-  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-    return false;
-  }
-
-  // Check if any markdown pattern matches
-  return markdownPatterns.some(pattern => pattern.test(content));
 }
 
 /**
@@ -125,21 +97,15 @@ export function McpToolResult({ toolName, data }: McpToolResultProps) {
 
       {/* Content with proper formatting and scrollable */}
       <div className="p-3 overflow-auto flex-1 min-h-0">
-        {isMarkdownContent(formattedResult) ? (
-          <div className="text-sm">
-            <MarkdownRenderer content={formattedResult} />
-          </div>
-        ) : (
-          <pre
-            className="text-xs font-mono m-0"
-            style={{
-              color: 'var(--vscode-editor-foreground)',
-              whiteSpace: 'pre',
-            }}
-          >
-            {formattedResult}
-          </pre>
-        )}
+        <pre
+          className="text-xs font-mono m-0"
+          style={{
+            color: 'var(--vscode-editor-foreground)',
+            whiteSpace: 'pre',
+          }}
+        >
+          {formattedResult}
+        </pre>
       </div>
     </div>
   );

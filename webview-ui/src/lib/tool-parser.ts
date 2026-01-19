@@ -7,9 +7,76 @@ import {
   findMatchingClosingTag,
   findMatchingInvokeClosingTag,
   isInsideInvokeParameterValue,
+  isInsideParameterValue,
 } from './parser';
 
  import { stripLeadingThinkBlock } from '../utils/think-block-parser';
+
+function isInsideThinkBlock(content: string, position: number): boolean {
+  const tags = [
+    { open: '<think>', close: '</think>' },
+    { open: '<thinking>', close: '</thinking>' },
+  ];
+
+  const depths = new Map<string, number>();
+  for (const tag of tags) {
+    depths.set(tag.open, 0);
+  }
+
+  let i = 0;
+  while (i < position) {
+    let nextPos = -1;
+    let nextTag: { kind: 'open' | 'close'; open: string; close: string } | null = null;
+
+    for (const tag of tags) {
+      const openPos = content.indexOf(tag.open, i);
+      if (openPos !== -1 && openPos < position && (nextPos === -1 || openPos < nextPos)) {
+        nextPos = openPos;
+        nextTag = { kind: 'open', open: tag.open, close: tag.close };
+      }
+
+      const closePos = content.indexOf(tag.close, i);
+      if (closePos !== -1 && closePos < position && (nextPos === -1 || closePos < nextPos)) {
+        nextPos = closePos;
+        nextTag = { kind: 'close', open: tag.open, close: tag.close };
+      }
+    }
+
+    if (nextPos === -1 || !nextTag) {
+      break;
+    }
+
+    // Ignore tags inside <parameter> values (e.g. apply_diff/write_to_file payloads)
+    if (isInsideParameterValue(content, nextPos)) {
+      i = nextPos + (nextTag.kind === 'open' ? nextTag.open.length : nextTag.close.length);
+      continue;
+    }
+
+    // Ignore tags in inline code / backtick contexts
+    if (nextPos > 0 && content[nextPos - 1] === '`') {
+      i = nextPos + (nextTag.kind === 'open' ? nextTag.open.length : nextTag.close.length);
+      continue;
+    }
+
+    const key = nextTag.open;
+    const currentDepth = depths.get(key) ?? 0;
+
+    if (nextTag.kind === 'open') {
+      depths.set(key, currentDepth + 1);
+      i = nextPos + nextTag.open.length;
+    } else {
+      depths.set(key, Math.max(0, currentDepth - 1));
+      i = nextPos + nextTag.close.length;
+    }
+  }
+
+  for (const depth of depths.values()) {
+    if (depth > 0) {
+      return true;
+    }
+  }
+  return false;
+}
 
 // Legacy regex pattern kept for parseToolBlock backward compatibility
 const TOOL_BLOCK_REGEX = /<function_calls>([\s\S]*?)<\/function_calls>/;
@@ -188,6 +255,16 @@ export function trimToLastCompleteToolBlock(content: string): string {
       const openPos = content.indexOf(openTag, searchPos);
       if (openPos === -1) { break; }
 
+      if (openPos > 0 && content[openPos - 1] === '`') {
+        searchPos = openPos + openTag.length;
+        continue;
+      }
+
+      if (isInsideParameterValue(content, openPos) || isInsideThinkBlock(content, openPos)) {
+        searchPos = openPos + openTag.length;
+        continue;
+      }
+
       const openTagEnd = openPos + openTag.length;
       const closePos = findMatchingClosingTag(content, openTagEnd, openTag, closingTag);
       if (closePos === -1) { break; }
@@ -218,6 +295,9 @@ export function trimToFirstCompleteToolBlock(content: string): string {
   const functionCallsBlocks = extractFunctionCallsBlocks(preprocessed);
 
   for (const block of functionCallsBlocks) {
+    if (isInsideThinkBlock(preprocessed, block.startIndex)) {
+      continue;
+    }
     const parsedBlocks = parseFunctionCallsBlock(block.innerContent, block.fullMatch);
     if (parsedBlocks.length > 0) {
       // Found a valid tool block in preprocessed content
@@ -232,8 +312,26 @@ export function trimToFirstCompleteToolBlock(content: string): string {
       }
 
       // Find the closing tag of the first real function_calls after thinking
-      const openTagAfterThink = content.indexOf('<function_calls>', searchStart);
-      if (openTagAfterThink !== -1) {
+      let openTagAfterThink = searchStart;
+      while (openTagAfterThink < content.length) {
+        const nextOpen = content.indexOf('<function_calls>', openTagAfterThink);
+        if (nextOpen === -1) {
+          openTagAfterThink = -1;
+          break;
+        }
+        if (nextOpen > 0 && content[nextOpen - 1] === '`') {
+          openTagAfterThink = nextOpen + '<function_calls>'.length;
+          continue;
+        }
+        if (isInsideParameterValue(content, nextOpen) || isInsideThinkBlock(content, nextOpen)) {
+          openTagAfterThink = nextOpen + '<function_calls>'.length;
+          continue;
+        }
+        openTagAfterThink = nextOpen;
+        break;
+      }
+
+      if (openTagAfterThink !== -1 && openTagAfterThink < content.length) {
         // Use balanced tag matching to find the correct closing tag
         const openTagEnd = openTagAfterThink + '<function_calls>'.length;
         const closePos = findMatchingClosingTag(content, openTagEnd, '<function_calls>', closingTag);
@@ -326,6 +424,12 @@ export function extractCompleteInvokeBlocksIncremental(content: string): {
 
     // Skip if preceded by backtick (inside code block or inline code)
     if (openPos > 0 && preprocessed[openPos - 1] === '`') {
+      openPos += openTag.length;
+      continue;
+    }
+
+    // Skip if inside <parameter> values or inside a think/thinking block
+    if (isInsideParameterValue(preprocessed, openPos) || isInsideThinkBlock(preprocessed, openPos)) {
       openPos += openTag.length;
       continue;
     }
