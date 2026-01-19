@@ -9,6 +9,7 @@ export function useChatState() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isExecutingTool, setIsExecutingTool] = useState(false);
+  const [isLoadingSession, setIsLoadingSession] = useState(true); // Start true for initial restore
 
   // Edit/revert state
   const [revertPreviewMessageId, setRevertPreviewMessageId] = useState<string | null>(null);
@@ -84,6 +85,8 @@ export function useChatState() {
     setIsStreaming,
     isExecutingTool,
     setIsExecutingTool,
+    isLoadingSession,
+    setIsLoadingSession,
     revertPreviewMessageId,
     setRevertPreviewMessageId,
     editingMessageId,

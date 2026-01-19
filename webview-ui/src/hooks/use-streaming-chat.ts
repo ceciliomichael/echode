@@ -42,6 +42,7 @@ export function useStreamingChat(
     setCurrentSessionId: state.setCurrentSessionId,
     setEditingMessageId: state.setEditingMessageId,
     setRevertPreviewMessageId: state.setRevertPreviewMessageId,
+    setIsLoadingSession: state.setIsLoadingSession,
   });
 
   // Session auto-load disabled - user must explicitly load from history
@@ -198,6 +199,7 @@ export function useStreamingChat(
     messages: state.messages,
     isStreaming: state.isStreaming,
     isExecutingTool: state.isExecutingTool,
+    isLoadingSession: state.isLoadingSession,
     revertPreviewMessageId: state.revertPreviewMessageId,
     editingMessageId: state.editingMessageId,
     currentSessionId: state.currentSessionId,

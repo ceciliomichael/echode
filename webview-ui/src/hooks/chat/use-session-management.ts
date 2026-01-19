@@ -16,6 +16,7 @@ interface SessionManagementProps {
   setCurrentSessionId: React.Dispatch<React.SetStateAction<string | null>>;
   setEditingMessageId: React.Dispatch<React.SetStateAction<string | null>>;
   setRevertPreviewMessageId: React.Dispatch<React.SetStateAction<string | null>>;
+  setIsLoadingSession: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 /**
@@ -31,6 +32,7 @@ export function useSessionManagement({
   setCurrentSessionId,
   setEditingMessageId,
   setRevertPreviewMessageId,
+  setIsLoadingSession,
 }: SessionManagementProps) {
   const ensureSessionId = useCallback(() => {
     if (!currentSessionIdRef.current) {
@@ -80,10 +82,13 @@ export function useSessionManagement({
       abortAndReset();
     }
 
+    // Set loading state before requesting session
+    setIsLoadingSession(true);
+
     if (window.vscode) {
       window.vscode.postMessage({ type: 'getSession', sessionId });
     }
-  }, [isStreamingRef, isExecutingToolRef, messagesRef, saveCurrentSession, abortAndReset]);
+  }, [isStreamingRef, isExecutingToolRef, messagesRef, saveCurrentSession, abortAndReset, setIsLoadingSession]);
 
   useEffect(() => {
     let handled = false;
@@ -102,10 +107,14 @@ export function useSessionManagement({
 
       const sessionId = message.sessionId as string | null | undefined;
       if (!sessionId) {
+        // No previous session to restore - stop loading
+        setIsLoadingSession(false);
         return;
       }
 
       if (currentSessionIdRef.current) {
+        // Already have a session loaded - stop loading
+        setIsLoadingSession(false);
         return;
       }
 
@@ -114,6 +123,7 @@ export function useSessionManagement({
 
     const requestLastOpened = async () => {
       if (!window.vscode) {
+        setIsLoadingSession(false);
         return;
       }
       await requestWorkspaceInfo();
@@ -123,7 +133,7 @@ export function useSessionManagement({
     window.addEventListener('message', handleMessage);
     void requestLastOpened();
     return () => window.removeEventListener('message', handleMessage);
-  }, [currentSessionIdRef, loadSession]);
+  }, [currentSessionIdRef, loadSession, setIsLoadingSession]);
 
   // Listen for session events from extension
   useEffect(() => {
@@ -132,6 +142,9 @@ export function useSessionManagement({
 
       if (message.type === 'sessionLoaded') {
         const session = message.session as ChatSession | null;
+
+        // Always stop loading when sessionLoaded arrives
+        setIsLoadingSession(false);
 
         if (!session) {
           // CRITICAL: Don't clear localStorage if there was an error loading the session.

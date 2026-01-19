@@ -5,6 +5,7 @@ import type { ChatMode } from '../../types/chat-mode';
 import { MessageBubble } from '../ui/message-bubble';
 import { ChatInput } from '../ui/chat-input';
 import { ChatEmptyState } from '../ui/chat-empty-state';
+import { ChatSkeletonLoader } from '../ui/chat-skeleton-loader';
 import { Dropdown } from '../ui/dropdown';
 import { HistoryDropdown } from './history-dropdown';
 import { useStreamingChat } from '../../hooks/use-streaming-chat';
@@ -45,6 +46,7 @@ export function ChatContainer() {
     messages,
     isStreaming,
     isExecutingTool,
+    isLoadingSession,
     revertPreviewMessageId,
     editingMessageId,
     sendMessage,
@@ -284,7 +286,11 @@ export function ChatContainer() {
             overflowAnchor: 'none',
           }}
         >
-          {visibleMessages.length === 0 ? (
+          {isLoadingSession ? (
+            <div className={`${contentWidthClass} mx-auto h-full py-3 sm:py-4 lg:py-6 ${horizontalPaddingClass}`}>
+              <ChatSkeletonLoader />
+            </div>
+          ) : visibleMessages.length === 0 ? (
             <div className={`${contentWidthClass} mx-auto h-full py-3 sm:py-4 lg:py-6 ${horizontalPaddingClass}`}>
               <ChatEmptyState 
                 recentSessions={recentSessions}
