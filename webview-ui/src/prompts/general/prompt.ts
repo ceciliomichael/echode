@@ -14,7 +14,7 @@
 
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
-import { IMAGE_AWARENESS_RULES, INTERACTION_RULES, getIsolationRules } from '../shared';
+import { IMAGE_AWARENESS_RULES, INTERACTION_RULES, MERMAID_DIAGRAM_RULES, getIsolationRules } from '../shared';
 import {
     GENERAL_IDENTITY,
     GENERAL_CAPABILITIES,
@@ -45,6 +45,8 @@ ${GENERAL_REDIRECT_RULES}
 ${GENERAL_COMMUNICATION_STYLE}
 
 ${INTERACTION_RULES}
+
+${MERMAID_DIAGRAM_RULES}
 
 ${GENERAL_WORKFLOW}
 

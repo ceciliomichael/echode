@@ -12,7 +12,7 @@
 
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
-import { IMAGE_AWARENESS_RULES, INTERACTION_RULES, getIsolationRules } from '../shared';
+import { IMAGE_AWARENESS_RULES, INTERACTION_RULES, MERMAID_DIAGRAM_RULES, getIsolationRules } from '../shared';
 import {
     ASK_IDENTITY,
     ASK_STYLE,
@@ -37,6 +37,8 @@ ${getIsolationRules('context')}
 ${ASK_STYLE}
 
 ${INTERACTION_RULES}
+
+${MERMAID_DIAGRAM_RULES}
 
 ${ASK_WORKFLOW}
 

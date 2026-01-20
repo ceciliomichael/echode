@@ -46,6 +46,7 @@ export const MermaidBlockContent = ({
   isExpanded,
   isGenerating,
   svg,
+  error,
 }: MermaidBlockContentProps) => {
   return (
     <div
@@ -61,6 +62,22 @@ export const MermaidBlockContent = ({
       >
         {isGenerating ? (
           <GeneratingIndicator />
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center p-4 text-center max-w-lg">
+            <div className="mb-2 font-medium" style={{ color: 'var(--vscode-errorForeground)' }}>
+              Failed to render diagram
+            </div>
+            <pre
+              className="text-xs text-left p-3 rounded overflow-auto max-w-full max-h-[200px]"
+              style={{
+                backgroundColor: 'var(--vscode-input-background)',
+                color: 'var(--vscode-errorForeground)',
+                border: '1px solid var(--vscode-input-border)',
+              }}
+            >
+              {error}
+            </pre>
+          </div>
         ) : svg ? (
           <div
             className="flex items-center justify-center w-full h-full mermaid-svg-container"

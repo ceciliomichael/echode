@@ -7,7 +7,7 @@
 
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
-import { IMAGE_AWARENESS_RULES, getIsolationRules } from '../shared';
+import { IMAGE_AWARENESS_RULES, MERMAID_DIAGRAM_RULES, getIsolationRules } from '../shared';
 import { YOLO_INTERACTION_RULES, STANDARD_INTERACTION_RULES } from './constants';
 import {
     PLAN_IDENTITY_STANDARD,
@@ -62,6 +62,8 @@ Tools: ${toolList}
 ${getIsolationRules('context')}
 
 ${interactionRules}
+
+${MERMAID_DIAGRAM_RULES}
 
 ${workflow}
 

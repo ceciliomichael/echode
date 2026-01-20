@@ -1,7 +1,8 @@
 import { memo, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { CodeBlock } from './code-block';
+
+import { CodeBlock, extractCodeContent } from './code-block';
 
 interface MarkdownRendererProps {
   content: string;
@@ -106,7 +107,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: Mark
       // Check if it's inline code:
       // 1. Explicitly marked as inline by ReactMarkdown
       // 2. OR contains no newlines (single line without language identifier)
-      const childrenText = typeof children === 'string' ? children : String(children || '');
+      const childrenText = extractCodeContent(children);
       const hasNewlines = childrenText.includes('\n');
       const isInline = inline || (!hasNewlines && !className);
 

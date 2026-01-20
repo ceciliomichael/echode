@@ -1,4 +1,4 @@
-import type { Message } from '../../types/chat';
+import type { Message, ImageAttachment } from '../../types/chat';
 import type { ChatMessage } from '../../types/chat-api';
 import { injectCodeQualityReminder } from '../../utils/code-quality-reminder';
 import type { ChatHistoryContext } from './types';
@@ -9,6 +9,13 @@ import { formatToolExecutionResults } from './tool-result-formatter';
 import { trimHistory } from './helpers';
 import { stripUnavailableToolCalls } from '../../utils/tool-history-filter';
 import { identifyStaleFileReads, identifyStaleFilePaths } from '../../utils/file-read-deduplicator';
+
+function appendOmittedImageAttachmentNote(content: string, attachments?: ImageAttachment[]): string {
+  if (!attachments || attachments.length === 0) {
+    return content;
+  }
+  return `${content}\n[Image attachments: ${attachments.length} omitted from context]`;
+}
 
 /**
  * Extract list of files read in the conversation for context
@@ -75,11 +82,13 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
       processedContent = stripUnavailableToolCalls(processedContent, mode);
     }
 
+    const contentWithAttachmentNote = appendOmittedImageAttachmentNote(processedContent, msg.attachments);
+
     // Build message with vision support if available
     const chatMessage = buildChatMessage(
       msg.role,
-      processedContent,
-      msg.attachments,
+      contentWithAttachmentNote,
+      undefined,
       modelSupportsVision
     );
     chatHistory.push(chatMessage);
@@ -164,10 +173,12 @@ export function buildMinimalChatHistory(
       processedContent = stripUnavailableToolCalls(processedContent, mode);
     }
 
+    const contentWithAttachmentNote = appendOmittedImageAttachmentNote(processedContent, msg.attachments);
+
     const chatMessage = buildChatMessage(
       msg.role,
-      processedContent,
-      msg.attachments,
+      contentWithAttachmentNote,
+      undefined,
       modelSupportsVision
     );
     chatHistory.push(chatMessage);

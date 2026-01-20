@@ -12,6 +12,13 @@ import { summarizeToolSections, stripDiagnosticsSections } from '../tool-context
 import { stripUnavailableToolCalls } from '../tool-history-filter';
 import { formatToolResultsForHistory } from '../tool-result-formatter';
 
+function appendOmittedImageAttachmentNote(content: string, msg: Message): string {
+  if (!msg.attachments || msg.attachments.length === 0) {
+    return content;
+  }
+  return `${content}\n[Image attachments: ${msg.attachments.length} omitted from context]`;
+}
+
 /**
  * Truncate message history to stay within context limits
  * Keeps first message (original task) + last N messages
@@ -69,10 +76,12 @@ export function processFirstMessage(
     cleanedContent = stripUnavailableToolCalls(cleanedContent, mode);
   }
 
+  cleanedContent = appendOmittedImageAttachmentNote(cleanedContent, msg);
+
   const chatMessage = buildChatMessage(
     msg.role,
     cleanedContent,
-    msg.attachments,
+    undefined,
     modelSupportsVision
   );
   result.push(chatMessage);
@@ -131,11 +140,13 @@ export function processRemainingMessages(
       processedContent = stripUnavailableToolCalls(processedContent, mode);
     }
 
+    processedContent = appendOmittedImageAttachmentNote(processedContent, msg);
+
     // Build message with vision support if available
     const chatMessage = buildChatMessage(
       msg.role,
       processedContent,
-      msg.attachments,
+      undefined,
       modelSupportsVision
     );
     result.push(chatMessage);

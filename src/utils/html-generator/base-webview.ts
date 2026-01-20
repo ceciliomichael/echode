@@ -68,6 +68,11 @@ export function generateWebviewHtml(
   }
 
   const baseUri = webview.asWebviewUri(distPath);
+  const importMap = JSON.stringify({
+    imports: {
+      '/assets/': `${baseUri.toString()}/assets/`,
+    },
+  });
 
   // Replace asset paths with webview URIs
   html = html.replace(
@@ -129,6 +134,7 @@ export function generateWebviewHtml(
     /<head\s*>/gi,
     `<head>
     <base href="${baseUri.toString()}/">
+    <script type="importmap">${importMap}</script>
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource}; img-src ${webview.cspSource} https: data:; script-src ${webview.cspSource} 'unsafe-inline' 'wasm-unsafe-eval'; worker-src blob: data: ${webview.cspSource}; connect-src http: https: ${webview.cspSource} vscode-webview:;">
     <script>${scriptContent}
     </script>`

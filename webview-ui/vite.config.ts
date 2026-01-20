@@ -2,8 +2,9 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [react()],
+  base: command === 'build' ? './' : '/',
   build: {
     // Ensure all assets use relative paths for VS Code webview compatibility
     assetsDir: 'assets',
@@ -26,4 +27,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

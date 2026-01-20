@@ -26,6 +26,16 @@ interface UseMermaidRendererResult {
   error: string | null;
 }
 
+function getParseErrorMessage(parseResult: MermaidParseResult | false): string {
+  if (parseResult === false) {
+    return 'Invalid Mermaid syntax.';
+  }
+  if (parseResult.error?.message) {
+    return parseResult.error.message;
+  }
+  return 'Invalid Mermaid syntax.';
+}
+
 /**
  * Custom hook for rendering mermaid diagrams
  * Handles async rendering, theme integration, and cleanup
@@ -61,44 +71,55 @@ export const useMermaidRenderer = ({
       const container = createOffscreenContainer();
       document.body.appendChild(container);
 
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      let timedOut = false;
       try {
-        // First, validate syntax only. If Mermaid considers this invalid, skip rendering entirely
-        // so that its internal error renderer is never invoked.
-        const parseResult = await mermaid.parse(trimmed, { suppressErrors: true }) as MermaidParseResult | false;
-        if (parseResult === false || parseResult.success === false) {
-          if (!cancelled) {
-            setSvg('');
-            // Don't set error here as we just want to fail silently for invalid syntax while typing
-            // But for a full preview, we might want to know. 
-            // For now, keep behavior consistent but clear any previous error
-            setError(null);
-          }
-          return;
-        }
-
-        // Apply custom theme with proper dark mode colors for all diagram elements
-        const themeConfig = getMermaidThemeConfig();
-        mermaid.initialize({
-          startOnLoad: false,
-          theme: 'base',
-          securityLevel: 'loose',
-          themeVariables: themeConfig,
+        const timeoutPromise = new Promise<never>((_resolve, reject) => {
+          timeoutId = setTimeout(() => {
+            timedOut = true;
+            reject(new Error('Mermaid render timed out. Check the webview console for blocked chunk/worker requests.'));
+          }, 8000);
         });
 
-        const { svg: renderedSvg } = await mermaid.render(
-          `mermaid-${uniqueId}`,
-          trimmed,
-          container
-        );
+        await Promise.race([
+          (async () => {
+            const parseResult = await mermaid.parse(trimmed, { suppressErrors: true }) as MermaidParseResult | false;
+            if (parseResult === false || parseResult.success === false) {
+              if (!cancelled) {
+                setSvg('');
+                setError(isGenerating ? null : getParseErrorMessage(parseResult));
+              }
+              return;
+            }
 
-        if (cancelled) {
-          return;
-        }
+            if (cancelled || timedOut) {
+              return;
+            }
 
-        // Post-process SVG to make it responsive
-        const responsiveSvg = makeResponsiveSvg(renderedSvg);
-        setSvg(responsiveSvg);
-        setError(null);
+            const themeConfig = getMermaidThemeConfig();
+            mermaid.initialize({
+              startOnLoad: false,
+              theme: 'base',
+              securityLevel: 'loose',
+              themeVariables: themeConfig,
+            });
+
+            const { svg: renderedSvg } = await mermaid.render(
+              `mermaid-${uniqueId}`,
+              trimmed,
+              container
+            );
+
+            if (cancelled || timedOut) {
+              return;
+            }
+
+            const responsiveSvg = makeResponsiveSvg(renderedSvg);
+            setSvg(responsiveSvg);
+            setError(null);
+          })(),
+          timeoutPromise,
+        ]);
       } catch (error) {
         if (!cancelled) {
           // Log error for debugging, especially for dynamic import failures
@@ -107,6 +128,9 @@ export const useMermaidRenderer = ({
           setError(error instanceof Error ? error.message : String(error));
         }
       } finally {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
         // Always remove the sandbox container so no stray nodes remain
         removeContainer(container);
       }

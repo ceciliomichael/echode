@@ -17,7 +17,7 @@
 
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
-import { IMAGE_AWARENESS_RULES, INTERACTION_RULES, getIsolationRules } from '../shared';
+import { IMAGE_AWARENESS_RULES, INTERACTION_RULES, MERMAID_DIAGRAM_RULES, getIsolationRules } from '../shared';
 import {
     REVIEW_IDENTITY,
     REVIEW_PHILOSOPHY,
@@ -45,6 +45,8 @@ Tools: ${toolList}
 ${getIsolationRules('context')}
 
 ${INTERACTION_RULES}
+
+${MERMAID_DIAGRAM_RULES}
 
 ${REVIEW_PHILOSOPHY}
 

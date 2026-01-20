@@ -69,8 +69,12 @@ export class CompressionService {
     return messages
       .filter((msg) => !msg.hidden)
       .map((msg) => {
+        const attachmentNote = msg.attachments && msg.attachments.length > 0
+          ? `\n[Image attachments: ${msg.attachments.length} omitted from compression context]`
+          : '';
+
         if (msg.role === 'user') {
-          return `User: ${msg.content}`;
+          return `User: ${msg.content}${attachmentNote}`;
         } else {
           // For assistant messages, include tool executions summary
           let content = msg.content;
@@ -85,7 +89,7 @@ export class CompressionService {
               .join(', ');
             content = `${content}\n${toolSummary}`;
           }
-          return `Assistant: ${content}`;
+          return `Assistant: ${content}${attachmentNote}`;
         }
       })
       .join('\n\n');

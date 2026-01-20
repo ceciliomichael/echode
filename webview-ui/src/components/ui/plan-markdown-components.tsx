@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from 'react';
 import { slugify, extractTextFromChildren } from '../../utils/slug-utils';
-import { CodeBlock } from './code-block';
+import { CodeBlock, extractCodeContent } from './code-block';
 import { InlineMermaidDiagram } from './mermaid-block/inline-mermaid-diagram';
 import { LinkRenderer } from './markdown/link-renderer';
 
@@ -117,7 +117,7 @@ export function usePlanMarkdownComponents() {
       </div>
     ),
     code: ({ className, children, inline, ...props }: { className?: string; children?: ReactNode; inline?: boolean }) => {
-      const childrenText = typeof children === 'string' ? children : String(children || '');
+      const childrenText = extractCodeContent(children);
       const hasNewlines = childrenText.includes('\n');
       const isInline = inline || (!hasNewlines && !className);
 

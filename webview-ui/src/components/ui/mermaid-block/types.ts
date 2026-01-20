@@ -26,6 +26,7 @@ export interface MermaidBlockContentProps {
   isExpanded: boolean;
   isGenerating: boolean;
   svg: string;
+  error: string | null;
 }
 
 /**

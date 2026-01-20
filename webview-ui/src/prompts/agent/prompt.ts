@@ -5,7 +5,7 @@
 
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
-import { IMAGE_AWARENESS_RULES, INTERACTION_RULES } from '../shared';
+import { IMAGE_AWARENESS_RULES, INTERACTION_RULES, MERMAID_DIAGRAM_RULES } from '../shared';
 import { getAgentIdentity, AGENT_WORKFLOW, getAgentRules } from './sections';
 
 /** Tools available in Agent mode (ordered by frequency of use) */
@@ -30,6 +30,8 @@ export function getAgentPrompt(
 ${getAgentIdentity(modeName, [...toolList], cwd)}
 
 ${INTERACTION_RULES}
+
+${MERMAID_DIAGRAM_RULES}
 
 ${AGENT_WORKFLOW}
 

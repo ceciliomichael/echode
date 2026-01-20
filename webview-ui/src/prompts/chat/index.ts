@@ -17,8 +17,8 @@ export interface ChatPromptOptions {
  * Custom instructions are injected inside getChatPrompt (no AGENTS.md)
  */
 export function buildChatPrompt(options: ChatPromptOptions): string {
-    const { workspace } = options;
+    void options;
     // enabledTools is ignored - Chat mode has no tools
 
-    return getChatPrompt(workspace);
+    return getChatPrompt();
 }

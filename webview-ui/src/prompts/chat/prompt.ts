@@ -13,8 +13,7 @@
  * Only user-defined custom instructions are injected.
  */
 
-import type { WorkspaceContext } from '../../types/workspace';
-import { IMAGE_AWARENESS_RULES } from '../shared';
+import { IMAGE_AWARENESS_RULES, MERMAID_DIAGRAM_RULES } from '../shared';
 import { getUserRules } from '../shared/user-rules';
 import { 
     CHAT_IDENTITY, 
@@ -23,7 +22,7 @@ import {
     getRules 
 } from './sections';
 
-export function getChatPrompt(_workspace: WorkspaceContext | null): string {
+export function getChatPrompt(): string {
     // Chat mode has no tools - pure conversation only
     const hasTools = false;
 
@@ -38,6 +37,7 @@ ${getCapabilities(hasTools)}
 ${CHAT_STYLE}
 
 ${getRules(hasTools)}
+${MERMAID_DIAGRAM_RULES}
 ${customInstructions ? '\n' + customInstructions : ''}
 ${IMAGE_AWARENESS_RULES}
 </chat_mode>`;

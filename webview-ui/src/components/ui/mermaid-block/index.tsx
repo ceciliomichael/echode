@@ -17,7 +17,7 @@ const MermaidBlockComponent = ({ code, isGenerating = false }: MermaidBlockProps
   const uniqueId = useId().replace(/:/g, '-');
 
   // Use custom hook for mermaid rendering
-  const { svg } = useMermaidRenderer({
+  const { svg, error } = useMermaidRenderer({
     code,
     uniqueId,
     isGenerating,
@@ -96,6 +96,7 @@ const MermaidBlockComponent = ({ code, isGenerating = false }: MermaidBlockProps
           isExpanded={isExpanded}
           isGenerating={isGenerating}
           svg={svg}
+          error={error}
         />
       </div>
       {/* Inject styles for SVG container */}

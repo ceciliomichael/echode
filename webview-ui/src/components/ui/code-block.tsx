@@ -10,7 +10,7 @@ interface CodeBlockProps {
 
 // Helper function to extract code content - memoized outside component
 // This ensures stable comparison for memoization
-const extractCodeContent = (children: React.ReactNode): string => {
+export const extractCodeContent = (children: React.ReactNode): string => {
   if (children === null || children === undefined) {
     return "";
   }
