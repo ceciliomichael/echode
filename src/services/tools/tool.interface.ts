@@ -14,7 +14,7 @@ export type ToolProgressCallback = (progress: unknown) => void;
  * Note: 'yolo' mode is fully autonomous - plan tools auto-verify without waiting for user
  * Note: 'manual' mode requires explicit user approval for every file change
  */
-export type ChatMode = 'agent' | 'plan' | 'ask' | 'general' | 'review' | 'yolo' | 'manual';
+export type ChatMode = 'agent' | 'plan' | 'ask' | 'general' | 'review' | 'yolo' | 'manual' | 'chat';
 
 /**
  * Diff information for file-modifying tools

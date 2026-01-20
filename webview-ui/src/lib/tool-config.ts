@@ -120,8 +120,8 @@ export function getToolsForMode(mode: ChatMode, defaultEnabled = true): Tool[] {
       );
 
     case 'chat':
-      // Chat mode: MCP tools only (no standard tools)
-      return allTools.filter(t => !STANDARD_TOOL_IDS.has(t.id));
+      // Chat mode: NO tools at all (pure conversation)
+      return [];
 
     case 'review':
       // Review mode: exploration tools + publish_findings (exclusive to Review mode)

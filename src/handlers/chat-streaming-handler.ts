@@ -109,8 +109,8 @@ export async function handleChatStream(
           }
 
           // Inject MCP tool instructions into the system prompt
-          // Allowed in ALL modes
-          const shouldInjectMcp = true;
+          // Disabled in chat mode (no tools allowed)
+          const shouldInjectMcp = chatMode !== 'chat';
 
           // Find the system message
           const systemMessage = messagesWithTodos.find(m => m.role === 'system');

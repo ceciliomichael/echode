@@ -3,17 +3,19 @@
  * 
  * Structure:
  * - <identity>: Versatile AI assistant
- * - <capabilities>: Dynamic based on tool availability
+ * - <capabilities>: Pure conversation (no tools)
  * - <communication_style>: Natural conversation
  * - <rules>: Dynamic constraints
+ * - <user_rules>: Custom instructions only (no AGENTS.md)
  * 
- * NOTE: Chat mode is a pure conversational mode - NO workspace access, NO agent tools.
- * Only MCP tools (if enabled) are available.
+ * NOTE: Chat mode is a pure conversational mode.
+ * NO workspace access, NO tools (standard or MCP), NO AGENTS.md context.
+ * Only user-defined custom instructions are injected.
  */
 
 import type { WorkspaceContext } from '../../types/workspace';
-import type { Tool } from '../../types/tool';
 import { IMAGE_AWARENESS_RULES } from '../shared';
+import { getUserRules } from '../shared/user-rules';
 import { 
     CHAT_IDENTITY, 
     CHAT_STYLE, 
@@ -21,16 +23,12 @@ import {
     getRules 
 } from './sections';
 
-export function getChatPrompt(_workspace: WorkspaceContext | null, enabledTools: Tool[] = []): string {
-    const hasTools = enabledTools.length > 0;
+export function getChatPrompt(_workspace: WorkspaceContext | null): string {
+    // Chat mode has no tools - pure conversation only
+    const hasTools = false;
 
-    // Only show tools context if MCP tools are enabled
-    const toolsContext = hasTools
-        ? `<available_tools>
-Tools: ${enabledTools.map(t => t.id).join(', ')}
-Note: Use these tools only when necessary to fulfill the user's request.
-</available_tools>`
-        : '';
+    // Get custom instructions only (pass null to exclude AGENTS.md)
+    const customInstructions = getUserRules(null);
 
     return `<chat_mode>
 ${CHAT_IDENTITY}
@@ -40,7 +38,7 @@ ${getCapabilities(hasTools)}
 ${CHAT_STYLE}
 
 ${getRules(hasTools)}
-${toolsContext ? '\n' + toolsContext : ''}
+${customInstructions ? '\n' + customInstructions : ''}
 ${IMAGE_AWARENESS_RULES}
 </chat_mode>`;
 }

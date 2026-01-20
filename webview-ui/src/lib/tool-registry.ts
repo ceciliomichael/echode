@@ -120,7 +120,22 @@ export function unregisterTool(toolId: string): void {
  * Register a remote tool (e.g. from MCP)
  */
 export function registerRemoteTool(
-  toolInfo: { name: string; description: string; inputSchema?: any }
+  toolInfo: { 
+    name: string; 
+    description: string; 
+    inputSchema?: {
+      type?: string;
+      properties?: Record<string, {
+        type?: string;
+        description?: string;
+        enum?: string[];
+        items?: {
+          type?: string;
+        };
+      }>;
+      required?: string[];
+    };
+  }
 ): void {
   const toolId = toolInfo.name;
   

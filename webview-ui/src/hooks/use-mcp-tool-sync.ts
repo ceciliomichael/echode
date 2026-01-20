@@ -5,7 +5,18 @@ import { vscode } from '../utils/vscode';
 interface RemoteTool {
   name: string;
   description: string;
-  inputSchema?: any;
+  inputSchema?: {
+    type?: string;
+    properties?: Record<string, {
+      type?: string;
+      description?: string;
+      enum?: string[];
+      items?: {
+        type?: string;
+      };
+    }>;
+    required?: string[];
+  };
 }
 
 /**

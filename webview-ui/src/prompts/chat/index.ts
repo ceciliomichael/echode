@@ -1,27 +1,24 @@
 /**
  * Chat Mode - Main prompt builder
- * Conversational AI assistant with AGENTS.md context support
+ * Pure conversational AI assistant - NO tools, NO AGENTS.md
+ * Only custom instructions are allowed
  */
 
 import type { WorkspaceContext } from '../../types/workspace';
-import type { Tool } from '../../types/tool';
-import { getUserRules } from '../shared';
 import { getChatPrompt } from './prompt';
 
 export interface ChatPromptOptions {
     workspace: WorkspaceContext | null;
-    enabledTools?: Tool[];
+    enabledTools?: unknown[]; // Kept for interface compatibility, but ignored
 }
 
 /**
  * Build the complete Chat mode system prompt
- * Includes AGENTS.md and custom system prompt if present
+ * Custom instructions are injected inside getChatPrompt (no AGENTS.md)
  */
 export function buildChatPrompt(options: ChatPromptOptions): string {
-    const { workspace, enabledTools = [] } = options;
+    const { workspace } = options;
+    // enabledTools is ignored - Chat mode has no tools
 
-    const prompt = getChatPrompt(workspace, enabledTools);
-    const userRules = getUserRules(workspace);
-
-    return [prompt, userRules].filter(Boolean).join('\n\n').trim();
+    return getChatPrompt(workspace);
 }
