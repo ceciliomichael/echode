@@ -181,7 +181,17 @@ async function fetchZaiModels(apiKey: string, baseURL: string): Promise<string[]
 
   try {
     const response = await client.models.list();
-    return response.data.map(m => m.id);
+    const models = response.data.map(m => m.id);
+    
+    // Ensure these models are available (not returned by /v1/models endpoint)
+    const additionalModels = ['glm-4.7-flash', 'glm-4.7-flashx', 'glm-4.5-flash'];
+    for (const model of additionalModels) {
+      if (!models.includes(model)) {
+        models.push(model);
+      }
+    }
+    
+    return models;
   } catch (error) {
     throw new Error(`Z.ai API Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }

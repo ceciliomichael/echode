@@ -32,7 +32,6 @@ Create a detailed implementation plan in markdown format.
 
 Parameters:
 - mode: "create_plan"
-- title: Plan title (optional, defaults to "Implementation Plan")
 - plan: Markdown content with the full plan (required)
 
 The plan should include:
@@ -51,7 +50,6 @@ Update an existing plan when user provides feedback instead of verifying.
 
 Parameters:
 - mode: "update_plan"
-- title: Plan title (optional, defaults to "Implementation Plan")
 - plan: Updated markdown content with the revised plan (required)
 - planFilePath: (Optional) The system automatically tracks the active plan. Only provide this if you need to override the active plan.
 

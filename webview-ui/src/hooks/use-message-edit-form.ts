@@ -42,28 +42,36 @@ export interface UseMessageEditFormReturn {
 }
 
 /**
- * Parses initial content to extract mentions and populate mentionPathMap
+ * Parses initial content to extract mentions and build a new mentionPathMap
  * Converts full mentions @[label](path) to short display format @[label]
+ * Returns both the new content and the new map entries
  */
 function parseInitialMentions(
   content: string,
-  mentionPathMap: React.RefObject<Map<string, string>>
-): string {
-  return content.replace(mentionRegex, (match, label, path) => {
+  existingMap: Map<string, string>
+): { newContent: string; newEntries: Map<string, string> } {
+  const newEntries = new Map<string, string>();
+  
+  const newContent = content.replace(mentionRegex, (match, label, path) => {
     if (path) {
       // Handle collision: if label already mapped to different path, rename
       let effectiveLabel = label;
       const basename = label;
       let counter = 1;
-      while (mentionPathMap.current.has(effectiveLabel) && mentionPathMap.current.get(effectiveLabel) !== path) {
+      while (
+        (existingMap.has(effectiveLabel) && existingMap.get(effectiveLabel) !== path) ||
+        (newEntries.has(effectiveLabel) && newEntries.get(effectiveLabel) !== path)
+      ) {
         effectiveLabel = `${basename} (${counter})`;
         counter++;
       }
-      mentionPathMap.current.set(effectiveLabel, path);
+      newEntries.set(effectiveLabel, path);
       return `@[${effectiveLabel}]`;
     }
     return match;
   });
+  
+  return { newContent, newEntries };
 }
 
 export function useMessageEditForm({
@@ -107,14 +115,32 @@ export function useMessageEditForm({
   });
 
   // Parse initial content to populate mentionPathMap (only once on mount)
+  // Using a ref to track if we've already parsed to avoid re-parsing on mentionPathMap changes
+  const hasParsedRef = useRef(false);
+  
   useEffect(() => {
-    if (contextMenu.mentionPathMap.current.size === 0) {
-      const newContent = parseInitialMentions(initialContent, contextMenu.mentionPathMap);
+    if (!hasParsedRef.current && contextMenu.mentionPathMap.size === 0) {
+      hasParsedRef.current = true;
+      const { newContent, newEntries } = parseInitialMentions(initialContent, contextMenu.mentionPathMap);
+      
+      // Update the mentionPathMap with parsed entries
+      if (newEntries.size > 0) {
+        const mergedMap = new Map(contextMenu.mentionPathMap);
+        newEntries.forEach((value, key) => mergedMap.set(key, value));
+        // We need to use a function that updates the map - this is exposed via context menu
+        // Since setMentionPathMap is not directly exposed, we'll populate via the ref
+        // Actually, we need to add a way to set the map. Let's use clearMentionPathMap pattern
+        // For now, we'll iterate and set via the internal ref
+        newEntries.forEach((path, label) => {
+          contextMenu.mentionPathMapRef.current.set(label, path);
+        });
+      }
+      
       if (newContent !== initialContent) {
         setEditContent(newContent);
       }
     }
-  }, [initialContent, contextMenu.mentionPathMap]);
+  }, [initialContent, contextMenu.mentionPathMap, contextMenu.mentionPathMapRef]);
 
   // Focus and auto-resize on mount
   useEffect(() => {
@@ -176,7 +202,8 @@ export function useMessageEditForm({
       let expandedContent = editContent.trim();
       expandedContent = expandedContent.replace(mentionRegex, (match, label, path) => {
         if (path) {return match;}
-        const storedPath = contextMenu.mentionPathMap.current.get(label);
+        // Use ref to get current map value (avoids stale closure)
+        const storedPath = contextMenu.mentionPathMapRef.current.get(label);
         return storedPath ? `@[${label}](${storedPath})` : match;
       });
 

@@ -51,7 +51,7 @@ export class WorkspaceManager {
         this._refactorScanComplete = false;
         this._cachedLargeFiles = [];
         onUpdate?.();
-      }, 300);
+      }, 400);
     };
 
     // Watch for all file changes in all workspaces

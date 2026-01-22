@@ -132,7 +132,7 @@ export function MessageEditForm({
               }}
               onValueChange={handleValueChange}
               validWorkflowNames={validWorkflowNames}
-              validMentionLabels={contextMenu.mentionPathMap.current}
+              validMentionLabels={contextMenu.mentionPathMap}
             />
           </div>
 

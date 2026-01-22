@@ -178,7 +178,15 @@ export function shouldShowContextMenu(text: string, position: number): boolean {
     }
 
     const textAfterAt = beforeCursor.slice(atIndex + 1);
-    if (textAfterAt.includes(" ")) { // Simple check: if space, assume end of mention intent
+    
+    // If space exists after @, assume mention intent ended
+    if (textAfterAt.includes(" ")) {
+        return false;
+    }
+    
+    // If @ is followed by [, it's an existing mention pattern - don't show menu
+    // This prevents the menu from triggering when cursor is inside/after @[label]
+    if (textAfterAt.startsWith("[")) {
         return false;
     }
 
@@ -210,6 +218,12 @@ export function shouldShowSlashMenu(text: string, position: number): boolean {
     const textAfterSlash = beforeCursor.slice(slashIndex + 1);
     // If there's a space after the command text, menu should close
     if (textAfterSlash.includes(" ")) {
+        return false;
+    }
+    
+    // If / is followed by [, it's an existing command pattern - don't show menu
+    // This prevents the menu from triggering when cursor is inside/after /[command]
+    if (textAfterSlash.startsWith("[")) {
         return false;
     }
     

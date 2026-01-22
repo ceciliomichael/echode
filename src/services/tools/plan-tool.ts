@@ -5,11 +5,16 @@ import { ITool, ToolExecutionResult, ChatMode } from './tool.interface';
 import { MarkdownViewerManager } from '../markdown-viewer/markdown-viewer-manager';
 
 /**
- * Generate a short 8-character ID using Node's crypto module
- * Matches the format used by code review reports
+ * Generate a timestamp-based ID for chronological sorting
+ * Format: YYYYMMDD-HHmmss-xxx (e.g., 20260122-003145-a7f)
+ * This ensures plans are listed in chronological order when sorted alphabetically
  */
-function generateShortId(): string {
-  return crypto.randomUUID().slice(0, 8);
+function generateTimestampId(): string {
+  const now = new Date();
+  const datePart = now.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
+  const timePart = now.toISOString().slice(11, 19).replace(/:/g, ''); // HHmmss
+  const randomSuffix = crypto.randomUUID().slice(0, 3); // 3-char suffix for uniqueness
+  return `${datePart}-${timePart}-${randomSuffix}`;
 }
 
 /**
@@ -29,7 +34,6 @@ export type PlanMode = 'create_plan' | 'update_plan' | 'handoff';
 export interface PlanToolParameters {
   mode: PlanMode;
   plan?: string;             // For 'create_plan' and 'update_plan' modes (markdown content)
-  title?: string;            // For 'create_plan' and 'update_plan' modes (plan title)
   planFilePath?: string;     // For 'update_plan' mode (existing plan file path)
   summary?: string;          // For 'handoff' mode
 }
@@ -38,7 +42,6 @@ export interface PlanToolResult {
   mode: PlanMode;
   awaitsUserAction: boolean;
   actionType: 'verify_plan' | 'start_implementation';
-  planTitle?: string;
   planContent?: string;
   planFilePath?: string;           // Path to saved plan file for undo/delete
   previousPlanContent?: string;    // Previous content for undo (update_plan mode only)
@@ -97,7 +100,6 @@ export class PlanTool implements ITool {
    */
   private async handleCreatePlanMode(params: PlanToolParameters, isYoloMode: boolean): Promise<ToolExecutionResult> {
     const planContent = params.plan;
-    const title = params.title || 'Implementation Plan';
 
     if (!planContent || typeof planContent !== 'string' || planContent.trim().length === 0) {
       return {
@@ -105,10 +107,7 @@ export class PlanTool implements ITool {
         error: 'Create plan mode requires a non-empty "plan" parameter with markdown content',
       };
     }
-
     try {
-      const fullContent = `# ${title}\n\n${planContent}`;
-      
       // Get workspace folder
       const workspaceFolders = vscode.workspace.workspaceFolders;
       if (!workspaceFolders || workspaceFolders.length === 0) {
@@ -120,7 +119,7 @@ export class PlanTool implements ITool {
 
       const workspaceRoot = workspaceFolders[0].uri.fsPath;
       const planDir = path.join(workspaceRoot, '.echode', 'plan');
-      const planId = generateShortId();
+      const planId = generateTimestampId();
       const planFileName = `plan-${planId}.md`;
       const planFilePath = path.join(planDir, planFileName);
 
@@ -135,11 +134,11 @@ export class PlanTool implements ITool {
 
       // Write the plan file
       const planFileUri = vscode.Uri.file(planFilePath);
-      await vscode.workspace.fs.writeFile(planFileUri, Buffer.from(fullContent, 'utf-8'));
+      await vscode.workspace.fs.writeFile(planFileUri, Buffer.from(planContent, 'utf-8'));
 
       // Open plan in custom viewer
       if (MarkdownViewerManager.isInitialized) {
-        MarkdownViewerManager.instance.openDocument(title, fullContent, planFilePath, 'Plan');
+        MarkdownViewerManager.instance.openDocument('Plan', planContent, planFilePath, 'Plan');
       }
 
       // YOLO mode: Auto-verify, no user action needed
@@ -148,12 +147,11 @@ export class PlanTool implements ITool {
         mode: 'create_plan',
         awaitsUserAction: !isYoloMode, // false in YOLO = auto-verified
         actionType: 'verify_plan',
-        planTitle: title,
-        planContent: fullContent,
+        planContent: planContent,
         planFilePath: planFilePath,
         message: isYoloMode
-          ? `[YOLO] Plan "${title}" created and auto-verified. Proceeding to handoff.`
-          : `Plan "${title}" saved to .echode/plan/${planFileName}. Click "Verify Plan" to continue.`,
+          ? `[YOLO] Plan created and auto-verified. Proceeding to handoff.`
+          : `Plan saved to .echode/plan/${planFileName}. Click "Verify Plan" to continue.`,
       };
 
       return {
@@ -175,7 +173,6 @@ export class PlanTool implements ITool {
    */
   private async handleUpdatePlanMode(params: PlanToolParameters, isYoloMode: boolean): Promise<ToolExecutionResult> {
     const planContent = params.plan;
-    const title = params.title || 'Implementation Plan';
     let existingPlanFilePath = params.planFilePath;
 
     if (!planContent || typeof planContent !== 'string' || planContent.trim().length === 0) {
@@ -241,9 +238,6 @@ export class PlanTool implements ITool {
           error: 'Update plan mode requires a valid "planFilePath" parameter. Could not automatically find an existing plan to update.',
         };
       }
-
-      const fullContent = `# ${title}\n\n${planContent}`;
-      
       // Check if the file exists and read previous content for undo support
       const planFileUri = vscode.Uri.file(existingPlanFilePath);
       let previousPlanContent: string | undefined;
@@ -258,11 +252,11 @@ export class PlanTool implements ITool {
       }
 
       // Update the existing plan file
-      await vscode.workspace.fs.writeFile(planFileUri, Buffer.from(fullContent, 'utf-8'));
+      await vscode.workspace.fs.writeFile(planFileUri, Buffer.from(planContent, 'utf-8'));
 
       // Open plan in custom viewer
       if (MarkdownViewerManager.isInitialized) {
-        MarkdownViewerManager.instance.openDocument(title, fullContent, existingPlanFilePath, 'Plan');
+        MarkdownViewerManager.instance.openDocument('Plan', planContent, existingPlanFilePath, 'Plan');
       }
 
       const planFileName = path.basename(existingPlanFilePath);
@@ -273,13 +267,12 @@ export class PlanTool implements ITool {
         mode: 'update_plan',
         awaitsUserAction: !isYoloMode, // false in YOLO = auto-verified
         actionType: 'verify_plan',
-        planTitle: title,
-        planContent: fullContent,
+        planContent: planContent,
         planFilePath: existingPlanFilePath,
         previousPlanContent,  // Store previous content for undo support
         message: isYoloMode
-          ? `[YOLO] Plan "${title}" updated and auto-verified. Proceeding to handoff.`
-          : `Plan "${title}" updated at .echode/${planFileName}. Click "Verify Plan" to continue.`,
+          ? `[YOLO] Plan updated and auto-verified. Proceeding to handoff.`
+          : `Plan updated at .echode/${planFileName}. Click "Verify Plan" to continue.`,
       };
 
       return {

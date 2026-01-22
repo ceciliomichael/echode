@@ -93,7 +93,8 @@ export function useChatInput({
       expandedContent = expandedContent.replace(mentionRegex, (match, label, path) => {
         if (path) {return match;} // Already has path
 
-        const storedPath = contextMenu.mentionPathMap.current.get(label);
+        // Use ref to get current map value (avoids stale closure)
+        const storedPath = contextMenu.mentionPathMapRef.current.get(label);
         if (storedPath) {
           return `@[${label}](${storedPath})`;
         }
@@ -116,9 +117,9 @@ export function useChatInput({
 
       setInput('');
       attachmentHandler.clearAttachments();
-      contextMenu.mentionPathMap.current.clear();
+      contextMenu.clearMentionPathMap();
     }
-  }, [input, disabled, contextMenu.mentionPathMap, attachmentHandler.attachmentsRef, attachmentHandler.imageAttachmentsRef, attachmentHandler.clearAttachments, onSendMessage]);
+  }, [input, disabled, contextMenu.mentionPathMapRef, contextMenu.clearMentionPathMap, attachmentHandler.attachmentsRef, attachmentHandler.imageAttachmentsRef, attachmentHandler.clearAttachments, onSendMessage]);
 
   const handleChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;

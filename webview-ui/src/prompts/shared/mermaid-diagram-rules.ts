@@ -1,11 +1,13 @@
 export const MERMAID_DIAGRAM_RULES = `<mermaid_diagram_rules>
-When you output Mermaid diagrams, you MUST follow these rules to avoid syntax errors:
+Mermaid Diagram Rules
 
-- Output Mermaid ONLY inside a fenced code block with language \`mermaid\`.
-- Use simple node IDs (letters/numbers/underscore only). Example: \`API\`, \`Client\`, \`AI\`.
-- Put human-readable text in labels, not in IDs.
-- If a node label contains spaces, punctuation, or parentheses, wrap the label in quotes inside the node shape:
-  - Correct: \`AI["AI Service (OpenAI Compatible)"]\`
-  - Incorrect: \`AI[AI Service (OpenAI Compatible)]\`
-- Prefer quoting labels whenever unsure.
-</mermaid_diagram_rules>`;
+- Always wrap diagrams in fenced code blocks with \`mermaid\`.
+- Use simple IDs (letters, numbers, underscores only).
+- Put human‑readable text in labels, not IDs.
+- Quote labels if they contain spaces, punctuation, or parentheses.
+  - Example: \`AI["AI Service (OpenAI Compatible)"]\`
+- Do not quote subgraph names.
+- Use \`-->\` for solid arrows, \`-.->\` for dotted arrows.
+- Quote arrow labels if they contain spaces or punctuation.
+</mermaid_diagram_rules>
+`;

@@ -12,16 +12,6 @@ interface FindMentionsOptions {
 }
 
 /**
- * Extract the label from a mention match
- * @[label](path) -> label
- * @[label] -> label
- */
-function extractMentionLabel(match: string): string | null {
-    const mentionMatch = match.match(/@\[([^\]]+)\]/);
-    return mentionMatch ? mentionMatch[1] : null;
-}
-
-/**
  * Extract the command name from a slash command match
  * /[command] -> command
  */
@@ -43,16 +33,25 @@ export function findMentions(text: string, options?: FindMentionsOptions): Menti
     const { validWorkflowNames, validMentionLabels } = options || {};
     
     // Find Mentions
+    // mentionRegex: /@\[([^\]]+)\](?:\(([^)]+)\))?/g
+    // Group 1: label, Group 2: path (optional)
     const mentionRegexInstance = new RegExp(mentionRegex.source, 'g');
     let match;
     
     while ((match = mentionRegexInstance.exec(text)) !== null) {
-        const label = extractMentionLabel(match[0]);
+        const label = match[1]; // The text inside @[...]
+        const path = match[2];  // The text inside (...) if present
         
         // If validation list is provided, only include valid mentions
-        if (validMentionLabels && label) {
-            if (!validMentionLabels.includes(label)) {
-                continue; // Skip invalid mention
+        // Valid if:
+        // 1. It has a path (explicit file reference like @[file](path/to/file))
+        // 2. OR it is in the validMentionLabels list (e.g., @[Codebase])
+        if (validMentionLabels) {
+            const hasPath = !!path;
+            const isKnownLabel = label && validMentionLabels.includes(label);
+            
+            if (!hasPath && !isKnownLabel) {
+                continue; // Skip only if it has NO path AND is NOT a known label
             }
         }
         

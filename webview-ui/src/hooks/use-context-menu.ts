@@ -41,7 +41,9 @@ interface ContextMenuHandlers {
 }
 
 export interface UseContextMenuReturn extends ContextMenuState, ContextMenuHandlers {
-  mentionPathMap: React.MutableRefObject<Map<string, string>>;
+  mentionPathMap: Map<string, string>;
+  mentionPathMapRef: React.MutableRefObject<Map<string, string>>;
+  clearMentionPathMap: () => void;
 }
 
 export function useContextMenu({
@@ -58,7 +60,12 @@ export function useContextMenu({
   const [currentTrigger, setCurrentTrigger] = useState<ContextMenuTrigger>(null);
   
   // Map to store filename -> path for short display mentions
-  const mentionPathMap = useRef<Map<string, string>>(new Map());
+  // Using useState instead of useRef so updates trigger re-renders for navigation validation
+  const [mentionPathMap, setMentionPathMap] = useState<Map<string, string>>(() => new Map());
+  
+  // Ref for accessing current map value in callbacks without stale closures
+  const mentionPathMapRef = useRef<Map<string, string>>(mentionPathMap);
+  mentionPathMapRef.current = mentionPathMap;
 
   // Listen for file/workflow search results from extension
   useEffect(() => {
@@ -237,7 +244,12 @@ export function useContextMenu({
         : (value.split('/').pop() || value);
 
       // Map the display label to the internal value/path
-      mentionPathMap.current.set(label, value);
+      // Create a new Map to trigger React state update and re-render
+      setMentionPathMap(prev => {
+        const newMap = new Map(prev);
+        newMap.set(label, value);
+        return newMap;
+      });
 
       const { newValue, mentionIndex } = insertMention(input, cursorPosition, value, label);
       setInput(newValue);
@@ -315,6 +327,11 @@ export function useContextMenu({
     }
   }, [input, textareaRef]);
 
+  // Clear the mention path map (called on message submit)
+  const clearMentionPathMap = useCallback(() => {
+    setMentionPathMap(new Map());
+  }, []);
+
   return {
     // State
     showContextMenu,
@@ -325,12 +342,14 @@ export function useContextMenu({
     fileSearchResults,
     currentTrigger,
     mentionPathMap,
+    mentionPathMapRef,
     // Handlers
     handleMentionSelect,
     handleContextMenuKeyDown,
     updateCursorPosition,
     setShowContextMenu,
     setSelectedMenuIndex,
-    checkContextMenuOnFocus
+    checkContextMenuOnFocus,
+    clearMentionPathMap
   };
 }

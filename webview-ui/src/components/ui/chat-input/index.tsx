@@ -231,7 +231,7 @@ export function ChatInput({
               onBlur={handleBlur}
               onFocus={handleFocus}
               validWorkflowNames={validWorkflowNames}
-              validMentionLabels={contextMenu.mentionPathMap.current}
+              validMentionLabels={contextMenu.mentionPathMap}
             />
           </div>
 
