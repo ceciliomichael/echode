@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import type { ImageAttachment } from '../../types/chat';
 
@@ -16,11 +17,29 @@ export function ImageAttachmentPreview({
   tooltipDirection = 'up'
 }: ImageAttachmentPreviewProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [position, setPosition] = useState<{ top?: number, bottom?: number, left: number } | null>(null);
 
   if (attachments.length === 0) return null;
 
   const getImageSrc = (attachment: ImageAttachment) => {
     return `data:${attachment.mimeType};base64,${attachment.data}`;
+  };
+
+  const handleMouseEnter = (index: number, e: React.MouseEvent<HTMLButtonElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setHoveredIndex(index);
+    
+    if (tooltipDirection === 'up') {
+      setPosition({
+        bottom: window.innerHeight - rect.top + 8,
+        left: rect.left
+      });
+    } else {
+      setPosition({
+        top: rect.bottom + 8,
+        left: rect.left
+      });
+    }
   };
 
   return (
@@ -30,7 +49,7 @@ export function ImageAttachmentPreview({
           <button
             type="button"
             onClick={() => !disabled && onRemove(index)}
-            onMouseEnter={() => setHoveredIndex(index)}
+            onMouseEnter={(e) => handleMouseEnter(index, e)}
             onMouseLeave={() => setHoveredIndex(null)}
             disabled={disabled}
             className="inline-flex items-center gap-1.5 text-xs border border-dashed rounded-xl px-2 py-1 transition-all hover:opacity-70 disabled:opacity-50 disabled:cursor-not-allowed group"
@@ -62,14 +81,13 @@ export function ImageAttachmentPreview({
           </button>
 
           {/* Hover preview */}
-          {hoveredIndex === index && (
+          {hoveredIndex === index && position && createPortal(
             <div
-              className="absolute left-0 z-50 rounded-lg border shadow-lg overflow-hidden"
+              className="fixed z-[9999] rounded-lg border shadow-lg overflow-hidden"
               style={{
-                ...(tooltipDirection === 'up'
-                  ? { bottom: 'calc(100% + 8px)' }
-                  : { top: 'calc(100% + 8px)' }
-                ),
+                left: position.left,
+                ...(position.top ? { top: position.top } : {}),
+                ...(position.bottom ? { bottom: position.bottom } : {}),
                 backgroundColor: 'var(--vscode-editor-background)',
                 borderColor: 'var(--vscode-input-border)'
               }}
@@ -79,7 +97,8 @@ export function ImageAttachmentPreview({
                 alt={attachment.name || 'Image preview'}
                 className="max-w-[200px] max-h-[150px] object-contain"
               />
-            </div>
+            </div>,
+            document.body
           )}
         </div>
       ))}

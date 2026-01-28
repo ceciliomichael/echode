@@ -1,4 +1,5 @@
 import type { ContentToken } from './types';
+import { TOOL_FUNCTION_CALLS_CLOSE, TOOL_FUNCTION_CALLS_OPEN, TOOL_PARAMETER_CLOSE, TOOL_XML_NAMESPACE } from '../../lib/tool-xml';
 
 /**
  * Known parameter names that should preserve raw string content (no trimming/parsing).
@@ -33,14 +34,16 @@ export class StreamingToolParser {
     private messageId: string;
 
     // Precomputed tags for faster detection
-    private static readonly FUNCTION_CALLS_OPEN = '<function_calls>';
-    private static readonly FUNCTION_CALLS_CLOSE = '</function_calls>';
-    private static readonly INVOKE_CLOSE = '</invoke>';
-    private static readonly PARAMETER_CLOSE = '</parameter>';
+    private static readonly FUNCTION_CALLS_OPEN = TOOL_FUNCTION_CALLS_OPEN;
+    private static readonly FUNCTION_CALLS_CLOSE = TOOL_FUNCTION_CALLS_CLOSE;
+    private static readonly INVOKE_CLOSE = `</${TOOL_XML_NAMESPACE}:invoke>`;
+    private static readonly PARAMETER_CLOSE = TOOL_PARAMETER_CLOSE;
 
     // Regex patterns for extracting names from tags
-    private static readonly INVOKE_OPEN_PATTERN = /<invoke\s+name=["']([^"']+)["']>/;
-    private static readonly PARAMETER_OPEN_PATTERN = /<parameter(?:\s+[^>]+)?\s+name\s*=\s*["']([^"']+)["'][^>]*>/;
+    private static readonly INVOKE_OPEN_PATTERN = new RegExp(`<${TOOL_XML_NAMESPACE}:invoke\\s+name=["']([^"']+)["']>`);
+    private static readonly PARAMETER_OPEN_PATTERN = new RegExp(
+        `<${TOOL_XML_NAMESPACE}:parameter(?:\\s+[^>]+)?\\s+name\\s*=\\s*["']([^"']+)["'][^>]*>`
+    );
 
     constructor(messageId: string = 'unknown') {
         this.messageId = messageId;
@@ -92,8 +95,11 @@ export class StreamingToolParser {
      * Process the current position based on state.
      */
     private processCurrentPosition(): void {
-        // Check if we're inside a code fence - skip tool detection
-        if (this.isInsideCodeFence()) {
+        const parserFlags = (globalThis as unknown as {
+            __ECHODE_TOKENIZER_FLAGS__?: { skipToolsInCodeFences?: boolean };
+        }).__ECHODE_TOKENIZER_FLAGS__;
+
+        if (parserFlags?.skipToolsInCodeFences && this.isInsideCodeFence()) {
             return;
         }
 
@@ -249,7 +255,7 @@ export class StreamingToolParser {
             type: 'tool',
             toolName: this.currentToolName,
             parameters: this.extractParametersFromInvoke(),
-            rawContent: `<function_calls>${rawContent}</function_calls>`,
+            rawContent: `${StreamingToolParser.FUNCTION_CALLS_OPEN}${rawContent}${StreamingToolParser.FUNCTION_CALLS_CLOSE}`,
             index: existingTokenIndex >= 0 ? this.tokens[existingTokenIndex].index : this.tokenIndex++,
             isClosed,
             toolExecutionId: execId
@@ -272,7 +278,10 @@ export class StreamingToolParser {
         const invokeContent = this.accumulator.slice(this.currentInvokeStart);
 
         // Find all parameter blocks
-        const paramOpenPattern = /<parameter(?:\s+[^>]+)?\s+name\s*=\s*["']([^"']+)["'][^>]*>/g;
+        const paramOpenPattern = new RegExp(
+            `<${TOOL_XML_NAMESPACE}:parameter(?:\\s+[^>]+)?\\s+name\\s*=\\s*["']([^"']+)["'][^>]*>`,
+            'g'
+        );
         let match: RegExpExecArray | null;
 
         while ((match = paramOpenPattern.exec(invokeContent)) !== null) {
@@ -282,9 +291,9 @@ export class StreamingToolParser {
             // For raw string params, use lastIndexOf to handle nested closing tags
             let closePos: number;
             if (RAW_STRING_PARAMS.has(paramName)) {
-                closePos = invokeContent.lastIndexOf('</parameter>');
+                closePos = invokeContent.lastIndexOf(StreamingToolParser.PARAMETER_CLOSE);
             } else {
-                closePos = invokeContent.indexOf('</parameter>', valueStart);
+                closePos = invokeContent.indexOf(StreamingToolParser.PARAMETER_CLOSE, valueStart);
             }
 
             if (closePos !== -1 && closePos > valueStart) {
@@ -332,8 +341,8 @@ export class StreamingToolParser {
      * Remove partial tag from end of text (e.g., "<func" during streaming).
      */
     private removePartialTagFromEnd(text: string): string {
-        // Check for partial <function_calls>
-        const tag = 'function_calls';
+        // Check for partial <${TOOL_XML_NAMESPACE}:function_calls>
+        const tag = `${TOOL_XML_NAMESPACE}:function_calls`;
         if (text.endsWith('<')) {
             return text.slice(0, -1);
         }

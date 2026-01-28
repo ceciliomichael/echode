@@ -5,6 +5,7 @@ import { registerToolPlugin } from './tool-plugin';
 import { executeToolViaExtension } from '../tool-utils';
 import { getFileIconConfig } from '../../utils/file-icon-mapper';
 import { SearchSnippetItem } from '../../components/ui/search-snippet-item';
+import { TOOL_FUNCTION_CALLS_CLOSE, TOOL_FUNCTION_CALLS_OPEN, TOOL_XML_NAMESPACE } from '../tool-xml';
 
 interface GrepFileResult {
   file: string;
@@ -196,7 +197,7 @@ Parameters:
 - includes: Glob filters (e.g., "*.ts,*.tsx")`,
     icon: Search,
     usage: 'Search for exact patterns across files',
-    formatExample: '<function_calls>\n<invoke name="grep_search">\n<parameter name="query">functionName</parameter>\n<parameter name="path">src</parameter>\n</invoke>\n</function_calls>',
+    formatExample: `${TOOL_FUNCTION_CALLS_OPEN}\n<${TOOL_XML_NAMESPACE}:invoke name="grep_search">\n<${TOOL_XML_NAMESPACE}:parameter name="query">functionName</${TOOL_XML_NAMESPACE}:parameter>\n<${TOOL_XML_NAMESPACE}:parameter name="path">src</${TOOL_XML_NAMESPACE}:parameter>\n</${TOOL_XML_NAMESPACE}:invoke>\n${TOOL_FUNCTION_CALLS_CLOSE}`,
   },
   handler: {
     execute: executeGrepSearch,

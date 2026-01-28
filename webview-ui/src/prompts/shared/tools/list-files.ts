@@ -14,7 +14,7 @@ export function getListFilesInstructions(options: ListFilesOptions = {}): string
         return `<tool_usage tool="list_files">
 <summary>Explore directory structure.</summary>
 <params>
-*   path: Directory to list (required)
+*   path: Directory to list (Absolute path required)
 *   recursive: Include subdirectories (optional)
 *   ignoreGitignore: Include gitignored files (optional)
 </params>
@@ -29,7 +29,7 @@ export function getListFilesInstructions(options: ListFilesOptions = {}): string
 Explore directory structure.
 
 Parameters:
-- path: Directory to list (required)
+- path: Directory to list (Absolute path required)
 - recursive: Include subdirectories (default: false)
 - ignoreGitignore: Include gitignored files (default: false)
 

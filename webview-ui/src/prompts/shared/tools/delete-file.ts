@@ -14,7 +14,7 @@ export function getDeleteFileInstructions(options: DeleteFileOptions = {}): stri
         return `<tool_usage tool="delete_file">
 <summary>Delete a file from the workspace.</summary>
 <params>
-*   path: File path (required)
+*   path: File path (Absolute path required)
 </params>
 <notes>
 *   Use only when explicitly requested or when safe to remove.
@@ -27,7 +27,7 @@ export function getDeleteFileInstructions(options: DeleteFileOptions = {}): stri
 Delete a file from the workspace.
 
 Parameters:
-- path: File path (required)
+- path: File path (Absolute path required)
 
 When to use:
 - User explicitly requests file deletion

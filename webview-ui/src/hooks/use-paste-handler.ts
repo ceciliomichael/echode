@@ -31,7 +31,31 @@ export function usePasteHandler({
             return;
         }
 
-        const files = clipboard.files;
+        let files = clipboard.files;
+        
+        // Handle screenshots/images pasted directly (sometimes not in files list but in items)
+        if (!files || files.length === 0) {
+            const items = clipboard.items;
+            if (items && items.length > 0) {
+                const extractedFiles: File[] = [];
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
+                    if (item.kind === 'file') {
+                        const file = item.getAsFile();
+                        if (file) extractedFiles.push(file);
+                    }
+                }
+                if (extractedFiles.length > 0) {
+                    // @ts-ignore - reassigning files (it's a FileList usually, but we treat it as array-like)
+                    files = extractedFiles;
+                } else {
+                    return;
+                }
+            } else {
+                return;
+            }
+        }
+
         if (!files || files.length === 0) {
             return;
         }

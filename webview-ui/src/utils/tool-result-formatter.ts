@@ -37,9 +37,8 @@ function formatSingleToolResult(execution: ToolExecutionState, mode: ChatMode): 
         ? ` [lines ${startLine}-${endLine}]`
         : '';
 
-      // Only include apply_diff hints in modes where apply_diff is available
-      const canUseDiff = mode === 'agent' || mode === 'general';
-      const headerHint = canUseDiff ? ' (use for apply_diff SEARCH blocks)' : '';
+      const canUseEdit = mode === 'agent' || mode === 'general';
+      const headerHint = canUseEdit ? ' (use for edit old_string)' : '';
 
       return `[read_file] ${path} (${totalLines} lines)${rangeInfo}
 ┌─ FILE CONTENT${headerHint} ─┐
@@ -53,10 +52,10 @@ ${content}
       return `[write_to_file] ${path} → ${action === 'created' ? 'CREATED' : action === 'no_change' ? 'NO CHANGES' : 'MODIFIED'}`;
     }
 
-    case 'apply_diff': {
+    case 'edit': {
       const path = data.path as string;
       const action = data.action as string | undefined;
-      return `[apply_diff] ${path} → ${action === 'no_change' ? 'NO CHANGES' : 'APPLIED'}`;
+      return `[edit] ${path} → ${action === 'no_change' ? 'NO CHANGES' : 'APPLIED'}`;
     }
 
     case 'delete_file': {

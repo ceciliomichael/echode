@@ -3,6 +3,8 @@
  * Streamlined: Check plan → Execute → Verify
  */
 
+import { TOOL_XML_NAMESPACE } from '../../../lib/tool-xml';
+
 export const AGENT_WORKFLOW = `<workflow>
 IF VALID TASK (see interaction rules):
 
@@ -35,70 +37,78 @@ Execute tasks efficiently using parallel tool calls when possible:
 For each task:
 - **Search** (parallel when possible): \`grep_search\` for exact identifiers, \`glob_search\` for file patterns
 - **Read** (parallel when possible): \`read_file\` for multiple independent files
-- **Edit** (parallel when safe): \`apply_diff\` or \`write_to_file\` on different files
+- **Edit** (parallel when safe): \`edit\` or \`write_to_file\` on different files
 - **Verify**: If \`<diagnostics>\` shows errors, fix them NOW before next task
 
 **Parallel Execution Examples**:
 
 Example 1 - Reading multiple files (PARALLEL):
 \`\`\`xml
-<function_calls>
-    <invoke name="read_file">
-        <parameter name="path">src/components/Header.tsx</parameter>
-    </invoke>
-    <invoke name="read_file">
-        <parameter name="path">src/components/Footer.tsx</parameter>
-    </invoke>
-    <invoke name="read_file">
-        <parameter name="path">src/utils/helpers.ts</parameter>
-    </invoke>
-</function_calls>
+<${TOOL_XML_NAMESPACE}:function_calls>
+    <${TOOL_XML_NAMESPACE}:invoke name="read_file">
+        <${TOOL_XML_NAMESPACE}:parameter name="path">src/components/Header.tsx</${TOOL_XML_NAMESPACE}:parameter>
+    </${TOOL_XML_NAMESPACE}:invoke>
+    <${TOOL_XML_NAMESPACE}:invoke name="read_file">
+        <${TOOL_XML_NAMESPACE}:parameter name="path">src/components/Footer.tsx</${TOOL_XML_NAMESPACE}:parameter>
+    </${TOOL_XML_NAMESPACE}:invoke>
+    <${TOOL_XML_NAMESPACE}:invoke name="read_file">
+        <${TOOL_XML_NAMESPACE}:parameter name="path">src/utils/helpers.ts</${TOOL_XML_NAMESPACE}:parameter>
+    </${TOOL_XML_NAMESPACE}:invoke>
+</${TOOL_XML_NAMESPACE}:function_calls>
 \`\`\`
 
 Example 2 - Editing multiple files (PARALLEL):
 \`\`\`xml
-<function_calls>
-    <invoke name="apply_diff">
-        <parameter name="path">src/config.ts</parameter>
-        <parameter name="diff">...</parameter>
-    </invoke>
-    <invoke name="apply_diff">
-        <parameter name="path">src/constants.ts</parameter>
-        <parameter name="diff">...</parameter>
-    </invoke>
-</function_calls>
+<${TOOL_XML_NAMESPACE}:function_calls>
+    <${TOOL_XML_NAMESPACE}:invoke name="edit">
+        <${TOOL_XML_NAMESPACE}:parameter name="file_path">src/config.ts</${TOOL_XML_NAMESPACE}:parameter>
+        <${TOOL_XML_NAMESPACE}:parameter name="old_string">...</${TOOL_XML_NAMESPACE}:parameter>
+        <${TOOL_XML_NAMESPACE}:parameter name="new_string">...</${TOOL_XML_NAMESPACE}:parameter>
+        <${TOOL_XML_NAMESPACE}:parameter name="explanation">...</${TOOL_XML_NAMESPACE}:parameter>
+    </${TOOL_XML_NAMESPACE}:invoke>
+    <${TOOL_XML_NAMESPACE}:invoke name="edit">
+        <${TOOL_XML_NAMESPACE}:parameter name="file_path">src/constants.ts</${TOOL_XML_NAMESPACE}:parameter>
+        <${TOOL_XML_NAMESPACE}:parameter name="old_string">...</${TOOL_XML_NAMESPACE}:parameter>
+        <${TOOL_XML_NAMESPACE}:parameter name="new_string">...</${TOOL_XML_NAMESPACE}:parameter>
+        <${TOOL_XML_NAMESPACE}:parameter name="explanation">...</${TOOL_XML_NAMESPACE}:parameter>
+    </${TOOL_XML_NAMESPACE}:invoke>
+</${TOOL_XML_NAMESPACE}:function_calls>
 \`\`\`
 
 Example 3 - Mixed operations (PARALLEL when independent):
 \`\`\`xml
-<function_calls>
-    <invoke name="write_to_file">
-        <parameter name="path">src/types/new-types.ts</parameter>
-        <parameter name="content">...</parameter>
-    </invoke>
-    <invoke name="apply_diff">
-        <parameter name="path">src/existing-file.ts</parameter>
-        <parameter name="diff">...</parameter>
-    </invoke>
-</function_calls>
+<${TOOL_XML_NAMESPACE}:function_calls>
+    <${TOOL_XML_NAMESPACE}:invoke name="write_to_file">
+        <${TOOL_XML_NAMESPACE}:parameter name="path">src/types/new-types.ts</${TOOL_XML_NAMESPACE}:parameter>
+        <${TOOL_XML_NAMESPACE}:parameter name="content">...</${TOOL_XML_NAMESPACE}:parameter>
+    </${TOOL_XML_NAMESPACE}:invoke>
+    <${TOOL_XML_NAMESPACE}:invoke name="edit">
+        <${TOOL_XML_NAMESPACE}:parameter name="file_path">src/existing-file.ts</${TOOL_XML_NAMESPACE}:parameter>
+        <${TOOL_XML_NAMESPACE}:parameter name="old_string">...</${TOOL_XML_NAMESPACE}:parameter>
+        <${TOOL_XML_NAMESPACE}:parameter name="new_string">...</${TOOL_XML_NAMESPACE}:parameter>
+        <${TOOL_XML_NAMESPACE}:parameter name="explanation">...</${TOOL_XML_NAMESPACE}:parameter>
+    </${TOOL_XML_NAMESPACE}:invoke>
+</${TOOL_XML_NAMESPACE}:function_calls>
 \`\`\`
 
 Example 4 - Must be SEQUENTIAL (dependency):
 \`\`\`xml
 <!-- First, read the file -->
-<function_calls>
-    <invoke name="read_file">
-        <parameter name="path">src/config.ts</parameter>
-    </invoke>
-</function_calls>
+<${TOOL_XML_NAMESPACE}:function_calls>
+    <${TOOL_XML_NAMESPACE}:invoke name="read_file">
+        <${TOOL_XML_NAMESPACE}:parameter name="path">src/config.ts</${TOOL_XML_NAMESPACE}:parameter>
+    </${TOOL_XML_NAMESPACE}:invoke>
+</${TOOL_XML_NAMESPACE}:function_calls>
 
 <!-- Then, edit it based on what you read -->
-<function_calls>
-    <invoke name="apply_diff">
-        <parameter name="path">src/config.ts</parameter>
-        <parameter name="diff">...</parameter>
-    </invoke>
-</function_calls>
+<${TOOL_XML_NAMESPACE}:function_calls>
+    <${TOOL_XML_NAMESPACE}:invoke name="edit">
+        <${TOOL_XML_NAMESPACE}:parameter name="file_path">src/config.ts</${TOOL_XML_NAMESPACE}:parameter>
+        <${TOOL_XML_NAMESPACE}:parameter name="old_string">...</${TOOL_XML_NAMESPACE}:parameter>
+        <${TOOL_XML_NAMESPACE}:parameter name="new_string">...</${TOOL_XML_NAMESPACE}:parameter>
+        <${TOOL_XML_NAMESPACE}:parameter name="explanation">...</${TOOL_XML_NAMESPACE}:parameter>
+    </${TOOL_XML_NAMESPACE}:invoke>
+</${TOOL_XML_NAMESPACE}:function_calls>
 \`\`\`
 
 ## 4. Complete

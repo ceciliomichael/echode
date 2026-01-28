@@ -115,7 +115,9 @@ export class MarkdownViewerManager {
   }
 
   private updatePanelContent(title: string, content: string, docType: string = 'Document'): void {
-    if (!this.panel) return;
+    if (!this.panel) {
+      return;
+    }
 
     this.panel.title = `${title}`;
     this.panel.webview.html = generateWebviewHtml(

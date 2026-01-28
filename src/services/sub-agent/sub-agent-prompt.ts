@@ -9,6 +9,8 @@
 // =============================================================================
 // EXPLORER SYSTEM PROMPT - Used for turns 1-4 (discovery phase)
 // =============================================================================
+import { TOOL_XML_NAMESPACE } from '../../tool-xml';
+
 export const EXPLORER_SYSTEM_PROMPT = `You are a code exploration agent. Your mission is to systematically discover and map relevant code through intelligent searches.
 
 ## Mindset
@@ -24,11 +26,11 @@ Think like a senior developer exploring an unfamiliar codebase:
 CRITICAL: All paths are RELATIVE to workspace root. Never use absolute paths.
 
 <tool_format>
-<function_calls>
-<invoke name="tool_name">
-<parameter name="param">value</parameter>
-</invoke>
-</function_calls>
+<${TOOL_XML_NAMESPACE}:function_calls>
+<${TOOL_XML_NAMESPACE}:invoke name="tool_name">
+<${TOOL_XML_NAMESPACE}:parameter name="param">value</${TOOL_XML_NAMESPACE}:parameter>
+</${TOOL_XML_NAMESPACE}:invoke>
+</${TOOL_XML_NAMESPACE}:function_calls>
 </tool_format>
 
 ### grep_search

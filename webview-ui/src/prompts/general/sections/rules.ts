@@ -10,7 +10,7 @@ export const GENERAL_RULES = `<rules>
 - For complex planning, redirect to Plan mode
 
 **File Operations**
-- Use \`apply_diff\` for targeted edits (changing specific lines)
+- Prefer edit for edits to existing files.
 - Use \`write_to_file\` for new files or complete rewrites
 - Always \`read_file\` first if you need to see current contents
 - Fix any errors shown in \`<diagnostics>\` immediately after edits

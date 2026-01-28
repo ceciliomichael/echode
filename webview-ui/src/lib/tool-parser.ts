@@ -11,6 +11,7 @@ import {
 } from './parser';
 
  import { stripLeadingThinkBlock } from '../utils/think-block-parser';
+import { TOOL_FUNCTION_CALLS_CLOSE, TOOL_FUNCTION_CALLS_OPEN, TOOL_XML_NAMESPACE } from './tool-xml';
 
 function isInsideThinkBlock(content: string, position: number): boolean {
   const tags = [
@@ -46,7 +47,7 @@ function isInsideThinkBlock(content: string, position: number): boolean {
       break;
     }
 
-    // Ignore tags inside <parameter> values (e.g. apply_diff/write_to_file payloads)
+    // Ignore tags inside <${TOOL_XML_NAMESPACE}:parameter> values (e.g. edit/write_to_file payloads)
     if (isInsideParameterValue(content, nextPos)) {
       i = nextPos + (nextTag.kind === 'open' ? nextTag.open.length : nextTag.close.length);
       continue;
@@ -79,40 +80,9 @@ function isInsideThinkBlock(content: string, position: number): boolean {
 }
 
 // Legacy regex pattern kept for parseToolBlock backward compatibility
-const TOOL_BLOCK_REGEX = /<function_calls>([\s\S]*?)<\/function_calls>/;
-
- function expandApplyDiffToolBlock(block: ParsedToolBlock): ParsedToolBlock[] {
-   if (block.toolName !== 'apply_diff') {
-     return [block];
-   }
-
-   const diffParam = block.parameters?.diff;
-   if (typeof diffParam !== 'string') {
-     return [block];
-   }
-
-   const matches = diffParam.match(/(^|\n)<<<<<<< SEARCH/g);
-   if (!matches || matches.length <= 1) {
-     return [block];
-   }
-
-   const parts = diffParam
-     .split(/(?=^<<<<<<< SEARCH)/m)
-     .map((p) => p.trim())
-     .filter(Boolean);
-
-   if (parts.length <= 1) {
-     return [block];
-   }
-
-   return parts.map((diffPart) => ({
-     ...block,
-     parameters: {
-       ...block.parameters,
-       diff: diffPart,
-     },
-   }));
- }
+const TOOL_BLOCK_REGEX = new RegExp(
+  `<${TOOL_XML_NAMESPACE}:function_calls>([\\s\\S]*?)<\\/${TOOL_XML_NAMESPACE}:function_calls>`
+);
 
 /**
  * Parse a single invoke block and return structured data
@@ -159,7 +129,7 @@ function parseFunctionCallsBlock(
     if (block.toolName && typeof block.toolName === 'string') {
       const parsed = parseInvokeBlock(block.innerContent, block.toolName, rawContent);
       if (parsed) {
-        toolBlocks.push(...expandApplyDiffToolBlock(parsed));
+        toolBlocks.push(parsed);
       }
     }
   }
@@ -246,8 +216,11 @@ export function trimToLastCompleteToolBlock(content: string): string {
 
     // Find all function_calls blocks AFTER thinking blocks in original content
     // Use balanced matching to handle nested function_calls inside parameter values
-    const openTag = '<function_calls>';
-    const closingTag = '</function_calls>';
+    const openTag = TOOL_FUNCTION_CALLS_OPEN;
+    const closingTag = TOOL_FUNCTION_CALLS_CLOSE;
+    const parserFlags = (globalThis as unknown as {
+      __ECHODE_TOOL_PARSER_FLAGS__?: { skipBacktickTools?: boolean };
+    }).__ECHODE_TOOL_PARSER_FLAGS__;
     let lastClosePos = -1;
     let searchPos = searchStart;
 
@@ -255,7 +228,7 @@ export function trimToLastCompleteToolBlock(content: string): string {
       const openPos = content.indexOf(openTag, searchPos);
       if (openPos === -1) { break; }
 
-      if (openPos > 0 && content[openPos - 1] === '`') {
+      if (parserFlags?.skipBacktickTools && openPos > 0 && content[openPos - 1] === '`') {
         searchPos = openPos + openTag.length;
         continue;
       }
@@ -303,7 +276,10 @@ export function trimToFirstCompleteToolBlock(content: string): string {
       // Found a valid tool block in preprocessed content
       // Find where this block's closing tag appears in original content
       // We need to find it AFTER any LEADING think block
-      const closingTag = '</function_calls>';
+      const closingTag = TOOL_FUNCTION_CALLS_CLOSE;
+      const parserFlags = (globalThis as unknown as {
+        __ECHODE_TOOL_PARSER_FLAGS__?: { skipBacktickTools?: boolean };
+      }).__ECHODE_TOOL_PARSER_FLAGS__;
 
       const leadingStripped = stripLeadingThinkBlock(content);
       let searchStart = 0;
@@ -314,17 +290,17 @@ export function trimToFirstCompleteToolBlock(content: string): string {
       // Find the closing tag of the first real function_calls after thinking
       let openTagAfterThink = searchStart;
       while (openTagAfterThink < content.length) {
-        const nextOpen = content.indexOf('<function_calls>', openTagAfterThink);
+        const nextOpen = content.indexOf(TOOL_FUNCTION_CALLS_OPEN, openTagAfterThink);
         if (nextOpen === -1) {
           openTagAfterThink = -1;
           break;
         }
-        if (nextOpen > 0 && content[nextOpen - 1] === '`') {
-          openTagAfterThink = nextOpen + '<function_calls>'.length;
+        if (parserFlags?.skipBacktickTools && nextOpen > 0 && content[nextOpen - 1] === '`') {
+          openTagAfterThink = nextOpen + TOOL_FUNCTION_CALLS_OPEN.length;
           continue;
         }
         if (isInsideParameterValue(content, nextOpen) || isInsideThinkBlock(content, nextOpen)) {
-          openTagAfterThink = nextOpen + '<function_calls>'.length;
+          openTagAfterThink = nextOpen + TOOL_FUNCTION_CALLS_OPEN.length;
           continue;
         }
         openTagAfterThink = nextOpen;
@@ -333,8 +309,8 @@ export function trimToFirstCompleteToolBlock(content: string): string {
 
       if (openTagAfterThink !== -1 && openTagAfterThink < content.length) {
         // Use balanced tag matching to find the correct closing tag
-        const openTagEnd = openTagAfterThink + '<function_calls>'.length;
-        const closePos = findMatchingClosingTag(content, openTagEnd, '<function_calls>', closingTag);
+        const openTagEnd = openTagAfterThink + TOOL_FUNCTION_CALLS_OPEN.length;
+        const closePos = findMatchingClosingTag(content, openTagEnd, TOOL_FUNCTION_CALLS_OPEN, closingTag);
         if (closePos !== -1) {
           return content.slice(0, closePos + closingTag.length);
         }
@@ -377,7 +353,7 @@ export function extractFirstToolBlock(content: string): ParsedToolBlock | null {
 }
 
 /**
- * Represents a pending (partial) invoke block where <invoke> opened but </invoke> hasn't arrived
+ * Represents a pending (partial) invoke block where <${TOOL_XML_NAMESPACE}:invoke> opened but </${TOOL_XML_NAMESPACE}:invoke> hasn't arrived
  */
 export interface PendingInvokeBlock {
   toolName: string;
@@ -387,9 +363,9 @@ export interface PendingInvokeBlock {
 /**
  * Extract complete invoke blocks from content that may have an incomplete function_calls block.
  * This is used for incremental tool execution - we can start executing tools as soon as
- * their </invoke> closes, even before </function_calls> is received.
+ * their </${TOOL_XML_NAMESPACE}:invoke> closes, even before </${TOOL_XML_NAMESPACE}:function_calls> is received.
  * 
- * Also returns pending invoke blocks (where <invoke> opened but </invoke> hasn't arrived yet)
+ * Also returns pending invoke blocks (where <${TOOL_XML_NAMESPACE}:invoke> opened but </${TOOL_XML_NAMESPACE}:invoke> hasn't arrived yet)
  * so the UI can show them as "pending" with streaming content.
  * 
  * Returns: { blocks: ParsedToolBlock[], pendingBlocks: PendingInvokeBlock[], hasFunctionCallsClose: boolean }
@@ -405,8 +381,14 @@ export function extractCompleteInvokeBlocksIncremental(content: string): {
   const pendingBlocks: PendingInvokeBlock[] = [];
 
   // Check if we have a function_calls opening
-  const openTag = '<function_calls>';
-  const closeTag = '</function_calls>';
+  const openTag = TOOL_FUNCTION_CALLS_OPEN;
+  const closeTag = TOOL_FUNCTION_CALLS_CLOSE;
+  const parserFlags = (globalThis as unknown as {
+    __ECHODE_TOOL_PARSER_FLAGS__?: {
+      skipBacktickTools?: boolean;
+      skipExampleTools?: boolean;
+    };
+  }).__ECHODE_TOOL_PARSER_FLAGS__;
 
   // Only skip a LEADING think block. Mid-response tags must remain literal text.
   const leadingStripped = stripLeadingThinkBlock(preprocessed);
@@ -423,12 +405,12 @@ export function extractCompleteInvokeBlocksIncremental(content: string): {
     }
 
     // Skip if preceded by backtick (inside code block or inline code)
-    if (openPos > 0 && preprocessed[openPos - 1] === '`') {
+    if (parserFlags?.skipBacktickTools && openPos > 0 && preprocessed[openPos - 1] === '`') {
       openPos += openTag.length;
       continue;
     }
 
-    // Skip if inside <parameter> values or inside a think/thinking block
+    // Skip if inside <${TOOL_XML_NAMESPACE}:parameter> values or inside a think/thinking block
     if (isInsideParameterValue(preprocessed, openPos) || isInsideThinkBlock(preprocessed, openPos)) {
       openPos += openTag.length;
       continue;
@@ -446,8 +428,8 @@ export function extractCompleteInvokeBlocksIncremental(content: string): {
       ? textBeforeTag.slice(lastNewlinePos + 1).trim()
       : textBeforeTag.trim();
 
-    // If there's significant text on the same line as <function_calls>, it's likely an explanation
-    if (textOnSameLine.length > 0) {
+    // If there's significant text on the same line as <${TOOL_XML_NAMESPACE}:function_calls>, it's likely an explanation
+    if (parserFlags?.skipExampleTools && textOnSameLine.length > 0) {
       // Check for common explanation patterns
       const isLikelyExplanation =
         /(?:example|here(?:'s| is)|for instance|like this|as follows|such as|usage:|format:|e\.g\.|i\.e\.)/i.test(textOnSameLine) ||
@@ -485,9 +467,9 @@ export function extractCompleteInvokeBlocksIncremental(content: string): {
     }
   }
 
-  // Find pending (partial) invoke blocks - where <invoke> opened but </invoke> hasn't arrived
+  // Find pending (partial) invoke blocks - where <${TOOL_XML_NAMESPACE}:invoke> opened but </${TOOL_XML_NAMESPACE}:invoke> hasn't arrived
   // Search for invoke opening tags that don't have a matching close
-  const invokeOpenRegex = /<invoke\s+name=["']([^"']+)["']>/g;
+  const invokeOpenRegex = new RegExp(`<${TOOL_XML_NAMESPACE}:invoke\\s+name=["']([^"']+)["']>`, 'g');
   let match: RegExpExecArray | null;
   let lastCompleteInvokeEnd = 0;
 
@@ -546,8 +528,7 @@ function parseInvokeBlockInternal(
       rawContent,
     };
 
-    // Note: multi-block apply_diff invocations are expanded higher up in the call stack
-    // (parseFunctionCallsBlock / extractCompleteInvokeBlocksIncremental)
+    // Note: Tool payloads may contain nested tag-like text; parsing uses balanced tag matching.
     return parsed;
   } catch {
     return null;

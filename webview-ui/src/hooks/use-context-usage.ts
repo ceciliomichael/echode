@@ -94,7 +94,7 @@ export function useContextUsage({
 
           if (execution.result) {
             // Use the same formatter as the actual AI prompt to get accurate token counts
-            // This prevents massive over-estimation for file tools (apply_diff, write_to_file)
+            // This prevents massive over-estimation for file tools (edit, write_to_file)
             // which return full file content in the result object but truncate it for the AI
             const formattedResult = formatToolResultForAI(execution.toolName, execution.result);
             toolResultsTokens += estimateTokens(formattedResult);

@@ -1,8 +1,9 @@
 import { findMatchingParameterClose, findMatchingInvokeClosingTagRespectingParams, isInsideInvokeParameterValue } from './tag-utils';
+import { TOOL_XML_NAMESPACE } from '../../lib/tool-xml';
 
 /**
  * Parse XML-style parameters from invoke block content
- * New format: <parameter name="paramName">value</parameter>
+ * New format: <${TOOL_XML_NAMESPACE}:parameter name="paramName">value</${TOOL_XML_NAMESPACE}:parameter>
  * Handles both complete and partial/unclosed tags during streaming
  * Uses balanced tag matching to handle nested content (e.g., HTML with </script>)
  */
@@ -11,7 +12,10 @@ export function parseXMLParameters(content: string): Record<string, unknown> {
     const processedParams = new Set<string>();
 
     // Find all parameter opening tags
-    const openingParamRegex = /<parameter(?:\s+[^>]+)?\s+name\s*=\s*["']([^"']+)["'][^>]*>/g;
+    const openingParamRegex = new RegExp(
+        `<${TOOL_XML_NAMESPACE}:parameter(?:\\s+[^>]+)?\\s+name\\s*=\\s*["']([^"']+)["'][^>]*>`
+        , 'g'
+    );
     let match: RegExpExecArray | null;
 
     while ((match = openingParamRegex.exec(content)) !== null) {
@@ -24,7 +28,7 @@ export function parseXMLParameters(content: string): Record<string, unknown> {
         }
 
         // Find matching closing tag using balanced matching
-        // This correctly handles nested </parameter> tags inside the content
+        // This correctly handles nested </${TOOL_XML_NAMESPACE}:parameter> tags inside the content
         const closePos = findMatchingParameterClose(content, openTagEnd);
 
         if (closePos !== -1) {
@@ -35,7 +39,7 @@ export function parseXMLParameters(content: string): Record<string, unknown> {
             const isRawStringParam = ['old_string', 'new_string', 'content', 'diff', 'edits', 'CodeContent'].includes(paramName);
             // Strip only leading/trailing newlines (AI adds newline after opening tag), preserve internal whitespace
             const finalValue = isRawStringParam
-                ? paramValue.replace(/^\n/, '').replace(/\n$/, '')
+                ? paramValue.replace(/^\r?\n/, '').replace(/\r?\n$/, '')
                 : paramValue.trim();
             // Skip parseParamValue for raw string params - they should never be converted to objects
             parameters[paramName] = isRawStringParam ? finalValue : parseParamValue(finalValue);
@@ -128,16 +132,16 @@ export function extractCompleteJsonObjects(partialArray: string): unknown[] {
  * Returns array of all invoke blocks found
  * IMPORTANT: Only extracts TOP-LEVEL invoke blocks, skipping nested invokes inside parameter values
  *
- * Each block is annotated with isClosed, which is true only when a matching </invoke>
+ * Each block is annotated with isClosed, which is true only when a matching </${TOOL_XML_NAMESPACE}:invoke>
  * has been found for that specific block. This is critical for streaming: in a
  * multi-invoke function_calls block, earlier invokes may be closed while the last
  * one is still streaming, and we must not mark that last invoke as closed until
- * its own </invoke> arrives.
+ * its own </${TOOL_XML_NAMESPACE}:invoke> arrives.
  */
 export function extractAllInvokeBlocks(content: string): Array<{ toolName: string; innerContent: string; fullMatch: string; isClosed: boolean }> {
     const blocks: Array<{ toolName: string; innerContent: string; fullMatch: string; isClosed: boolean }> = [];
-    const invokeOpenRegex = /<invoke\s+name=["']([^"']+)["']>/g;
-    const closeTag = '</invoke>';
+    const invokeOpenRegex = new RegExp(`<${TOOL_XML_NAMESPACE}:invoke\\s+name=["']([^"']+)["']>`, 'g');
+    const closeTag = `</${TOOL_XML_NAMESPACE}:invoke>`;
 
     let match: RegExpExecArray | null;
     while ((match = invokeOpenRegex.exec(content)) !== null) {

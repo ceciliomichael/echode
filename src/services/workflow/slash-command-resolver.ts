@@ -23,7 +23,9 @@ export async function resolveSlashCommands(messages: ChatMessage[]): Promise<voi
   const slashCommandPattern = /(?:^|(?<=[\s"']))\/\[([a-zA-Z0-9_-]+)\](?=[\s"']|$)/g;
 
   for (const message of messages) {
-    if (message.role !== 'user') continue;
+    if (message.role !== 'user') {
+      continue;
+    }
 
     // Process string content
     if (typeof message.content === 'string') {
@@ -66,7 +68,9 @@ async function replaceSlashCommands(
   
   console.log(`[SlashCommandResolver] Content: "${content.substring(0, 100)}...", Found ${matches.length} matches`);
   
-  if (matches.length === 0) return content;
+  if (matches.length === 0) {
+    return content;
+  }
   
   // Process each match and replace (in reverse order to preserve indices)
   let result = content;

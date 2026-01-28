@@ -108,6 +108,18 @@ function getUsageColor(percent: number, mode?: ChatMode): string {
   if (mode === 'general') {
     return '#a855f7';
   }
+  if (mode === 'review') {
+    return '#ef4444';
+  }
+  if (mode === 'yolo') {
+    return '#eab308';
+  }
+  if (mode === 'manual') {
+    return '#06b6d4';
+  }
+  if (mode === 'chat') {
+    return '#ec4899';
+  }
 
   // Warning colors for high usage
   if (percent >= 90) {

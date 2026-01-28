@@ -68,7 +68,9 @@ export async function injectVariables<C extends InjectableConfigType>(
   let configString: string = isObject ? JSON.stringify(config) : (config as string);
 
   for (const [key, value] of Object.entries(variables)) {
-    if (value == null) continue;
+    if (value === null || value === undefined) {
+      continue;
+    }
 
     if (typeof value === 'string') {
       // Normalize paths to forward slashes for cross-platform compatibility
@@ -83,7 +85,7 @@ export async function injectVariables<C extends InjectableConfigType>(
         (match, name) => {
           const nestedValue = value[name];
 
-          if (nestedValue == null) {
+          if (nestedValue === null || nestedValue === undefined) {
             console.warn(`[injectVariables] variable "${name}" referenced but not found in "${key}"`);
             return propNotFoundValue ?? match;
           }

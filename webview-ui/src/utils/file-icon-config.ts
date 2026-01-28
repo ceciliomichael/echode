@@ -139,6 +139,10 @@ export const LANGUAGE_ICONS: Record<string, FileIconConfig> = {
 
   // R
   r: { icon: SiR, color: '#276dc3', label: 'R' },
+  rmd: { icon: SiR, color: '#276dc3', label: 'RMarkdown' },
+  rproj: { icon: SiR, color: '#276dc3', label: 'R Project' },
+  rdata: { icon: SiR, color: '#276dc3', label: 'R Data' },
+  rds: { icon: SiR, color: '#276dc3', label: 'R Data Source' },
 
   // Shell/Scripts
   sh: { icon: VscCode, color: '#89e051', label: 'Shell' },
@@ -323,6 +327,7 @@ export const LANGUAGE_ID_TO_EXTENSION: Record<string, string> = {
   python: 'py',
   rust: 'rs',
   ruby: 'rb',
+  r: 'r',
   markdown: 'md',
   jsonc: 'json',
   shell: 'sh',

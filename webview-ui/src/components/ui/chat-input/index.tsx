@@ -24,6 +24,8 @@ interface ChatInputProps {
   onStop?: () => void;
   queuedMessages?: QueuedMessage[];
   onRemoveFromQueue?: (id: string) => void;
+  onUpdateQueueMessage?: (id: string, content: string, imageAttachments?: ImageAttachment[]) => void;
+  onForceSendQueueMessage?: (id: string) => void;
   onClearQueue?: () => void;
   mode?: ChatMode;
   onModeChange?: (mode: ChatMode) => void;
@@ -49,6 +51,8 @@ export function ChatInput({
   onStop,
   queuedMessages = [],
   onRemoveFromQueue,
+  onUpdateQueueMessage,
+  onForceSendQueueMessage,
   onClearQueue,
   mode,
   onModeChange,
@@ -155,8 +159,7 @@ export function ChatInput({
 
   return (
     <div
-      className="relative w-full"
-      data-edit-outside-ignore="true"
+      className={`relative w-full ${disabled ? 'pointer-events-none opacity-60' : ''}`}
       style={{
         paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))",
         backgroundColor: 'var(--vscode-sideBar-background)',
@@ -164,9 +167,18 @@ export function ChatInput({
         position: 'relative',
       }}
     >
-      {queuedMessages.length > 0 && onRemoveFromQueue && (
-        <div className="mb-2">
-          <QueueBlock queuedMessages={queuedMessages} onRemove={onRemoveFromQueue} />
+      {queuedMessages.length > 0 && onRemoveFromQueue && onUpdateQueueMessage && onForceSendQueueMessage && (
+        <div className="mb-2" data-edit-outside-ignore="true">
+          <QueueBlock
+            queuedMessages={queuedMessages}
+            onRemove={onRemoveFromQueue}
+            onUpdate={onUpdateQueueMessage}
+            onForceSend={onForceSendQueueMessage}
+            provider={provider}
+            model={model}
+            mode={mode}
+            onModelChange={onModelChange}
+          />
         </div>
       )}
 
@@ -254,7 +266,10 @@ export function ChatInput({
             disabled={disabled}
             showStopButton={showStopButton}
             hasInput={!!input.trim()}
-            onStop={onStop}
+            onStop={() => {
+              if (onStop) onStop();
+              if (onClearQueue) onClearQueue();
+            }}
           />
         </form>
       </section>

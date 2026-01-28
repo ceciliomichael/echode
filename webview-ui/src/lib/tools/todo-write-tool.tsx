@@ -2,6 +2,7 @@ import { ListChecks, CheckCircle2 } from 'lucide-react';
 import type { ToolExecutionResult } from '../../types/tool';
 import { registerToolPlugin } from './tool-plugin';
 import { executeToolViaExtension } from '../tool-utils';
+import { TOOL_FUNCTION_CALLS_CLOSE, TOOL_FUNCTION_CALLS_OPEN, TOOL_XML_NAMESPACE } from '../tool-xml';
 
 /**
  * Todo Write Tool
@@ -21,7 +22,7 @@ registerToolPlugin({
     description: 'Write and manage todo list tasks',
     icon: ListChecks,
     usage: 'Write tasks to the todo list',
-    formatExample: '<function_calls>\n<invoke name="todo_write">\n<parameter name="tasks">[{"id":"1","content":"First task","status":"pending"},{"id":"2","content":"Second task","status":"in_progress"}]</parameter>\n</invoke>\n</function_calls>',
+    formatExample: `${TOOL_FUNCTION_CALLS_OPEN}\n<${TOOL_XML_NAMESPACE}:invoke name="todo_write">\n<${TOOL_XML_NAMESPACE}:parameter name="tasks">[{"id":"1","content":"First task","status":"pending"},{"id":"2","content":"Second task","status":"in_progress"}]</${TOOL_XML_NAMESPACE}:parameter>\n</${TOOL_XML_NAMESPACE}:invoke>\n${TOOL_FUNCTION_CALLS_CLOSE}`,
   },
   handler: {
     execute: executeTodoWrite,

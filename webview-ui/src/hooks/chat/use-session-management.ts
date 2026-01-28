@@ -11,6 +11,8 @@ interface SessionManagementProps {
   currentSessionIdRef: React.MutableRefObject<string | null>;
   isStreamingRef: React.MutableRefObject<boolean>;
   isExecutingToolRef: React.MutableRefObject<boolean>;
+  editingMessageIdRef: React.MutableRefObject<string | null>;
+  revertPreviewMessageIdRef: React.MutableRefObject<string | null>;
   abortAndReset: () => boolean;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   setCurrentSessionId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -27,6 +29,8 @@ export function useSessionManagement({
   currentSessionIdRef,
   isStreamingRef,
   isExecutingToolRef,
+  editingMessageIdRef,
+  revertPreviewMessageIdRef,
   abortAndReset,
   setMessages,
   setCurrentSessionId,
@@ -62,6 +66,10 @@ export function useSessionManagement({
       metadata: {
         messageCount: currentMessages.length,
         preview: storageService.getPreview(currentMessages),
+      },
+      uiState: {
+        editingMessageId: editingMessageIdRef.current,
+        revertPreviewMessageId: revertPreviewMessageIdRef.current,
       },
     };
 

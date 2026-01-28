@@ -1,6 +1,6 @@
 /**
  * Line number utilities from Roo Code
- * Critical for AI accuracy with apply_diff and read_file tools
+ * Critical for AI accuracy with edit and read_file tools
  */
 
 /**

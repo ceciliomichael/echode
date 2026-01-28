@@ -90,6 +90,7 @@ export class MCPClient {
   private async sendRequest(
     method: string,
     params?: Record<string, unknown> | unknown[],
+    signal?: AbortSignal,
   ): Promise<unknown> {
     const id = this.nextRequestId++;
     const request: JSONRPCRequest = {
@@ -100,18 +101,54 @@ export class MCPClient {
     };
 
     return new Promise((resolve, reject) => {
-      this.pendingRequests.set(id, { resolve, reject });
+      // Handle abort signal
+      if (signal?.aborted) {
+        return reject(new Error("Request aborted"));
+      }
+
+      const abortHandler = () => {
+        if (this.pendingRequests.has(id)) {
+          this.pendingRequests.delete(id);
+          reject(new Error("Request aborted"));
+        }
+      };
+
+      if (signal) {
+        signal.addEventListener("abort", abortHandler);
+      }
+
+      // Cleanup function to remove listener
+      const cleanup = () => {
+        if (signal) {
+          signal.removeEventListener("abort", abortHandler);
+        }
+      };
+
+      // Wrap resolve/reject to ensure cleanup
+      const wrappedResolve = (value: unknown) => {
+        cleanup();
+        resolve(value);
+      };
+
+      const wrappedReject = (error: Error) => {
+        cleanup();
+        reject(error);
+      };
+
+      this.pendingRequests.set(id, { resolve: wrappedResolve, reject: wrappedReject });
 
       this.transport.send(request).catch((error) => {
-        this.pendingRequests.delete(id);
-        reject(error);
+        if (this.pendingRequests.has(id)) {
+          this.pendingRequests.delete(id);
+          wrappedReject(error);
+        }
       });
 
       // Set timeout for request (30 seconds)
       setTimeout(() => {
         if (this.pendingRequests.has(id)) {
           this.pendingRequests.delete(id);
-          reject(new Error(`Request timeout for method: ${method}`));
+          wrappedReject(new Error(`Request timeout for method: ${method}`));
         }
       }, 30000);
     });
@@ -172,7 +209,7 @@ export class MCPClient {
   /**
    * Call a tool on the server
    */
-  async callTool(params: MCPCallToolParams): Promise<MCPCallToolResponse> {
+  async callTool(params: MCPCallToolParams, signal?: AbortSignal): Promise<MCPCallToolResponse> {
     if (!this.isInitialized) {
       throw new Error("Client not initialized. Call initialize() first.");
     }
@@ -180,6 +217,7 @@ export class MCPClient {
     const result = (await this.sendRequest(
       "tools/call",
       params as unknown as Record<string, unknown>,
+      signal
     )) as MCPCallToolResponse;
     return result;
   }

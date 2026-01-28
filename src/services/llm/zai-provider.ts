@@ -113,6 +113,103 @@ export class ZaiProvider implements ILLMProvider {
         let buffer = '';
         let isInThinkingBlock = false;
 
+        const parseSseEvent = (eventText: string): void => {
+          const rawLines = eventText.split('\n').map((l) => l.replace(/\r$/, ''));
+          const dataLines: string[] = [];
+
+          for (const rawLine of rawLines) {
+            const line = rawLine.trimEnd();
+            if (!line) {
+              continue;
+            }
+            // SSE comments start with ':'
+            if (line.startsWith(':')) {
+              continue;
+            }
+
+            // Accept both `data:` and `data: `
+            if (line.startsWith('data:')) {
+              dataLines.push(line.slice('data:'.length).replace(/^\s/, ''));
+            }
+          }
+
+          if (dataLines.length === 0) {
+            return;
+          }
+
+          const data = dataLines.join('\n').trim();
+          if (!data || data === '[DONE]') {
+            return;
+          }
+
+          if (!hasReceivedFirstChunk) {
+            hasReceivedFirstChunk = true;
+            if (timeoutId) {
+              clearTimeout(timeoutId);
+              timeoutId = null;
+            }
+          }
+
+          try {
+            const chunk = JSON.parse(data);
+
+            // Extract delta from the raw JSON - no SDK filtering
+            const choice = chunk.choices?.[0];
+            const delta = choice?.delta;
+
+            if (!delta) {
+              return;
+            }
+
+            // Handle reasoning_content (Z.ai thinking mode)
+            const reasoningContent = delta.reasoning_content;
+
+            if (reasoningContent) {
+              hasReceivedContent = true;
+
+              if (!isInThinkingBlock) {
+                isInThinkingBlock = true;
+                webview.webview.postMessage({
+                  type: 'chatStreamChunk',
+                  requestId,
+                  chunk: '<' + 'thinking>'
+                });
+              }
+
+              webview.webview.postMessage({
+                type: 'chatStreamChunk',
+                requestId,
+                chunk: reasoningContent
+              });
+            }
+
+            // Handle regular content
+            const content = delta.content;
+            if (content) {
+              hasReceivedContent = true;
+
+              // Close thinking block before regular content
+              if (isInThinkingBlock) {
+                isInThinkingBlock = false;
+                webview.webview.postMessage({
+                  type: 'chatStreamChunk',
+                  requestId,
+                  chunk: '</' + 'thinking>'
+                });
+              }
+
+              webview.webview.postMessage({
+                type: 'chatStreamChunk',
+                requestId,
+                chunk: content
+              });
+            }
+          } catch (_e) {
+            // Skip malformed JSON chunks
+            console.error('[ZaiProvider] Error parsing SSE chunk:', _e);
+          }
+        };
+
         while (true) {
           if (combinedAborted()) {
             break;
@@ -124,95 +221,23 @@ export class ZaiProvider implements ILLMProvider {
           }
 
           buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          
-          // Keep the last incomplete line in buffer
-          buffer = lines.pop() || '';
 
-          for (const line of lines) {
+          // Split by SSE event boundary: blank line (supports both \n\n and \r\n\r\n)
+          // Keep the last incomplete event in buffer.
+          const eventParts = buffer.split(/\r?\n\r?\n/);
+          buffer = eventParts.pop() || '';
+
+          for (const eventText of eventParts) {
             if (combinedAborted()) {
               break;
             }
-            if (line.trim() === '') {
+            if (!eventText.trim()) {
               continue;
             }
-            if (line.trim() === 'data: [DONE]') {
-              continue;
-            }
-
-            if (!hasReceivedFirstChunk) {
-              hasReceivedFirstChunk = true;
-              if (timeoutId) {
-                clearTimeout(timeoutId);
-                timeoutId = null;
-              }
-            }
-            
-            if (line.startsWith('data: ')) {
-              try {
-                const jsonStr = line.slice(6);
-                const chunk = JSON.parse(jsonStr);
-
-                // Extract delta from the raw JSON - no SDK filtering
-                const choice = chunk.choices?.[0];
-                const delta = choice?.delta;
-                
-                if (!delta) {
-                  continue;
-                }
-
-                // Handle reasoning_content (Z.ai thinking mode)
-                const reasoningContent = delta.reasoning_content;
-                
-                if (reasoningContent) {
-                  hasReceivedContent = true;
-
-                  if (!isInThinkingBlock) {
-                    isInThinkingBlock = true;
-                    webview.webview.postMessage({
-                      type: 'chatStreamChunk',
-                      requestId,
-                      chunk: '<' + 'thinking>'
-                    });
-                  }
-
-                  webview.webview.postMessage({
-                    type: 'chatStreamChunk',
-                    requestId,
-                    chunk: reasoningContent
-                  });
-                }
-
-                // Handle regular content
-                const content = delta.content;
-                if (content) {
-                  hasReceivedContent = true;
-
-                  // Close thinking block before regular content
-                  if (isInThinkingBlock) {
-                    isInThinkingBlock = false;
-                    webview.webview.postMessage({
-                      type: 'chatStreamChunk',
-                      requestId,
-                      chunk: '</' + 'thinking>'
-                    });
-                  }
-
-                  webview.webview.postMessage({
-                    type: 'chatStreamChunk',
-                    requestId,
-                    chunk: content
-                  });
-                }
-
-              } catch (_e) {
-                // Skip malformed JSON chunks
-                console.error('[ZaiProvider] Error parsing SSE chunk:', _e);
-              }
-            }
+            parseSseEvent(eventText);
           }
         }
-        
+
         // Close thinking block if still open at end of stream
         if (isInThinkingBlock) {
           webview.webview.postMessage({

@@ -1,4 +1,4 @@
-import { ArrowUp, Paperclip } from 'lucide-react';
+import { ArrowUp, Check, Paperclip } from 'lucide-react';
 import { ModeDropdown } from '../mode-dropdown';
 import { ChatModelSelector } from '../chat-model-selector';
 import { ContextIndicator } from '../context-indicator';
@@ -17,6 +17,7 @@ interface EditFormToolbarProps {
   dropdownDirection: 'up' | 'down';
   contextUsage?: ContextUsageResult;
   hasContent: boolean;
+  isSaveMode?: boolean;
 }
 
 export function EditFormToolbar({
@@ -29,7 +30,8 @@ export function EditFormToolbar({
   onModelChange,
   dropdownDirection,
   contextUsage,
-  hasContent
+  hasContent,
+  isSaveMode = false
 }: EditFormToolbarProps) {
   const maxAttachments = 3;
   const isAttachmentDisabled = attachmentCount >= maxAttachments;
@@ -47,7 +49,7 @@ export function EditFormToolbar({
         >
           <Paperclip className="w-3.5 h-3.5" />
         </button>
-        {mode && onModeChange && (
+        {!isSaveMode && mode && onModeChange && (
           <ModeDropdown
             mode={mode}
             onModeChange={onModeChange}
@@ -55,13 +57,15 @@ export function EditFormToolbar({
             direction={dropdownDirection}
           />
         )}
-        <ChatModelSelector
-          provider={provider}
-          model={model}
-          onChange={onModelChange}
-          disabled={false}
-          direction={dropdownDirection}
-        />
+        {!isSaveMode && (
+          <ChatModelSelector
+            provider={provider}
+            model={model}
+            onChange={onModelChange}
+            disabled={false}
+            direction={dropdownDirection}
+          />
+        )}
       </div>
 
       <div className="flex items-center gap-2">
@@ -80,8 +84,9 @@ export function EditFormToolbar({
             backgroundColor: '#ffffff',
             color: '#000000'
           }}
+          title={isSaveMode ? 'Save changes' : 'Send message'}
         >
-          <ArrowUp className="w-3.5 h-3.5" />
+          {isSaveMode ? <Check className="w-3.5 h-3.5" /> : <ArrowUp className="w-3.5 h-3.5" />}
         </button>
       </div>
     </div>

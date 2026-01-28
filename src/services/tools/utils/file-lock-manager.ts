@@ -3,7 +3,7 @@ import * as path from 'path';
 /**
  * Manages file locks to coordinate access between tools potentially running in parallel.
  * This ensures that a tool reading a file (like get_diagnostics) waits if another tool
- * (like apply_diff) is currently modifying it.
+ * (like edit) is currently modifying it.
  */
 export class FileLockManager {
     private static locks = new Set<string>();

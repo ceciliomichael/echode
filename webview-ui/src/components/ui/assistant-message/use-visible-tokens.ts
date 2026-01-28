@@ -39,15 +39,20 @@ export function useVisibleTokens(
         }
         // For file modification tools, also require path parameter
         const isFileModificationTool =
-          token.toolName === 'write_to_file' || token.toolName === 'apply_diff';
+          token.toolName === 'write_to_file' || token.toolName === 'edit';
         if (isFileModificationTool) {
-          const tokenPath = token.parameters.path as string | undefined;
-          const executionPath = (toolExecutions?.get(token.toolExecutionId)?.parameters?.path as string | undefined);
+          const tokenPath = token.toolName === 'edit'
+            ? (token.parameters.file_path as string | undefined)
+            : (token.parameters.path as string | undefined);
+          const executionPath = token.toolName === 'edit'
+            ? (toolExecutions?.get(token.toolExecutionId)?.parameters?.file_path as string | undefined)
+            : (toolExecutions?.get(token.toolExecutionId)?.parameters?.path as string | undefined);
           const path = tokenPath || executionPath;
           // Show if path is present and not empty
           if (path && path.trim() !== '') {
             return true;
           }
+
           // Hide if path is missing or empty
           return false;
         }

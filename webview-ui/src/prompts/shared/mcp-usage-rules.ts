@@ -30,7 +30,7 @@ The following tools are external MCP (Model Context Protocol) tools: ${toolList}
 
 2. **PREFER BUILT-IN TOOLS**: Always try these first:
    - \`read_file\`, \`grep_search\`, \`glob_search\` for finding information
-   - \`write_to_file\`, \`apply_diff\` for making changes
+   - \`write_to_file\`, \`edit\` for making changes
    - \`list_files\` for exploring structure
    - \`echo_search\` for understanding code architecture
 

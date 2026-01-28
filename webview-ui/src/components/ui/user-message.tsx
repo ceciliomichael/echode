@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useLayoutEffect } from 'react';
 import { Undo2 } from 'lucide-react';
 import { MessageEditForm } from './message-edit-form/index';
 import { Mention } from './mention';
@@ -28,9 +28,10 @@ interface UserMessageProps {
   onModelChange: (provider: Provider, model: string) => void;
   contextUsage?: ContextUsageResult;
   isFirstMessage?: boolean;
+  isLastMessage?: boolean;
 }
 
-export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, attachments, imageAttachments, mode, onModeChange, provider, model, onModelChange, contextUsage, isFirstMessage = false }: UserMessageProps) {
+export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, onEditStart, onEditCancel, onRevert, attachments, imageAttachments, mode, onModeChange, provider, model, onModelChange, contextUsage, isFirstMessage = false, isLastMessage = false }: UserMessageProps) {
 
   // Check if this is a compressed history message - ONLY if it's the first message
   const isCompressedHistory = isFirstMessage && content.trimStart().startsWith('<compressed_history>');
@@ -41,29 +42,88 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
   const [isSingleLine, setIsSingleLine] = useState(true);
   const displayContent = stripAttachedFileBlocks(content);
 
-  // Scroll to place edit form near top of viewport for maximum dropdown space
+  // Track if we were at the bottom BEFORE edit mode changes.
+  // If we mount in edit mode and this is the last message (e.g. session reload), 
+  // assume we should start at the bottom.
+  const wasAtBottomRef = useRef(isEditing && isLastMessage);
+  
+  // Capture scroll position before edit mode changes (runs on every render)
   useEffect(() => {
-    if (isEditing && containerRef.current) {
-      // Small delay to ensure DOM has updated
-      setTimeout(() => {
-        const element = containerRef.current;
-        if (!element) return;
-        
-        // Get the scroll container (parent with overflow-y-auto)
-        const scrollContainer = element.closest('.overflow-y-auto');
-        if (scrollContainer) {
-          // Calculate position to leave ~80px margin from top
-          const elementRect = element.getBoundingClientRect();
-          const containerRect = scrollContainer.getBoundingClientRect();
-          const currentScrollTop = scrollContainer.scrollTop;
-          const targetScrollTop = currentScrollTop + (elementRect.top - containerRect.top) - 80;
-          
-          scrollContainer.scrollTop = Math.max(0, targetScrollTop);
-        } else {
-          // Fallback to scrollIntoView
-          element.scrollIntoView({ behavior: 'auto', block: 'start' });
-        }
-      }, 50);
+    if (!isEditing) {
+      const scrollContainer = containerRef.current?.closest('.overflow-y-auto') as HTMLElement | null;
+      if (scrollContainer) {
+        // Use a slightly larger threshold (10px) to match useAutoScroll logic
+        wasAtBottomRef.current = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < 10;
+      }
+    }
+  });
+
+  // Ensure message is visible when editing toggles (enter or exit)
+  useLayoutEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+
+    const scrollContainer = element.closest('.overflow-y-auto') as HTMLElement | null;
+    if (!scrollContainer) return;
+
+    // If user was at the bottom before opening edit, we need to maintain that position.
+    // The key insight: we DON'T scroll here. Instead, we let the content render naturally
+    // and use CSS scroll-anchor or the backup mechanism below.
+    // The "bounce" happens because we scroll, then content resizes, then we scroll again.
+    // Solution: Don't fight it. Just ensure final position is correct after everything settles.
+    if (isEditing && wasAtBottomRef.current) {
+      // Skip the immediate scroll - let React finish rendering first
+      // Use a MutationObserver to detect when the edit form has fully rendered
+      const observer = new MutationObserver(() => {
+        // Once mutations settle, snap to bottom
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      });
+      
+      observer.observe(element, { 
+        childList: true, 
+        subtree: true, 
+        attributes: true,
+        characterData: true 
+      });
+      
+      // Cleanup observer after a short period (the form should be done rendering)
+      const cleanup = setTimeout(() => {
+        observer.disconnect();
+        // Final snap to ensure we're at bottom
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      }, 150);
+      
+      return () => {
+        observer.disconnect();
+        clearTimeout(cleanup);
+      };
+    }
+
+    const elementRect = element.getBoundingClientRect();
+    const containerRect = scrollContainer.getBoundingClientRect();
+    const padding = 20; // Visual breathing room for non-bottom cases
+
+    // Smart scrolling logic to maintain user context
+    const isTallerThanContainer = elementRect.height > containerRect.height;
+
+    if (isTallerThanContainer) {
+      if (elementRect.top >= containerRect.top) {
+         const scrollTopDelta = elementRect.top - containerRect.top - padding;
+         scrollContainer.scrollBy({ top: scrollTopDelta, behavior: 'auto' });
+      } else {
+         const scrollBottomDelta = elementRect.bottom - containerRect.bottom;
+         if (scrollBottomDelta > 0) {
+            scrollContainer.scrollBy({ top: scrollBottomDelta, behavior: 'auto' });
+         }
+      }
+    } else {
+      if (elementRect.top < containerRect.top) {
+        const scrollTopDelta = elementRect.top - containerRect.top - padding;
+        scrollContainer.scrollBy({ top: scrollTopDelta, behavior: 'auto' });
+      } else if (elementRect.bottom > containerRect.bottom) {
+        const scrollBottomDelta = elementRect.bottom - containerRect.bottom + padding;
+        scrollContainer.scrollBy({ top: scrollBottomDelta, behavior: 'auto' });
+      }
     }
   }, [isEditing]);
 
@@ -114,13 +174,18 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
     onEdit(messageId, newContent, editedImageAttachments, forceEchoSearch);
   };
 
-  const handleSave = (newContent: string) => {
+  const handleSave = (newContent: string, _imageAttachments?: ImageAttachment[], _attachments?: DocumentAttachment[]) => {
     onUpdate(messageId, newContent);
   };
 
   if (isEditing) {
     return (
-      <div ref={containerRef} data-message-id={messageId} className="relative z-[100]">
+      <div 
+        ref={containerRef} 
+        data-message-id={messageId} 
+        className="relative z-[100]"
+        onClick={(e) => e.stopPropagation()}
+      >
         <MessageEditForm
           initialContent={content}
           onSubmit={handleSubmit}
@@ -134,6 +199,7 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
           model={model}
           onModelChange={onModelChange}
           contextUsage={contextUsage}
+          isSaveMode={false}
         />
       </div>
     );

@@ -12,7 +12,7 @@ You have access to these file tools for general tasks:
 
 **Creating & Editing**
 - \`write_to_file\`: Create new files or completely rewrite existing ones
-- \`apply_diff\`: Make targeted edits to specific parts of a file
+- \`edit\`: Make targeted edits to specific parts of a file
 
 **Organizing**
 - \`delete_file\`: Remove files you no longer need

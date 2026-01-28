@@ -47,6 +47,7 @@ function MessageBubbleComponent({ message, onEdit, onUpdate, isEditing, onEditSt
         onModelChange={onModelChange}
         contextUsage={contextUsage}
         isFirstMessage={isFirstMessage}
+        isLastMessage={isLastMessage}
       />
     );
   }

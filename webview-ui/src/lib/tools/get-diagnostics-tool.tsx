@@ -4,6 +4,7 @@ import type { ToolExecutionResult } from '../../types/tool';
 import { registerToolPlugin } from './tool-plugin';
 import { executeToolViaExtension } from '../tool-utils';
 import { getFileIconConfig } from '../../utils/file-icon-mapper';
+import { TOOL_FUNCTION_CALLS_CLOSE, TOOL_FUNCTION_CALLS_OPEN, TOOL_XML_NAMESPACE } from '../tool-xml';
 
 interface DiagnosticItem {
   line: number;
@@ -192,7 +193,7 @@ registerToolPlugin({
     description: 'Collect linter/compiler diagnostics from the workspace',
     icon: AlertTriangle,
     usage: 'Get linter/compiler errors and warnings',
-    formatExample: '<function_calls>\n<invoke name="get_diagnostics">\n<parameter name="path">src</parameter>\n</invoke>\n</function_calls>',
+    formatExample: `${TOOL_FUNCTION_CALLS_OPEN}\n<${TOOL_XML_NAMESPACE}:invoke name="get_diagnostics">\n<${TOOL_XML_NAMESPACE}:parameter name="path">src</${TOOL_XML_NAMESPACE}:parameter>\n</${TOOL_XML_NAMESPACE}:invoke>\n${TOOL_FUNCTION_CALLS_CLOSE}`,
   },
   handler: {
     execute: executeGetDiagnostics,

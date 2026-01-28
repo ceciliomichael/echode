@@ -1,6 +1,7 @@
 import type { ForcedEchoSearchContext } from './types';
 import { escapeXml } from './helpers';
 import { buildMinimalChatHistory } from './chat-history-builder';
+import { TOOL_FUNCTION_CALLS_CLOSE, TOOL_FUNCTION_CALLS_OPEN, TOOL_XML_NAMESPACE } from '../../lib/tool-xml';
 
 /**
  * Handle forced echo_search execution - bypasses LLM and executes echo_search directly
@@ -22,14 +23,14 @@ export async function handleForcedEchoSearch(ctx: ForcedEchoSearchContext): Prom
   } = ctx;
 
   // Create synthetic assistant content with echo_search tool block
-  // Must match the expected format: <function_calls><invoke name="tool">...
+  // Must match the expected format: <${TOOL_XML_NAMESPACE}:function_calls><${TOOL_XML_NAMESPACE}:invoke name="tool">...
   // Escape XML special characters to prevent breaking the tool block structure
   const escapedContent = escapeXml(content);
-  const syntheticToolBlock = `<function_calls>
-<invoke name="echo_search">
-<parameter name="query">${escapedContent}</parameter>
-</invoke>
-</function_calls>`;
+  const syntheticToolBlock = `${TOOL_FUNCTION_CALLS_OPEN}
+<${TOOL_XML_NAMESPACE}:invoke name="echo_search">
+<${TOOL_XML_NAMESPACE}:parameter name="query">${escapedContent}</${TOOL_XML_NAMESPACE}:parameter>
+</${TOOL_XML_NAMESPACE}:invoke>
+${TOOL_FUNCTION_CALLS_CLOSE}`;
 
   const assistantContent = syntheticToolBlock;
 

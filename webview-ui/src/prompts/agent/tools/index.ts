@@ -6,7 +6,7 @@
 import type { Tool } from '../../../types/tool';
 import {
     getReadFileInstructions,
-    getApplyDiffInstructions,
+    getEditInstructions,
     getWriteFileInstructions,
     getEchoSearchInstructions,
     getGrepSearchInstructions,
@@ -21,7 +21,7 @@ import {
 /** Standard tool instructions that take no parameters */
 const TOOL_INSTRUCTION_MAP: Record<string, () => string> = {
     'read_file': () => getReadFileInstructions(),
-    'apply_diff': getApplyDiffInstructions,
+    'edit': getEditInstructions,
     'write_to_file': getWriteFileInstructions,
     'echo_search': () => getEchoSearchInstructions(),
     'grep_search': () => getGrepSearchInstructions(),

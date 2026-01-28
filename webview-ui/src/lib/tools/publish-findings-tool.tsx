@@ -2,6 +2,7 @@ import { FileCheck2 } from 'lucide-react';
 import type { ToolExecutionResult } from '../../types/tool';
 import { registerToolPlugin } from './tool-plugin';
 import { executeToolViaExtension, type ChatMode } from '../tool-utils';
+import { TOOL_FUNCTION_CALLS_CLOSE, TOOL_FUNCTION_CALLS_OPEN, TOOL_XML_NAMESPACE } from '../tool-xml';
 
 /**
  * Publish Findings Tool Result Types
@@ -65,9 +66,9 @@ The report is saved with a unique ID and timestamp.
 Use this after completing your thorough code analysis.`,
     icon: FileCheck2,
     usage: 'Publish code review findings to a markdown report',
-    formatExample: `<function_calls>
-<invoke name="publish_findings">
-<parameter name="content">## Summary
+    formatExample: `${TOOL_FUNCTION_CALLS_OPEN}
+<${TOOL_XML_NAMESPACE}:invoke name="publish_findings">
+<${TOOL_XML_NAMESPACE}:parameter name="content">## Summary
 Overall code quality is good with some areas for improvement.
 
 ## Critical Issues
@@ -77,11 +78,11 @@ Overall code quality is good with some areas for improvement.
 ## Recommendations
 1. Add input validation
 2. Implement error handling
-</parameter>
-<parameter name="title">Authentication Module Review</parameter>
-<parameter name="scope">src/auth/**</parameter>
-</invoke>
-</function_calls>`,
+</${TOOL_XML_NAMESPACE}:parameter>
+<${TOOL_XML_NAMESPACE}:parameter name="title">Authentication Module Review</${TOOL_XML_NAMESPACE}:parameter>
+<${TOOL_XML_NAMESPACE}:parameter name="scope">src/auth/**</${TOOL_XML_NAMESPACE}:parameter>
+</${TOOL_XML_NAMESPACE}:invoke>
+${TOOL_FUNCTION_CALLS_CLOSE}`,
   },
   handler: {
     execute: executePublishFindings,

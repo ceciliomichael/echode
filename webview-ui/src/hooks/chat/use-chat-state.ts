@@ -30,6 +30,8 @@ export function useChatState() {
   const isExecutingToolRef = useRef(false);
   const messagesRef = useRef<Message[]>(messages);
   const hasStreamedContentRef = useRef(false);
+  const editingMessageIdRef = useRef<string | null>(null);
+  const revertPreviewMessageIdRef = useRef<string | null>(null);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -39,6 +41,14 @@ export function useChatState() {
   useEffect(() => {
     isExecutingToolRef.current = isExecutingTool;
   }, [isExecutingTool]);
+
+  useEffect(() => {
+    editingMessageIdRef.current = editingMessageId;
+  }, [editingMessageId]);
+
+  useEffect(() => {
+    revertPreviewMessageIdRef.current = revertPreviewMessageId;
+  }, [revertPreviewMessageId]);
 
   const clearSessionRef = useCallback(() => {
     currentSessionIdRef.current = null;
@@ -103,6 +113,8 @@ export function useChatState() {
     isExecutingToolRef,
     hasStreamedContentRef,
     messagesRef,
+    editingMessageIdRef,
+    revertPreviewMessageIdRef,
     // Helper functions for ref mutations
     clearSessionRef,
     abortAndReset,

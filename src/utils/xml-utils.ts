@@ -41,7 +41,7 @@ export function escapeXmlEntities(text: string): string {
  * IMPORTANT: Does NOT process HTML entities to prevent mismatches
  * 
  * Use this for:
- * - apply_diff tool parsing
+ * - edit tool parsing
  * - Comparing parsed content against original file content
  * - Any operation where exact character matching is required
  */

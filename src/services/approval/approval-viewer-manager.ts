@@ -222,7 +222,9 @@ export class ApprovalViewerManager {
   }
 
   private updatePanelContent(data: ApprovalData): void {
-    if (!this.panel) return;
+    if (!this.panel) {
+      return;
+    }
 
     // Update title with queue position
     this.panel.title = this.getPanelTitle(data);

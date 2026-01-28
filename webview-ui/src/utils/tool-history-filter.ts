@@ -1,5 +1,6 @@
 import type { ChatMode } from '../types/chat-mode';
 import { PLAN_MODE_TOOL_IDS, ASK_MODE_TOOL_IDS, GENERAL_MODE_TOOL_IDS } from '../lib/tool-config';
+import { TOOL_FUNCTION_CALLS_CLOSE, TOOL_FUNCTION_CALLS_OPEN, TOOL_XML_NAMESPACE } from '../lib/tool-xml';
 
 /**
  * Set of all standard built-in tools that we might want to filter.
@@ -13,7 +14,7 @@ const STANDARD_TOOLS = [
   'glob_search',
   'delete_file',
   'todo_write',
-  'apply_diff',
+  'edit',
   'get_diagnostics',
   'echo_search',
   'plan',
@@ -70,10 +71,11 @@ export function getFilteredToolsForMode(mode: ChatMode): string[] {
 
 /**
  * Remove tool call XML blocks for tools not available in the current mode.
- * This prevents the model from seeing <invoke name="write_to_file"> in history
+ * This prevents the model from seeing <${TOOL_XML_NAMESPACE}:invoke name="write_to_file"> in history
  * and thinking it can use that tool in Plan/Ask mode.
  */
 export function stripUnavailableToolCalls(content: string, mode: ChatMode): string {
+
   // Get list of tools to strip for this mode
   const unavailableTools = getFilteredToolsForMode(mode);
   
@@ -83,20 +85,23 @@ export function stripUnavailableToolCalls(content: string, mode: ChatMode): stri
 
   let result = content;
 
-  // Build regex pattern to match <invoke name="toolName">...</invoke> for each unavailable tool
+  // Build regex pattern to match <${TOOL_XML_NAMESPACE}:invoke name="toolName">...</${TOOL_XML_NAMESPACE}:invoke> for each unavailable tool
   for (const toolName of unavailableTools) {
-    // Match complete invoke blocks: <invoke name="toolName">...</invoke>
+    // Match complete invoke blocks: <${TOOL_XML_NAMESPACE}:invoke name="toolName">...</${TOOL_XML_NAMESPACE}:invoke>
     // Handles attributes and multiline content
     const invokePattern = new RegExp(
-      `<invoke\\s+name=["']${toolName}["'][^>]*>[\\s\\S]*?</invoke>`,
+      `<${TOOL_XML_NAMESPACE}:invoke\\s+name=["']${toolName}["'][^>]*>[\\s\\S]*?<\\/${TOOL_XML_NAMESPACE}:invoke>`,
       'gi'
     );
     result = result.replace(invokePattern, `[${toolName} call removed - not available in current mode]`);
   }
 
-  // Also strip any <function_calls> blocks that are now empty or only contain removed tool placeholders
+  // Also strip any <${TOOL_XML_NAMESPACE}:function_calls> blocks that are now empty or only contain removed tool placeholders
   // Match function_calls that only contain whitespace and/or our placeholder text
-  const emptyFunctionCallsPattern = /<function_calls>\s*(\[[\w_]+\s+call removed[^\]]*\]\s*)*<\/function_calls>/gi;
+  const emptyFunctionCallsPattern = new RegExp(
+    `${TOOL_FUNCTION_CALLS_OPEN}\\s*(\\[[\\w_]+\\s+call removed[^\\]]*\\]\\s*)*${TOOL_FUNCTION_CALLS_CLOSE}`,
+    'gi'
+  );
   result = result.replace(emptyFunctionCallsPattern, '[Previous tool calls not available in current mode]');
 
   return result;

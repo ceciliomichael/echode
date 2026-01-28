@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
+import { deleteFileWithRetry } from '../utils/fs-retry';
 import type { ToolExecutionState } from '../types/tool-execution';
 
 interface ChatMessage {
@@ -344,20 +345,12 @@ export class ChatHistoryService {
     }
   }
 
-  private deleteSessionFile(sessionId: string): void {
-    try {
-      const sessionPath = this.getSessionPath(sessionId);
-      if (fs.existsSync(sessionPath)) {
-        fs.unlinkSync(sessionPath);
-      }
+  private async deleteSessionFile(sessionId: string): Promise<void> {
+    const sessionPath = this.getSessionPath(sessionId);
+    await deleteFileWithRetry(vscode.Uri.file(sessionPath));
 
-      const tmpPath = sessionPath + '.tmp';
-      if (fs.existsSync(tmpPath)) {
-        fs.unlinkSync(tmpPath);
-      }
-    } catch (error) {
-      console.error('[ChatHistory] Failed to delete session file:', sessionId, error);
-    }
+    const tmpPath = sessionPath + '.tmp';
+    await deleteFileWithRetry(vscode.Uri.file(tmpPath));
   }
 
   async getAllSessions(): Promise<ChatSessionSummary[]> {
@@ -459,7 +452,7 @@ export class ChatHistoryService {
       if (workspaceSessions.length > MAX_SESSIONS) {
         const toDelete = workspaceSessions.slice(MAX_SESSIONS);
         for (const entry of toDelete) {
-          this.deleteSessionFile(entry.id);
+          await this.deleteSessionFile(entry.id);
         }
         const idsToDelete = new Set(toDelete.map(e => e.id));
         const filtered = index.filter(e => !idsToDelete.has(e.id));
@@ -475,7 +468,7 @@ export class ChatHistoryService {
 
   async deleteSession(sessionId: string): Promise<void> {
     try {
-      this.deleteSessionFile(sessionId);
+      await this.deleteSessionFile(sessionId);
 
       const index = this.readIndex();
       const filtered = index.filter(e => e.id !== sessionId);
@@ -492,7 +485,7 @@ export class ChatHistoryService {
       const toDelete = index.filter(e => e.workspaceId === this.workspaceId);
 
       for (const entry of toDelete) {
-        this.deleteSessionFile(entry.id);
+        await this.deleteSessionFile(entry.id);
       }
 
       const filtered = index.filter(e => e.workspaceId !== this.workspaceId);

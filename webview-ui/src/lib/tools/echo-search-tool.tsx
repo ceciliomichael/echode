@@ -8,6 +8,7 @@ import { executeToolViaExtension } from '../tool-utils';
 import type { ToolProgressCallback } from '../tool-registry';
 import { getFileIconConfig } from '../../utils/file-icon-mapper';
 import { storageService } from '../../utils/storage';
+import { TOOL_FUNCTION_CALLS_CLOSE, TOOL_FUNCTION_CALLS_OPEN, TOOL_XML_NAMESPACE } from '../tool-xml';
 
 /**
  * Echo Search Tool - Sub-agent for iterative code search
@@ -278,7 +279,7 @@ Parameters:
 Returns: summary, snippets with code locations, searchStats`,
     icon: Radar,
     usage: 'Semantic code search and exploration',
-    formatExample: '<function_calls>\n<invoke name="echo_search">\n<parameter name="query">How is authentication handled</parameter>\n<parameter name="path">src</parameter>\n</invoke>\n</function_calls>',
+    formatExample: `${TOOL_FUNCTION_CALLS_OPEN}\n<${TOOL_XML_NAMESPACE}:invoke name="echo_search">\n<${TOOL_XML_NAMESPACE}:parameter name="query">How is authentication handled</${TOOL_XML_NAMESPACE}:parameter>\n<${TOOL_XML_NAMESPACE}:parameter name="path">src</${TOOL_XML_NAMESPACE}:parameter>\n</${TOOL_XML_NAMESPACE}:invoke>\n${TOOL_FUNCTION_CALLS_CLOSE}`,
   },
   handler: {
     execute: executeEchoSearch,

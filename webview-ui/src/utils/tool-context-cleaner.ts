@@ -42,7 +42,7 @@ function extractToolSummary(content: string): string {
       if (queryMatch) {
         toolCalls.push(`grep_search: "${queryMatch[1]}"`);
       }
-    } else if (toolName === 'write_to_file' || toolName === 'apply_diff') {
+    } else if (toolName === 'write_to_file' || toolName === 'edit') {
       const pathMatch = detail?.match(/^([^\s→]+)/);
       if (pathMatch) {
         toolCalls.push(`${toolName}: ${pathMatch[1]}`);

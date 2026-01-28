@@ -6,10 +6,10 @@ import { cleanupEmptyDirectories } from '../utils/directory-cleanup';
 import { deleteFileWithRetry, writeFileWithRetry } from '../../../utils/fs-retry';
 
 /**
- * Handler for file operation tools: write_to_file, apply_diff, delete_file
+ * Handler for file operation tools: write_to_file, edit, delete_file
  */
 export class FileOperationsHandler implements IToolHistoryHandler {
-  readonly supportedTools = ['write_to_file', 'apply_diff', 'delete_file'];
+  readonly supportedTools = ['write_to_file', 'edit', 'delete_file'];
 
   async undo(
     toolName: string,
@@ -19,8 +19,8 @@ export class FileOperationsHandler implements IToolHistoryHandler {
     switch (toolName) {
       case 'write_to_file':
         return this.undoWriteFile(data, workspacePath);
-      case 'apply_diff':
-        return this.undoApplyDiff(data, workspacePath);
+      case 'edit':
+        return this.undoEdit(data, workspacePath);
       case 'delete_file':
         return this.undoDeleteFile(data, workspacePath);
       default:
@@ -36,8 +36,8 @@ export class FileOperationsHandler implements IToolHistoryHandler {
     switch (toolName) {
       case 'write_to_file':
         return this.redoWriteFile(data, workspacePath);
-      case 'apply_diff':
-        return this.redoApplyDiff(data, workspacePath);
+      case 'edit':
+        return this.redoEdit(data, workspacePath);
       case 'delete_file':
         return this.redoDeleteFile(data, workspacePath);
       default:
@@ -115,9 +115,9 @@ export class FileOperationsHandler implements IToolHistoryHandler {
   }
 
   /**
-   * Undo apply_diff operation
+   * Undo edit operation
    */
-  private async undoApplyDiff(
+  private async undoEdit(
     data: ToolDataRecord,
     workspacePath: string
   ): Promise<ToolHistoryResult> {
@@ -128,14 +128,14 @@ export class FileOperationsHandler implements IToolHistoryHandler {
     const uri = vscode.Uri.file(absolutePath);
 
     try {
-      // Restore original content before diff was applied (with retry for locked files)
+      // Restore original content before edit was applied (with retry for locked files)
       const contentBytes = Buffer.from(oldContent, 'utf8');
       await writeFileWithRetry(uri, contentBytes);
       return { success: true };
     } catch (error) {
       return {
         success: false,
-        error: `Failed to undo diff for file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: `Failed to undo edit for file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
   }
@@ -227,9 +227,9 @@ export class FileOperationsHandler implements IToolHistoryHandler {
   }
 
   /**
-   * Redo apply_diff operation
+   * Redo edit operation
    */
-  private async redoApplyDiff(
+  private async redoEdit(
     data: ToolDataRecord,
     workspacePath: string
   ): Promise<ToolHistoryResult> {
@@ -240,14 +240,14 @@ export class FileOperationsHandler implements IToolHistoryHandler {
     const uri = vscode.Uri.file(absolutePath);
 
     try {
-      // Re-apply diff content (with retry for locked files)
+      // Re-apply edited content (with retry for locked files)
       const contentBytes = Buffer.from(newContent, 'utf8');
       await writeFileWithRetry(uri, contentBytes);
       return { success: true };
     } catch (error) {
       return {
         success: false,
-        error: `Failed to redo diff for file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: `Failed to redo edit for file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
   }

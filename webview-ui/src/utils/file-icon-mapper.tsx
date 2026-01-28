@@ -68,6 +68,9 @@ export function getFileIconConfig(filePath: string): FileIconConfig {
   if (lowerFileName === '.gitignore') {
     return LANGUAGE_ICONS.gitignore;
   }
+  if (lowerFileName === '.rprofile' || lowerFileName === '.renviron') {
+    return LANGUAGE_ICONS.r;
+  }
   if (lowerFileName === '.gitattributes') {
     return LANGUAGE_ICONS.gitattributes;
   }

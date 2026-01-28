@@ -39,7 +39,7 @@ EchoDE can invoke tools to interact with your workspace:
 | `grep_search` | Fast text search across the codebase |
 | `glob_search` | Find files by pattern |
 | `list_files` | Explore directory structure |
-| `apply_diff` | Make surgical edits to existing files |
+| `edit` | Make surgical edits to existing files |
 | `write_to_file` | Create new files or complete rewrites |
 | `delete_file` | Remove files safely |
 | `get_diagnostics` | Collect linter and compiler errors |
@@ -187,7 +187,7 @@ EchoDE operates in four distinct modes, each designed for specific workflows. Sw
 The default and most powerful mode. EchoDE has full read-write access to your workspace.
 
 **Available Tools:**
-- File operations: `read_file`, `write_to_file`, `apply_diff`, `delete_file`
+- File operations: `read_file`, `write_to_file`, `edit`, `delete_file`
 - Search: `grep_search`, `glob_search`, `list_files`, `echo_search`
 - Task management: `todo_write`, `todo_read`
 - Quality assurance: `get_diagnostics`
@@ -196,7 +196,7 @@ The default and most powerful mode. EchoDE has full read-write access to your wo
 1. Receives your request
 2. Searches the codebase to gather context
 3. Creates a task list to track progress
-4. Makes targeted edits using `apply_diff` or `write_to_file`
+4. Makes targeted edits using `edit` or `write_to_file`
 5. Runs diagnostics to catch and fix errors
 6. Continues until the task is complete
 

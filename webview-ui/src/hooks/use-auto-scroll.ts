@@ -26,6 +26,7 @@ function getNumUserMsgs(messages: Message[]): number {
 export function useAutoScroll(
   ref: React.RefObject<HTMLDivElement | null>,
   messages: Message[],
+  shouldAutoScroll: boolean = true,
 ): void {
   const [userHasScrolled, setUserHasScrolled] = useState(false);
   const numUserMsgs = useMemo(() => getNumUserMsgs(messages), [messages.length]);
@@ -48,6 +49,14 @@ export function useAutoScroll(
         return;
       }
 
+      // If auto-scroll is disabled (e.g. editing a message), we shouldn't update
+      // the userHasScrolled state. This prevents unnecessary re-renders that can
+      // cause layout thrashing and scroll jumping, while maintaining the pre-edit
+      // scroll state.
+      if (!shouldAutoScroll) {
+        return;
+      }
+
       const elem = ref.current;
       if (!elem) return;
 
@@ -65,7 +74,7 @@ export function useAutoScroll(
 
     const resizeObserver = new ResizeObserver(() => {
       const elem = ref.current;
-      if (!elem || userHasScrolled) return;
+      if (!elem || userHasScrolled || !shouldAutoScroll) return;
       
       // Mark this as a programmatic scroll
       isAutoScrolling.current = true;
@@ -94,5 +103,5 @@ export function useAutoScroll(
       resizeObserver.disconnect();
       ref.current?.removeEventListener('scroll', handleScroll);
     };
-  }, [ref, messages.length, userHasScrolled]);
+  }, [ref, messages.length, userHasScrolled, shouldAutoScroll]);
 }

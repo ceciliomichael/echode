@@ -2,6 +2,7 @@ import { FileText } from 'lucide-react';
 import type { ToolExecutionResult } from '../../types/tool';
 import { registerToolPlugin } from './tool-plugin';
 import { executeToolViaExtension, type ChatMode } from '../tool-utils';
+import { TOOL_FUNCTION_CALLS_CLOSE, TOOL_FUNCTION_CALLS_OPEN, TOOL_XML_NAMESPACE } from '../tool-xml';
 
 /**
  * Read File Tool
@@ -21,8 +22,8 @@ registerToolPlugin({
     metadata: {
         id: 'read_file',
         name: 'Read File',
-        description: 'Read file contents with line numbers',
-        aiDescription: `Read file contents. Returns line-numbered output.
+        description: 'Read file contents',
+        aiDescription: `Read file contents.
 
 Parameters:
 - path: (required) File path with extension
@@ -30,7 +31,7 @@ Parameters:
 - limit: (optional) Lines to read (default: 500)`,
         icon: FileText,
         usage: 'Read file content',
-        formatExample: '<function_calls>\n<invoke name="read_file">\n<parameter name="path">src/app.ts</parameter>\n</invoke>\n</function_calls>',
+        formatExample: `${TOOL_FUNCTION_CALLS_OPEN}\n<${TOOL_XML_NAMESPACE}:invoke name="read_file">\n<${TOOL_XML_NAMESPACE}:parameter name="path">src/app.ts</${TOOL_XML_NAMESPACE}:parameter>\n</${TOOL_XML_NAMESPACE}:invoke>\n${TOOL_FUNCTION_CALLS_CLOSE}`,
     },
     handler: {
         execute: executeReadFile,

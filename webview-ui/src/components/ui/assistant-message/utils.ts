@@ -1,20 +1,18 @@
 import type { ToolExecutionState, EchoSearchProgress } from '../../../types/tool';
 import { REQUEST_BOUNDARY_MARKER } from '../../../utils/think-block-parser';
+import { TOOL_FUNCTION_CALLS_CLOSE, TOOL_FUNCTION_CALLS_OPEN, TOOL_XML_NAMESPACE } from '../../../lib/tool-xml';
 
 /**
  * Internal block tags that should be stripped from user-visible text
  */
 const INTERNAL_BLOCK_TAGS = [
-  'function_calls',
+  `${TOOL_XML_NAMESPACE}:function_calls`,
   'tool_calling',
   'tool_format',
   'tool_format_critical',
   'available_tools',
   'file_operations',
   'system_reminder',
-  // Corrupted AI hallucinations - should never display
-  'tool_call',
-  'tool_code',
 ];
 
 /**
@@ -38,21 +36,12 @@ export function sanitizeAssistantText(content: string): string {
       .join('');
 
     // Normalize common tool tags (whitespace/casing) so stripping is reliable
-    sanitized = sanitized.replace(/<\s*function_calls\s*>/gi, '<function_calls>');
-    sanitized = sanitized.replace(/<\s*\/\s*function_calls\s*>/gi, '</function_calls>');
-    sanitized = sanitized.replace(/<\s*invoke(\s+)/gi, '<invoke$1');
-    sanitized = sanitized.replace(/<\s*\/\s*invoke\s*>/gi, '</invoke>');
-    sanitized = sanitized.replace(/<\s*parameter(\s+)/gi, '<parameter$1');
-    sanitized = sanitized.replace(/<\s*\/\s*parameter\s*>/gi, '</parameter>');
-
-    // Clean corrupted hybrid tool call formats first
-    // Pattern: <tool_call>function_calls> -> remove entirely
-    sanitized = sanitized.replace(/<tool_call>function_calls>/gi, '');
-    // Pattern: <|tool|> or <|tool_call|> -> remove
-    sanitized = sanitized.replace(/<\|tool\|>/gi, '');
-    sanitized = sanitized.replace(/<\|tool_call\|>/gi, '');
-    sanitized = sanitized.replace(/<\|\/tool\|>/gi, '');
-    sanitized = sanitized.replace(/<\|\/tool_call\|>/gi, '');
+    sanitized = sanitized.replace(/<\s*tool\s*:\s*function_calls\s*>/gi, TOOL_FUNCTION_CALLS_OPEN);
+    sanitized = sanitized.replace(/<\s*\/\s*tool\s*:\s*function_calls\s*>/gi, TOOL_FUNCTION_CALLS_CLOSE);
+    sanitized = sanitized.replace(/<\s*tool\s*:\s*invoke(\s+)/gi, `<${TOOL_XML_NAMESPACE}:invoke$1`);
+    sanitized = sanitized.replace(/<\s*\/\s*tool\s*:\s*invoke\s*>/gi, `</${TOOL_XML_NAMESPACE}:invoke>`);
+    sanitized = sanitized.replace(/<\s*tool\s*:\s*parameter(\s+)/gi, `<${TOOL_XML_NAMESPACE}:parameter$1`);
+    sanitized = sanitized.replace(/<\s*\/\s*tool\s*:\s*parameter\s*>/gi, `</${TOOL_XML_NAMESPACE}:parameter>`);
 
     for (const tag of INTERNAL_BLOCK_TAGS) {
       const blockRegex = new RegExp(`<${tag}[^>]*>[\\s\\S]*?<\\/${tag}>`, 'gi');
@@ -60,8 +49,8 @@ export function sanitizeAssistantText(content: string): string {
     }
 
     // Remove any stray invoke/parameter blocks that might leak into text
-    sanitized = sanitized.replace(/<invoke[^>]*>[\s\S]*?<\/invoke>/gi, '');
-    sanitized = sanitized.replace(/<parameter[^>]*>[\s\S]*?<\/parameter>/gi, '');
+    sanitized = sanitized.replace(new RegExp(`<${TOOL_XML_NAMESPACE}:invoke[^>]*>[\\s\\S]*?<\\/${TOOL_XML_NAMESPACE}:invoke>`, 'gi'), '');
+    sanitized = sanitized.replace(new RegExp(`<${TOOL_XML_NAMESPACE}:parameter[^>]*>[\\s\\S]*?<\\/${TOOL_XML_NAMESPACE}:parameter>`, 'gi'), '');
 
     return sanitized;
   };

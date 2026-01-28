@@ -63,7 +63,7 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
       });
     });
 
-    // When files are modified via write_to_file or apply_diff tools, we want to
+    // When files are modified via write_to_file or edit tools, we want to
     // rescan the workspace for large/refactor-sensitive files.
     setFileModificationCallback(() => {
       this._workspaceManager.resetRefactorScan();

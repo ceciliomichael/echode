@@ -15,11 +15,16 @@ import type { ImageAttachment } from '../../../types/chat';
 // File accept string for attachment input
 const FILE_ACCEPT = '.sh,.bash,.zsh,.txt,.md,.markdown,.ts,.tsx,.js,.jsx,.mjs,.cjs,.json,.jsonc,.py,.pyw,.java,.kt,.kts,.cs,.fs,.go,.rs,.cpp,.c,.cc,.cxx,.h,.hpp,.hxx,.rb,.php,.swift,.yaml,.yml,.toml,.ini,.cfg,.conf,.xml,.html,.htm,.css,.scss,.sass,.less,.sql,.r,.lua,.pl,.pm,.env,.gitignore,.dockerignore,.dockerfile,.makefile,.cmake,.gradle,.properties,.log,.csv,text/*,application/json,.jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp';
 
+const INPUT_STYLE = {
+  color: 'var(--vscode-input-foreground)',
+  outline: 'none',
+};
+
 interface MessageEditFormProps {
   initialContent: string;
   onSubmit: (content: string, imageAttachments?: ImageAttachment[], forceEchoSearch?: boolean) => void;
   onCancel: () => void;
-  onSave?: (content: string) => void;
+  onSave?: (content: string, imageAttachments?: ImageAttachment[], attachments?: DocumentAttachment[]) => void;
   attachments?: DocumentAttachment[];
   imageAttachments?: ImageAttachment[];
   mode?: ChatMode;
@@ -28,6 +33,7 @@ interface MessageEditFormProps {
   model: string;
   onModelChange: (provider: Provider, model: string) => void;
   contextUsage?: ContextUsageResult;
+  isSaveMode?: boolean;
 }
 
 export function MessageEditForm({
@@ -42,7 +48,8 @@ export function MessageEditForm({
   provider,
   model,
   onModelChange,
-  contextUsage
+  contextUsage,
+  isSaveMode
 }: MessageEditFormProps) {
   // Get valid workflow names for slash command validation
   const { validWorkflowNames } = useWorkflowValidation();
@@ -126,10 +133,7 @@ export function MessageEditForm({
               placeholder="Type your message..."
               rows={1}
               className="w-full px-1.5 py-1 rounded-xl bg-transparent text-sm leading-normal min-h-[36px] max-h-[100px] overflow-y-auto resize-none border-0 relative"
-              style={{
-                color: 'var(--vscode-input-foreground)',
-                outline: 'none',
-              }}
+              style={INPUT_STYLE}
               onValueChange={handleValueChange}
               validWorkflowNames={validWorkflowNames}
               validMentionLabels={contextMenu.mentionPathMap}
@@ -147,6 +151,7 @@ export function MessageEditForm({
             dropdownDirection={dropdownDirection}
             contextUsage={contextUsage}
             hasContent={!!editContent.trim()}
+            isSaveMode={isSaveMode ?? !!onSave}
           />
         </form>
       </section>

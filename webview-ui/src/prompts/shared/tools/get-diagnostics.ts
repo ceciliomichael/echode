@@ -14,7 +14,7 @@ export function getGetDiagnosticsInstructions(options: GetDiagnosticsOptions = {
         return `<tool_usage tool="get_diagnostics">
 <summary>Get linter/compiler errors and warnings.</summary>
 <params>
-*   path: File or directory to check (optional, defaults to workspace)
+*   path: File or directory to check (Absolute path required, defaults to workspace)
 </params>
 <notes>
 *   Use after edits to verify code correctness.
@@ -27,7 +27,7 @@ export function getGetDiagnosticsInstructions(options: GetDiagnosticsOptions = {
 Get linter/compiler errors and warnings.
 
 Parameters:
-- path: File or directory to check (optional, defaults to workspace)
+- path: File or directory to check (Absolute path required, defaults to workspace)
 
 When to use:
 - Check for errors after edits

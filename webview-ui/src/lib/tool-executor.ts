@@ -260,11 +260,11 @@ export class ToolExecutor {
         const data = result.data as Record<string, unknown> | undefined;
         let formattedResult: string;
         
-        if (toolBlock.toolName === 'apply_diff' || toolBlock.toolName === 'write_to_file') {
+        if (toolBlock.toolName === 'edit' || toolBlock.toolName === 'write_to_file') {
           const path = data?.path as string;
           const action = data?.action as string | undefined;
-          if (toolBlock.toolName === 'apply_diff') {
-            formattedResult = `[apply_diff] ${path} → ${action === 'no_change' ? 'NO CHANGES' : 'APPLIED'}`;
+          if (toolBlock.toolName === 'edit') {
+            formattedResult = `[edit] ${path} → ${action === 'no_change' ? 'NO CHANGES' : 'APPLIED'}`;
           } else {
             formattedResult = `[write_to_file] ${path} → ${action === 'created' ? 'CREATED' : action === 'no_change' ? 'NO CHANGES' : 'MODIFIED'}`;
           }

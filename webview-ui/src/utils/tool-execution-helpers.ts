@@ -22,10 +22,10 @@ export function formatToolResultForAI(
   const data = result.data as Record<string, unknown> | undefined;
 
   switch (toolName) {
-    case 'apply_diff': {
+    case 'edit': {
       const path = data?.path as string;
       const action = data?.action as string | undefined;
-      return `[apply_diff] ${path} → ${action === 'no_change' ? 'NO CHANGES' : 'APPLIED'}`;
+      return `[edit] ${path} → ${action === 'no_change' ? 'NO CHANGES' : 'APPLIED'}`;
     }
 
     case 'write_to_file': {

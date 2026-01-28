@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import type { ITool, ToolExecutionResult, ChatMode } from './tool.interface';
 import { PathResolver } from '../path-resolver';
-import { addLineNumbers } from '../../utils/line-number-utils';
+// import { addLineNumbers } from '../../utils/line-number-utils';
 import { isBinaryFile } from '../../constants/excluded-patterns';
 
 /**
@@ -34,11 +34,11 @@ function getLargeFileReminder(totalLines: number, mode?: ChatMode): string | und
 export class ReadFileTool implements ITool {
   name = 'read_file';
 
-  private formatWithLineNumbers(lines: string[], startLine: number): string {
-    return lines
-      .map((line, index) => `${startLine + index} | ${line}`)
-      .join('\n');
-  }
+  // private formatWithLineNumbers(lines: string[], startLine: number): string {
+  //   return lines
+  //     .map((line, index) => `${startLine + index} | ${line}`)
+  //     .join('\n');
+  // }
 
   async execute(
     parameters: Record<string, unknown>,
@@ -115,7 +115,7 @@ export class ReadFileTool implements ITool {
         const defaultCount = Math.min(500, lines.length);
         const defaultEnd = Math.min(defaultStart + defaultCount, lines.length);
         const selectedLines = lines.slice(defaultStart, defaultEnd);
-        const numberedContent = addLineNumbers(selectedLines.join('\n'), defaultStart + 1);
+        const contentWithoutLineNumbers = selectedLines.join('\n');
 
         // Add mode-specific reminder for large files
         const refactorReminder = getLargeFileReminder(totalLines, mode);
@@ -133,7 +133,7 @@ export class ReadFileTool implements ITool {
           data: {
             path: filePath,
             absolutePath,
-            content: numberedContent.trimEnd(), // Remove trailing newline added by addLineNumbers
+            content: contentWithoutLineNumbers,
             startLine: defaultStart + 1,
             endLine: defaultEnd,
             totalLines,
@@ -148,7 +148,7 @@ export class ReadFileTool implements ITool {
       const count = limit || lines.length;
       const end = Math.min(start + count, lines.length);
       const selectedLines = lines.slice(start, end);
-      const numberedContent = addLineNumbers(selectedLines.join('\n'), start + 1);
+      const contentWithoutLineNumbers = selectedLines.join('\n');
 
       // Add mode-specific reminder for large files
       const refactorReminder = getLargeFileReminder(totalLines, mode);
@@ -166,7 +166,7 @@ export class ReadFileTool implements ITool {
         data: {
           path: filePath,
           absolutePath,
-          content: numberedContent.trimEnd(), // Remove trailing newline added by addLineNumbers
+          content: contentWithoutLineNumbers,
           startLine: start + 1,
           endLine: end,
           totalLines,

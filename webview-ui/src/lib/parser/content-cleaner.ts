@@ -4,6 +4,7 @@
  */
 
  import { stripLeadingThinkBlocksByRequestBoundary, stripRequestBoundaryMarkers } from '../../utils/think-block-parser';
+ import { TOOL_FUNCTION_CALLS_CLOSE, TOOL_FUNCTION_CALLS_OPEN, TOOL_XML_NAMESPACE } from '../tool-xml';
 
 /**
  * Clean up common AI mistakes in tool call formatting
@@ -13,57 +14,39 @@ export function cleanToolCallContent(content: string): string {
   let cleaned = content;
   let hadErrors = false;
 
-  // Fix corrupted tool call formats (AI hallucinations)
-  // Pattern: <tool_call>function_calls> or similar hybrid formats
-  const corruptedPatterns = [
-    // <tool_call>function_calls> -> <function_calls>
-    { pattern: /<tool_call>function_calls>/gi, replacement: '<function_calls>' },
-    // <tool_call> -> <function_calls>
-    { pattern: /<tool_call>/gi, replacement: '<function_calls>' },
-    // </tool_call> -> </function_calls>
-    { pattern: /<\/tool_call>/gi, replacement: '</function_calls>' },
-    // <tool_code> -> <function_calls>
-    { pattern: /<tool_code>/gi, replacement: '<function_calls>' },
-    // </tool_code> -> </function_calls>
-    { pattern: /<\/tool_code>/gi, replacement: '</function_calls>' },
-    // <|tool|> or <|tool_call|> -> <function_calls>
-    { pattern: /<\|tool\|>/gi, replacement: '<function_calls>' },
-    { pattern: /<\|tool_call\|>/gi, replacement: '<function_calls>' },
-    { pattern: /<\|\/tool\|>/gi, replacement: '</function_calls>' },
-    { pattern: /<\|\/tool_call\|>/gi, replacement: '</function_calls>' },
-  ];
-
-  for (const { pattern, replacement } of corruptedPatterns) {
-    if (pattern.test(cleaned)) {
-      hadErrors = true;
-      cleaned = cleaned.replace(pattern, replacement);
-    }
-  }
-
-  // Remove duplicate opening <function_calls> tags
-  const duplicateOpenings = cleaned.match(/<function_calls>\s*<function_calls>/g);
+  // Remove duplicate opening tool blocks
+  const duplicateOpenings = cleaned.match(new RegExp(`${TOOL_FUNCTION_CALLS_OPEN}\\s*${TOOL_FUNCTION_CALLS_OPEN}`, 'g'));
   if (duplicateOpenings) {
     hadErrors = true;
-    cleaned = cleaned.replace(/<function_calls>\s*<function_calls>/g, '<function_calls>');
+    cleaned = cleaned.replace(
+      new RegExp(`${TOOL_FUNCTION_CALLS_OPEN}\\s*${TOOL_FUNCTION_CALLS_OPEN}`, 'g'),
+      TOOL_FUNCTION_CALLS_OPEN
+    );
   }
 
-  // Remove duplicate closing </function_calls> tags
-  const duplicateClosings = cleaned.match(/<\/function_calls>\s*<\/function_calls>/g);
+  // Remove duplicate closing tool blocks
+  const duplicateClosings = cleaned.match(new RegExp(`${TOOL_FUNCTION_CALLS_CLOSE}\\s*${TOOL_FUNCTION_CALLS_CLOSE}`, 'g'));
   if (duplicateClosings) {
     hadErrors = true;
-    cleaned = cleaned.replace(/<\/function_calls>\s*<\/function_calls>/g, '</function_calls>');
+    cleaned = cleaned.replace(
+      new RegExp(`${TOOL_FUNCTION_CALLS_CLOSE}\\s*${TOOL_FUNCTION_CALLS_CLOSE}`, 'g'),
+      TOOL_FUNCTION_CALLS_CLOSE
+    );
   }
 
   // Fix cases where AI forgot to close previous tag and opened a new one
   let unclosedFixed = 0;
   cleaned = cleaned.replace(
-    /(<function_calls>[\s\S]*?<invoke[\s\S]*?<\/invoke>[\s\S]*?)(<function_calls>)/g,
+    new RegExp(
+      `(${TOOL_FUNCTION_CALLS_OPEN}[\\s\\S]*?<${TOOL_XML_NAMESPACE}:invoke[\\s\\S]*?<\\/${TOOL_XML_NAMESPACE}:invoke>[\\s\\S]*?)(${TOOL_FUNCTION_CALLS_OPEN})`,
+      'g'
+    ),
     (match, firstBlock, secondTag) => {
-      if (firstBlock.includes('</function_calls>')) {
+      if (firstBlock.includes(TOOL_FUNCTION_CALLS_CLOSE)) {
         return match;
       }
       unclosedFixed++;
-      return firstBlock + '</function_calls>\n' + secondTag;
+      return firstBlock + TOOL_FUNCTION_CALLS_CLOSE + '\n' + secondTag;
     }
   );
 
@@ -79,11 +62,11 @@ export function cleanToolCallContent(content: string): string {
   }
 
   // Fix malformed invoke tags
-  const malformedInvokes = cleaned.match(/<invoke\s+name=["'][^"']+["']\s*[^>]*(?!>)/g);
+  const malformedInvokes = cleaned.match(new RegExp(`<${TOOL_XML_NAMESPACE}:invoke\\s+name=["'][^"']+["']\\s*[^>]*(?!>)`, 'g'));
   if (malformedInvokes) {
     hadErrors = true;
     // Handle malformed invoke tags
-    cleaned = cleaned.replace(/<invoke\s+name=["'][^"']+["']\s*[^>]*(?!>)/g, '');
+    cleaned = cleaned.replace(new RegExp(`<${TOOL_XML_NAMESPACE}:invoke\\s+name=["'][^"']+["']\\s*[^>]*(?!>)`, 'g'), '');
   }
 
   if (hadErrors) {
@@ -97,7 +80,7 @@ export function cleanToolCallContent(content: string): string {
  * Remove a LEADING think/thinking block from content.
  *
  * IMPORTANT: We only remove a leading block (if the content literally starts with <think>/<thinking>).
- * Any other occurrences must remain untouched (e.g., inside apply_diff/write_to_file payloads).
+ * Any other occurrences must remain untouched (e.g., inside edit/write_to_file payloads).
  */
 export function removeThinkBlocks(content: string): string {
   const stripped = stripLeadingThinkBlocksByRequestBoundary(content).strippedContent;
@@ -114,8 +97,8 @@ export function removeCodeBlocks(content: string): string {
   let inFence = false;
   let inFunctionCalls = false;
 
-  const openTag = '<function_calls>';
-  const closeTag = '</function_calls>';
+  const openTag = TOOL_FUNCTION_CALLS_OPEN;
+  const closeTag = TOOL_FUNCTION_CALLS_CLOSE;
 
   while (i < content.length) {
     // Check for function_calls tags
@@ -169,7 +152,6 @@ export function removeCodeBlocks(content: string): string {
  * Combines code block removal, think block removal, and content cleaning
  */
 export function preprocessContent(content: string): string {
-  const withoutCodeBlocks = removeCodeBlocks(content);
-  const withoutThink = removeThinkBlocks(withoutCodeBlocks);
+  const withoutThink = removeThinkBlocks(content);
   return cleanToolCallContent(withoutThink);
 }

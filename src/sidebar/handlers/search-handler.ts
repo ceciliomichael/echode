@@ -216,7 +216,9 @@ export async function handleSearchWorkflows(
     // Filter by query and limit results
     const filteredResults = allResults
       .filter(result => {
-        if (!query) return true;
+        if (!query) {
+          return true;
+        }
         return result.label?.toLowerCase().includes(query) ?? false;
       })
       .slice(0, 30);

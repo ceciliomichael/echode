@@ -11,6 +11,7 @@ import { getOpenFilesDiagnostics } from '../services/diagnostics';
 import { getWorkspaceRoot } from '../services/tools/utils/workspace-utils';
 import { resolveSlashCommands } from '../services/workflow/slash-command-resolver';
 import { injectMentionInstructions } from '../utils/mention-utils';
+import { TOOL_XML_NAMESPACE } from '../tool-xml';
 
 interface ChatStreamRequest {
   requestId: number;
@@ -142,8 +143,8 @@ export async function handleChatStream(
           }
 
           const systemReminder = `\n\n<system_reminder>\nPlease remember:${toolsMessage}
-- Use only the XML format: <function_calls><invoke name="tool_name">...</invoke></function_calls>
-- For apply_diff: Use ONE search/replace block per invocation. Multiple blocks are strictly forbidden.
+- Use only the XML format: <${TOOL_XML_NAMESPACE}:function_calls><${TOOL_XML_NAMESPACE}:invoke name="tool_name">...</${TOOL_XML_NAMESPACE}:invoke></${TOOL_XML_NAMESPACE}:function_calls>
+- For edit: old_string must match exactly (unique unless replace_all is true). Do not attempt to batch multiple edits in one call.
 - Avoid redundant file reads when you already have the necessary code in context, but if you are unsure or need to verify details, call the relevant tool again instead of guessing.
 - Do not nest tool XML inside parameters.
 - Keep tool syntax internal. Never show it to the user.

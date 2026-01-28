@@ -3,6 +3,8 @@ import { getToolRenderer } from '../../lib/tool-registry';
 import { DiffViewer } from './diff-viewer';
 import { DiffResultWrapper } from './diff-result-wrapper';
 import { McpToolResult } from './tool-block/mcp-tool-result';
+import type { WorkspaceContext } from '../../types/workspace';
+import { Folder, File } from 'lucide-react';
 
 /**
  * Normalize content by converting escaped sequences to actual characters.
@@ -52,7 +54,8 @@ function stripLineNumbers(content: string): string {
 export function renderToolResult(
   toolName: string,
   data: unknown,
-  fileName: string
+  fileName: string,
+  workspace?: WorkspaceContext | null
 ): ReactNode {
   // Special handling for read_file - show view-only viewer
   if (toolName === 'read_file' && typeof data === 'object' && data !== null) {
@@ -123,8 +126,8 @@ export function renderToolResult(
     }
   }
 
-  // Special handling for apply_diff tool - show diff viewer
-  if (toolName === 'apply_diff' && typeof data === 'object' && data !== null) {
+  // Special handling for edit tool - show diff viewer
+  if (toolName === 'edit' && typeof data === 'object' && data !== null) {
     const result = data as {
       path?: string;
       oldContent?: string | null;
@@ -140,6 +143,82 @@ export function renderToolResult(
             fileName={fileName}
             contextLines={3}
           />
+        </div>
+      );
+    }
+  }
+
+  // Special handling for list_files tool - clean relative paths
+  if (toolName === 'list_files' && typeof data === 'object' && data !== null) {
+    // Helper to relativize path
+    const getRelPath = (fullPath: string) => {
+      if (!workspace) return fullPath;
+      const normalize = (p: string) => p.replace(/\\/g, '/').toLowerCase();
+      const normalizedFull = normalize(fullPath);
+      
+      // Try multi-root folders first
+      if (workspace.folders?.length) {
+        for (const folder of workspace.folders) {
+          const folderPath = normalize(folder.path);
+          if (normalizedFull.startsWith(folderPath)) {
+            let relative = fullPath.slice(folder.path.length);
+            if (relative.startsWith('/') || relative.startsWith('\\')) relative = relative.slice(1);
+            return relative || '.';
+          }
+        }
+      }
+      // Try primary root
+      if (workspace.path) {
+        const rootPath = normalize(workspace.path);
+        if (normalizedFull.startsWith(rootPath)) {
+          let relative = fullPath.slice(workspace.path.length);
+          if (relative.startsWith('/') || relative.startsWith('\\')) relative = relative.slice(1);
+          return relative || '.';
+        }
+      }
+      return fullPath;
+    };
+
+    // Cast data
+    const listData = data as { 
+      directories?: Array<{ name: string; type: string }>; 
+      files?: Array<{ name: string; type: string; size?: number }>;
+      truncated?: boolean;
+    };
+
+    if (listData.directories || listData.files) {
+      const dirs = listData.directories || [];
+      const files = listData.files || [];
+      
+      return (
+        <div className="px-3 py-3 text-xs font-mono">
+          <div className="space-y-1">
+            {dirs.map((dir, i) => (
+              <div key={`d-${i}`} className="flex items-center gap-2 text-blue-400">
+                <Folder className="w-3 h-3 flex-shrink-0" />
+                <span className="truncate">{getRelPath(dir.name)}/</span>
+              </div>
+            ))}
+            {files.map((file, i) => (
+              <div key={`f-${i}`} className="flex items-center gap-2" style={{ color: 'var(--vscode-editor-foreground)' }}>
+                <File className="w-3 h-3 flex-shrink-0 opacity-70" />
+                <span className="truncate">{getRelPath(file.name)}</span>
+                {file.size !== undefined && (
+                  <span className="opacity-50 ml-auto">
+                    {file.size > 1024 ? `${(file.size / 1024).toFixed(1)}KB` : `${file.size}B`}
+                  </span>
+                )}
+              </div>
+            ))}
+            {listData.truncated && (
+              <div className="text-yellow-500 italic mt-2">
+                ... listing truncated (too many files)
+              </div>
+            )}
+            {dirs.length === 0 && files.length === 0 && (
+              <div className="opacity-50 italic">Empty directory</div>
+            )}
+          </div>
         </div>
       );
     }

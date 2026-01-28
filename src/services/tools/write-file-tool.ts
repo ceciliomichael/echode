@@ -5,10 +5,29 @@ import { unescapeHtmlEntities, stripAllCDataWrappers } from '../../utils/text-no
 import { detectCodeOmission } from '../../utils/detect-code-omission';
 import { getWorkspaceRoot, resolveAbsolutePath, getCreatedDirectories } from './utils/workspace-utils';
 import { FileLockManager } from './utils/file-lock-manager';
-import { getFileDiagnosticsAfterEdit, formatDiagnosticsForAI } from './utils/diagnostics-utils';
+import { writeFileWithRetry } from './utils/write-file-with-retry';
 
 export class WriteFileTool implements ITool {
   name = 'write_to_file';
+
+  inputSchema = {
+    type: 'object',
+    properties: {
+      path: {
+        type: 'string',
+        description: 'File path to write to',
+      },
+      content: {
+        type: 'string',
+        description: 'The full content to write to the file',
+      },
+      line_count: {
+        type: 'number',
+        description: 'Expected line count (optional, for validation)',
+      },
+    },
+    required: ['path', 'content'],
+  };
 
   private readonly BINARY_EXTENSIONS = new Set([
     'png', 'jpg', 'jpeg', 'gif', 'ico', 'bmp', 'webp',
@@ -259,7 +278,15 @@ export class WriteFileTool implements ITool {
     const absolutePath = resolveAbsolutePath(filePath, workspaceRoot);
 
     // Acquire lock
-    FileLockManager.tryAcquire(absolutePath);
+    let acquired = FileLockManager.tryAcquire(absolutePath);
+    if (!acquired) {
+      await FileLockManager.waitForLock(absolutePath);
+      acquired = FileLockManager.tryAcquire(absolutePath);
+    }
+
+    if (!acquired) {
+      return { success: false, error: `File is currently being modified: ${filePath}` };
+    }
 
     try {
       const uri = vscode.Uri.file(absolutePath);
@@ -332,34 +359,12 @@ export class WriteFileTool implements ITool {
       }
 
       // Write new content
-      if (existingDocument) {
-        // Use WorkspaceEdit for existing text documents to handle dirty state and synchronization
-        const edit = new vscode.WorkspaceEdit();
-        const lastLine = existingDocument.lineAt(existingDocument.lineCount - 1);
-        const fullRange = new vscode.Range(0, 0, lastLine.lineNumber, lastLine.range.end.character);
-
-        edit.replace(uri, fullRange, content);
-        const applied = await vscode.workspace.applyEdit(edit);
-
-        if (!applied) {
-          throw new Error('Failed to apply WorkspaceEdit');
-        }
-        await existingDocument.save();
-      } else {
-        // New file or non-text file: use direct file system write
-        const contentBytes = Buffer.from(content, 'utf8');
-        await vscode.workspace.fs.writeFile(uri, contentBytes);
-
-        // If we just created it, try to open it to make it visible
-        // Skip in manual mode since user already reviewed the diff
-        if (!fileExistsOnDisk && mode !== 'manual') {
-          try {
-            const doc = await vscode.workspace.openTextDocument(uri);
-            await vscode.window.showTextDocument(doc, { preview: false, preserveFocus: true });
-          } catch (e) {
-            // Ignore if we can't open it
-          }
-        }
+      const writeResult = await writeFileWithRetry(uri, content, 3, 75);
+      if (!writeResult.success) {
+        return {
+          success: false,
+          error: writeResult.error ?? 'Failed to write file with integrity verification',
+        };
       }
 
       console.log('[WRITE_FILE] File written successfully');
@@ -412,14 +417,10 @@ export class WriteFileTool implements ITool {
         }
         : undefined;
 
-      // Wait for and fetch diagnostics after modification
-      const diagnostics = await getFileDiagnosticsAfterEdit(uri);
-      const diagnosticsText = formatDiagnosticsForAI(diagnostics);
-
       return {
         success: true,
         data: {
-          message: `Successfully ${fileExistsOnDisk ? 'modified' : 'created'} ${filePath}${diagnosticsText}`,
+          message: `Successfully ${fileExistsOnDisk ? 'modified' : 'created'} ${filePath}`,
           path: filePath,
           absolutePath,
           action: fileExistsOnDisk ? 'modified' : 'created',
@@ -429,7 +430,6 @@ export class WriteFileTool implements ITool {
           lineCount,
           largeFileReminder,
           refactorNotice,
-          diagnostics,
         },
       };
     } catch (error) {

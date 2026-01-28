@@ -12,7 +12,7 @@ import { executeToolViaExtension } from '../../lib/tool-utils';
  */
 const FILE_MODIFYING_TOOLS = new Set([
   'write_to_file',
-  'apply_diff',
+  'edit',
   'delete_file',
 ]);
 
@@ -23,20 +23,25 @@ export function extractModifiedFilePaths(toolResults: string[]): string[] {
   const modifiedPaths: string[] = [];
   
   for (const result of toolResults) {
-    // Check if this is a file-modifying tool result
-    const toolMatch = result.match(/^Tool: (write_to_file|apply_diff|delete_file)/);
-    if (!toolMatch) {
+    // Two possible formats:
+    // 1) "Tool: edit\nPath: src/file.ts\n..."
+    // 2) "[edit] src/file.ts → APPLIED"
+
+    const toolHeaderMatch = result.match(/^Tool: (write_to_file|edit|delete_file)/);
+    if (toolHeaderMatch) {
+      const pathMatch = result.match(/Path: ([^\n]+)/);
+      if (pathMatch && pathMatch[1]) {
+        const filePath = pathMatch[1].trim();
+        if (!modifiedPaths.includes(filePath)) {
+          modifiedPaths.push(filePath);
+        }
+      }
       continue;
     }
-    
-    // Extract file path from the result
-    // Format examples:
-    // "Tool: write_to_file\nPath: src/utils/file.ts\n..."
-    // "Tool: apply_diff\nPath: src/components/ui.tsx\n..."
-    const pathMatch = result.match(/Path: ([^\n]+)/);
-    if (pathMatch && pathMatch[1]) {
-      const filePath = pathMatch[1].trim();
-      // Don't add duplicates
+
+    const bracketMatch = result.match(/^\[(write_to_file|edit|delete_file)\]\s+(.+?)\s+→/);
+    if (bracketMatch) {
+      const filePath = bracketMatch[2].trim();
       if (!modifiedPaths.includes(filePath)) {
         modifiedPaths.push(filePath);
       }
@@ -52,7 +57,7 @@ export function extractModifiedFilePaths(toolResults: string[]): string[] {
 export function hasFileModifyingTools(toolResults: string[]): boolean {
   return toolResults.some(result => {
     for (const tool of FILE_MODIFYING_TOOLS) {
-      if (result.startsWith(`Tool: ${tool}`)) {
+      if (result.startsWith(`Tool: ${tool}`) || result.startsWith(`[${tool}]`)) {
         return true;
       }
     }

@@ -5,6 +5,7 @@
 
 import { unescapeXml } from './xml-utils';
 import { findMatchingParameterClose } from './tag-matcher';
+import { TOOL_XML_NAMESPACE } from '../tool-xml';
 
 /** Parameters that should preserve exact whitespace (for code content) */
 const WHITESPACE_PRESERVED_PARAMS = [
@@ -18,7 +19,7 @@ const WHITESPACE_PRESERVED_PARAMS = [
 
 /**
  * Parse XML-style parameters from invoke block content
- * Format: <parameter name="paramName">value</parameter>
+ * Format: <${TOOL_XML_NAMESPACE}:parameter name="paramName">value</${TOOL_XML_NAMESPACE}:parameter>
  * Supports both simple values and JSON values inside parameter tags
  * Uses balanced tag matching to handle nested parameter tags in content
  */
@@ -26,7 +27,10 @@ export function parseXMLParameters(content: string): Record<string, unknown> {
   const parameters: Record<string, unknown> = {};
   const processedParams = new Set<string>();
 
-  const openingParamRegex = /<parameter(?:\s+[^>]+)?\s+name\s*=\s*["']([^"']+)["'][^>]*>/g;
+  const openingParamRegex = new RegExp(
+    `<${TOOL_XML_NAMESPACE}:parameter(?:\\s+[^>]+)?\\s+name\\s*=\\s*["']([^"']+)["'][^>]*>`,
+    'g'
+  );
   let match: RegExpExecArray | null;
 
   while ((match = openingParamRegex.exec(content)) !== null) {
@@ -45,7 +49,7 @@ export function parseXMLParameters(content: string): Record<string, unknown> {
 
       // Strip only leading/trailing newlines, preserve internal whitespace
       const finalValue = shouldPreserveWhitespace
-        ? paramValue.replace(/^\n/, '').replace(/\n$/, '')
+        ? paramValue.replace(/^\r?\n/, '').replace(/\r?\n$/, '')
         : paramValue.trim();
 
       const unescapedValue = unescapeXml(finalValue);

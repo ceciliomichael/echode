@@ -244,3 +244,22 @@ export const MERMAID_CONTAINER_STYLES = `
     object-fit: contain;
   }
 `;
+
+/**
+ * Heuristic to fix common mermaid mistakes
+ * Primarily fixing unquoted labels in flowcharts: id[Label] -> id["Label"]
+ */
+export const fixMermaidCode = (code: string): string => {
+  let fixed = code;
+
+  // Fix unquoted text in square brackets for flowcharts
+  // Matches: id[Text with spaces] -> id["Text with spaces"]
+  // Excludes: id["Text"], id[(Database)], id[[Subroutine]], id[/.../], id[\...\]
+  // We use [^\r\n]*? to match content within the same line
+  fixed = fixed.replace(
+    /([a-zA-Z0-9_\-]+)(\s*)\[\s*(?!(?:"|[(\[\/\\]))([^\r\n\]]*?)\s*\]/g,
+    '$1$2["$3"]'
+  );
+
+  return fixed;
+};

@@ -73,7 +73,7 @@ export function getToolStatusDisplay(
       executingText = 'Searching';
     } else if (toolName === 'todo_write') {
       executingText = 'Processing';
-    } else if (toolName === 'apply_diff') {
+    } else if (toolName === 'edit') {
       executingText = 'Editing';
     } else if (toolName === 'echo_search') {
       executingText = 'Echoing';
@@ -163,8 +163,8 @@ export function getToolStatusDisplay(
     return renderWaveLabel('Writing');
   }
 
-  // apply_diff: show diff stats with color
-  if (toolName === 'apply_diff') {
+  // edit: show diff stats with color
+  if (toolName === 'edit') {
     if (toolCall.result?.success && toolCall.result.data) {
       const data = toolCall.result.data as {
         oldContent?: string | null;

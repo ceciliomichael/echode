@@ -15,7 +15,7 @@ interface UseMessageEditFormOptions {
   initialImageAttachments?: ImageAttachment[];
   onSubmit: (content: string, imageAttachments?: ImageAttachment[], forceEchoSearch?: boolean) => void;
   onCancel: () => void;
-  onSave?: (content: string) => void;
+  onSave?: (content: string, imageAttachments?: ImageAttachment[], attachments?: DocumentAttachment[]) => void;
   mode?: ChatMode;
 }
 
@@ -137,19 +137,19 @@ export function useMessageEditForm({
       }
       
       if (newContent !== initialContent) {
-        setEditContent(newContent);
+        setTimeout(() => {
+          setEditContent(newContent);
+        }, 0);
       }
     }
   }, [initialContent, contextMenu.mentionPathMap, contextMenu.mentionPathMapRef]);
 
-  // Focus and auto-resize on mount
+  // Focus on mount (resizing is handled by InputWithHighlights)
   useEffect(() => {
     const frameId = requestAnimationFrame(() => {
       if (textareaRef.current) {
         const textarea = textareaRef.current;
         textarea.focus();
-        textarea.style.height = 'auto';
-        textarea.style.height = `${textarea.scrollHeight}px`;
         textarea.setSelectionRange(textarea.value.length, textarea.value.length);
       }
     });
@@ -210,12 +210,12 @@ export function useMessageEditForm({
       const newContent = expandedContent + attachmentBlocks;
       onSubmit(newContent, currentImageAttachments, forceEchoSearch);
       if (onSave) {
-        onSave(newContent);
+        onSave(newContent, currentImageAttachments, currentAttachments);
       }
     } else {
       onCancel();
     }
-  }, [editContent, attachmentHandler.attachmentsRef, attachmentHandler.imageAttachmentsRef, contextMenu.mentionPathMap, onSubmit, onSave, onCancel]);
+  }, [editContent, attachmentHandler.attachmentsRef, attachmentHandler.imageAttachmentsRef, contextMenu.mentionPathMapRef, onSubmit, onSave, onCancel]);
 
   const handleChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;

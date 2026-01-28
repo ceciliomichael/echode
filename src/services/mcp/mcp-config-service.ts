@@ -461,13 +461,19 @@ export class MCPConfigService {
     if (config.type === 'stdio') {
       jsonConfig.type = 'stdio';
       jsonConfig.command = config.command;
-      if (config.args) jsonConfig.args = config.args;
-      if (config.env) jsonConfig.env = config.env;
+      if (config.args) {
+        jsonConfig.args = config.args;
+      }
+      if (config.env) {
+        jsonConfig.env = config.env;
+      }
     } else {
       // HTTP types (sse or streamable-http)
       jsonConfig.type = 'sse'; // Default to SSE for HTTP
       jsonConfig.url = config.url;
-      if (config.headers) jsonConfig.headers = config.headers;
+      if (config.headers) {
+        jsonConfig.headers = config.headers;
+      }
     }
 
     // Disabled state

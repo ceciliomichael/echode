@@ -344,7 +344,7 @@ export async function runContinuationStream(config: ContinuationStreamConfig): P
 
           // Check if function_calls is now closed - WAIT for all parallel executions
           if (hasFunctionCallsClose && blocks.length > 0) {
-            console.log(`[ContinuationStream] </function_calls> closed - waiting for ${parallelExecutions.size} parallel tool executions`);
+            console.log(`[ContinuationStream] function_calls closed - waiting for ${parallelExecutions.size} parallel tool executions`);
 
             const trimmedContinuation = continuationBaseContent + trimToFirstCompleteToolBlock(newContent);
             continuationContent = trimmedContinuation;

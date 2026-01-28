@@ -5,6 +5,7 @@ import {
   createOffscreenContainer,
   removeContainer,
   getMermaidThemeConfig,
+  fixMermaidCode,
 } from './utils';
 import type { MermaidParseResult } from './types';
 
@@ -57,7 +58,8 @@ export const useMermaidRenderer = ({
     let cancelled = false;
 
     const renderDiagram = async () => {
-      const trimmed = code.trim();
+      // Clean up the code and apply heuristics to fix common mistakes
+      const trimmed = fixMermaidCode(code.trim());
       if (!trimmed) {
         if (!cancelled) {
           setSvg('');

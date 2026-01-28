@@ -12,6 +12,7 @@ import type { Tool } from '../types/tool';
 import { getAllToolMetadata, getAllTools as getToolsFromRegistry } from './tool-registry';
 import type { ChatMode } from '../types/chat-mode';
 import { getMcpUsageRules } from '../prompts/shared/mcp-usage-rules';
+import { TOOL_XML_NAMESPACE } from './tool-xml';
 
 // ============================================================================
 // MODE-SPECIFIC TOOL SETS
@@ -44,7 +45,7 @@ export const ASK_MODE_TOOL_IDS = [
 export const GENERAL_MODE_TOOL_IDS = [
   'read_file',
   'write_to_file',
-  'apply_diff',
+  'edit',
   'list_files',
   'delete_file',
 ] as const;
@@ -72,7 +73,7 @@ const STANDARD_TOOL_IDS = new Set([
   'glob_search',
   'delete_file',
   'todo_write',
-  'apply_diff',
+  'edit',
   'get_diagnostics',
   'echo_search',
   'plan',
@@ -209,30 +210,34 @@ ${mcpRules}
 <tool_format>
 CRITICAL: You must strictly follow this XML format structure. Valid XML is STRICTLY  required.
 
+WHEN USER ASKS ABOUT FORMAT:
+1. Give the format without the "${TOOL_XML_NAMESPACE}" namespace.
+2. Follow number 1
+
 SEQUENTIAL EXECUTION:
-<function_calls>
-    <invoke name="TOOL_NAME">
-        <parameter name="param1">value1</parameter>
-        <parameter name="param2">value2</parameter>
-    </invoke>
-</function_calls>
+<${TOOL_XML_NAMESPACE}:function_calls>
+    <${TOOL_XML_NAMESPACE}:invoke name="TOOL_NAME">
+        <${TOOL_XML_NAMESPACE}:parameter name="param1">value1</${TOOL_XML_NAMESPACE}:parameter>
+        <${TOOL_XML_NAMESPACE}:parameter name="param2">value2</${TOOL_XML_NAMESPACE}:parameter>
+    </${TOOL_XML_NAMESPACE}:invoke>
+</${TOOL_XML_NAMESPACE}:function_calls>
 
 PARALLEL EXECUTION:
-<function_calls>
-    <invoke name="TOOL_NAME">
-        <parameter name="param1">value1</parameter>
-        <parameter name="param2">value2</parameter>
-    </invoke>
-    <invoke name="TOOL_NAME_2">
-        <parameter name="param1">value1</parameter>
-        <parameter name="param2">value2</parameter>
-    </invoke>
-</function_calls>
+<${TOOL_XML_NAMESPACE}:function_calls>
+    <${TOOL_XML_NAMESPACE}:invoke name="TOOL_NAME">
+        <${TOOL_XML_NAMESPACE}:parameter name="param1">value1</${TOOL_XML_NAMESPACE}:parameter>
+        <${TOOL_XML_NAMESPACE}:parameter name="param2">value2</${TOOL_XML_NAMESPACE}:parameter>
+    </${TOOL_XML_NAMESPACE}:invoke>
+    <${TOOL_XML_NAMESPACE}:invoke name="TOOL_NAME_2">
+        <${TOOL_XML_NAMESPACE}:parameter name="param1">value1</${TOOL_XML_NAMESPACE}:parameter>
+        <${TOOL_XML_NAMESPACE}:parameter name="param2">value2</${TOOL_XML_NAMESPACE}:parameter>
+    </${TOOL_XML_NAMESPACE}:invoke>
+</${TOOL_XML_NAMESPACE}:function_calls>
 
 FORMAT RULES:
-1. The root element must be <function_calls>.
-2. Each tool call must be inside an <invoke> tag.
-3. Parameters must be strictly inside <parameter> tags.
+1. The root element must be <${TOOL_XML_NAMESPACE}:function_calls>.
+2. Each tool call must be inside a <${TOOL_XML_NAMESPACE}:invoke> tag.
+3. Parameters must be strictly inside <${TOOL_XML_NAMESPACE}:parameter> tags.
 4. XML tags must be properly closed.
 </tool_format>
 

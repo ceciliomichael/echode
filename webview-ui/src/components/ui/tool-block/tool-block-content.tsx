@@ -7,6 +7,7 @@ import { PublishFindingsActions } from './publish-findings-actions';
 import type { ToolCall } from '../../../types/tool';
 import type { ToolFileInfo } from '../../../utils/tool-file-info';
 import type { ChatMode } from '../../../types/chat-mode';
+import type { WorkspaceContext } from '../../../types/workspace';
 
 interface ToolBlockContentProps {
   toolCall: ToolCall;
@@ -15,9 +16,10 @@ interface ToolBlockContentProps {
   messageId: string;
   isLastMessage?: boolean;
   mode?: ChatMode;
+  workspace?: WorkspaceContext | null;
 }
 
-export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, isLastMessage = true, mode }: ToolBlockContentProps) {
+export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, isLastMessage = true, mode, workspace }: ToolBlockContentProps) {
   const isAborted = toolCall.status === 'aborted';
   const isAwaitingUser = toolCall.status === 'awaiting_user';
   const isPlanTool = toolCall.toolName === 'plan';
@@ -112,12 +114,13 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, is
                   {renderToolResult(
                     toolCall.toolName,
                     { ...toolCall.result.data as object, progress: toolCall.progress },
-                    fileInfo.displayName
+                    fileInfo.displayName,
+                    workspace
                   )}
                 </div>
               ) : toolCall.result.success ? (
                 <div className="flex-1 min-h-0 flex flex-col" style={{ color: 'var(--vscode-editor-foreground)' }}>
-                  {renderToolResult(toolCall.toolName, toolCall.result.data, fileInfo.displayName)}
+                  {renderToolResult(toolCall.toolName, toolCall.result.data, fileInfo.displayName, workspace)}
 
                   {/* Plan tool action buttons */}
                   {showPlanActions && (

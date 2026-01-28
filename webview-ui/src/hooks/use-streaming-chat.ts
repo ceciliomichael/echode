@@ -37,6 +37,8 @@ export function useStreamingChat(
     currentSessionIdRef: state.currentSessionIdRef,
     isStreamingRef: state.isStreamingRef,
     isExecutingToolRef: state.isExecutingToolRef,
+    editingMessageIdRef: state.editingMessageIdRef,
+    revertPreviewMessageIdRef: state.revertPreviewMessageIdRef,
     abortAndReset: state.abortAndReset,
     setMessages: state.setMessages,
     setCurrentSessionId: state.setCurrentSessionId,

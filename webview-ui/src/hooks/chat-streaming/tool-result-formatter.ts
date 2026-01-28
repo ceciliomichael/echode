@@ -88,8 +88,8 @@ export function formatToolExecutionResults(
           } else if (stalePathsForThis && stalePathsForThis.size > 0) {
             // Some paths in this execution are stale (multi-file read case)
             // Format stale paths with condensed format, fresh paths with full content
-            const canUseDiff = mode === 'agent' || mode === 'general';
-            const searchHint = canUseDiff ? ' (copy for SEARCH blocks)' : '';
+            const canUseEdit = mode === 'agent' || mode === 'general';
+            const searchHint = canUseEdit ? ' (copy for edit old_string)' : '';
             
             if ('files' in data && Array.isArray(data.files)) {
               const files = data.files as Array<{ path: string; content: string }>;
@@ -107,8 +107,8 @@ export function formatToolExecutionResults(
             }
           } else {
             // Fresh read - format with full content
-            const canUseDiff = mode === 'agent' || mode === 'general';
-            const searchHint = canUseDiff ? ' (copy for SEARCH blocks)' : '';
+            const canUseEdit = mode === 'agent' || mode === 'general';
+            const searchHint = canUseEdit ? ' (copy for edit old_string)' : '';
 
             if ('files' in data && Array.isArray(data.files)) {
               // Multiple files case
@@ -138,14 +138,14 @@ export function formatToolExecutionResults(
           const directories = data.directories as Array<{ name: string }> | undefined;
           const files = data.files as Array<{ name: string }> | undefined;
           formattedResult = `Directory: ${data.path as string}\nDirectories: ${directories?.map(d => d.name).join(', ') || 'none'}\nFiles: ${files?.map(f => f.name).join(', ') || 'none'}`;
-        } else if (execution.toolName === 'apply_diff' || execution.toolName === 'write_to_file') {
+        } else if (execution.toolName === 'edit' || execution.toolName === 'write_to_file') {
           // For file modification tools, send MINIMAL info to AI - it already knows what it wrote
           const path = data.path as string;
           const action = data.action as string | undefined;
           const diagnostics = data.diagnostics as Array<{ severity: string; message: string }> | undefined;
           
           // Ultra-concise format
-          if (execution.toolName === 'apply_diff') {
+          if (execution.toolName === 'edit') {
             formattedResult = action === 'no_change' 
               ? `${path} → NO CHANGES` 
               : `${path} → APPLIED`;

@@ -2,6 +2,7 @@ import { Trash2 } from 'lucide-react';
 import type { ToolExecutionResult } from '../../types/tool';
 import { registerToolPlugin } from './tool-plugin';
 import { executeToolViaExtension } from '../tool-utils';
+import { TOOL_FUNCTION_CALLS_CLOSE, TOOL_FUNCTION_CALLS_OPEN, TOOL_XML_NAMESPACE } from '../tool-xml';
 
 /**
  * Delete File Tool
@@ -21,7 +22,7 @@ registerToolPlugin({
     description: 'Delete a file from the workspace',
     icon: Trash2,
     usage: 'Delete a file from the workspace',
-    formatExample: '<function_calls>\n<invoke name="delete_file">\n<parameter name="path">src/old-file.ts</parameter>\n</invoke>\n</function_calls>',
+    formatExample: `${TOOL_FUNCTION_CALLS_OPEN}\n<${TOOL_XML_NAMESPACE}:invoke name="delete_file">\n<${TOOL_XML_NAMESPACE}:parameter name="path">src/old-file.ts</${TOOL_XML_NAMESPACE}:parameter>\n</${TOOL_XML_NAMESPACE}:invoke>\n${TOOL_FUNCTION_CALLS_CLOSE}`,
   },
   handler: {
     execute: executeDeleteFile,

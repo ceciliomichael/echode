@@ -1,9 +1,11 @@
 /**
- * Check if a position is inside a <parameter> value for function_calls matching
+ * Check if a position is inside a <${TOOL_XML_NAMESPACE}:parameter> value for function_calls matching
  * Used to skip tags that appear as examples inside parameter content
  * 
- * IMPORTANT: Uses open/close counting to properly handle raw </parameter> text in content.
+ * IMPORTANT: Uses open/close counting to properly handle raw </${TOOL_XML_NAMESPACE}:parameter> text in content.
  */
+import { TOOL_FUNCTION_CALLS_CLOSE, TOOL_FUNCTION_CALLS_OPEN, TOOL_XML_NAMESPACE } from '../../lib/tool-xml';
+
 export function isInsideFunctionCallsParameterValue(content: string, position: number): boolean {
     const beforePos = content.slice(0, position);
 
@@ -12,8 +14,11 @@ export function isInsideFunctionCallsParameterValue(content: string, position: n
     let openCount = 0;
     let closeCount = 0;
     let searchPos = 0;
-    const paramOpenRegex = /<parameter(?:\s+[^>]+)?\s+name\s*=\s*["'][^"']+["'][^>]*>/g;
-    const paramClose = '</parameter>';
+    const paramOpenRegex = new RegExp(
+        `<${TOOL_XML_NAMESPACE}:parameter(?:\\s+[^>]+)?\\s+name\\s*=\\s*["'][^"']+["'][^>]*>`
+        , 'g'
+    );
+    const paramClose = `</${TOOL_XML_NAMESPACE}:parameter>`;
 
     while (searchPos < beforePos.length) {
         paramOpenRegex.lastIndex = searchPos;
@@ -29,15 +34,7 @@ export function isInsideFunctionCallsParameterValue(content: string, position: n
             searchPos = nextOpen + openMatch![0].length;
         } else if (nextClosePos !== -1) {
             // Found closing tag - VALIDATE ALWAYS
-            const closeTagEnd = nextClosePos + paramClose.length;
-            const lookahead = content.slice(closeTagEnd);
-            // Valid followers: <parameter, </parameter, </invoke, or End of String
-            const isValidClose = /^\s*($|<parameter|<\/parameter|<\/invoke)/.test(lookahead);
-
-            if (isValidClose) {
-                closeCount++;
-            }
-            // Either way, move past this closing tag
+            closeCount++;
             searchPos = nextClosePos + paramClose.length;
         } else {
             break;
@@ -82,7 +79,7 @@ export function isInsideThinkBlock(content: string, position: number): boolean {
             break;
         }
 
-        // Ignore tags inside <parameter> values (e.g. apply_diff/write_to_file payloads)
+        // Ignore tags inside <${TOOL_XML_NAMESPACE}:parameter> values (e.g. edit/write_to_file payloads)
         if (isInsideFunctionCallsParameterValue(content, nextPos)) {
             i = nextPos + (nextTag.kind === 'open' ? nextTag.open.length : nextTag.close.length);
             continue;
@@ -115,11 +112,11 @@ export function isInsideThinkBlock(content: string, position: number): boolean {
 }
 
 /**
- * Check if a position is inside a <parameter> value
+ * Check if a position is inside a <${TOOL_XML_NAMESPACE}:parameter> value
  * Used to skip invoke tags that appear as examples inside parameter content
  * 
  * IMPORTANT: Uses the same counting strategy as findMatchingParameterClose to handle
- * raw </parameter> text in content that is NOT a real closing tag.
+ * raw </${TOOL_XML_NAMESPACE}:parameter> text in content that is NOT a real closing tag.
  */
 export function isInsideInvokeParameterValue(content: string, position: number): boolean {
     const beforePos = content.slice(0, position);
@@ -129,8 +126,11 @@ export function isInsideInvokeParameterValue(content: string, position: number):
     let openCount = 0;
     let closeCount = 0;
     let searchPos = 0;
-    const paramOpenRegex = /<parameter(?:\s+[^>]+)?\s+name\s*=\s*["'][^"']+["'][^>]*>/g;
-    const paramClose = '</parameter>';
+    const paramOpenRegex = new RegExp(
+        `<${TOOL_XML_NAMESPACE}:parameter(?:\\s+[^>]+)?\\s+name\\s*=\\s*["'][^"']+["'][^>]*>`
+        , 'g'
+    );
+    const paramClose = `</${TOOL_XML_NAMESPACE}:parameter>`;
 
     while (searchPos < beforePos.length) {
         paramOpenRegex.lastIndex = searchPos;
@@ -146,15 +146,7 @@ export function isInsideInvokeParameterValue(content: string, position: number):
             searchPos = nextOpen + openMatch![0].length;
         } else if (nextClosePos !== -1) {
             // Found closing tag - VALIDATE ALWAYS
-            const closeTagEnd = nextClosePos + paramClose.length;
-            const lookahead = content.slice(closeTagEnd);
-            // Valid followers: <parameter, </parameter, </invoke, or End of String
-            const isValidClose = /^\s*($|<parameter|<\/parameter|<\/invoke)/.test(lookahead);
-
-            if (isValidClose) {
-                closeCount++;
-            }
-            // Either way, move past this closing tag
+            closeCount++;
             searchPos = nextClosePos + paramClose.length;
         } else {
             break;
@@ -196,12 +188,9 @@ export function findMatchingClosingTag(
             }
             pos = nextOpen + openTag.length;
         } else {
-            // Only count as closing if NOT inside a parameter value
-            if (!isInsideFunctionCallsParameterValue(content, nextClose)) {
-                depth--;
-                if (depth === 0) {
-                    return nextClose;
-                }
+            depth--;
+            if (depth === 0) {
+                return nextClose;
             }
             pos = nextClose + closeTag.length;
         }
@@ -212,23 +201,26 @@ export function findMatchingClosingTag(
 
 /**
  * Find the matching closing tag for a parameter using balanced tag counting.
- * This handles nested <parameter>...</parameter> tags inside content values.
- * Uses regex to properly match <parameter name="..."> opening tags.
- * Returns the position of the closing </parameter> tag, or -1 if not found.
+ * This handles nested <${TOOL_XML_NAMESPACE}:parameter>...</${TOOL_XML_NAMESPACE}:parameter> tags inside content values.
+ * Uses regex to properly match <${TOOL_XML_NAMESPACE}:parameter name="..."> opening tags.
+ * Returns the position of the closing </${TOOL_XML_NAMESPACE}:parameter> tag, or -1 if not found.
  * 
- * IMPORTANT: This function handles the case where content contains raw </parameter>
+ * IMPORTANT: This function handles the case where content contains raw </${TOOL_XML_NAMESPACE}:parameter>
  * text that is NOT a real closing tag (e.g., when AI writes tool XML inside a file).
  * We only match closing tags that have a corresponding opening tag at the same nesting level.
  * 
- * HEURISTIC: To disambiguate raw </parameter> text from the real closing tag,
- * we check if the candidate closing tag is followed by <parameter or </invoke>.
+ * HEURISTIC: To disambiguate raw </${TOOL_XML_NAMESPACE}:parameter> text from the real closing tag,
+ * we check if the candidate closing tag is followed by <${TOOL_XML_NAMESPACE}:parameter or </${TOOL_XML_NAMESPACE}:invoke>.
  */
 export function findMatchingParameterClose(content: string, openTagEnd: number): number {
     let openCount = 0;  // Nested opening tags seen
     let closeCount = 0; // Closing tags seen
     let pos = openTagEnd;
-    const openPattern = /<parameter(?:\s+[^>]+)?\s+name\s*=\s*["'][^"']+["'][^>]*>/g;
-    const closeTag = '</parameter>';
+    const openPattern = new RegExp(
+        `<${TOOL_XML_NAMESPACE}:parameter(?:\\s+[^>]+)?\\s+name\\s*=\\s*["'][^"']+["'][^>]*>`
+        , 'g'
+    );
+    const closeTag = `</${TOOL_XML_NAMESPACE}:parameter>`;
 
     while (pos < content.length) {
         // Find next opening and closing tags from current position
@@ -250,24 +242,14 @@ export function findMatchingParameterClose(content: string, openTagEnd: number):
         } else {
             // Found closing tag
             const closeTagEnd = nextClosePos + closeTag.length;
-            const lookahead = content.slice(closeTagEnd);
-
-            // Valid followers: <parameter, </parameter, </invoke, or End of String
-            const isValidClose = /^\s*($|<parameter|<\/parameter|<\/invoke)/.test(lookahead);
-
-            if (isValidClose) {
-                if (closeCount < openCount) {
-                    // Matches a nested opening tag we've seen
-                    closeCount++;
-                    pos = closeTagEnd;
-                } else {
-                    // closeCount >= openCount means all nested pairs are closed
-                    // This is the real closing tag for our outer parameter
-                    return nextClosePos;
-                }
-            } else {
-                // Fake closing tag (text content) - ignore it
+            if (closeCount < openCount) {
+                // Matches a nested opening tag we've seen
+                closeCount++;
                 pos = closeTagEnd;
+            } else {
+                // closeCount >= openCount means all nested pairs are closed
+                // This is the real closing tag for our outer parameter
+                return nextClosePos;
             }
         }
     }
@@ -282,8 +264,8 @@ export function findMatchingParameterClose(content: string, openTagEnd: number):
 export function findMatchingInvokeClosingTagRespectingParams(content: string, openTagEnd: number): number {
     let depth = 1;
     let pos = openTagEnd;
-    const openingTagRegex = /<invoke\s+name=["'][^"']+["']>/g;
-    const closeTag = '</invoke>';
+    const openingTagRegex = new RegExp(`<${TOOL_XML_NAMESPACE}:invoke\\s+name=["'][^"']+["']>`, 'g');
+    const closeTag = `</${TOOL_XML_NAMESPACE}:invoke>`;
 
     while (pos < content.length && depth > 0) {
         openingTagRegex.lastIndex = pos;
@@ -302,12 +284,9 @@ export function findMatchingInvokeClosingTagRespectingParams(content: string, op
             }
             pos = nextOpen + openMatch![0].length;
         } else {
-            // Only count as closing if NOT inside a parameter value
-            if (!isInsideInvokeParameterValue(content, nextClose)) {
-                depth--;
-                if (depth === 0) {
-                    return nextClose;
-                }
+            depth--;
+            if (depth === 0) {
+                return nextClose;
             }
             pos = nextClose + closeTag.length;
         }
@@ -317,11 +296,11 @@ export function findMatchingInvokeClosingTagRespectingParams(content: string, op
 }
 
 /**
- * Find matching </function_calls> tag using balanced matching
+ * Find matching </${TOOL_XML_NAMESPACE}:function_calls> tag using balanced matching
  * Returns the position of the closing tag, or -1 if not found
  */
 export function findMatchingFunctionCallsClose(content: string, openTagEnd: number): number {
-    return findMatchingClosingTag(content, openTagEnd, '<function_calls>', '</function_calls>');
+    return findMatchingClosingTag(content, openTagEnd, TOOL_FUNCTION_CALLS_OPEN, TOOL_FUNCTION_CALLS_CLOSE);
 }
 
 /**
@@ -329,18 +308,13 @@ export function findMatchingFunctionCallsClose(content: string, openTagEnd: numb
  * Skips tags that are preceded by backticks (inside code blocks)
  */
 export function findNextToolStart(content: string, fromPosition: number): number {
-    const tag = '<function_calls>';
+    const tag = TOOL_FUNCTION_CALLS_OPEN;
     let searchPos = Math.max(0, fromPosition);
 
     while (searchPos < content.length) {
         const openPos = content.indexOf(tag, searchPos);
         if (openPos === -1) {
             return -1;
-        }
-
-        if (openPos > 0 && content[openPos - 1] === '`') {
-            searchPos = openPos + tag.length;
-            continue;
         }
 
         if (isInsideThinkBlock(content, openPos)) {

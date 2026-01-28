@@ -4,6 +4,7 @@ import { registerToolPlugin } from './tool-plugin';
 import { executeToolViaExtension } from '../tool-utils';
 import { getFileIconConfig } from '../../utils/file-icon-mapper';
 import { SearchSnippetItem } from '../../components/ui/search-snippet-item';
+import { TOOL_FUNCTION_CALLS_CLOSE, TOOL_FUNCTION_CALLS_OPEN, TOOL_XML_NAMESPACE } from '../tool-xml';
 
 interface GlobFileResult {
   path: string;
@@ -68,7 +69,7 @@ registerToolPlugin({
     description: 'Find files based on glob patterns',
     icon: FileSearch,
     usage: 'Find files by name pattern',
-    formatExample: '<function_calls>\n<invoke name="glob_search">\n<parameter name="pattern">**/*.ts</parameter>\n<parameter name="path">src</parameter>\n</invoke>\n</function_calls>',
+    formatExample: `${TOOL_FUNCTION_CALLS_OPEN}\n<${TOOL_XML_NAMESPACE}:invoke name="glob_search">\n<${TOOL_XML_NAMESPACE}:parameter name="pattern">**/*.ts</${TOOL_XML_NAMESPACE}:parameter>\n<${TOOL_XML_NAMESPACE}:parameter name="path">src</${TOOL_XML_NAMESPACE}:parameter>\n</${TOOL_XML_NAMESPACE}:invoke>\n${TOOL_FUNCTION_CALLS_CLOSE}`,
   },
   handler: {
     execute: executeGlobSearch,

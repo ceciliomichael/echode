@@ -3,6 +3,7 @@ import type { ToolExecutionResult } from '../../types/tool';
 import { registerToolPlugin } from './tool-plugin';
 import { executeToolViaExtension } from '../tool-utils';
 import { getFileIconConfig } from '../../utils/file-icon-mapper';
+import { TOOL_FUNCTION_CALLS_CLOSE, TOOL_FUNCTION_CALLS_OPEN, TOOL_XML_NAMESPACE } from '../tool-xml';
 
 /**
  * List Files Tool
@@ -22,7 +23,7 @@ registerToolPlugin({
     description: 'List directory contents',
     icon: FolderTree,
     usage: 'List directory contents',
-    formatExample: '<function_calls>\n<invoke name="list_files">\n<parameter name="path">src/app</parameter>\n</invoke>\n</function_calls>',
+    formatExample: `${TOOL_FUNCTION_CALLS_OPEN}\n<${TOOL_XML_NAMESPACE}:invoke name="list_files">\n<${TOOL_XML_NAMESPACE}:parameter name="path">src/app</${TOOL_XML_NAMESPACE}:parameter>\n</${TOOL_XML_NAMESPACE}:invoke>\n${TOOL_FUNCTION_CALLS_CLOSE}`,
   },
   handler: {
     execute: executeListFiles,

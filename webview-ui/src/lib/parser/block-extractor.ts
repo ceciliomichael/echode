@@ -9,6 +9,8 @@ import {
   isInsideInvokeParameterValue,
 } from './tag-matcher';
 
+import { TOOL_FUNCTION_CALLS_CLOSE, TOOL_FUNCTION_CALLS_OPEN, TOOL_XML_NAMESPACE } from '../tool-xml';
+
 export interface FunctionCallsBlock {
   innerContent: string;
   fullMatch: string;
@@ -24,13 +26,16 @@ export interface InvokeBlock {
 
 /**
  * Extract function_calls blocks using balanced tag matching
- * Properly handles nested content that may contain </function_calls> text
+ * Properly handles nested content that may contain </${TOOL_XML_NAMESPACE}:function_calls> text
  * Skips blocks that are inside code blocks (preceded by backticks)
  */
 export function extractFunctionCallsBlocks(content: string): FunctionCallsBlock[] {
   const blocks: FunctionCallsBlock[] = [];
-  const openTag = '<function_calls>';
-  const closeTag = '</function_calls>';
+  const openTag = TOOL_FUNCTION_CALLS_OPEN;
+  const closeTag = TOOL_FUNCTION_CALLS_CLOSE;
+  const parserFlags = (globalThis as unknown as {
+    __ECHODE_TOOL_PARSER_FLAGS__?: { skipFunctionCallsInBackticks?: boolean };
+  }).__ECHODE_TOOL_PARSER_FLAGS__;
   let searchPos = 0;
 
   while (searchPos < content.length) {
@@ -38,7 +43,7 @@ export function extractFunctionCallsBlocks(content: string): FunctionCallsBlock[
     if (openPos === -1) {break;}
 
     // Skip if preceded by backtick (inside code block or inline code)
-    if (openPos > 0 && content[openPos - 1] === '`') {
+    if (parserFlags?.skipFunctionCallsInBackticks && openPos > 0 && content[openPos - 1] === '`') {
       searchPos = openPos + openTag.length;
       continue;
     }
@@ -68,13 +73,13 @@ export function extractFunctionCallsBlocks(content: string): FunctionCallsBlock[
 
 /**
  * Extract invoke blocks using balanced tag matching
- * Handles nested content that may contain </invoke> text (e.g., in HTML/code)
+ * Handles nested content that may contain </${TOOL_XML_NAMESPACE}:invoke> text (e.g., in HTML/code)
  * IMPORTANT: Only extracts TOP-LEVEL invoke blocks, skipping nested invokes inside parameter values
  */
 export function extractInvokeBlocks(content: string): InvokeBlock[] {
   const blocks: InvokeBlock[] = [];
-  const invokeOpenRegex = /<invoke\s+name=["']([^"']+)["']>/g;
-  const closeTag = '</invoke>';
+  const invokeOpenRegex = new RegExp(`<${TOOL_XML_NAMESPACE}:invoke\\s+name=["']([^"']+)["']>`, 'g');
+  const closeTag = `</${TOOL_XML_NAMESPACE}:invoke>`;
 
   let match: RegExpExecArray | null;
   while ((match = invokeOpenRegex.exec(content)) !== null) {

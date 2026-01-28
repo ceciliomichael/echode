@@ -2,6 +2,7 @@ import { ClipboardList, Rocket, FileCheck, RefreshCw } from 'lucide-react';
 import type { ToolExecutionResult } from '../../types/tool';
 import { registerToolPlugin } from './tool-plugin';
 import { executeToolViaExtension } from '../tool-utils';
+import { TOOL_FUNCTION_CALLS_CLOSE, TOOL_FUNCTION_CALLS_OPEN, TOOL_XML_NAMESPACE } from '../tool-xml';
  
 /**
  * Plan Tool Result Types
@@ -50,7 +51,7 @@ registerToolPlugin({
     description: 'Create plans and hand off to agent mode',
     icon: ClipboardList,
     usage: 'Use plan tool in plan mode to create plans or hand off to implementation',
-    formatExample: '<function_calls>\n<invoke name="plan">\n<parameter name="mode">create_plan</parameter>\n<parameter name="title">Implementation Plan</parameter>\n<parameter name="plan">## Overview\nPlan content here...</parameter>\n</invoke>\n</function_calls>',
+    formatExample: `${TOOL_FUNCTION_CALLS_OPEN}\n<${TOOL_XML_NAMESPACE}:invoke name="plan">\n<${TOOL_XML_NAMESPACE}:parameter name="mode">create_plan</${TOOL_XML_NAMESPACE}:parameter>\n<${TOOL_XML_NAMESPACE}:parameter name="title">Implementation Plan</${TOOL_XML_NAMESPACE}:parameter>\n<${TOOL_XML_NAMESPACE}:parameter name="plan">## Overview\nPlan content here...</${TOOL_XML_NAMESPACE}:parameter>\n</${TOOL_XML_NAMESPACE}:invoke>\n${TOOL_FUNCTION_CALLS_CLOSE}`,
   },
   handler: {
     execute: executePlan,

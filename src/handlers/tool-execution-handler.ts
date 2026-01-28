@@ -1,18 +1,72 @@
 import * as vscode from 'vscode';
 import { defaultRegistry } from '../services/tools/tool-registry';
-import { ReadFileTool, WriteFileTool, ListFilesTool, GrepSearchTool, GlobSearchTool, DeleteFileTool, TodoWriteTool, ApplyDiffTool, GetDiagnosticsTool, EchoSearchTool, PlanTool, PublishFindingsTool, RunTerminalTool } from '../services/tools';
+import { ReadFileTool, WriteFileTool, ListFilesTool, GrepSearchTool, GlobSearchTool, DeleteFileTool, TodoWriteTool, EditTool, GetDiagnosticsTool, EchoSearchTool, PlanTool, PublishFindingsTool, RunTerminalTool } from '../services/tools';
 import { getWorkspaceFiles, getAgentsConfig } from '../utils/workspace-scanner';
 import { ApprovalViewerManager } from '../services/approval/approval-viewer-manager';
 import type { ChatMode } from '../services/tools/tool.interface';
 
 // Tools that modify the file system and require workspace refresh
-const FILE_MODIFYING_TOOLS = new Set(['write_to_file', 'delete_file', 'apply_diff']);
+const FILE_MODIFYING_TOOLS = new Set(['write_to_file', 'delete_file', 'edit']);
+
+function escapeForLog(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n')
+    .replace(/\t/g, '\\t');
+}
+
+function truncateForLog(value: string, maxLen: number): string {
+  if (value.length <= maxLen) {
+    return value;
+  }
+  const head = value.slice(0, Math.max(0, Math.floor(maxLen * 0.6)));
+  const tail = value.slice(Math.max(0, value.length - Math.max(0, Math.floor(maxLen * 0.4))));
+  return `${head}…${tail}`;
+}
+
+function formatParamForLog(value: unknown): string {
+  if (typeof value === 'string') {
+    const escaped = escapeForLog(value);
+    const truncated = truncateForLog(escaped, 600);
+    return `string(len=${value.length}): ${truncated}`;
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function formatToolExecutionDebug(toolName: string, parameters: Record<string, unknown>): string {
+  if (toolName !== 'edit') {
+    try {
+      return JSON.stringify(parameters);
+    } catch {
+      return '[unserializable parameters]';
+    }
+  }
+
+  const filePath = parameters.file_path;
+  const oldString = parameters.old_string;
+  const newString = parameters.new_string;
+  const replaceAll = parameters.replace_all;
+  const explanation = parameters.explanation;
+
+  return [
+    `file_path=${formatParamForLog(filePath)}`,
+    `old_string=${formatParamForLog(oldString)}`,
+    `new_string=${formatParamForLog(newString)}`,
+    `replace_all=${formatParamForLog(replaceAll)}`,
+    `explanation=${formatParamForLog(explanation)}`,
+  ].join(' | ');
+}
 
 // Tools that require approval in Manual Mode
-const APPROVAL_REQUIRED_TOOLS = new Set(['write_to_file', 'delete_file', 'apply_diff', 'run_terminal']);
+const APPROVAL_REQUIRED_TOOLS = new Set(['write_to_file', 'delete_file', 'edit', 'run_terminal']);
 
 // Optional callback that can be set by the sidebar provider to trigger
-// a refactor/large-file scan after successful write_to_file/apply_diff
+// a refactor/large-file scan after successful write_to_file/edit
 let onFileModificationSuccess: (() => void) | null = null;
 
 export function setFileModificationCallback(callback: (() => void) | null): void {
@@ -30,7 +84,7 @@ defaultRegistry.registerTool(new GrepSearchTool());
 defaultRegistry.registerTool(new GlobSearchTool());
 defaultRegistry.registerTool(new DeleteFileTool());
 defaultRegistry.registerTool(new TodoWriteTool());
-defaultRegistry.registerTool(new ApplyDiffTool());
+defaultRegistry.registerTool(new EditTool());
 defaultRegistry.registerTool(new GetDiagnosticsTool());
 defaultRegistry.registerTool(new EchoSearchTool());
 defaultRegistry.registerTool(new PlanTool());
@@ -175,7 +229,13 @@ export async function handleToolExecution(
     }
 
     // Execute tool with cancellation signal and mode
+    console.log(
+      `[ToolHandler] EXEC ${requestId} tool=${toolName} mode=${mode ?? 'default'} params=${formatToolExecutionDebug(toolName, parameters)}`
+    );
     const result = await tool.execute(parameters, onProgress, abortController.signal, mode);
+    console.log(
+      `[ToolHandler] DONE ${requestId} tool=${toolName} success=${result.success} error=${result.error ?? ''}`
+    );
 
     const response: ToolExecutionResponse = {
       type: 'toolExecutionResult',
@@ -205,8 +265,8 @@ export async function handleToolExecution(
         });
       }
 
-      // Trigger refactor scan ONLY for write_to_file and apply_diff, as requested
-      if (onFileModificationSuccess && (toolName === 'write_to_file' || toolName === 'apply_diff')) {
+      // Trigger refactor scan ONLY for write_to_file and edit, as requested
+      if (onFileModificationSuccess && (toolName === 'write_to_file' || toolName === 'edit')) {
         try {
           onFileModificationSuccess();
         } catch (scanError) {

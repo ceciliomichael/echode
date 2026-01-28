@@ -106,7 +106,8 @@ export function ChatContainer() {
   const scrollContentRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll: scrolls to bottom on new content unless user has scrolled up
-  useAutoScroll(scrollContainerRef, visibleMessages);
+  // Disable auto-scroll when editing to prevent jumping when the edit form expands content
+  useAutoScroll(scrollContainerRef, visibleMessages, !editingMessageId);
 
   // Direct send function (bypasses queue, used for queue processing)
   const sendMessageDirect = useCallback(async (
@@ -138,6 +139,36 @@ export function ChatContainer() {
   const removeFromQueue = useCallback((id: string) => {
     setQueuedMessages(prev => prev.filter(msg => msg.id !== id));
   }, []);
+
+  // Update a queued message content/attachments
+  const updateQueueMessage = useCallback((id: string, content: string, imageAttachments?: ImageAttachment[]) => {
+    setQueuedMessages(prev => prev.map(msg => 
+      msg.id === id 
+        ? { ...msg, content, imageAttachments: imageAttachments ?? msg.imageAttachments }
+        : msg
+    ));
+  }, []);
+
+  // Force send a specific queued message immediately (stops current work, sends this message)
+  const forceSendQueueMessage = useCallback((id: string) => {
+    const messageToSend = queuedMessages.find(msg => msg.id === id);
+    if (!messageToSend) return;
+
+    // Remove from queue
+    setQueuedMessages(prev => prev.filter(msg => msg.id !== id));
+
+    // Abort current stream if running
+    abortStream();
+
+    // Small delay to ensure abort settles, then send
+    setTimeout(() => {
+      sendMessageDirect(
+        messageToSend.content,
+        messageToSend.imageAttachments,
+        messageToSend.forceEchoSearch ?? false
+      );
+    }, 200);
+  }, [queuedMessages, abortStream, sendMessageDirect]);
 
   // Clear all queued messages (used for force send)
   const clearQueue = useCallback(() => {
@@ -249,6 +280,8 @@ export function ChatContainer() {
   };
 
   const handleRevert = async (messageId: string) => {
+    // Clear queue when reverting to prevent pending messages from being sent in the new context
+    clearQueue();
     await handleRevertPreview(messageId);
   };
 
@@ -269,9 +302,9 @@ export function ChatContainer() {
           className="fixed inset-0 z-40 transition-opacity"
           style={{
             backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            backdropFilter: 'blur(2px)'
+            backdropFilter: 'blur(0.5px)',
+            pointerEvents: 'none'
           }}
-          onClick={handleCancel}
         />
       )}
 
@@ -280,10 +313,15 @@ export function ChatContainer() {
           ref={scrollContainerRef}
           data-chat-scroll-container="true"
           data-chat-message-list-boundary="true"
-          className={`flex-1 ${editingMessageId ? 'overflow-hidden' : 'overflow-y-auto'}`}
+          className="flex-1 overflow-y-auto"
           style={{
             scrollbarGutter: 'stable',
             overflowAnchor: 'none',
+          }}
+          onClick={() => {
+            if (editingMessageId) {
+              handleCancel();
+            }
           }}
         >
           {isLoadingSession ? (
@@ -344,6 +382,7 @@ export function ChatContainer() {
                 (abortedImageAttachments ? `images-${abortedImageAttachments.length}` : '') ||
                 'default'
               }
+              disabled={!!editingMessageId}
               onSendMessage={handleSendMessage}
               onNewChat={onNewChat}
               isStreaming={isStreaming}
@@ -351,6 +390,8 @@ export function ChatContainer() {
               onStop={abortStream}
               queuedMessages={queuedMessages}
               onRemoveFromQueue={removeFromQueue}
+              onUpdateQueueMessage={updateQueueMessage}
+              onForceSendQueueMessage={forceSendQueueMessage}
               onClearQueue={clearQueue}
               mode={mode}
               onModeChange={handleModeChange}

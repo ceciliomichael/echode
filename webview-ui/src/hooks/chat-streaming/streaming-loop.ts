@@ -188,8 +188,8 @@ function checkAwaitsUserAction(result: { success: boolean; data?: unknown; error
 
 /**
  * Run the streaming loop with PARALLEL tool execution and auto-retry
- * Tools are executed as each <invoke> block closes, but results are only
- * sent to AI after </function_calls> closes
+ * Tools are executed as each <${TOOL_XML_NAMESPACE}:invoke> block closes, but results are only
+ * sent to AI after </${TOOL_XML_NAMESPACE}:function_calls> closes
  */
 export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<StreamingLoopResult> {
   const {
@@ -290,7 +290,7 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
         }
 
         // START PARALLEL EXECUTION: Execute each complete invoke block immediately
-        // but DON'T wait for results - collect them after </function_calls>
+        // but DON'T wait for results - collect them after </${TOOL_XML_NAMESPACE}:function_calls>
         for (let i = 0; i < blocks.length; i++) {
           if (!executingToolIndices.has(i)) {
             executingToolIndices.add(i);
@@ -326,7 +326,7 @@ export async function runStreamingLoop(ctx: StreamingLoopContext): Promise<Strea
 
         // Check if function_calls is now closed - WAIT for all parallel executions and send results
         if (hasFunctionCallsClose && blocks.length > 0) {
-          console.log(`[StreamingLoop] </function_calls> closed - waiting for ${parallelExecutions.size} parallel tool executions`);
+          console.log(`[StreamingLoop] function_calls closed - waiting for ${parallelExecutions.size} parallel tool executions`);
 
           // Trim content to the complete function_calls block
           const trimmedContent = trimToFirstCompleteToolBlock(assistantContent);

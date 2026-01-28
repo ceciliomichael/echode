@@ -5,6 +5,7 @@ import { getToolFileInfo } from '../../../utils/tool-file-info';
 import { ToolBlockHeader } from './tool-block-header';
 import { ToolBlockContent } from './tool-block-content';
 import type { ChatMode } from '../../../types/chat-mode';
+import { useWorkspaceContext } from '../../../hooks/use-workspace-context';
 
 interface ToolBlockProps {
   toolCall: ToolCall;
@@ -21,6 +22,7 @@ const ToolBlockComponent = ({
   isLastMessage = true,
   mode,
 }: ToolBlockProps) => {
+  const workspace = useWorkspaceContext();
   const isEchoSearch = toolCall.toolName === 'echo_search';
   const isRunTerminal = toolCall.toolName === 'run_terminal';
   const isPlanTool = toolCall.toolName === 'plan';
@@ -75,14 +77,18 @@ const ToolBlockComponent = ({
     
     // User clicked an action button (Verify Plan or Start Implementation)
     if (hasUserAction) {
-      setIsExpanded(false);
+      setTimeout(() => {
+        setIsExpanded(false);
+      }, 0);
       return;
     }
     
     // This is no longer the last message (user sent a new message/reply)
     // This handles all modes: ask, create_plan, update_plan, handoff
     if (!isLastMessage) {
-      setIsExpanded(false);
+      setTimeout(() => {
+        setIsExpanded(false);
+      }, 0);
     }
   }, [isPlanTool, toolCall.result, isLastMessage]);
 
@@ -97,13 +103,17 @@ const ToolBlockComponent = ({
     
     // User clicked an action button (Fix Issues or Skip)
     if (hasUserAction) {
-      setIsExpanded(false);
+      setTimeout(() => {
+        setIsExpanded(false);
+      }, 0);
       return;
     }
     
     // This is no longer the last message
     if (!isLastMessage) {
-      setIsExpanded(false);
+      setTimeout(() => {
+        setIsExpanded(false);
+      }, 0);
     }
   }, [isPublishFindingsTool, toolCall.result, isLastMessage]);
 
@@ -117,11 +127,11 @@ const ToolBlockComponent = ({
   const isIconExecuting = useMemo(() => {
     // If the tool has completed with results, it's NOT executing anymore
     if (toolCall.status === 'completed' && toolCall.result) {
-      // For write_to_file and apply_diff, keep spinning only if we don't have diff data yet
-      const isWriteOrApply = toolCall.toolName === 'write_to_file' || toolCall.toolName === 'apply_diff';
+      // For write_to_file and edit, keep spinning only if we don't have result data yet
+      const isWriteOrEdit = toolCall.toolName === 'write_to_file' || toolCall.toolName === 'edit';
       const hasResultData = toolCall.result.success && toolCall.result.data != null;
 
-      if (isWriteOrApply && !hasResultData) {
+      if (isWriteOrEdit && !hasResultData) {
         return true; // Still waiting for diff data
       }
       return false; // Tool completed with results, stop spinning
@@ -154,7 +164,7 @@ const ToolBlockComponent = ({
     }
     
     // For file-modifying tools, also require result data
-    const isFileModifyingTool = toolCall.toolName === 'apply_diff' || toolCall.toolName === 'write_to_file';
+    const isFileModifyingTool = toolCall.toolName === 'edit' || toolCall.toolName === 'write_to_file';
     if (isFileModifyingTool) {
       const isCompleted = toolCall.status === 'completed' && toolCall.result != null;
       return isCompleted;
@@ -193,6 +203,7 @@ const ToolBlockComponent = ({
           isStreaming={isStreaming}
           canToggle={canToggle}
           toolName={toolCall.toolName}
+          workspace={workspace}
         />
 
         <ToolBlockContent
@@ -202,6 +213,7 @@ const ToolBlockComponent = ({
           messageId={messageId}
           isLastMessage={isLastMessage}
           mode={mode}
+          workspace={workspace}
         />
       </div>
 

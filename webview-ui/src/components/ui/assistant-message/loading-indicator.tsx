@@ -32,9 +32,11 @@ export function LoadingIndicator({
     }
     // Check if path is missing for file modification tools
     const isFileModificationTool =
-      token.toolName === 'write_to_file' || token.toolName === 'apply_diff';
+      token.toolName === 'write_to_file' || token.toolName === 'edit';
     if (isFileModificationTool) {
-      const path = token.parameters.path as string | undefined;
+      const path = token.toolName === 'edit'
+        ? (token.parameters.file_path as string | undefined)
+        : (token.parameters.path as string | undefined);
       return !path || path.trim() === '';
     }
     return false;

@@ -22,6 +22,9 @@ export function getToolFileInfo(
 ): ToolFileInfo {
   // For read_file, check both 'path' (single) and 'paths' (array) parameters
   let path = parameters.path as string | undefined;
+  if (toolName === 'edit' && !path) {
+    path = parameters.file_path as string | undefined;
+  }
   if (toolName === 'read_file' && !path) {
     const paths = parameters.paths as string[] | undefined;
     if (paths && Array.isArray(paths) && paths.length > 0) {
@@ -45,8 +48,8 @@ export function getToolFileInfo(
     return defaultColor;
   };
 
-  // For write_to_file and read_file, ALWAYS prioritize showing filename
-  if ((toolName === 'write_to_file' || toolName === 'read_file') && path) {
+  // For write_to_file, edit and read_file, ALWAYS prioritize showing filename
+  if ((toolName === 'write_to_file' || toolName === 'edit' || toolName === 'read_file') && path) {
     const fileName = extractFileName(path);
     const iconConfig = getFileIconConfig(path);
 

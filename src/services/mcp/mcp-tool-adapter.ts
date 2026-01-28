@@ -50,14 +50,14 @@ ${this.description}${paramsSection}`;
   async execute(
     params: Record<string, unknown>,
     _onProgress?: ToolProgressCallback,
-    _signal?: AbortSignal,
+    signal?: AbortSignal,
     _mode?: ChatMode
   ): Promise<ToolExecutionResult> {
     try {
       const result = await this.client.callTool({
         name: this.originalName,
         arguments: params
-      });
+      }, signal);
 
       if (result.isError) {
         return {

@@ -7,7 +7,7 @@
 
 // Re-export all tool instruction getters
 export { getReadFileInstructions, type ReadFileOptions } from './read-file';
-export { getApplyDiffInstructions } from './apply-diff';
+export { getEditInstructions } from './edit';
 export { getWriteFileInstructions } from './write-file';
 export { getListFilesInstructions, type ListFilesOptions } from './list-files';
 export { getEchoSearchInstructions, type EchoSearchOptions } from './echo-search';

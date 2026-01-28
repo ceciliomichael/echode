@@ -7,6 +7,7 @@ import {
 } from './tag-utils';
 import { extractAllInvokeBlocks, parseXMLParameters } from './xml-parser';
 import { REQUEST_BOUNDARY_MARKER, splitByRequestBoundary } from '../think-block-parser';
+import { TOOL_FUNCTION_CALLS_CLOSE, TOOL_FUNCTION_CALLS_OPEN, TOOL_XML_NAMESPACE } from '../../lib/tool-xml';
 
 /**
  * Fix leaked <thought> tags that appear after closing </think> or </thinking> tags.
@@ -135,40 +136,13 @@ function mergeConsecutiveThinkBlocks(content: string): string {
 function preprocessToolTags(content: string): string {
     let processed = content;
 
-    // Fix corrupted hybrid formats
-    // <tool_call>function_calls> -> <function_calls>
-    processed = processed.replace(/<tool_call>function_calls>/gi, '<function_calls>');
-    // <tool_call> -> <function_calls>
-    processed = processed.replace(/<tool_call>/gi, '<function_calls>');
-    // </tool_call> -> </function_calls>
-    processed = processed.replace(/<\/tool_call>/gi, '</function_calls>');
-    // <tool_code> -> <function_calls>
-    processed = processed.replace(/<tool_code>/gi, '<function_calls>');
-    // </tool_code> -> </function_calls>
-    processed = processed.replace(/<\/tool_code>/gi, '</function_calls>');
-    // <|tool|> variants
-    processed = processed.replace(/<\|tool\|>/gi, '<function_calls>');
-    processed = processed.replace(/<\|tool_call\|>/gi, '<function_calls>');
-    processed = processed.replace(/<\|\/tool\|>/gi, '</function_calls>');
-    processed = processed.replace(/<\|\/tool_call\|>/gi, '</function_calls>');
-
-    // Handle Anthropic-style namespaced tags (antml:function_calls, antml:invoke)
-    processed = processed.replace(/<function_calls>/gi, '<function_calls>');
-    processed = processed.replace(/<\/antml:function_calls>/gi, '</function_calls>');
-    processed = processed.replace(/<invoke(\s+)/gi, '<invoke$1');
-    processed = processed.replace(/<\/antml:invoke>/gi, '</invoke>');
-    processed = processed.replace(/<parameter(\s+)/gi, '<parameter$1');
-    processed = processed.replace(/<\/antml:parameter>/gi, '</parameter>');
-
     // Fix whitespace issues in opening tags
-    // < function_calls > -> <function_calls>
-    processed = processed.replace(/<\s*function_calls\s*>/gi, '<function_calls>');
-    processed = processed.replace(/<\s*\/\s*function_calls\s*>/gi, '</function_calls>');
-
-    // Handle cases where function_calls is accidentally split/mangled
-    // <function calls> (with space)
-    processed = processed.replace(/<function\s+calls>/gi, '<function_calls>');
-    processed = processed.replace(/<\/function\s+calls>/gi, '</function_calls>');
+    processed = processed.replace(/<\s*tool\s*:\s*function_calls\s*>/gi, TOOL_FUNCTION_CALLS_OPEN);
+    processed = processed.replace(/<\s*\/\s*tool\s*:\s*function_calls\s*>/gi, TOOL_FUNCTION_CALLS_CLOSE);
+    processed = processed.replace(/<\s*tool\s*:\s*invoke(\s+)/gi, `<${TOOL_XML_NAMESPACE}:invoke$1`);
+    processed = processed.replace(/<\s*\/\s*tool\s*:\s*invoke\s*>/gi, `</${TOOL_XML_NAMESPACE}:invoke>`);
+    processed = processed.replace(/<\s*tool\s*:\s*parameter(\s+)/gi, `<${TOOL_XML_NAMESPACE}:parameter$1`);
+    processed = processed.replace(/<\s*\/\s*tool\s*:\s*parameter\s*>/gi, `</${TOOL_XML_NAMESPACE}:parameter>`);
 
     // Remove any CDATA wrappers that might have been added
     processed = processed.replace(/<!\[CDATA\[/g, '');
@@ -182,8 +156,8 @@ function preprocessToolTags(content: string): string {
  * This helps identify cases where the main parser might have missed something
  */
 function hasPotentialUnparsedTools(content: string, parsedTokens: ContentToken[]): boolean {
-    // Check if there are <invoke patterns in content that didn't become tool tokens
-    const invokePattern = /<invoke\s+name=["'][^"']+["']>/gi;
+    // Check if there are <${TOOL_XML_NAMESPACE}:invoke patterns in content that didn't become tool tokens
+    const invokePattern = new RegExp(`<${TOOL_XML_NAMESPACE}:invoke\\s+name=["'][^"']+["']>`, 'gi');
     const matches = content.match(invokePattern);
 
     if (!matches) return false;
@@ -220,7 +194,7 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
 
     while (position < processedContent.length) {
         // Check for think/thinking blocks, tool blocks, and mermaid blocks
-        // Use validators that skip tags inside parameter values (e.g., in apply_diff/write_to_file content)
+        // Use validators that skip tags inside parameter values (e.g., in edit/write_to_file content)
         const hasBoundaryAtPosition = processedContent.startsWith(REQUEST_BOUNDARY_MARKER, position);
         if (hasBoundaryAtPosition) {
             position += REQUEST_BOUNDARY_MARKER.length;
@@ -327,8 +301,8 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
 
         // Process tool block
         else if (blockType === 'tool') {
-            const openingTag = '<function_calls>';
-            const closingTag = '</function_calls>';
+            const openingTag = TOOL_FUNCTION_CALLS_OPEN;
+            const closingTag = TOOL_FUNCTION_CALLS_CLOSE;
 
             const contentStart = toolStart + openingTag.length;
             // Use balanced matching to find the correct closing tag
@@ -357,7 +331,7 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
                                     type: 'tool',
                                     toolName,
                                     parameters,
-                                    rawContent: `<function_calls>${fullMatch}</function_calls>`, // Wrap individual invoke in function_calls for consistency
+                                    rawContent: `${TOOL_FUNCTION_CALLS_OPEN}${fullMatch}${TOOL_FUNCTION_CALLS_CLOSE}`,
                                     index: tokenIndex++,
                                     isClosed,
                                     toolExecutionId: execId
@@ -365,8 +339,8 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
                             }
                         }
                     } else {
-                        // Fallback for cases where </function_calls> is present but </invoke> has not streamed yet
-                        const partialInvokeMatch = innerContent.match(/<invoke\s+name=["']([^"']+)["']>/);
+                        // Fallback for cases where </${TOOL_XML_NAMESPACE}:function_calls> is present but </${TOOL_XML_NAMESPACE}:invoke> has not streamed yet
+                        const partialInvokeMatch = innerContent.match(new RegExp(`<${TOOL_XML_NAMESPACE}:invoke\\s+name=["']([^"']+)["']>`));
                         if (partialInvokeMatch) {
                             const toolName = partialInvokeMatch[1];
                             const invokeContentStart = partialInvokeMatch.index! + partialInvokeMatch[0].length;
@@ -412,7 +386,7 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
                                     type: 'tool',
                                     toolName,
                                     parameters,
-                                    rawContent: isClosed ? `<function_calls>${fullMatch}</function_calls>` : rawContent,
+                                    rawContent: isClosed ? `${TOOL_FUNCTION_CALLS_OPEN}${fullMatch}${TOOL_FUNCTION_CALLS_CLOSE}` : rawContent,
                                     index: tokenIndex++,
                                     isClosed,
                                     toolExecutionId: `${messageId}-tool-${toolIndex++}`
@@ -421,7 +395,7 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
                         }
                     } else {
                         // Try to extract partial invoke opening tag for streaming
-                        const partialInvokeMatch = innerContent.match(/<invoke\s+name=["']([^"']+)["']>/);
+                        const partialInvokeMatch = innerContent.match(new RegExp(`<${TOOL_XML_NAMESPACE}:invoke\\s+name=["']([^"']+)["']>`));
                         if (partialInvokeMatch) {
                             const toolName = partialInvokeMatch[1];
                             const invokeContentStart = partialInvokeMatch.index! + partialInvokeMatch[0].length;
@@ -489,12 +463,12 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
             // This prevents flashing when AI is still typing the opening tag
             // Check if remaining text ends with partial function_calls tag
             let hasIncompleteTag = false;
-            const functionCallsTag = 'function_calls';
+            const functionCallsTag = `${TOOL_XML_NAMESPACE}:function_calls`;
 
             if (remainingText.endsWith('<')) {
                 hasIncompleteTag = true;
             } else {
-                // Check for partial <function_calls>
+                // Check for partial <${TOOL_XML_NAMESPACE}:function_calls>
                 for (let i = 1; i <= functionCallsTag.length; i++) {
                     const partial = `<${functionCallsTag.slice(0, i)}`;
                     if (remainingText.endsWith(partial)) {

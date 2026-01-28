@@ -9,6 +9,7 @@ import { Cable } from 'lucide-react';
 import type { Tool, ToolExecutionResult } from '../types/tool';
 import { type ChatMode, type ToolProgress, executeToolViaExtension } from './tool-utils';
 import { getAllToolPlugins } from './tools/tool-plugin';
+import { TOOL_XML_NAMESPACE } from './tool-xml';
 // Import tools to trigger auto-registration
 import './tools/read-file-tool.tsx';
 import './tools/write-file-tool.tsx';
@@ -17,7 +18,7 @@ import './tools/grep-search-tool.tsx';
 import './tools/glob-search-tool.tsx';
 import './tools/delete-file-tool.tsx';
 import './tools/todo-write-tool.tsx';
-import './tools/apply-diff-tool.tsx';
+import './tools/edit-tool.tsx';
 import './tools/get-diagnostics-tool.tsx';
 import './tools/echo-search-tool.tsx';
 import './tools/plan-tool.tsx';
@@ -147,7 +148,7 @@ export function registerRemoteTool(
     aiDescription: toolInfo.description,
     icon: Cable,
     usage: `Use ${toolInfo.name}`,
-    formatExample: `<invoke name="${toolInfo.name}">\n<parameter name="param">value</parameter>\n</invoke>`,
+    formatExample: `<${TOOL_XML_NAMESPACE}:invoke name="${toolInfo.name}">\n<${TOOL_XML_NAMESPACE}:parameter name="param">value</${TOOL_XML_NAMESPACE}:parameter>\n</${TOOL_XML_NAMESPACE}:invoke>`,
   });
 
   // Register Handler
