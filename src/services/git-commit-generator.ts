@@ -343,7 +343,7 @@ async function generateCommitMessage(diffResult: GitDiffResult): Promise<string 
     const abortController = new AbortController();
 
     await provider.streamChat(
-      Date.now(),
+      `commit-${Date.now()}`,
       messages,
       commitSettings,
       collector,

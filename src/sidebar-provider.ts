@@ -126,6 +126,20 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
   }
 
   /**
+   * Open a parallel chat in a new editor tab
+   */
+  public openParallelChat(): void {
+    // Generate unique session ID for parallel chat
+    const sessionId = `parallel-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    
+    this._panelManager.openParallelChat(sessionId, {
+      historyService: this._historyService,
+      toolHistoryService: this._toolHistoryService,
+      workspaceManager: this._workspaceManager
+    });
+  }
+
+  /**
    * Resolve webview view
    */
   public resolveWebviewView(
@@ -148,6 +162,9 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = getMainWebviewHtml(webviewView.webview, this._extensionUri);
 
+    // Initialize sidebar with main session ID
+    webviewView.webview.postMessage({ type: 'setSessionId', sessionId: 'main-sidebar' });
+
     // Send initial workspace info and start refactor scan
     this._workspaceManager.sendWorkspaceInfo(webviewView.webview);
 
@@ -163,6 +180,11 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
     };
 
     webviewView.webview.onDidReceiveMessage(async (data) => {
+      // Re-send session ID when webview requests workspace info (ensures session ID is set after reload/init)
+      if (data.type === 'requestWorkspaceInfo') {
+        webviewView.webview.postMessage({ type: 'setSessionId', sessionId: 'main-sidebar' });
+      }
+
       // Try to route through the message router first
       const handled = await this._messageRouter.route(data, handlerContext);
       if (handled) {

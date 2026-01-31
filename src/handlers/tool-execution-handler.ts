@@ -97,6 +97,7 @@ interface ToolExecutionMessage {
   toolName: string;
   parameters: Record<string, unknown>;
   mode?: ChatMode;
+  sessionId?: string;
 }
 
 interface ToolAbortMessage {
@@ -143,13 +144,18 @@ export async function handleToolExecution(
     return;
   }
 
-  const { requestId, toolName, parameters, mode } = data;
+  const { requestId, toolName, parameters, mode, sessionId } = data;
 
   // Create abort controller for this execution
   const abortController = new AbortController();
   activeToolExecutions.set(requestId, abortController);
 
   try {
+    // Inject sessionId into parameters for tools that need session isolation (like todo_write)
+    if (sessionId) {
+      parameters.sessionKey = sessionId;
+    }
+
     const tool = defaultRegistry.getTool(toolName);
 
     if (!tool) {

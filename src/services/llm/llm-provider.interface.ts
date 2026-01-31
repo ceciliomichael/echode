@@ -32,7 +32,7 @@ export interface ChatStreamSettings {
 
 export interface ILLMProvider {
   streamChat(
-    requestId: number,
+    requestId: string,
     messages: ChatMessage[],
     settings: ChatStreamSettings,
     webview: vscode.WebviewView | vscode.WebviewPanel,

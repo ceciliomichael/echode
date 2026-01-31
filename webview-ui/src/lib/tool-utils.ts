@@ -90,6 +90,7 @@ export async function executeToolViaExtension(
       toolName,
       parameters,
       mode,
+      sessionId: window.sessionId, // Include session ID for isolation (e.g. parallel chats)
     });
   });
 }

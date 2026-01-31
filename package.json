@@ -2,7 +2,7 @@
   "name": "echode",
   "displayName": "EchoDE Coder",
   "description": "Agentic Coding",
-  "version": "1.2.205",
+  "version": "1.2.278",
   "publisher": "EchoSphere",
   "icon": "icon.png",
   "repository": {
@@ -44,6 +44,11 @@
         "command": "echode.newChat",
         "title": "New Chat",
         "icon": "$(add)"
+      },
+      {
+        "command": "echode.parallelChat",
+        "title": "Parallel Chat",
+        "icon": "$(split-horizontal)"
       },
       {
         "command": "echode.openHistory",
@@ -110,6 +115,11 @@
           "command": "echode.newChat",
           "when": "view == echode.sidebar",
           "group": "navigation@1"
+        },
+        {
+          "command": "echode.parallelChat",
+          "when": "view == echode.sidebar",
+          "group": "navigation@1.5"
         },
         {
           "command": "echode.openHistory",

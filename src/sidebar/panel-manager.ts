@@ -1,11 +1,18 @@
 import * as vscode from 'vscode';
-import { getSettingsHtml, getMermaidPreviewHtml } from '../utils/html-generator';
+import { getSettingsHtml, getMermaidPreviewHtml, getMainWebviewHtml } from '../utils/html-generator';
 import { handleApiRequest } from '../handlers/api-handler';
+import { handleChatStream } from '../handlers/chat-streaming-handler';
 import { handleModelFetch } from '../handlers/model-fetching-handler';
+import { handleToolExecution } from '../handlers/tool-execution-handler';
+import { handleSearchFiles, handleSearchWorkflows } from './handlers/search-handler';
 import { getSettingsService } from '../services/settings-service';
 import { handleMcpMessage, setupMcpStatusListener } from './handlers/mcp-handler';
 import { handleGetWorkflows, handleSaveWorkflow, handleDeleteWorkflow } from './handlers/workflow-handler';
+import { createMessageRouter, HandlerContext } from './message-router';
 import type { AutocompleteService } from '../autocomplete';
+import type { ChatHistoryService } from '../services/chat-history-service';
+import type { ToolHistoryService } from '../services/tool-history';
+import type { WorkspaceManager } from './workspace-manager';
 
 /**
  * Panel Manager
@@ -14,6 +21,7 @@ import type { AutocompleteService } from '../autocomplete';
 export class PanelManager {
   private _settingsPanel?: vscode.WebviewPanel;
   private _mermaidPanels = new Map<string, vscode.WebviewPanel>();
+  private _messageRouter = createMessageRouter();
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -170,6 +178,111 @@ export class PanelManager {
         this._mermaidPanels.delete(id);
       }
       onClosed?.(id);
+    });
+  }
+
+  /**
+   * Open Parallel Chat Panel
+   */
+  public openParallelChat(
+    sessionId: string,
+    services: {
+      historyService: ChatHistoryService;
+      toolHistoryService: ToolHistoryService;
+      workspaceManager: WorkspaceManager;
+    }
+  ): void {
+    const panel = vscode.window.createWebviewPanel(
+      'echode.parallelChat',
+      'EchoDE Chat',
+      vscode.ViewColumn.One,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: [
+          vscode.Uri.joinPath(this._extensionUri, 'webview-ui', 'dist')
+        ]
+      }
+    );
+
+    panel.iconPath = vscode.Uri.joinPath(this._extensionUri, 'icon.svg');
+    panel.webview.html = getMainWebviewHtml(panel.webview, this._extensionUri);
+
+    // Send initialization message with session ID
+    panel.webview.postMessage({ type: 'setSessionId', sessionId });
+    
+    // Send initial workspace info
+    services.workspaceManager.sendWorkspaceInfo(panel.webview);
+
+    // Create handler context for message router
+    const handlerContext: HandlerContext = {
+      webview: panel,
+      historyService: services.historyService,
+      toolHistoryService: services.toolHistoryService,
+      workspaceManager: services.workspaceManager,
+      panelManager: this,
+      autocompleteService: this._autocompleteService,
+      setHistoryOpen: (_open: boolean) => { /* No history modal in parallel chat */ }
+    };
+
+    panel.webview.onDidReceiveMessage(async (data) => {
+      // Re-send session ID when webview requests workspace info (ensures session ID is set after reload/init)
+      if (data.type === 'requestWorkspaceInfo') {
+        panel.webview.postMessage({ type: 'setSessionId', sessionId });
+      }
+
+      // Intercept getLastOpenedSessionId to force the parallel session ID
+      // This prevents the webview from loading the global "last opened session" (from sidebar)
+      // if the initial setSessionId message was missed due to race conditions.
+      if (data.type === 'getLastOpenedSessionId') {
+        panel.webview.postMessage({ type: 'lastOpenedSessionId', sessionId });
+        return;
+      }
+
+      // Try to route through the message router first
+      const handled = await this._messageRouter.route(data, handlerContext);
+      if (handled) {
+        return;
+      }
+
+      // Handle MCP messages
+      if (typeof data.type === 'string' && data.type.startsWith('mcp.')) {
+        await handleMcpMessage(data, panel);
+        return;
+      }
+
+      // Handle messages not covered by the router (external handlers)
+      switch (data.type) {
+        case 'apiRequest':
+          await handleApiRequest(data, panel);
+          break;
+        case 'chatStream':
+        case 'chatStreamAbort':
+          await handleChatStream(data, panel);
+          break;
+        case 'fetchModels':
+          await handleModelFetch(data, panel);
+          break;
+        case 'executeTool':
+        case 'abortToolExecution':
+          await handleToolExecution(data, panel);
+          break;
+        case 'searchFiles':
+          await handleSearchFiles(data, panel);
+          break;
+        case 'searchWorkflows':
+          await handleSearchWorkflows(data, panel);
+          break;
+        case 'getWorkflows':
+          await handleGetWorkflows(data, panel);
+          break;
+        case 'saveWorkflow':
+          await handleSaveWorkflow(data, panel);
+          break;
+        case 'deleteWorkflow':
+          await handleDeleteWorkflow(data, panel);
+          break;
+      }
     });
   }
 

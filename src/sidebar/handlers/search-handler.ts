@@ -57,7 +57,7 @@ function matchesQuery(text: string, query: string): boolean {
  */
 export async function handleSearchFiles(
   data: SearchData,
-  webview: vscode.WebviewView
+  webview: vscode.WebviewView | vscode.WebviewPanel
 ): Promise<void> {
   const workspaceFolders = vscode.workspace.workspaceFolders;
   
@@ -159,7 +159,7 @@ export async function handleSearchFiles(
  */
 export async function handleSearchWorkflows(
   data: WorkflowSearchData,
-  webview: vscode.WebviewView
+  webview: vscode.WebviewView | vscode.WebviewPanel
 ): Promise<void> {
   const query = (data.query || '').trim().toLowerCase();
   const workspaceFolders = vscode.workspace.workspaceFolders;

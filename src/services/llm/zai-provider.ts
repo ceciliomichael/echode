@@ -7,7 +7,7 @@ const ZAI_DEFAULT_BASE_URL = 'https://api.z.ai/api/coding/paas/v4';
 
 export class ZaiProvider implements ILLMProvider {
   async streamChat(
-    requestId: number,
+    requestId: string,
     messages: ChatMessage[],
     settings: ChatStreamSettings,
     webview: vscode.WebviewView | vscode.WebviewPanel,
@@ -39,7 +39,7 @@ export class ZaiProvider implements ILLMProvider {
   }
 
   private async executeStream(
-    requestId: number,
+    requestId: string,
     messages: ChatMessage[],
     settings: ChatStreamSettings,
     webview: vscode.WebviewView | vscode.WebviewPanel,

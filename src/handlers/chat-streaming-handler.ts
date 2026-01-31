@@ -14,13 +14,13 @@ import { injectMentionInstructions } from '../utils/mention-utils';
 import { TOOL_XML_NAMESPACE } from '../tool-xml';
 
 interface ChatStreamRequest {
-  requestId: number;
+  requestId: string;
   messages: ChatMessage[];
   settings: ChatStreamSettings;
 }
 
 // Registry to track active streams for cancellation
-const activeStreams = new Map<number, AbortController>();
+const activeStreams = new Map<string, AbortController>();
 
 /**
  * Handle chat streaming requests from webview through backend SDKs

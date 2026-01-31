@@ -13,8 +13,7 @@ export class UnifiedChatService implements IChatService {
   private static instance: UnifiedChatService | null = null;
   private config: ChatServiceConfig;
   private provider: Provider;
-  private requestCounter = 0;
-  private pendingStreams = new Map<number, {
+  private pendingStreams = new Map<string, {
     controller: ReadableStreamDefaultController<string>;
     resolve: () => void;
     reject: (error: Error) => void;
@@ -133,7 +132,9 @@ export class UnifiedChatService implements IChatService {
       throw new Error('VSCode API not available');
     }
 
-    const requestId = ++this.requestCounter;
+    // Generate a unique ID for this request to prevent collisions between multiple chat windows
+    // Simple counter is not safe when multiple webviews are open
+    const requestId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 
     // Merge config with overrides
     const effectiveConfig = {

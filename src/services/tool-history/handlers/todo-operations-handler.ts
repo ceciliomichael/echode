@@ -38,7 +38,7 @@ export class TodoOperationsHandler implements IToolHistoryHandler {
   ): Promise<ToolHistoryResult> {
     try {
       const oldTasks = data.oldTasks;
-      const sessionKey = 'default';
+      const sessionKey = (data.sessionKey as string) || 'default';
 
       // Restore old state (null means clear todos)
       TodoWriteTool.undoTodoWrite(
@@ -63,7 +63,7 @@ export class TodoOperationsHandler implements IToolHistoryHandler {
   ): Promise<ToolHistoryResult> {
     try {
       const tasks = data.tasks as TodoTask[];
-      const sessionKey = 'default';
+      const sessionKey = (data.sessionKey as string) || 'default';
 
       // Restore new state
       TodoWriteTool.redoTodoWrite(tasks, sessionKey);

@@ -28,7 +28,7 @@ export class QwenStreamingHandler {
   }
 
   async executeStream(
-    requestId: number,
+    requestId: string,
     messages: ChatMessage[],
     settings: ChatStreamSettings,
     webview: vscode.WebviewView | vscode.WebviewPanel,

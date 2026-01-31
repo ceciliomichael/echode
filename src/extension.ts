@@ -42,6 +42,12 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('echode.parallelChat', () => {
+      sidebarProvider.openParallelChat();
+    })
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand('echode.openHistory', () => {
       sidebarProvider.openHistoryPanel();
     })

@@ -6,7 +6,7 @@ const DEFAULT_STREAMING_TIMEOUT = 5000; // 5 seconds
 
 export class VSCodeLMProvider implements ILLMProvider {
   async streamChat(
-    requestId: number,
+    requestId: string,
     messages: ChatMessage[],
     settings: ChatStreamSettings,
     webview: vscode.WebviewView | vscode.WebviewPanel,
@@ -38,7 +38,7 @@ export class VSCodeLMProvider implements ILLMProvider {
   }
 
   private async executeStream(
-    requestId: number,
+    requestId: string,
     messages: ChatMessage[],
     settings: ChatStreamSettings,
     webview: vscode.WebviewView | vscode.WebviewPanel,

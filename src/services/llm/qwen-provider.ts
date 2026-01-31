@@ -11,7 +11,7 @@ export class QwenProvider implements ILLMProvider {
   private readonly streamingHandler = new QwenStreamingHandler();
 
   async streamChat(
-    requestId: number,
+    requestId: string,
     messages: ChatMessage[],
     settings: ChatStreamSettings,
     webview: vscode.WebviewView | vscode.WebviewPanel,
@@ -50,7 +50,7 @@ export class QwenProvider implements ILLMProvider {
   }
 
   private async executeStreamWithRetry(
-    requestId: number,
+    requestId: string,
     messages: ChatMessage[],
     settings: ChatStreamSettings,
     webview: vscode.WebviewView | vscode.WebviewPanel,

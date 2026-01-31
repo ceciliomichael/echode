@@ -54,8 +54,8 @@ export class TodoWriteTool implements ITool {
         }
       }
 
-      // Store tasks (using 'default' as session key for now)
-      const sessionKey = 'default';
+      // Store tasks (using provided session key or default)
+      const sessionKey = typeof parameters.sessionKey === 'string' ? parameters.sessionKey : 'default';
       
       // Capture old state for undo
       const oldTasks = todoStorage.get(sessionKey) || null;
@@ -68,6 +68,7 @@ export class TodoWriteTool implements ITool {
           message: `Updated todo list with ${tasks.length} task(s)`,
           tasks,
           oldTasks, // Include old state for undo
+          sessionKey, // Include session key for history tracking
         },
       };
     } catch (error) {

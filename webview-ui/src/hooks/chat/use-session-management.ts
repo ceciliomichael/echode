@@ -134,6 +134,15 @@ export function useSessionManagement({
         setIsLoadingSession(false);
         return;
       }
+
+      // If a specific session ID is already set globally (e.g. for parallel chat tabs),
+      // use it immediately instead of asking for the last opened session.
+      // This ensures parallel chats start fresh or load their specific session.
+      if (window.sessionId) {
+        loadSession(window.sessionId);
+        return;
+      }
+
       await requestWorkspaceInfo();
       window.vscode.postMessage({ type: 'getLastOpenedSessionId' });
     };

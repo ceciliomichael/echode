@@ -17,7 +17,7 @@ type ChatCompletionChunkLike = {
 
 export class OpenAICompatibleProvider implements ILLMProvider {
   async streamChat(
-    requestId: number,
+    requestId: string,
     messages: ChatMessage[],
     settings: ChatStreamSettings,
     webview: vscode.WebviewView | vscode.WebviewPanel,
@@ -49,7 +49,7 @@ export class OpenAICompatibleProvider implements ILLMProvider {
   }
 
   private async executeStream(
-    requestId: number,
+    requestId: string,
     messages: ChatMessage[],
     settings: ChatStreamSettings,
     webview: vscode.WebviewView | vscode.WebviewPanel,

@@ -40,6 +40,7 @@ declare global {
     isMermaidPreview?: boolean;
     mermaidCode?: string;
     mermaidId?: string;
+    sessionId?: string; // Session ID for tool execution isolation (e.g. parallel chats)
   }
 }
 
@@ -65,6 +66,13 @@ function App() {
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
+      
+      // Handle session ID initialization for parallel chats
+      if (message.type === 'setSessionId') {
+        window.sessionId = message.sessionId;
+        return;
+      }
+
       if (message.type === 'settingsSaved') {
         const current = storageService.getSettings();
         const incoming = message.settings as ApiSettings;

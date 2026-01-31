@@ -14,7 +14,7 @@ import type { AutocompleteService } from '../autocomplete';
  * Context provided to all message handlers
  */
 export interface HandlerContext {
-  webview: vscode.WebviewView;
+  webview: vscode.WebviewView | vscode.WebviewPanel;
   historyService: ChatHistoryService;
   toolHistoryService: ToolHistoryService;
   workspaceManager: WorkspaceManager;
