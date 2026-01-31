@@ -257,8 +257,17 @@ export const fixMermaidCode = (code: string): string => {
   // Excludes: id["Text"], id[(Database)], id[[Subroutine]], id[/.../], id[\...\]
   // We use [^\r\n]*? to match content within the same line
   fixed = fixed.replace(
-    /([a-zA-Z0-9_\-]+)(\s*)\[\s*(?!(?:"|[(\[\/\\]))([^\r\n\]]*?)\s*\]/g,
+    /([a-zA-Z0-9_-]+)(\s*)\[\s*(?!(?:"|[[(/\\]))([^\r\n\]]*?)\s*\]/g,
     '$1$2["$3"]'
+  );
+
+  fixed = fixed.replace(
+    /(^|\r?\n)(\s*)(\S+)\s+(--x)\s+"([^"\r\n]+)"\s+(\S+)/g,
+    '$1$2$3 $4|$5| $6'
+  );
+  fixed = fixed.replace(
+    /(^|\r?\n)(\s*)(\S+)\s+(--x)\s+"([^"\r\n]+)"\s*(?=\r?\n|$)/g,
+    '$1$2$3 $4|$5| $3'
   );
 
   return fixed;

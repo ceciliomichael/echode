@@ -67,18 +67,18 @@ export function useEditRevert({
       }
     }
 
-    // Step 3: Clear UI state
+    // Step 3: Truncate history to the revert point
+    const truncatedMessages = messages.slice(0, messageIndex);
+
+    // Step 4: Update messages
+    setMessages(truncatedMessages);
+
+    // Step 5: Clear UI state
     setRevertPreviewMessageId(null);
     const sessionId = ensureSessionId();
     setSessionEditingMessage(sessionId, null);
     setSessionRevertPreview(sessionId, null);
     setEditingMessageId(null);
-
-    // Step 4: Truncate history to the revert point
-    const truncatedMessages = messages.slice(0, messageIndex);
-
-    // Step 5: Update messages
-    setMessages(truncatedMessages);
 
     // Step 6: Send new message
     await sendMessage(newContent, attachments, truncatedMessages, false, forceEchoSearch);

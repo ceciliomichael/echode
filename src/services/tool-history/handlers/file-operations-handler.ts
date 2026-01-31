@@ -11,6 +11,26 @@ import { deleteFileWithRetry, writeFileWithRetry } from '../../../utils/fs-retry
 export class FileOperationsHandler implements IToolHistoryHandler {
   readonly supportedTools = ['write_to_file', 'edit', 'delete_file'];
 
+  /**
+   * Resolve file path from tool data, prioritizing absolute path if available
+   */
+  private resolvePath(data: ToolDataRecord, workspacePath: string): string {
+    // 1. Try to use pre-calculated absolute path from tool result
+    if (data.absolutePath && typeof data.absolutePath === 'string') {
+      return data.absolutePath;
+    }
+
+    const filePath = data.path as string;
+
+    // 2. Check if the path parameter itself is absolute
+    if (path.isAbsolute(filePath)) {
+      return filePath;
+    }
+
+    // 3. Fallback: Resolve relative path against workspace root
+    return path.join(workspacePath, filePath);
+  }
+
   async undo(
     toolName: string,
     data: ToolDataRecord,
@@ -57,7 +77,7 @@ export class FileOperationsHandler implements IToolHistoryHandler {
     const oldContent = data.oldContent as string | null;
     const createdDirectories = (data.createdDirectories as string[]) || [];
 
-    const absolutePath = path.join(workspacePath, filePath);
+    const absolutePath = this.resolvePath(data, workspacePath);
     const uri = vscode.Uri.file(absolutePath);
 
     if (action === 'created') {
@@ -124,7 +144,7 @@ export class FileOperationsHandler implements IToolHistoryHandler {
     const filePath = data.path as string;
     const oldContent = data.oldContent as string;
 
-    const absolutePath = path.join(workspacePath, filePath);
+    const absolutePath = this.resolvePath(data, workspacePath);
     const uri = vscode.Uri.file(absolutePath);
 
     try {
@@ -150,7 +170,7 @@ export class FileOperationsHandler implements IToolHistoryHandler {
     const filePath = data.path as string;
     const deletedContent = data.deletedContent as string;
 
-    const absolutePath = path.join(workspacePath, filePath);
+    const absolutePath = this.resolvePath(data, workspacePath);
     const uri = vscode.Uri.file(absolutePath);
 
     try {
@@ -186,7 +206,7 @@ export class FileOperationsHandler implements IToolHistoryHandler {
     const newContent = data.newContent as string;
     const action = data.action as string;
 
-    const absolutePath = path.join(workspacePath, filePath);
+    const absolutePath = this.resolvePath(data, workspacePath);
     const uri = vscode.Uri.file(absolutePath);
 
     try {
@@ -236,7 +256,7 @@ export class FileOperationsHandler implements IToolHistoryHandler {
     const filePath = data.path as string;
     const newContent = data.newContent as string;
 
-    const absolutePath = path.join(workspacePath, filePath);
+    const absolutePath = this.resolvePath(data, workspacePath);
     const uri = vscode.Uri.file(absolutePath);
 
     try {
@@ -261,7 +281,7 @@ export class FileOperationsHandler implements IToolHistoryHandler {
   ): Promise<ToolHistoryResult> {
     const filePath = data.path as string;
 
-    const absolutePath = path.join(workspacePath, filePath);
+    const absolutePath = this.resolvePath(data, workspacePath);
     const uri = vscode.Uri.file(absolutePath);
 
     try {
