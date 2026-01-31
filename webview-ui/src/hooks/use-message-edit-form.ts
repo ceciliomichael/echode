@@ -13,7 +13,7 @@ interface UseMessageEditFormOptions {
   initialContent: string;
   initialAttachments?: DocumentAttachment[];
   initialImageAttachments?: ImageAttachment[];
-  onSubmit: (content: string, imageAttachments?: ImageAttachment[], forceEchoSearch?: boolean) => void;
+  onSubmit: (content: string, imageAttachments?: ImageAttachment[]) => void;
   onCancel: () => void;
   onSave?: (content: string, imageAttachments?: ImageAttachment[], attachments?: DocumentAttachment[]) => void;
   mode?: ChatMode;
@@ -36,7 +36,7 @@ export interface UseMessageEditFormReturn {
   // Event handlers
   handleChange: (e: ChangeEvent<HTMLTextAreaElement>) => void;
   handleKeyDown: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
-  handleSubmit: (e: FormEvent, forceEchoSearch?: boolean) => void;
+  handleSubmit: (e: FormEvent) => void;
   handlePaste: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void;
   handleValueChange: (newValue: string, newCursorPos: number) => void;
 }
@@ -156,6 +156,22 @@ export function useMessageEditForm({
     return () => cancelAnimationFrame(frameId);
   }, []);
 
+  // Scroll into view on mount to ensure form is visible if it expands off-screen
+  useEffect(() => {
+    // Small delay to allow layout to settle (e.g., after expansion animation)
+    const timeoutId = setTimeout(() => {
+      if (containerRef.current) {
+        containerRef.current.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'nearest'
+        });
+      }
+    }, 150);
+
+    return () => clearTimeout(timeoutId);
+  }, []);
+
   // Auto-resize on content change
   useEffect(() => {
     if (textareaRef.current) {
@@ -188,7 +204,7 @@ export function useMessageEditForm({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [onCancel]);
 
-  const handleSubmit = useCallback((e: FormEvent, forceEchoSearch: boolean = false) => {
+  const handleSubmit = useCallback((e: FormEvent) => {
     e.preventDefault();
     if (editContent.trim()) {
       // Use ref to get current attachment state (avoids stale closure)
@@ -208,7 +224,7 @@ export function useMessageEditForm({
       });
 
       const newContent = expandedContent + attachmentBlocks;
-      onSubmit(newContent, currentImageAttachments, forceEchoSearch);
+      onSubmit(newContent, currentImageAttachments);
       if (onSave) {
         onSave(newContent, currentImageAttachments, currentAttachments);
       }
@@ -231,16 +247,9 @@ export function useMessageEditForm({
     }
 
     if (e.key === 'Enter' && !e.shiftKey) {
-      // Ctrl+Enter: force echo_search for Agent, Plan, and Ask modes
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        handleSubmit(e, mode === 'agent' || mode === 'plan' || mode === 'ask');
-        return;
-      }
-
       // Regular Enter: submit edit
       e.preventDefault();
-      handleSubmit(e, false);
+      handleSubmit(e);
     } else if (e.key === 'Escape') {
       onCancel();
     }

@@ -47,7 +47,7 @@ export class CompressionService {
         baseURL: config.baseURL || '',
         maxTokens: config.maxTokens || 4096,
         temperature: config.temperature || 0.3, // Low temperature for factual consistency
-        streamingTimeout: 10000, // Longer timeout for processing large context
+        streamingTimeout: 300000, // 5 minutes timeout to prevent premature termination during compression
         chatMode: 'agent', // Use agent mode for better reasoning
       },
     });
