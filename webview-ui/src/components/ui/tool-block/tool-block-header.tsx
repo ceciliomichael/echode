@@ -35,6 +35,10 @@ export function ToolBlockHeader({
   const getDisplayPath = (fullPath: string): string => {
     if (!fullPath || !workspace) return fullPath;
 
+    if (fullPath === '.') {
+      return '.';
+    }
+
     const normalize = (p: string) => p.replace(/\\/g, '/').toLowerCase();
     const normalizedFull = normalize(fullPath);
 
@@ -50,7 +54,7 @@ export function ToolBlockHeader({
           }
           // Optional: You could prepend folder.name here if desired for multi-root clarity
           // e.g., return `${folder.name}/${relative}`;
-          return relative;
+          return relative || '.';
         }
       }
     }
@@ -63,7 +67,7 @@ export function ToolBlockHeader({
         if (relative.startsWith('/') || relative.startsWith('\\')) {
           relative = relative.slice(1);
         }
-        return relative;
+        return relative || '.';
       }
     }
 

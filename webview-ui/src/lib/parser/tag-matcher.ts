@@ -135,7 +135,10 @@ export function findMatchingClosingTag(
 export function findMatchingInvokeClosingTag(content: string, openTagEnd: number): number {
   let depth = 1;
   let pos = openTagEnd;
-  const openingTagRegex = new RegExp(`<${TOOL_XML_NAMESPACE}:invoke\\s+name=["'][^"']+["']>`, 'g');
+  const openingTagRegex = new RegExp(
+    `<${TOOL_XML_NAMESPACE}:invoke\\b[^>]*\\bname\\s*=\\s*["'][^"']+["'][^>]*>`
+    , 'g'
+  );
   const closeTag = `</${TOOL_XML_NAMESPACE}:invoke>`;
 
   while (pos < content.length && depth > 0) {
@@ -174,7 +177,59 @@ export function findMatchingInvokeClosingTag(content: string, openTagEnd: number
  * We only match closing tags that have a corresponding opening tag at the same nesting level.
  */
 export function findMatchingParameterClose(content: string, openTagEnd: number): number {
+  let openCount = 0;
+  let closeCount = 0;
+  let pos = openTagEnd;
+  const openPattern = new RegExp(
+    `<${TOOL_XML_NAMESPACE}:parameter(?:\\s+[^>]+)?\\s+name\\s*=\\s*["'][^"']+["'][^>]*>`
+    , 'g'
+  );
   const closeTag = `</${TOOL_XML_NAMESPACE}:parameter>`;
-  const nextClosePos = content.indexOf(closeTag, openTagEnd);
-  return nextClosePos;
+  const closeTagLength = closeTag.length;
+
+  const isLikelyRealParameterClose = (closePos: number): boolean => {
+    const afterClose = content.slice(closePos + closeTagLength);
+    const trimmed = afterClose.replace(/^[\t\r\n ]+/, '');
+
+    if (trimmed.length === 0) {
+      return true;
+    }
+
+    return trimmed.startsWith(`<${TOOL_XML_NAMESPACE}:parameter`)
+      || trimmed.startsWith(`</${TOOL_XML_NAMESPACE}:invoke>`)
+      || trimmed.startsWith(`</${TOOL_XML_NAMESPACE}:function_calls>`);
+  };
+
+  while (pos < content.length) {
+    openPattern.lastIndex = pos;
+    const openMatch = openPattern.exec(content);
+    const nextOpenPos = openMatch ? openMatch.index : -1;
+    const nextClosePos = content.indexOf(closeTag, pos);
+
+    if (nextClosePos === -1) {
+      return -1;
+    }
+
+    if (nextOpenPos !== -1 && nextOpenPos < nextClosePos) {
+      openCount++;
+      pos = nextOpenPos + openMatch![0].length;
+      continue;
+    }
+
+    const closeTagEnd = nextClosePos + closeTagLength;
+    if (closeCount < openCount) {
+      closeCount++;
+      pos = closeTagEnd;
+      continue;
+    }
+
+    if (!isLikelyRealParameterClose(nextClosePos)) {
+      pos = closeTagEnd;
+      continue;
+    }
+
+    return nextClosePos;
+  }
+
+  return -1;
 }

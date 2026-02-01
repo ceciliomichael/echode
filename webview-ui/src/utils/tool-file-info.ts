@@ -64,7 +64,7 @@ export function getToolFileInfo(
 
   // List files -> Use Folder icon
   if (toolName === 'list_files') {
-    const displayPath = !path || path === '' ? 'root' : String(path);
+    const displayPath = !path || path === '' ? '.' : String(path);
     return {
       displayName: displayPath,
       fullPath: path || '',

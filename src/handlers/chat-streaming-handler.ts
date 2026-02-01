@@ -143,9 +143,14 @@ export async function handleChatStream(
           }
 
           const systemReminder = `\n\n<system_reminder>\nPlease remember:${toolsMessage}
-- Use only the XML format: <${TOOL_XML_NAMESPACE}:function_calls><${TOOL_XML_NAMESPACE}:invoke name="tool_name">...</${TOOL_XML_NAMESPACE}:invoke></${TOOL_XML_NAMESPACE}:function_calls>
+- Tool calls are a STRICT PROTOCOL. When using tools, output ONLY ONE XML block and nothing else.
+- Canonical format: <${TOOL_XML_NAMESPACE}:function_calls><${TOOL_XML_NAMESPACE}:invoke name="tool_name"><${TOOL_XML_NAMESPACE}:parameter name="param">value</${TOOL_XML_NAMESPACE}:parameter></${TOOL_XML_NAMESPACE}:invoke></${TOOL_XML_NAMESPACE}:function_calls>
+- Allowed tags inside tool XML: <${TOOL_XML_NAMESPACE}:function_calls>, <${TOOL_XML_NAMESPACE}:invoke>, <${TOOL_XML_NAMESPACE}:parameter> (and their matching closing tags) only.
+- Attribute rules: The tool name MUST be in invoke's name attribute. Parameter names MUST be in parameter's name attribute. Use single or double quotes.
+- Value rules: Put the raw value as text content inside <${TOOL_XML_NAMESPACE}:parameter>. Do not wrap values in extra XML. Do not escape into additional nested tool tags.
 - For edit: old_string must match exactly (unique unless replace_all is true). Do not attempt to batch multiple edits in one call.
 - Avoid redundant file reads when you already have the necessary code in context, but if you are unsure or need to verify details, call the relevant tool again instead of guessing.
+- Do not include tool XML as an example, explanation, or inside code blocks/backticks.
 - Do not nest tool XML inside parameters.
 - Keep tool syntax internal. Never show it to the user.
 - Always base code descriptions and edits on the latest tool output you have. If you are missing details, fetch them with tools first.
