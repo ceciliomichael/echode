@@ -10,12 +10,10 @@ interface ToolsTabProps {
 
 export function ToolsTab({ enabledTools, onChange }: ToolsTabProps) {
   // Filter out:
-  // - echo_search: always available in all modes
   // - plan: exclusive to Plan mode only
   // - MCP tools: managed in MCP tab
   const allToolsMetadata = getAllToolMetadata().filter(
     (metadata) => 
-      metadata.id !== 'echo_search' && 
       metadata.id !== 'plan' &&
       metadata.id !== 'publish_findings' &&
       !metadata.id.startsWith('mcp_')

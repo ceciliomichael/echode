@@ -1,6 +1,6 @@
-import { Settings, FileText, Wrench, Search, Zap, Brain, GitCommit, Network, Settings2, ScrollText } from 'lucide-react';
+import { Settings, FileText, Wrench, Zap, Brain, GitCommit, Network, Settings2, ScrollText } from 'lucide-react';
 
-type TabType = 'api' | 'system' | 'tools' | 'indexing' | 'autocomplete' | 'context' | 'commit-message' | 'mcp' | 'miscellaneous' | 'workflows';
+type TabType = 'api' | 'system' | 'tools' | 'autocomplete' | 'context' | 'commit-message' | 'mcp' | 'miscellaneous' | 'workflows';
 
 interface SettingsSidebarProps {
   activeTab: TabType;
@@ -135,28 +135,7 @@ export function SettingsSidebar({ activeTab, onTabChange }: SettingsSidebarProps
             <ScrollText size={14} strokeWidth={1.5} />
             <span className="font-medium">Workflows</span>
           </button>
-          <button
-            onClick={() => onTabChange('indexing')}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs rounded-xl transition-all border"
-            style={{
-              backgroundColor: activeTab === 'indexing' ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent',
-              color: activeTab === 'indexing' ? 'var(--vscode-list-activeSelectionForeground)' : 'var(--vscode-foreground)',
-              borderColor: activeTab === 'indexing' ? 'var(--vscode-focusBorder)' : 'transparent'
-            }}
-            onMouseEnter={(e) => {
-              if (activeTab !== 'indexing') {
-                e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (activeTab !== 'indexing') {
-                e.currentTarget.style.backgroundColor = 'transparent';
-              }
-            }}
-          >
-            <Search size={14} strokeWidth={1.5} />
-            <span className="font-medium">Indexing</span>
-          </button>
+
           <button
             onClick={() => onTabChange('autocomplete')}
             className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs rounded-xl transition-all border"

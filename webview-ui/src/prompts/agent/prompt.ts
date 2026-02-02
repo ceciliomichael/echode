@@ -11,7 +11,7 @@ import { getAgentIdentity, AGENT_WORKFLOW, getAgentRules } from './sections';
 /** Tools available in Agent mode (ordered by frequency of use) */
 const AGENT_TOOLS = [
     'read_file', 'edit', 'write_to_file', 'delete_file',
-    'echo_search', 'grep_search', 'glob_search', 'list_files',
+    'grep_search', 'glob_search', 'list_files',
     'get_diagnostics', 'todo_write'
 ] as const;
 

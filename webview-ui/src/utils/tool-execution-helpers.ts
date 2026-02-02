@@ -3,7 +3,7 @@ import type { ParsedToolBlock } from '../types/tool';
 import type { ToolProgress } from '../lib/tool-utils';
 
 /**
- * Progress callback for tools that support streaming progress (echo_search, run_terminal)
+ * Progress callback for tools that support streaming progress (run_terminal)
  */
 export type ToolProgressCallback = (progress: ToolProgress) => void;
 
@@ -75,7 +75,7 @@ export async function executeToolWithStopCheck(
       },
       signal, // Pass abort signal for cancellation
       undefined, // onStatusChange
-      onProgress // progress callback for echo_search
+      onProgress
     );
 
     // Check if stopped during execution or if the result indicates abort

@@ -1,12 +1,12 @@
-import type { ToolExecutionResult, EchoSearchProgress } from '../types/tool';
+import type { ToolExecutionResult } from '../types/tool';
 import type { ChatMode } from '../types/chat-mode';
 
 export type { ChatMode };
 
 /**
- * Progress data type - can be EchoSearchProgress for echo_search or string for terminal output
+ * Progress data type - string for terminal output
  */
-export type ToolProgress = EchoSearchProgress | string;
+export type ToolProgress = string;
 
 /**
  * Progress callback type for tools that support streaming progress

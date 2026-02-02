@@ -16,7 +16,6 @@ const STANDARD_TOOLS = [
   'todo_write',
   'edit',
   'get_diagnostics',
-  'echo_search',
   'plan',
 ];
 

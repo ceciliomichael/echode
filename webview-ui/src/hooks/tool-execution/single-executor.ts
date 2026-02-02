@@ -7,7 +7,7 @@
 import type { Message, ImageAttachment } from '../../types/chat';
 import type { ToolBlock, ToolExecutionContext, ExecuteToolAndContinueFn, LockedModelConfig } from './types';
 import { ToolExecutor } from '../../lib/tool-executor';
-import { createToolExecutionState, updateToolExecutionStatus, updateToolExecutionProgress, generateToolExecutionId } from '../../lib/tool-execution-tracker';
+import { createToolExecutionState, updateToolExecutionStatus, generateToolExecutionId } from '../../lib/tool-execution-tracker';
 import { buildContinuationHistory } from '../../utils/continuation-builder';
 import { executeToolWithStopCheck, type ToolProgressCallback } from '../../utils/tool-execution-helpers';
 import { runContinuationStream } from './continuation-stream';
@@ -101,7 +101,7 @@ export async function executeSingleTool(
   // This is needed because the callback captures executionState which doesn't update
   let accumulatedStringProgress = '';
 
-  // Create progress callback for echo_search iterations and terminal streaming
+  // Create progress callback for terminal streaming
   const onProgress: ToolProgressCallback = (progress) => {
     let updatedState: typeof executionState;
     
@@ -113,15 +113,14 @@ export async function executeSingleTool(
         progress: accumulatedStringProgress,
       };
     } else {
-      // For object progress (echo_search), replace directly
-      updatedState = updateToolExecutionProgress(executionState, progress);
+      updatedState = executionState;
     }
     
     updateToolExecution(assistantMessageId, toolExecutionId, updatedState);
   };
 
   // Execute the specific tool directly
-  const isProgressTool = toolBlock.toolName === 'echo_search' || toolBlock.toolName === 'run_terminal';
+  const isProgressTool = toolBlock.toolName === 'run_terminal';
   const result = await executeToolWithStopCheck(
     toolExecutor,
     toolBlock,

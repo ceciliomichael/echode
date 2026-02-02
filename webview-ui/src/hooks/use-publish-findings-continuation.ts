@@ -78,7 +78,7 @@ export function usePublishFindingsContinuationHandler({
   messages: Message[];
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   updateToolExecution: (messageId: string, toolExecutionId: string, state: ToolExecutionState) => void;
-  sendMessage: (content: string, attachments?: ImageAttachment[], overrideMessages?: Message[], isHidden?: boolean, forceEchoSearch?: boolean, lockedMode?: ChatMode) => Promise<void>;
+  sendMessage: (content: string, attachments?: ImageAttachment[], overrideMessages?: Message[], isHidden?: boolean, lockedMode?: ChatMode) => Promise<void>;
   onModeChange?: (mode: ChatMode) => void;
 }) {
   const messagesRef = useRef(messages);
@@ -168,7 +168,6 @@ export function usePublishFindingsContinuationHandler({
         undefined, // no image attachments
         undefined, // use current messages
         true, // hidden message
-        false, // no force echo search
         lockedMode
       );
     };

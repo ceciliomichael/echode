@@ -6,7 +6,6 @@
 import type { Tool } from '../../../types/tool';
 import {
     getReadFileInstructions,
-    getEchoSearchInstructions,
     getGrepSearchInstructions,
     getGlobSearchInstructions,
     getListFilesInstructions,
@@ -14,7 +13,6 @@ import {
 
 const TOOL_INSTRUCTION_MAP: Record<string, () => string> = {
     'read_file': () => getReadFileInstructions({ format: 'xml' }),
-    'echo_search': () => getEchoSearchInstructions({ format: 'xml' }),
     'grep_search': () => getGrepSearchInstructions({ format: 'xml' }),
     'glob_search': () => getGlobSearchInstructions({ format: 'xml' }),
     'list_files': () => getListFilesInstructions({ format: 'xml' }),

@@ -8,7 +8,7 @@ import { getProviderDefaults, isCustomProvider } from '../types/api-settings';
 interface UseCompressionHandlerProps {
   messages: Message[];
   onNewChat: (preserveQueue?: boolean) => void;
-  sendMessage: (content: string, attachments?: ImageAttachment[], forceEchoSearch?: boolean, overrideMessages?: Message[]) => void;
+  sendMessage: (content: string, attachments?: ImageAttachment[], overrideMessages?: Message[]) => void;
   saveCurrentSession: (messages: Message[]) => void;
 }
 
@@ -153,7 +153,7 @@ Here is the compressed history from our previous session. Please ONLY acknowledg
       // The flag resets after 100ms, so we must wait before sending
       // Pass empty array as overrideMessages to ensure fresh chat (bypasses stale closure)
       setTimeout(() => {
-        sendMessage(compressedMessage, undefined, false, []);
+        sendMessage(compressedMessage, undefined, []);
         // Reset isCompressing AFTER sendMessage is called to prevent race condition
         // This ensures isStreaming becomes true before isCompressing becomes false,
         // preventing the queue processor from firing prematurely

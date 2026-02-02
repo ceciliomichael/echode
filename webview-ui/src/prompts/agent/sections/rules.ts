@@ -35,7 +35,6 @@ TOOL USAGE:
 - \`edit\`: Targeted edits to existing files (default choice for efficiency)
 - \`write_to_file\`: New files or complete rewrites when necessary (use judgment)
 - \`grep_search\`: When you know the exact identifier
-- \`echo_search\`: Complex architectural understanding only
 - Narrow search paths (e.g., "src/components" not ".")
 
 PARALLEL EXECUTION STRATEGY:

@@ -1,5 +1,5 @@
 import type { StreamingLoopContext } from './types';
-import type { ToolExecutionState, ParsedToolBlock, EchoSearchProgress } from '../../types/tool';
+import type { ToolExecutionState, ParsedToolBlock } from '../../types/tool';
 import { chatApi } from '../../services/chat-api';
 import { hasCompleteToolBlock, trimToFirstCompleteToolBlock, extractCompleteInvokeBlocksIncremental } from '../../lib/tool-parser';
 import { generateToolExecutionId, createToolExecutionState, updateToolExecutionStatus } from '../../lib/tool-execution-tracker';
@@ -49,8 +49,8 @@ async function executeToolInParallel(
   // Track accumulated string progress for streaming tools (run_terminal)
   let accumulatedStringProgress = '';
 
-  // Create progress callback for tools that support streaming (echo_search, run_terminal)
-  const isProgressTool = block.toolName === 'echo_search' || block.toolName === 'run_terminal';
+  // Create progress callback for tools that support streaming (run_terminal)
+  const isProgressTool = block.toolName === 'run_terminal';
   const onProgress: ToolProgressCallback | undefined = isProgressTool ? (progress) => {
     let updatedState: ToolExecutionState;
     
@@ -62,11 +62,8 @@ async function executeToolInParallel(
         progress: accumulatedStringProgress,
       };
     } else {
-      // For object progress (echo_search), replace directly
-      updatedState = {
-        ...executionState,
-        progress: progress as EchoSearchProgress,
-      };
+      // Should not happen for run_terminal, but safe fallback
+      updatedState = executionState;
     }
     
     updateToolExecution(assistantMessageId, execId, updatedState);
@@ -97,7 +94,7 @@ async function executeToolInParallel(
       },
       undefined, // signal
       undefined, // onStatusChange
-      onProgress // progress callback for echo_search and run_terminal
+      onProgress // progress callback for run_terminal
     );
 
     // Check if stopped after execution

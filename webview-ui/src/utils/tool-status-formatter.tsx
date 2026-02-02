@@ -75,8 +75,6 @@ export function getToolStatusDisplay(
       executingText = 'Processing';
     } else if (toolName === 'edit') {
       executingText = 'Editing';
-    } else if (toolName === 'echo_search') {
-      executingText = 'Echoing';
     } else if (toolName === 'get_diagnostics') {
       executingText = 'Linting';
     } else if (toolName === 'glob_search') {

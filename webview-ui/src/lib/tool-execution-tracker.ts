@@ -1,4 +1,4 @@
-import type { ToolExecutionState, ToolStatus, EchoSearchProgress } from '../types/tool';
+import type { ToolExecutionState, ToolStatus } from '../types/tool';
 
 /**
  * Generate unique tool execution ID based on message ID and tool index
@@ -43,11 +43,11 @@ export function updateToolExecutionStatus(
 }
 
 /**
- * Update tool execution progress (for echo_search iterations)
+ * Update tool execution progress
  */
 export function updateToolExecutionProgress(
   state: ToolExecutionState,
-  progress: EchoSearchProgress | string
+  progress: string
 ): ToolExecutionState {
   // If both are strings, append (for terminal streaming)
   if (typeof progress === 'string' && typeof state.progress === 'string') {

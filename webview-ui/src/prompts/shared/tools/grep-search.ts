@@ -44,5 +44,5 @@ When to use:
 Tips:
 - Always narrow path (e.g., "src/components" not ".")
 
-Use echo_search instead when you need semantic understanding.`;
+`;
 }

@@ -107,17 +107,6 @@ ${content}
       return result;
     }
 
-    case 'echo_search': {
-      const query = data.query as string;
-      const results = data.results as string | undefined;
-
-      let output = `[echo_search] "${query}"`;
-      if (results) {
-        output += '\n' + truncateContent(results, 2000);
-      }
-      return output;
-    }
-
     default: {
       // For unknown tools, provide a compact JSON summary
       const jsonStr = JSON.stringify(data);

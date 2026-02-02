@@ -6,7 +6,6 @@
 import type { Tool } from '../../../types/tool';
 import {
     getReadFileInstructions,
-    getEchoSearchInstructions,
     getGrepSearchInstructions,
     getGlobSearchInstructions,
     getListFilesInstructions,
@@ -16,7 +15,6 @@ import {
 
 const TOOL_INSTRUCTION_MAP: Record<string, () => string> = {
     'read_file': () => getReadFileInstructions({ variant: 'review' }),
-    'echo_search': () => getEchoSearchInstructions(),
     'grep_search': () => getGrepSearchInstructions(),
     'glob_search': () => getGlobSearchInstructions(),
     'list_files': () => getListFilesInstructions(),

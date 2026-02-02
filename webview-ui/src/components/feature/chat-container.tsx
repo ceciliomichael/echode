@@ -113,23 +113,20 @@ export function ChatContainer() {
   const sendMessageDirect = useCallback(async (
     content: string,
     attachments?: ImageAttachment[],
-    forceEchoSearch: boolean = false,
     overrideMessages?: Message[]
   ) => {
-    sendMessage(content, attachments, overrideMessages, false, forceEchoSearch);
+    sendMessage(content, attachments, overrideMessages, false);
   }, [sendMessage]);
 
   // Add message to queue
   const addToQueue = useCallback((
     content: string,
-    imageAttachments?: ImageAttachment[],
-    forceEchoSearch: boolean = false
+    imageAttachments?: ImageAttachment[]
   ) => {
     const queuedMessage: QueuedMessage = {
       id: uuidv4(),
       content,
       imageAttachments,
-      forceEchoSearch,
       timestamp: new Date(),
     };
     setQueuedMessages(prev => [...prev, queuedMessage]);
@@ -164,8 +161,7 @@ export function ChatContainer() {
     setTimeout(() => {
       sendMessageDirect(
         messageToSend.content,
-        messageToSend.imageAttachments,
-        messageToSend.forceEchoSearch ?? false
+        messageToSend.imageAttachments
       );
     }, 200);
   }, [queuedMessages, abortStream, sendMessageDirect]);
@@ -190,8 +186,7 @@ export function ChatContainer() {
           setQueuedMessages(remainingMessages);
           sendMessageDirect(
             nextMessage.content,
-            nextMessage.imageAttachments,
-            nextMessage.forceEchoSearch ?? false
+            nextMessage.imageAttachments
           );
         }
         isProcessingQueueRef.current = false;
@@ -208,19 +203,18 @@ export function ChatContainer() {
   const handleSendMessage = useCallback(async (
     content: string,
     attachments?: ImageAttachment[],
-    forceEchoSearch: boolean = false,
     overrideMessages?: Message[]
   ) => {
     const isAiWorking = isStreaming || isExecutingTool || isCompressing;
     
     // If AI is busy, queue the message (unless overrideMessages is provided for special flows)
     if (isAiWorking && overrideMessages === undefined) {
-      addToQueue(content, attachments, forceEchoSearch);
+      addToQueue(content, attachments);
       return;
     }
     
     // Otherwise send directly
-    sendMessageDirect(content, attachments, forceEchoSearch, overrideMessages);
+    sendMessageDirect(content, attachments, overrideMessages);
   }, [isStreaming, isExecutingTool, addToQueue, sendMessageDirect]);
 
   const onNewChat = useCallback((preserveQueue: boolean = false) => {
@@ -285,9 +279,9 @@ export function ChatContainer() {
     await handleRevertPreview(messageId);
   };
 
-  const handleEdit = async (messageId: string, newContent: string, imageAttachments?: ImageAttachment[], forceEchoSearch?: boolean) => {
+  const handleEdit = async (messageId: string, newContent: string, imageAttachments?: ImageAttachment[]) => {
     // Pass image attachments to editMessage for the AI request
-    await editMessage(messageId, newContent, imageAttachments, forceEchoSearch);
+    await editMessage(messageId, newContent, imageAttachments);
   };
 
   const handleUpdate = (messageId: string, newContent: string) => {

@@ -17,8 +17,7 @@ interface EditRevertProps {
     content: string,
     attachments?: ImageAttachment[],
     overrideMessages?: Message[],
-    isHidden?: boolean,
-    forceEchoSearch?: boolean
+    isHidden?: boolean
   ) => Promise<void>;
   abortAndReset: () => boolean;
 }
@@ -42,8 +41,7 @@ export function useEditRevert({
   const editMessage = useCallback(async (
     messageId: string,
     newContent: string,
-    attachments?: ImageAttachment[],
-    forceEchoSearch: boolean = false
+    attachments?: ImageAttachment[]
   ) => {
     const messageIndex = messages.findIndex(msg => msg.id === messageId);
     if (messageIndex === -1) {return;}
@@ -81,7 +79,7 @@ export function useEditRevert({
     setEditingMessageId(null);
 
     // Step 6: Send new message
-    await sendMessage(newContent, attachments, truncatedMessages, false, forceEchoSearch);
+    await sendMessage(newContent, attachments, truncatedMessages, false);
   }, [
     messages,
     sendMessage,

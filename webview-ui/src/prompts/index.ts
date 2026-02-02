@@ -24,8 +24,6 @@ import { getToolsForMode } from '../lib/tool-config';
  */
 function getEnabledToolsForMode(mode: ChatMode): Tool[] {
     const savedTools = storageService.getEnabledTools();
-    const settings = storageService.getSettings();
-    const echoSearchEnabled = settings.indexingSettings?.enabled ?? true;
 
     // 1. Get tools allowed for the current mode (Source of Truth)
     const modeTools = getToolsForMode(mode, true);
@@ -43,11 +41,6 @@ function getEnabledToolsForMode(mode: ChatMode): Tool[] {
         }
         return tool;
     });
-
-    // 3. Filter out echo_search if indexing is disabled
-    if (!echoSearchEnabled) {
-        baseTools = baseTools.filter(tool => tool.id !== 'echo_search');
-    }
 
     // 4. FINAL SAFETY CHECKS
     return baseTools.filter(tool => {

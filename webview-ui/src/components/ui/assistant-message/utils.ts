@@ -1,4 +1,4 @@
-import type { ToolExecutionState, EchoSearchProgress } from '../../../types/tool';
+import type { ToolExecutionState } from '../../../types/tool';
 import { REQUEST_BOUNDARY_MARKER } from '../../../utils/think-block-parser';
 import { TOOL_FUNCTION_CALLS_CLOSE, TOOL_FUNCTION_CALLS_OPEN, TOOL_XML_NAMESPACE } from '../../../lib/tool-xml';
 
@@ -126,31 +126,6 @@ export function areToolExecutionsEqual(
     // Handle string progress (run_terminal)
     if (typeof prevProgress === 'string' && typeof nextProgress === 'string') {
       return prevProgress === nextProgress;
-    }
-
-    // Handle object progress (echo_search)
-    if (
-      typeof prevProgress === 'object' &&
-      typeof nextProgress === 'object' &&
-      prevProgress !== null &&
-      nextProgress !== null
-    ) {
-      const p1 = prevProgress as EchoSearchProgress;
-      const p2 = nextProgress as EchoSearchProgress;
-
-      const prevTools = p1.tools || [];
-      const nextTools = p2.tools || [];
-      const toolsEqual =
-        prevTools.length === nextTools.length &&
-        prevTools.every((tool, i) => tool === nextTools[i]);
-
-      return (
-        p1.iteration === p2.iteration &&
-        p1.phase === p2.phase &&
-        p1.toolsIteration === p2.toolsIteration &&
-        p1.message === p2.message &&
-        toolsEqual
-      );
     }
 
     return false;

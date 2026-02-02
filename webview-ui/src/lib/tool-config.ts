@@ -27,7 +27,6 @@ export const PLAN_MODE_TOOL_IDS = [
   'list_files',
   'grep_search',
   'glob_search',
-  'echo_search',
   'todo_write',
   'plan',
 ] as const;
@@ -38,7 +37,6 @@ export const ASK_MODE_TOOL_IDS = [
   'list_files',
   'grep_search',
   'glob_search',
-  'echo_search',
 ] as const;
 
 /** General mode: file operations (no code search) */
@@ -56,7 +54,6 @@ export const REVIEW_MODE_TOOL_IDS = [
   'list_files',
   'grep_search',
   'glob_search',
-  'echo_search',
   'get_diagnostics',
   'publish_findings',
 ] as const;
@@ -75,7 +72,6 @@ const STANDARD_TOOL_IDS = new Set([
   'todo_write',
   'edit',
   'get_diagnostics',
-  'echo_search',
   'plan',
   'publish_findings',
   'run_terminal',

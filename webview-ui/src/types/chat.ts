@@ -28,6 +28,5 @@ export interface QueuedMessage {
   id: string;
   content: string;
   imageAttachments?: ImageAttachment[];
-  forceEchoSearch?: boolean;
   timestamp: Date;
 }

@@ -32,7 +32,6 @@ The following tools are external MCP (Model Context Protocol) tools: ${toolList}
    - \`read_file\`, \`grep_search\`, \`glob_search\` for finding information
    - \`write_to_file\`, \`edit\` for making changes
    - \`list_files\` for exploring structure
-   - \`echo_search\` for understanding code architecture
 
 3. **AVOID MCP TOOLS WHEN**:
    - You're just exploring the codebase (use built-in search tools)

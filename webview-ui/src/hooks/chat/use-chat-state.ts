@@ -65,7 +65,7 @@ export function useChatState() {
       abortControllerRef.current = null;
     }
 
-    // Abort any running tools (especially sub-agents like echo_search)
+    // Abort any running tools
     // Then create a fresh controller for future tool executions
     toolAbortControllerRef.current.abort();
     toolAbortControllerRef.current = new AbortController();

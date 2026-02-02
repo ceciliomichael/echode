@@ -22,7 +22,7 @@ const INPUT_STYLE = {
 
 interface MessageEditFormProps {
   initialContent: string;
-  onSubmit: (content: string, imageAttachments?: ImageAttachment[], forceEchoSearch?: boolean) => void;
+  onSubmit: (content: string, imageAttachments?: ImageAttachment[]) => void;
   onCancel: () => void;
   onSave?: (content: string, imageAttachments?: ImageAttachment[], attachments?: DocumentAttachment[]) => void;
   attachments?: DocumentAttachment[];

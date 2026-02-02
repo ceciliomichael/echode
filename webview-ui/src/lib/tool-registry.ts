@@ -20,7 +20,6 @@ import './tools/delete-file-tool.tsx';
 import './tools/todo-write-tool.tsx';
 import './tools/edit-tool.tsx';
 import './tools/get-diagnostics-tool.tsx';
-import './tools/echo-search-tool.tsx';
 import './tools/plan-tool.tsx';
 import './tools/publish-findings-tool.tsx';
 import './tools/run-terminal-tool.tsx';
@@ -31,7 +30,7 @@ import './tools/run-terminal-tool.tsx';
 export type ToolStatusCallback = (status: 'executing' | 'completed') => void;
 
 /**
- * Tool progress callback for streaming progress updates (e.g., echo_search iterations, terminal output)
+ * Tool progress callback for streaming progress updates (e.g., terminal output)
  */
 export type ToolProgressCallback = (progress: ToolProgress) => void;
 

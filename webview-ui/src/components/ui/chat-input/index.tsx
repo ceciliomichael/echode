@@ -16,7 +16,7 @@ import type { ImageAttachment, Message, QueuedMessage } from '../../../types/cha
 import type { Provider } from '../../../types/api-settings';
 
 interface ChatInputProps {
-  onSendMessage: (message: string, attachments?: ImageAttachment[], forceEchoSearch?: boolean, overrideMessages?: Message[]) => void;
+  onSendMessage: (message: string, attachments?: ImageAttachment[], overrideMessages?: Message[]) => void;
   onNewChat?: () => void;
   disabled?: boolean;
   isStreaming?: boolean;
@@ -115,7 +115,7 @@ export function ChatInput({
     // Pass empty array as overrideMessages to ensure fresh chat (bypasses stale closure)
     setTimeout(() => {
       const message = buildRefactorMessage(filePath);
-      onSendMessage(message, undefined, false, []);
+      onSendMessage(message, undefined, []);
     }, 150);
   };
 
@@ -128,7 +128,6 @@ export function ChatInput({
     const isAiWorking = isStreaming || isExecutingTool;
     
     // Ctrl+Enter while AI is working: stop current work, clear queue, and force send immediately
-    // Note: Force send does NOT trigger echo search (that's only for Ctrl+Enter when AI is idle)
     if (e.key === 'Enter' && !e.shiftKey && (e.ctrlKey || e.metaKey) && isAiWorking) {
       e.preventDefault();
       
@@ -145,9 +144,9 @@ export function ChatInput({
         onClearQueue();
       }
       
-      // Wait briefly for stop to take effect, then send normally (no echo search)
+      // Wait briefly for stop to take effect, then send normally
       setTimeout(() => {
-        handleSubmit(e, false);
+        handleSubmit(e);
       }, 200);
       
       return;

@@ -43,22 +43,11 @@ EchoDE can invoke tools to interact with your workspace:
 | `write_to_file` | Create new files or complete rewrites |
 | `delete_file` | Remove files safely |
 | `get_diagnostics` | Collect linter and compiler errors |
-| `echo_search` | Intelligent code exploration sub-agent |
 | `todo_write` | Create and manage task lists |
 | `todo_read` | Review current task progress |
 | `plan` | Create detailed implementation plans in Plan Mode |
 
 These tools mean EchoDE doesn't guess. It knows.
-
-### Echo Search
-
-A specialized sub-agent that iteratively searches your codebase to find relevant context. Unlike simple text search, Echo Search understands semantic relationships and can explore complex codebases intelligently.
-
-Configure in Settings > Echo Search:
-- Enable or disable the feature
-- Select which provider and model powers the sub-agent
-
-Best for architectural questions, understanding unfamiliar code, or exploring how components connect.
 
 ### Multi-Model Support
 
@@ -188,7 +177,7 @@ The default and most powerful mode. EchoDE has full read-write access to your wo
 
 **Available Tools:**
 - File operations: `read_file`, `write_to_file`, `edit`, `delete_file`
-- Search: `grep_search`, `glob_search`, `list_files`, `echo_search`
+- Search: `grep_search`, `glob_search`, `list_files`
 - Task management: `todo_write`, `todo_read`
 - Quality assurance: `get_diagnostics`
 
@@ -207,7 +196,7 @@ The default and most powerful mode. EchoDE has full read-write access to your wo
 Exploration and architecture mode. EchoDE analyzes your codebase and produces a detailed implementation plan without modifying any files.
 
 **Available Tools:**
-- Search: `grep_search`, `glob_search`, `list_files`, `echo_search`
+- Search: `grep_search`, `glob_search`, `list_files`
 - Read-only: `read_file`
 - Planning: `plan`, `todo_write`, `todo_read`
 
@@ -224,7 +213,7 @@ Exploration and architecture mode. EchoDE analyzes your codebase and produces a 
 Read-only exploration mode. EchoDE can search and read your codebase but cannot modify anything.
 
 **Available Tools:**
-- Search: `grep_search`, `glob_search`, `list_files`, `echo_search`
+- Search: `grep_search`, `glob_search`, `list_files`
 - Read-only: `read_file`
 
 **Workflow:**
@@ -250,7 +239,7 @@ Pure conversation mode. No tools, no file access. EchoDE responds based solely o
 Code analysis mode. EchoDE reviews your codebase and publishes structured findings without making changes.
 
 **Available Tools:**
-- Search: `grep_search`, `glob_search`, `list_files`, `echo_search`
+- Search: `grep_search`, `glob_search`, `list_files`
 - Read-only: `read_file`
 - Analysis: `get_diagnostics`, `publish_findings`
 

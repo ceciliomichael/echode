@@ -9,7 +9,7 @@ import type { ChatMode } from '../types/chat-mode';
 import type { InputWithHighlightsRef } from '../components/ui/input-with-highlights';
 
 interface UseChatInputOptions {
-  onSendMessage: (message: string, attachments?: ImageAttachment[], forceEchoSearch?: boolean, overrideMessages?: Message[]) => void;
+  onSendMessage: (message: string, attachments?: ImageAttachment[], overrideMessages?: Message[]) => void;
   disabled?: boolean;
   mode?: ChatMode;
   restoredInput?: string | null;
@@ -32,7 +32,7 @@ export interface UseChatInputReturn {
   // Event handlers
   handleChange: (e: ChangeEvent<HTMLTextAreaElement>) => void;
   handleKeyDown: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
-  handleSubmit: (e: FormEvent, forceEchoSearch?: boolean) => void;
+  handleSubmit: (e: FormEvent) => void;
   handlePaste: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void;
   handleValueChange: (newValue: string, newCursorPos: number) => void;
   handleBlur: () => void;
@@ -83,7 +83,7 @@ export function useChatInput({
     }
   }, [input]);
 
-  const handleSubmit = useCallback((e: FormEvent, forceEchoSearch: boolean = false) => {
+  const handleSubmit = useCallback((e: FormEvent) => {
     e.preventDefault();
     const content = input;
     
@@ -111,8 +111,7 @@ export function useChatInput({
 
       onSendMessage(
         contentWithAttachments,
-        currentImageAttachments,
-        forceEchoSearch
+        currentImageAttachments
       );
 
       setInput('');
@@ -135,13 +134,6 @@ export function useChatInput({
     }
 
     if (e.key === 'Enter' && !e.shiftKey) {
-      // Ctrl+Enter: force echo_search for Agent, Plan, and Ask modes
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        handleSubmit(e, mode === 'agent' || mode === 'plan' || mode === 'ask');
-        return;
-      }
-
       // Regular Enter: normal send
       e.preventDefault();
       handleSubmit(e);

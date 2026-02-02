@@ -13,7 +13,7 @@ import type { ImageAttachment } from '../../types/chat';
 interface UserMessageProps {
   content: string;
   messageId: string;
-  onEdit: (messageId: string, newContent: string, imageAttachments?: ImageAttachment[], forceEchoSearch?: boolean) => void;
+  onEdit: (messageId: string, newContent: string, imageAttachments?: ImageAttachment[]) => void;
   onUpdate: (messageId: string, newContent: string) => void;
   isEditing: boolean;
   onEditStart: (messageId: string) => void;
@@ -169,9 +169,9 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
     }
   };
 
-  const handleSubmit = (newContent: string, editedImageAttachments?: ImageAttachment[], forceEchoSearch?: boolean) => {
+  const handleSubmit = (newContent: string, editedImageAttachments?: ImageAttachment[]) => {
     // Pass image attachments from the edit form to the edit handler
-    onEdit(messageId, newContent, editedImageAttachments, forceEchoSearch);
+    onEdit(messageId, newContent, editedImageAttachments);
   };
 
   const handleSave = (newContent: string, _imageAttachments?: ImageAttachment[], _attachments?: DocumentAttachment[]) => {

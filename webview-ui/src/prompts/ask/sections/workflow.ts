@@ -10,7 +10,6 @@ IF VALID QUESTION (see interaction rules):
 2. **STRATEGIZE**: Decide how to find the answer.
    - Exact name? Use \`grep_search\`.
    - File pattern? Use \`glob_search\`.
-   - Broad concept? Use \`echo_search\`.
 3. **EXPLORE & VERIFY (MANDATORY)**:
    - **Step A**: Locate potential files.
    - **Step B**: **READ the content** (\`read_file\`). Do not just look at the list.

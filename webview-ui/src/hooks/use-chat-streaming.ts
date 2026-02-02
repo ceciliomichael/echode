@@ -13,7 +13,6 @@ import type { ChatMode } from '../types/chat-mode';
 // Import modular helpers
 import type { ChatStreamingProps, LockedModelConfig } from './chat-streaming/types';
 import { buildChatHistoryWithToolResults } from './chat-streaming/chat-history-builder';
-import { handleForcedEchoSearch } from './chat-streaming/forced-echo-search';
 import { runStreamingLoop } from './chat-streaming/streaming-loop';
 import { detectYoloPhase } from './chat-streaming/helpers';
 
@@ -90,7 +89,7 @@ export function useChatStreaming({
     return toolExecutorRef.current;
   };
 
-  const sendMessage = useCallback(async (content: string, attachments?: ImageAttachment[], overrideMessages?: Message[], isHidden: boolean = false, forceEchoSearch: boolean = false, lockedMode?: ChatMode) => {
+  const sendMessage = useCallback(async (content: string, attachments?: ImageAttachment[], overrideMessages?: Message[], isHidden: boolean = false, lockedMode?: ChatMode) => {
     // === GUARDS: Prevent concurrent operations ===
     if (isStreamingRef.current) {
       console.error('[sendMessage] BLOCKED: Already streaming');
@@ -245,24 +244,6 @@ export function useChatStreaming({
       // === MODEL CAPABILITIES ===
       const currentModel = getCurrentModel();
       const modelSupportsVision = isVisionCapableModel(currentModel);
-
-      // === FORCED ECHO SEARCH (delegated to helper) ===
-      if (forceEchoSearch && (currentMode === 'agent' || currentMode === 'plan' || currentMode === 'ask')) {
-        await handleForcedEchoSearch({
-          content,
-          attachments,
-          systemPrompt,
-          messagesToSend,
-          assistantMessageId,
-          modelSupportsVision,
-          mode: currentMode,
-          setMessages,
-          setIsExecutingTool,
-          executeToolAndContinue,
-          lockedConfig,
-        });
-        return; // Exit early, tool execution handles continuation
-      }
 
       // === BUILD CHAT HISTORY (delegated to helper) ===
       const finalChatHistory = buildChatHistoryWithToolResults({

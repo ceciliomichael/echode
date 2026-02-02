@@ -1,4 +1,4 @@
-import { Loader, Folder, Search, FileSearch, Trash2, Radar, XCircle, Stethoscope, Cable, ClipboardList, type LucideIcon } from 'lucide-react';
+import { Loader, Folder, Search, FileSearch, Trash2, XCircle, Stethoscope, Cable, ClipboardList, type LucideIcon } from 'lucide-react';
 import type { IconType } from 'react-icons';
 import { getToolMetadata } from '../lib/tool-registry';
 import { getFileIconConfig, extractFileName } from './file-icon-mapper';
@@ -87,20 +87,7 @@ export function getToolFileInfo(
     };
   }
 
-  // Echo search -> Use Radar icon and query text as display name
-  if (toolName === 'echo_search') {
-    const query = parameters.query as string | undefined;
-    const truncatedQuery = query && query.length > 100 ? query.substring(0, 100) + '...' : query;
-    const displayName = truncatedQuery || 'Echo Search';
 
-    return {
-      displayName,
-      fullPath: path || '',
-      icon: getIcon(Radar),
-      iconColor: getIconColor('var(--vscode-editor-foreground)'),
-      isSpinning: isExecuting,
-    };
-  }
 
   // Glob search -> Use FileSearch icon
   if (toolName === 'glob_search') {

@@ -5,7 +5,7 @@
 
 export const PLAN_WORKFLOW_STANDARD = `<workflow>
 ## 1. Deep Exploration
-Use \`grep_search\`, \`glob_search\`, \`read_file\`, \`echo_search\` to understand:
+Use \`grep_search\`, \`glob_search\`, \`read_file\` to understand:
 - Entry points and how data flows through the feature
 - Existing patterns (naming, file structure, error handling, state management)
 - Related code that will need modification or integration
@@ -44,7 +44,7 @@ export const PLAN_WORKFLOW_YOLO = `<workflow>
 ## 1. Deep Exploration (IMMEDIATE - no questions first)
 Start exploring IMMEDIATELY. Do NOT ask any questions before exploring.
 
-Use \`grep_search\`, \`glob_search\`, \`read_file\`, \`echo_search\` to understand:
+Use \`grep_search\`, \`glob_search\`, \`read_file\` to understand:
 - Entry points and how data flows through the feature
 - Existing patterns (naming, file structure, error handling, state management)
 - Related code that will need modification or integration

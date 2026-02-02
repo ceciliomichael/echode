@@ -1,5 +1,5 @@
 import { memo, useMemo, useState, useEffect } from 'react';
-import type { ToolCall, EchoSearchProgress } from '../../../types/tool';
+import type { ToolCall } from '../../../types/tool';
 import { getToolStatusDisplay } from '../../../utils/tool-status-formatter';
 import { getToolFileInfo } from '../../../utils/tool-file-info';
 import { ToolBlockHeader } from './tool-block-header';
@@ -23,7 +23,6 @@ const ToolBlockComponent = ({
   mode,
 }: ToolBlockProps) => {
   const workspace = useWorkspaceContext();
-  const isEchoSearch = toolCall.toolName === 'echo_search';
   const isRunTerminal = toolCall.toolName === 'run_terminal';
   const isPlanTool = toolCall.toolName === 'plan';
   const isPublishFindingsTool = toolCall.toolName === 'publish_findings';
@@ -31,10 +30,10 @@ const ToolBlockComponent = ({
   // Check if this tool has an error (either error status or failed result)
   const hasError = toolCall.status === 'error' || toolCall.result?.success === false;
 
-  // echo_search and run_terminal start expanded by default to show progress
+  // run_terminal start expanded by default to show progress
   // BUT keep collapsed if there's an error or already completed (history load)
   const [isExpanded, setIsExpanded] = useState(
-    (isEchoSearch || isRunTerminal) && !hasError && toolCall.status !== 'completed'
+    isRunTerminal && !hasError && toolCall.status !== 'completed'
   );
 
   // Auto-expand when awaiting user action (e.g. Plan tool) - only for the last message
@@ -47,15 +46,6 @@ const ToolBlockComponent = ({
       }, 0);
     }
   }, [toolCall.status, isLastMessage, hasError]);
-
-  // Auto-collapse echo_search when completed or aborted
-  useEffect(() => {
-    if (isEchoSearch && (toolCall.status === 'completed' || toolCall.status === 'aborted')) {
-      setTimeout(() => {
-        setIsExpanded(false);
-      }, 0);
-    }
-  }, [isEchoSearch, toolCall.status]);
 
   // Auto-collapse run_terminal when completed successfully
   useEffect(() => {
@@ -273,33 +263,6 @@ export const ToolBlock = memo(ToolBlockComponent, (prevProps, nextProps) => {
   // Handle string progress (run_terminal)
   if (typeof prevProgress === 'string' && typeof nextProgress === 'string') {
     return prevProgress === nextProgress;
-  }
-
-  // Handle object progress (echo_search)
-  if (
-    typeof prevProgress === 'object' && 
-    typeof nextProgress === 'object' && 
-    prevProgress !== null && 
-    nextProgress !== null &&
-    !Array.isArray(prevProgress) && // Ensure it's not an array (though unlikely given type)
-    !Array.isArray(nextProgress)
-  ) {
-    const p1 = prevProgress as EchoSearchProgress;
-    const p2 = nextProgress as EchoSearchProgress;
-
-    const prevTools = p1.tools || [];
-    const nextTools = p2.tools || [];
-    
-    const toolsEqual = prevTools.length === nextTools.length &&
-      prevTools.every((tool, i) => tool === nextTools[i]);
-
-    return (
-      p1.iteration === p2.iteration &&
-      p1.phase === p2.phase &&
-      p1.toolsIteration === p2.toolsIteration &&
-      p1.message === p2.message &&
-      toolsEqual
-    );
   }
 
   return false;

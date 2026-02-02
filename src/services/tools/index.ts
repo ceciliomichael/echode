@@ -8,7 +8,6 @@ export { DeleteFileTool } from './delete-file-tool';
 export { TodoWriteTool } from './todo-write-tool';
 export { EditTool } from './edit-tool';
 export { GetDiagnosticsTool } from './get-diagnostics-tool';
-export { EchoSearchTool } from './echo-search-tool';
 export { PlanTool } from './plan-tool';
 export { PublishFindingsTool } from './publish-findings-tool';
 export { RunTerminalTool } from './run-terminal-tool';

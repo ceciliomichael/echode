@@ -54,23 +54,6 @@ export interface ChatHistoryContext {
 }
 
 /**
- * Context for forced echo search execution
- */
-export interface ForcedEchoSearchContext {
-  content: string;
-  attachments: ImageAttachment[] | undefined;
-  systemPrompt: string;
-  messagesToSend: Message[];
-  assistantMessageId: string;
-  modelSupportsVision: boolean;
-  mode: ChatMode;
-  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
-  setIsExecutingTool: React.Dispatch<React.SetStateAction<boolean>>;
-  executeToolAndContinue: ChatStreamingProps['executeToolAndContinue'];
-  lockedConfig?: LockedModelConfig;
-}
-
-/**
  * Context for streaming loop execution
  */
 export interface StreamingLoopContext {

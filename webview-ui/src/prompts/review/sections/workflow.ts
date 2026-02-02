@@ -23,7 +23,6 @@ list_files     → Understand project structure
   - \`"eval("\`, \`"innerHTML"\`, \`"dangerouslySetInnerHTML"\`
   - \`"password"\`, \`"secret"\`, \`"api_key"\`, \`"token"\`
   - \`"SELECT.*FROM"\`, \`"exec("\`, \`"spawn("\`
-- Use \`echo_search\` for understanding complex data flows
 
 ### 4. CONTEXT VERIFICATION
 Before flagging an issue:

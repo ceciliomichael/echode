@@ -78,7 +78,7 @@ export function usePlanContinuationHandler({
   messages: Message[];
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   updateToolExecution: (messageId: string, toolExecutionId: string, state: ToolExecutionState) => void;
-  sendMessage: (content: string, attachments?: ImageAttachment[], overrideMessages?: Message[], isHidden?: boolean, forceEchoSearch?: boolean, lockedMode?: ChatMode) => Promise<void>;
+  sendMessage: (content: string, attachments?: ImageAttachment[], overrideMessages?: Message[], isHidden?: boolean, lockedMode?: ChatMode) => Promise<void>;
   onModeChange?: (mode: ChatMode) => void;
 }) {
   const messagesRef = useRef(messages);
@@ -183,7 +183,7 @@ export function usePlanContinuationHandler({
       // Send as a hidden message (user won't see it, but AI receives it as tool result)
       // Use a small delay to ensure state updates are processed
       setTimeout(() => {
-        sendMessageRef.current(messageContent, undefined, undefined, true, false, nextMode); // isHidden = true, forceEchoSearch = false, lockedMode = nextMode
+        sendMessageRef.current(messageContent, undefined, undefined, true, nextMode); // isHidden = true, lockedMode = nextMode
       }, 100);
     };
 

@@ -9,7 +9,7 @@ import { AssistantMessage } from './assistant-message';
 
 interface MessageBubbleProps {
   message: Message;
-  onEdit?: (messageId: string, newContent: string, imageAttachments?: ImageAttachment[], forceEchoSearch?: boolean) => void;
+  onEdit?: (messageId: string, newContent: string, imageAttachments?: ImageAttachment[]) => void;
   onUpdate?: (messageId: string, newContent: string) => void;
   isEditing?: boolean;
   onEditStart?: (messageId: string) => void;

@@ -159,11 +159,7 @@ export class ChatApiService {
       }
     }
 
-    // Filter out echo_search if indexing is disabled
-    const echoSearchEnabled = settings.indexingSettings?.enabled ?? true;
-    if (!echoSearchEnabled) {
-      modeTools = modeTools.filter(tool => tool.id !== 'echo_search');
-    }
+
 
     const enabledToolsForBackend = modeTools.map(tool => ({
       id: tool.id,

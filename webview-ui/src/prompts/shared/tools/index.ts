@@ -10,7 +10,6 @@ export { getReadFileInstructions, type ReadFileOptions } from './read-file';
 export { getEditInstructions } from './edit';
 export { getWriteFileInstructions } from './write-file';
 export { getListFilesInstructions, type ListFilesOptions } from './list-files';
-export { getEchoSearchInstructions, type EchoSearchOptions } from './echo-search';
 export { getGrepSearchInstructions, type GrepSearchOptions } from './grep-search';
 export { getGlobSearchInstructions, type GlobSearchOptions } from './glob-search';
 export { getDeleteFileInstructions, type DeleteFileOptions } from './delete-file';

@@ -1,7 +1,6 @@
 import { X } from 'lucide-react';
 import { DiffViewer } from '../diff-viewer';
 import { renderToolResult } from '../tool-result-renderer';
-import { EchoSearchProgressIndicator } from './echo-search-progress';
 import { PlanToolActions } from './plan-tool-actions';
 import { PublishFindingsActions } from './publish-findings-actions';
 import type { ToolCall } from '../../../types/tool';
@@ -27,8 +26,7 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, is
 
   // Check if we have streamed content to preserve
   const hasStreamedContent =
-    (toolCall.toolName === 'write_to_file' && toolCall.parameters.content) ||
-    (toolCall.toolName === 'echo_search');
+    (toolCall.toolName === 'write_to_file' && typeof toolCall.parameters.content === 'string');
 
   const isStreamingPhase =
     (toolCall.status === 'executing' || toolCall.status === 'pending' || (isAborted && hasStreamedContent)) &&
@@ -68,13 +66,6 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, is
                     fileName={fileInfo.displayName}
                     isStreaming={!isAborted}
                     viewOnly={true}
-                  />
-                </div>
-              ) : toolCall.toolName === 'echo_search' ? (
-                <div className="px-3 py-3 overflow-y-auto">
-                  <EchoSearchProgressIndicator
-                    progress={(toolCall.progress as any) || { iteration: 0, toolsIteration: 0, maxIterations: 4, phase: 'starting', tools: [], message: '' }}
-                    isAborted={isAborted}
                   />
                 </div>
               ) : toolCall.toolName === 'run_terminal' ? (
