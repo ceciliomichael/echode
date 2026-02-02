@@ -369,18 +369,16 @@ export class WriteFileTool implements ITool {
 
       console.log('[WRITE_FILE] File written successfully');
 
-      // Open the file in a tab for visibility (without stealing focus)
-      // Skip in manual mode since user already reviewed the diff in the approval viewer
-      if (mode !== 'manual') {
-        try {
-          await vscode.window.showTextDocument(uri, {
-            preview: false,
-            preserveFocus: true,
-          });
-          console.log('[WRITE_FILE] File opened in tab for diagnostics');
-        } catch (openError) {
-          console.warn('[WRITE_FILE] Could not open file in tab:', openError);
-        }
+      // Open the file in the editor
+      try {
+        await vscode.commands.executeCommand('vscode.open', uri, {
+          preview: false,
+          background: true,
+        });
+        console.log(`[WRITE_FILE] Opened file in editor: ${filePath}`);
+      } catch (error) {
+        console.warn(`[WRITE_FILE] Could not open file in editor: ${filePath}`, error);
+        // Don't fail the write if we can't open the file
       }
 
       // Post-write verification: try reading back as text

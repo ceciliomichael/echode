@@ -10,7 +10,14 @@ import {
   isInsideParameterValue,
 } from './parser';
 
- import { stripLeadingThinkBlock } from '../utils/think-block-parser';
+import {
+  extractKimiToolCalls,
+  extractKimiToolCallsIncremental,
+  extractKimiToolCallsSection,
+  kimiBlocksToParsedToolBlocks,
+  type KimiPendingToolCall,
+} from './kimi-parser';
+
 import { TOOL_FUNCTION_CALLS_CLOSE, TOOL_FUNCTION_CALLS_OPEN, TOOL_XML_NAMESPACE } from './tool-xml';
 
 function isInsideThinkBlock(content: string, position: number): boolean {
@@ -190,6 +197,11 @@ export function trimToLastCompleteToolBlock(content: string): string {
     return content;
   }
 
+  const kimiSection = extractKimiToolCallsSection(content, 0);
+  if (kimiSection?.hasSectionEnd) {
+    return content.slice(0, kimiSection.sectionEnd);
+  }
+
   const preprocessed = preprocessContent(content);
   const functionCallsBlocks = extractFunctionCallsBlocks(preprocessed);
 
@@ -208,11 +220,7 @@ export function trimToLastCompleteToolBlock(content: string): string {
   }
 
   if (lastValidBlock) {
-    // Only skip a LEADING think block. Mid-response tags must remain literal text.
-    const leadingStripped = stripLeadingThinkBlock(content);
-    const searchStart = leadingStripped.hadLeadingThink
-      ? content.length - leadingStripped.strippedContent.length
-      : 0;
+    const searchStart = 0;
 
     // Find all function_calls blocks AFTER thinking blocks in original content
     // Use balanced matching to handle nested function_calls inside parameter values
@@ -233,7 +241,7 @@ export function trimToLastCompleteToolBlock(content: string): string {
         continue;
       }
 
-      if (isInsideParameterValue(content, openPos) || isInsideThinkBlock(content, openPos)) {
+      if (isInsideParameterValue(content, openPos)) {
         searchPos = openPos + openTag.length;
         continue;
       }
@@ -264,13 +272,15 @@ export function trimToFirstCompleteToolBlock(content: string): string {
     return content;
   }
 
+  const kimiSection = extractKimiToolCallsSection(content, 0);
+  if (kimiSection?.hasSectionEnd) {
+    return content.slice(0, kimiSection.sectionEnd);
+  }
+
   const preprocessed = preprocessContent(content);
   const functionCallsBlocks = extractFunctionCallsBlocks(preprocessed);
 
   for (const block of functionCallsBlocks) {
-    if (isInsideThinkBlock(preprocessed, block.startIndex)) {
-      continue;
-    }
     const parsedBlocks = parseFunctionCallsBlock(block.innerContent, block.fullMatch);
     if (parsedBlocks.length > 0) {
       // Found a valid tool block in preprocessed content
@@ -281,11 +291,7 @@ export function trimToFirstCompleteToolBlock(content: string): string {
         __ECHODE_TOOL_PARSER_FLAGS__?: { skipBacktickTools?: boolean };
       }).__ECHODE_TOOL_PARSER_FLAGS__;
 
-      const leadingStripped = stripLeadingThinkBlock(content);
-      let searchStart = 0;
-      if (leadingStripped.hadLeadingThink) {
-        searchStart = content.length - leadingStripped.strippedContent.length;
-      }
+      const searchStart = 0;
 
       // Find the closing tag of the first real function_calls after thinking
       let openTagAfterThink = searchStart;
@@ -299,7 +305,7 @@ export function trimToFirstCompleteToolBlock(content: string): string {
           openTagAfterThink = nextOpen + TOOL_FUNCTION_CALLS_OPEN.length;
           continue;
         }
-        if (isInsideParameterValue(content, nextOpen) || isInsideThinkBlock(content, nextOpen)) {
+        if (isInsideParameterValue(content, nextOpen)) {
           openTagAfterThink = nextOpen + TOOL_FUNCTION_CALLS_OPEN.length;
           continue;
         }
@@ -331,6 +337,9 @@ export function extractToolBlocks(content: string): ParsedToolBlock[] {
   const preprocessed = preprocessContent(content);
   const toolBlocks: ParsedToolBlock[] = [];
 
+  const kimiBlocks = extractKimiToolCalls(preprocessed);
+  toolBlocks.push(...kimiBlocksToParsedToolBlocks(kimiBlocks));
+
   // Use balanced tag extraction instead of regex for proper nested content handling
   const functionCallsBlocks = extractFunctionCallsBlocks(preprocessed);
 
@@ -360,6 +369,13 @@ export interface PendingInvokeBlock {
   parameters: Record<string, unknown>;
 }
 
+function kimiPendingToPendingInvoke(pending: KimiPendingToolCall): PendingInvokeBlock {
+  return {
+    toolName: pending.toolName,
+    parameters: pending.parameters,
+  };
+}
+
 /**
  * Extract complete invoke blocks from content that may have an incomplete function_calls block.
  * This is used for incremental tool execution - we can start executing tools as soon as
@@ -380,6 +396,17 @@ export function extractCompleteInvokeBlocksIncremental(content: string): {
   const blocks: ParsedToolBlock[] = [];
   const pendingBlocks: PendingInvokeBlock[] = [];
 
+  const kimiIncremental = extractKimiToolCallsIncremental(preprocessed);
+  if (kimiIncremental.blocks.length > 0 || kimiIncremental.pendingBlocks.length > 0) {
+    blocks.push(...kimiBlocksToParsedToolBlocks(kimiIncremental.blocks));
+    pendingBlocks.push(...kimiIncremental.pendingBlocks.map(kimiPendingToPendingInvoke));
+    return {
+      blocks,
+      pendingBlocks,
+      hasFunctionCallsClose: kimiIncremental.hasToolCallsClose,
+    };
+  }
+
   // Check if we have a function_calls opening
   const openTag = TOOL_FUNCTION_CALLS_OPEN;
   const closeTag = TOOL_FUNCTION_CALLS_CLOSE;
@@ -390,11 +417,7 @@ export function extractCompleteInvokeBlocksIncremental(content: string): {
     };
   }).__ECHODE_TOOL_PARSER_FLAGS__;
 
-  // Only skip a LEADING think block. Mid-response tags must remain literal text.
-  const leadingStripped = stripLeadingThinkBlock(preprocessed);
-  const searchStart = leadingStripped.hadLeadingThink
-    ? preprocessed.length - leadingStripped.strippedContent.length
-    : 0;
+  const searchStart = 0;
 
   // Find a function_calls opening that is not inside a code block
   let openPos = searchStart;

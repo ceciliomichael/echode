@@ -36,27 +36,68 @@ export class GetDiagnosticsTool implements ITool {
         if (targetPath) {
           await FileLockManager.waitForLock(targetPath);
 
-          // If not a directory, check if we need to wait for fresh diagnostics
+          // If not a directory, open the file to ensure diagnostics are collected
           if (!isDirectoryTarget) {
             try {
-              const fs = require('fs');
-              const stats = fs.statSync(targetPath);
-              const modifiedAgeMs = Date.now() - stats.mtimeMs;
+              const uri = vscode.Uri.file(targetPath);
+              
+              // Start listening for diagnostic changes BEFORE opening the document
+              // This ensures we don't miss updates that happen immediately upon opening
+              const diagnosticsPromise = this.waitForDiagnosticsUpdate(uri, 4000);
 
-              // If modified less than 2 seconds ago, wait for diagnostics update
-              // This handles the lag between file save and LSP publishing diagnostics
-              if (modifiedAgeMs < 2000) {
-                console.log(`[GetDiagnostics] File ${targetPath} modified recently (${modifiedAgeMs}ms ago). Waiting for fresh diagnostics...`);
-                await this.waitForDiagnosticsUpdate(vscode.Uri.file(targetPath));
+              // Open the document to trigger diagnostic collection from language servers
+              const doc = await vscode.workspace.openTextDocument(uri);
+              
+              // Explicitly show the document to force LSPs that require visibility to compute diagnostics
+              // We check if it's already visible to avoid unnecessary UI updates
+              if (!vscode.window.visibleTextEditors.some(e => e.document.uri.toString() === uri.toString())) {
+                await vscode.window.showTextDocument(doc, { 
+                  preserveFocus: true, 
+                  preview: true 
+                });
               }
+              console.log(`[GetDiagnostics] Opened and showed document ${targetPath} to collect diagnostics`);
+
+              // Wait for diagnostics to update or timeout
+              await diagnosticsPromise;
+
+              // Double-check: If file was very recently modified (e.g. just written), 
+              // ensuring we waited long enough is handled by the promise above.
+              // We don't need a second wait loop usually, as the first one catches the LSP reaction.
             } catch (e) {
               // Ignore fs errors (file might not exist yet)
+              console.log(`[GetDiagnostics] Could not open document ${targetPath}:`, e);
+            }
+          } else {
+            // If it's a directory, find all files and open them to collect diagnostics
+            try {
+              const files = await this.findFilesInDirectory(targetPath);
+              console.log(`[GetDiagnostics] Found ${files.length} files in directory ${targetPath}`);
+              
+              // Open files in batches to avoid overwhelming the language server
+              const batchSize = 10;
+              for (let i = 0; i < files.length; i += batchSize) {
+                const batch = files.slice(i, i + batchSize);
+                const promises = batch.map(async (filePath) => {
+                  try {
+                    const uri = vscode.Uri.file(filePath);
+                    await vscode.workspace.openTextDocument(uri);
+                  } catch (e) {
+                    // Ignore individual file errors
+                  }
+                });
+                await Promise.all(promises);
+              }
+              
+              // Wait for all diagnostics to settle
+              console.log(`[GetDiagnostics] Waiting for diagnostics to update for all files...`);
+              await new Promise(resolve => setTimeout(resolve, 4000));
+            } catch (e) {
+              console.log(`[GetDiagnostics] Error scanning directory ${targetPath}:`, e);
             }
           }
         }
       }
-
-      const allDiagnostics = vscode.languages.getDiagnostics();
 
       const results: Array<{
         filePath: string;
@@ -70,37 +111,16 @@ export class GetDiagnosticsTool implements ITool {
         }>;
       }> = [];
 
-      for (const [uri, diagnostics] of allDiagnostics) {
-        if (diagnostics.length === 0) { continue; }
-
-        const filePath = uri.fsPath;
-
-        if (targetPath) {
-          const normalizedFilePath = path.normalize(filePath);
-          const normalizedTarget = path.normalize(targetPath);
-
-          if (isDirectoryTarget) {
-            if (
-              normalizedFilePath !== normalizedTarget &&
-              !normalizedFilePath.startsWith(normalizedTarget + path.sep)
-            ) {
-              continue;
-            }
-          } else {
-            if (normalizedFilePath !== normalizedTarget) {
-              continue;
-            }
-          }
-        } else if (filePattern && !filePath.includes(filePattern)) {
-          continue;
-        }
+      // Helper to process diagnostics for a URI
+      const processDiagnostics = (uri: vscode.Uri, diagnostics: vscode.Diagnostic[]) => {
+        if (diagnostics.length === 0) { return; }
 
         const filtered = diagnostics.filter((d) =>
           d.severity === vscode.DiagnosticSeverity.Error ||
           d.severity === vscode.DiagnosticSeverity.Warning,
         );
 
-        if (filtered.length === 0) { continue; }
+        if (filtered.length === 0) { return; }
 
         const converted = filtered.map((d) => ({
           line: d.range.start.line + 1,
@@ -112,9 +132,40 @@ export class GetDiagnosticsTool implements ITool {
         }));
 
         results.push({
-          filePath,
+          filePath: uri.fsPath,
           diagnostics: converted,
         });
+      };
+
+      if (targetPath && !isDirectoryTarget) {
+        // Single file case: fetch directly for this file
+        const uri = vscode.Uri.file(targetPath);
+        const diagnostics = vscode.languages.getDiagnostics(uri);
+        processDiagnostics(uri, diagnostics);
+      } else {
+        // Directory or workspace scan case: fetch all and filter
+        const allDiagnostics = vscode.languages.getDiagnostics();
+        
+        for (const [uri, diagnostics] of allDiagnostics) {
+          const filePath = uri.fsPath;
+
+          if (targetPath) {
+            // Directory target
+            const normalizedFilePath = path.normalize(filePath);
+            const normalizedTarget = path.normalize(targetPath);
+
+            if (
+              normalizedFilePath !== normalizedTarget &&
+              !normalizedFilePath.startsWith(normalizedTarget + path.sep)
+            ) {
+              continue;
+            }
+          } else if (filePattern && !filePath.includes(filePattern)) {
+            continue;
+          }
+
+          processDiagnostics(uri, diagnostics);
+        }
       }
 
       return {
@@ -157,6 +208,46 @@ export class GetDiagnosticsTool implements ITool {
   }
 
   /**
+   * Recursively find all files in a directory
+   */
+  private async findFilesInDirectory(dirPath: string): Promise<string[]> {
+    const fs = require('fs').promises;
+    const results: string[] = [];
+
+    try {
+      const entries = await fs.readdir(dirPath, { withFileTypes: true });
+
+      for (const entry of entries) {
+        const fullPath = path.join(dirPath, entry.name);
+
+        if (entry.isDirectory()) {
+          // Recursively scan subdirectories
+          const subFiles = await this.findFilesInDirectory(fullPath);
+          results.push(...subFiles);
+        } else if (entry.isFile()) {
+          // Only include common source code files
+          const ext = path.extname(entry.name).toLowerCase();
+          const includedExtensions = [
+            '.ts', '.tsx', '.js', '.jsx', '.py', '.java', '.c', '.cpp', '.h', '.hpp',
+            '.cs', '.go', '.rs', '.rb', '.php', '.swift', '.kt', '.scala', '.r',
+            '.html', '.css', '.scss', '.sass', '.less', '.vue', '.svelte',
+            '.json', '.xml', '.yaml', '.yml', '.toml', '.ini', '.conf',
+            '.md', '.txt', '.sh', '.bash', '.zsh', '.fish', '.ps1', '.bat', '.cmd'
+          ];
+          
+          if (includedExtensions.includes(ext)) {
+            results.push(fullPath);
+          }
+        }
+      }
+    } catch (error) {
+      console.log(`[GetDiagnostics] Error reading directory ${dirPath}:`, error);
+    }
+
+    return results;
+  }
+
+  /**
    * Waits for diagnostics to update for a specific file URI.
    * Resolves when onDidChangeDiagnostics fires for that URI, or after timeout.
    */
@@ -165,7 +256,8 @@ export class GetDiagnosticsTool implements ITool {
       let resolved = false;
 
       const disposable = vscode.languages.onDidChangeDiagnostics((e) => {
-        if (e.uris.some(u => u.fsPath === uri.fsPath)) {
+        // Use case-insensitive comparison to handle Windows paths correctly
+        if (e.uris.some(u => u.fsPath.toLowerCase() === uri.fsPath.toLowerCase())) {
           if (!resolved) {
             resolved = true;
             disposable.dispose();

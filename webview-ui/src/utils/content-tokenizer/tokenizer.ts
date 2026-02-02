@@ -1,13 +1,49 @@
 import type { ContentToken } from './types';
 import {
-    findNextToolStart,
     findNextMermaidStart,
     findMermaidClose,
-    findMatchingFunctionCallsClose
+    findMatchingFunctionCallsClose,
+    isInsideFunctionCallsParameterValue
 } from './tag-utils';
 import { extractAllInvokeBlocks, parseXMLParameters } from './xml-parser';
 import { REQUEST_BOUNDARY_MARKER, splitByRequestBoundary } from '../think-block-parser';
 import { TOOL_FUNCTION_CALLS_CLOSE, TOOL_FUNCTION_CALLS_OPEN, TOOL_XML_NAMESPACE } from '../../lib/tool-xml';
+import {
+    extractKimiToolCallsIncremental,
+    extractKimiToolCallsSection,
+    KIMI_TOOL_CALLS_SECTION_BEGIN_TAGS,
+    KIMI_TOOL_CALLS_SECTION_END_TAGS,
+    KIMI_TOOL_CALL_BEGIN,
+    KIMI_TOOL_CALL_ARGUMENT_BEGIN,
+} from '../../lib/kimi-parser';
+
+function findNextTagIndex(content: string, fromIndex: number, tags: readonly string[]): number {
+    let best = -1;
+    for (const tag of tags) {
+        const idx = content.indexOf(tag, fromIndex);
+        if (idx !== -1 && (best === -1 || idx < best)) {
+            best = idx;
+        }
+    }
+    return best;
+}
+
+function hasAnyTagAt(content: string, index: number, tags: readonly string[]): boolean {
+    return tags.some((t) => content.startsWith(t, index));
+}
+
+const KIMI_SECTION_BEGIN_REGEX = /<\|?tool_calls_section_begin\|?>/gi;
+
+function findNextKimiSectionBeginIndex(content: string, fromIndex: number): number {
+    KIMI_SECTION_BEGIN_REGEX.lastIndex = Math.max(0, fromIndex);
+    const match = KIMI_SECTION_BEGIN_REGEX.exec(content);
+    return match ? match.index : -1;
+}
+
+function hasKimiSectionBeginAt(content: string, index: number): boolean {
+    const slice = content.slice(index, index + 64);
+    return /^<\|?tool_calls_section_begin\|?>/i.test(slice);
+}
 
 /**
  * Fix leaked <thought> tags that appear after closing </think> or </thinking> tags.
@@ -177,6 +213,7 @@ function hasPotentialUnparsedTools(content: string, parsedTokens: ContentToken[]
 export function tokenizeContent(content: string, messageId: string = 'unknown'): ContentToken[] {
     const boundarySegments = splitByRequestBoundary(content);
     const normalizedContent = boundarySegments.join(REQUEST_BOUNDARY_MARKER);
+
     const hasLeadingThink = boundarySegments.some((segment) => segment.startsWith('<think>') || segment.startsWith('<thinking>'));
 
     // Only run think-specific repairs when the response starts with a think block.
@@ -201,13 +238,62 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
             continue;
         }
 
-        const segmentStart = position;
-        const currentSegment = processedContent.slice(segmentStart);
-        const segmentHasLeadingThink = currentSegment.startsWith('<think>') || currentSegment.startsWith('<thinking>');
+        const findNextThinkStart = (from: number): { pos: number; type: 'think' | 'thinking' } | null => {
+            let searchPos = from;
+            while (searchPos < processedContent.length) {
+                const nextThink = processedContent.indexOf('<think>', searchPos);
+                const nextThinking = processedContent.indexOf('<thinking>', searchPos);
 
-        const thinkStart = segmentHasLeadingThink && currentSegment.startsWith('<think>') ? segmentStart : -1;
-        const thinkingStart = segmentHasLeadingThink && currentSegment.startsWith('<thinking>') ? segmentStart : -1;
-        const toolStart = findNextToolStart(processedContent, position);
+                if (nextThink === -1 && nextThinking === -1) {
+                    return null;
+                }
+
+                const pos = nextThink !== -1 && (nextThinking === -1 || nextThink < nextThinking)
+                    ? nextThink
+                    : nextThinking;
+                const type = pos === nextThink ? 'think' : 'thinking';
+
+                if (isInsideFunctionCallsParameterValue(processedContent, pos) || (pos > 0 && processedContent[pos - 1] === '`')) {
+                    searchPos = pos + 1;
+                    continue;
+                }
+
+                return { pos, type };
+            }
+            return null;
+        };
+
+        const nextThink = findNextThinkStart(position);
+        const thinkStart = nextThink?.type === 'think' ? nextThink.pos : -1;
+        const thinkingStart = nextThink?.type === 'thinking' ? nextThink.pos : -1;
+
+        const findNextToolLikeStart = (from: number): { pos: number; kind: 'xml' | 'kimi' } | null => {
+            let searchPos = Math.max(0, from);
+            while (searchPos < processedContent.length) {
+                const xmlPos = processedContent.indexOf(TOOL_FUNCTION_CALLS_OPEN, searchPos);
+                const kimiPosCandidate = findNextTagIndex(processedContent, searchPos, KIMI_TOOL_CALLS_SECTION_BEGIN_TAGS);
+                const kimiPos = kimiPosCandidate !== -1 ? kimiPosCandidate : findNextKimiSectionBeginIndex(processedContent, searchPos);
+
+                if (xmlPos === -1 && kimiPos === -1) {
+                    return null;
+                }
+
+                const pos = xmlPos !== -1 && (kimiPos === -1 || xmlPos < kimiPos) ? xmlPos : kimiPos;
+                const kind: 'xml' | 'kimi' = pos === xmlPos ? 'xml' : 'kimi';
+
+                // Skip tools inside function_calls parameter values or inline code contexts
+                if (isInsideFunctionCallsParameterValue(processedContent, pos) || (pos > 0 && processedContent[pos - 1] === '`')) {
+                    searchPos = pos + 1;
+                    continue;
+                }
+
+                return { pos, kind };
+            }
+            return null;
+        };
+
+        const nextToolLike = findNextToolLikeStart(position);
+        const toolStart = nextToolLike?.pos ?? -1;
         const mermaidStart = findNextMermaidStart(processedContent, position);
 
         // Determine which comes first
@@ -247,6 +333,48 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
             const contentStart = thinkStart + 7; // length of '<think>'
             const closeTag = processedContent.indexOf('</think>', contentStart);
 
+            // If a tool block starts before the think block closes, force-close the think token
+            // at the tool start so tool rendering/execution is clearly separated.
+            const findToolStartInsideThink = (from: number, limit: number): number => {
+                let searchPos = from;
+                while (searchPos < limit) {
+                    const xmlPos = processedContent.indexOf(TOOL_FUNCTION_CALLS_OPEN, searchPos);
+                    const kimiPosCandidate = findNextTagIndex(processedContent, searchPos, KIMI_TOOL_CALLS_SECTION_BEGIN_TAGS);
+                    const kimiPos = kimiPosCandidate !== -1 ? kimiPosCandidate : findNextKimiSectionBeginIndex(processedContent, searchPos);
+
+                    if (xmlPos === -1 && kimiPos === -1) {
+                        return -1;
+                    }
+
+                    const pos = xmlPos !== -1 && (kimiPos === -1 || xmlPos < kimiPos) ? xmlPos : kimiPos;
+                    if (pos === -1 || pos >= limit) {
+                        return -1;
+                    }
+
+                    if (isInsideFunctionCallsParameterValue(processedContent, pos) || (pos > 0 && processedContent[pos - 1] === '`')) {
+                        searchPos = pos + 1;
+                        continue;
+                    }
+
+                    return pos;
+                }
+                return -1;
+            };
+
+            const thinkEnd = closeTag === -1 ? processedContent.length : closeTag;
+            const toolStartInsideThink = findToolStartInsideThink(contentStart, thinkEnd);
+            if (toolStartInsideThink !== -1) {
+                const thinkContent = processedContent.slice(contentStart, toolStartInsideThink).split(REQUEST_BOUNDARY_MARKER).join('');
+                tokens.push({
+                    type: 'think',
+                    content: thinkContent,
+                    index: tokenIndex++,
+                    isClosed: true
+                });
+                position = toolStartInsideThink;
+                continue;
+            }
+
             if (closeTag !== -1) {
                 // Closed think block
                 const thinkContent = processedContent.slice(contentStart, closeTag).split(REQUEST_BOUNDARY_MARKER).join('');
@@ -275,6 +403,48 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
             const contentStart = thinkingStart + 10; // length of '<thinking>'
             const closeTag = processedContent.indexOf('</thinking>', contentStart);
 
+            // If a tool block starts before the thinking block closes, force-close the think token
+            // at the tool start so tool rendering/execution is clearly separated.
+            const findToolStartInsideThink = (from: number, limit: number): number => {
+                let searchPos = from;
+                while (searchPos < limit) {
+                    const xmlPos = processedContent.indexOf(TOOL_FUNCTION_CALLS_OPEN, searchPos);
+                    const kimiPosCandidate = findNextTagIndex(processedContent, searchPos, KIMI_TOOL_CALLS_SECTION_BEGIN_TAGS);
+                    const kimiPos = kimiPosCandidate !== -1 ? kimiPosCandidate : findNextKimiSectionBeginIndex(processedContent, searchPos);
+
+                    if (xmlPos === -1 && kimiPos === -1) {
+                        return -1;
+                    }
+
+                    const pos = xmlPos !== -1 && (kimiPos === -1 || xmlPos < kimiPos) ? xmlPos : kimiPos;
+                    if (pos === -1 || pos >= limit) {
+                        return -1;
+                    }
+
+                    if (isInsideFunctionCallsParameterValue(processedContent, pos) || (pos > 0 && processedContent[pos - 1] === '`')) {
+                        searchPos = pos + 1;
+                        continue;
+                    }
+
+                    return pos;
+                }
+                return -1;
+            };
+
+            const thinkEnd = closeTag === -1 ? processedContent.length : closeTag;
+            const toolStartInsideThink = findToolStartInsideThink(contentStart, thinkEnd);
+            if (toolStartInsideThink !== -1) {
+                const thinkContent = processedContent.slice(contentStart, toolStartInsideThink).split(REQUEST_BOUNDARY_MARKER).join('');
+                tokens.push({
+                    type: 'think',
+                    content: thinkContent,
+                    index: tokenIndex++,
+                    isClosed: true
+                });
+                position = toolStartInsideThink;
+                continue;
+            }
+
             if (closeTag !== -1) {
                 // Closed thinking block
                 const thinkContent = processedContent.slice(contentStart, closeTag).split(REQUEST_BOUNDARY_MARKER).join('');
@@ -301,6 +471,57 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
 
         // Process tool block
         else if (blockType === 'tool') {
+            // Kimi tool-call section format
+            if (hasAnyTagAt(processedContent, toolStart, KIMI_TOOL_CALLS_SECTION_BEGIN_TAGS) || hasKimiSectionBeginAt(processedContent, toolStart)) {
+                const section = extractKimiToolCallsSection(processedContent, toolStart);
+                if (!section) {
+                    position = processedContent.length;
+                    break;
+                }
+
+                const sectionText = processedContent.slice(toolStart, section.sectionEnd);
+                const incremental = extractKimiToolCallsIncremental(sectionText);
+
+                for (const b of incremental.blocks) {
+                    const execId = `${messageId}-tool-${toolIndex++}`;
+                    tokens.push({
+                        type: 'tool',
+                        toolName: b.toolName,
+                        parameters: b.parameters,
+                        rawContent: b.rawContent,
+                        index: tokenIndex++,
+                        isClosed: true,
+                        toolExecutionId: execId,
+                    });
+                }
+
+                // If streaming: show the next tool call as pending (if present)
+                if (!section.hasSectionEnd && incremental.pendingBlocks.length > 0) {
+                    const pending = incremental.pendingBlocks[0];
+                    const execId = `${messageId}-tool-${toolIndex++}`;
+                    const pendingRaw = `${KIMI_TOOL_CALL_BEGIN} ${pending.toolName}${pending.callIndex !== undefined ? `:${pending.callIndex}` : ''} ${KIMI_TOOL_CALL_ARGUMENT_BEGIN}`;
+                    tokens.push({
+                        type: 'tool',
+                        toolName: pending.toolName,
+                        parameters: pending.parameters,
+                        rawContent: pendingRaw,
+                        index: tokenIndex++,
+                        isClosed: false,
+                        toolExecutionId: execId,
+                    });
+                    position = processedContent.length;
+                    break;
+                }
+
+                position = section.sectionEnd;
+                // Skip stray section end marker if it appears as plain text later
+                if (hasAnyTagAt(processedContent, position, KIMI_TOOL_CALLS_SECTION_END_TAGS)) {
+                    const endTagLen = KIMI_TOOL_CALLS_SECTION_END_TAGS.find((t) => processedContent.startsWith(t, position))?.length ?? 0;
+                    position += endTagLen;
+                }
+                continue;
+            }
+
             const openingTag = TOOL_FUNCTION_CALLS_OPEN;
             const closingTag = TOOL_FUNCTION_CALLS_CLOSE;
 
@@ -456,6 +677,16 @@ export function tokenizeContent(content: string, messageId: string = 'unknown'):
         }
         // No more blocks
         else {
+            // If we encounter stray closing think tags (because we force-closed earlier), drop them.
+            if (processedContent.startsWith('</think>', position)) {
+                position += 8;
+                continue;
+            }
+            if (processedContent.startsWith('</thinking>', position)) {
+                position += 11;
+                continue;
+            }
+
             let remainingText = processedContent.slice(position);
             remainingText = remainingText.split(REQUEST_BOUNDARY_MARKER).join('');
 

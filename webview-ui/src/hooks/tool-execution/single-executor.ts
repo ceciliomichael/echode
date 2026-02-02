@@ -8,7 +8,7 @@ import type { Message, ImageAttachment } from '../../types/chat';
 import type { ToolBlock, ToolExecutionContext, ExecuteToolAndContinueFn, LockedModelConfig } from './types';
 import { ToolExecutor } from '../../lib/tool-executor';
 import { createToolExecutionState, updateToolExecutionStatus, updateToolExecutionProgress, generateToolExecutionId } from '../../lib/tool-execution-tracker';
-import { buildContinuationHistory, getDiagnosticsForToolResults } from '../../utils/continuation-builder';
+import { buildContinuationHistory } from '../../utils/continuation-builder';
 import { executeToolWithStopCheck, type ToolProgressCallback } from '../../utils/tool-execution-helpers';
 import { runContinuationStream } from './continuation-stream';
 
@@ -188,7 +188,8 @@ export async function executeSingleTool(
   }
 
   // Fetch diagnostics for any files that were modified by the tool
-  const diagnosticsText = await getDiagnosticsForToolResults(result.toolResults);
+  // DISABLED: Diagnostics should be explicitly requested by the AI using get_diagnostics
+  const diagnosticsText = ''; 
 
   // Build continuation history
   const latestWorkspace = (window.workspaceContext || workspace)!;

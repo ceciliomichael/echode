@@ -2,6 +2,8 @@
  * Utility for parsing <think> and <thinking> blocks from AI responses
  */
 
+import { isInsideParameterValue } from '../lib/parser/tag-matcher';
+
 export interface ParsedContent {
   thinkBlocks: Array<{ content: string; index: number }>;
   textContent: string;
@@ -38,6 +40,36 @@ const THINK_OPEN = '<think>';
 const THINKING_OPEN = '<thinking>';
 const THINK_CLOSE = '</think>';
 const THINKING_CLOSE = '</thinking>';
+
+function findNextThinkOpenTag(content: string, fromIndex: number): {
+  index: number;
+  openTag: LeadingThinkOpenTag;
+} | null {
+  let i = Math.max(0, fromIndex);
+
+  while (i < content.length) {
+    const nextThink = content.indexOf(THINK_OPEN, i);
+    const nextThinking = content.indexOf(THINKING_OPEN, i);
+
+    if (nextThink === -1 && nextThinking === -1) {
+      return null;
+    }
+
+    const index = nextThink !== -1 && (nextThinking === -1 || nextThink < nextThinking)
+      ? nextThink
+      : nextThinking;
+    const openTag = index === nextThink ? THINK_OPEN : THINKING_OPEN;
+
+    if (isInsideParameterValue(content, index) || (index > 0 && content[index - 1] === '`')) {
+      i = index + openTag.length;
+      continue;
+    }
+
+    return { index, openTag };
+  }
+
+  return null;
+}
 
 export function stripRequestBoundaryMarkers(content: string): string {
   return normalizeRequestBoundaryMarkers(content)
@@ -127,41 +159,45 @@ export function getLeadingThinkOpenTag(content: string): LeadingThinkOpenTag | n
  * Used to exclude thinking content from chat history
  */
 export function removeThinkBlocks(content: string): string {
-  return stripRequestBoundaryMarkers(stripLeadingThinkBlocksByRequestBoundary(content).strippedContent);
+  const parsed = parseThinkBlocks(content);
+  return parsed.textContent.replace(/__THINK_BLOCK_\d+__/g, '');
 }
 
 /**
  * Parse content to extract <think> and <thinking> blocks (including unclosed ones during streaming)
  */
 export function parseThinkBlocks(content: string): ParsedContent {
-  const segments = splitByRequestBoundary(content);
+  const normalized = normalizeRequestBoundaryMarkers(content);
   const thinkBlocks: Array<{ content: string; index: number }> = [];
   let textContent = '';
 
-  for (const segment of segments) {
-    const openTag = getLeadingThinkOpenTag(segment);
-    if (!openTag) {
-      textContent += segment;
-      continue;
+  let i = 0;
+  while (i < normalized.length) {
+    const nextOpen = findNextThinkOpenTag(normalized, i);
+    if (!nextOpen) {
+      textContent += normalized.slice(i);
+      break;
     }
 
-    const closeTag = getLeadingThinkCloseTag(openTag);
-    const closeIndex = findLeadingThinkCloseIndex(segment, openTag);
-    const contentStart = openTag.length;
+    textContent += normalized.slice(i, nextOpen.index);
+
+    const closeTag = getLeadingThinkCloseTag(nextOpen.openTag);
+    const contentStart = nextOpen.index + nextOpen.openTag.length;
+    const closeIndex = normalized.indexOf(closeTag, contentStart);
+    const index = thinkBlocks.length;
 
     if (closeIndex === -1) {
-      const thinkContent = segment.slice(contentStart);
-      const index = thinkBlocks.length;
+      const thinkContent = normalized.slice(contentStart);
       thinkBlocks.push({ content: thinkContent, index });
       textContent += `__THINK_BLOCK_${index}__`;
-      continue;
+      i = normalized.length;
+      break;
     }
 
-    const thinkContent = segment.slice(contentStart, closeIndex);
-    const after = segment.slice(closeIndex + closeTag.length);
-    const index = thinkBlocks.length;
+    const thinkContent = normalized.slice(contentStart, closeIndex);
     thinkBlocks.push({ content: thinkContent, index });
-    textContent += `__THINK_BLOCK_${index}__${after}`;
+    textContent += `__THINK_BLOCK_${index}__`;
+    i = closeIndex + closeTag.length;
   }
 
   return { thinkBlocks, textContent: stripRequestBoundaryMarkers(textContent) };

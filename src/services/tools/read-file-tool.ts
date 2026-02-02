@@ -82,17 +82,23 @@ export class ReadFileTool implements ITool {
         };
       }
 
-      // Check if path is a directory
+      // Ensure the file exists (prevents reading stale editor content if the file was deleted/reverted)
+      let stat: vscode.FileStat;
       try {
-        const stat = await vscode.workspace.fs.stat(uri);
-        if (stat.type === vscode.FileType.Directory) {
-          return {
-            success: false,
-            error: `Cannot read directory '${filePath}'. Please use 'list_files' to view directory contents, then call 'read_file' on a specific file from that listing (e.g., ${filePath}/file.tsx).`,
-          };
-        }
-      } catch (error) {
-        // If stat fails (e.g. file not found), readFile will handle the error appropriate
+        stat = await vscode.workspace.fs.stat(uri);
+      } catch (_error) {
+        return {
+          success: false,
+          error: `Cannot read '${filePath}' because it does not exist (it may have been deleted or reverted).`,
+        };
+      }
+
+      // Check if path is a directory
+      if (stat.type === vscode.FileType.Directory) {
+        return {
+          success: false,
+          error: `Cannot read directory '${filePath}'. Please use 'list_files' to view directory contents, then call 'read_file' on a specific file from that listing (e.g., ${filePath}/file.tsx).`,
+        };
       }
 
       // Check if file is already open in an editor - use that content for freshest state

@@ -265,6 +265,18 @@ export class EditTool implements ITool {
       const verifiedTail = (writeResult.finalContent ?? '').slice(Math.max(0, (writeResult.finalContent ?? '').length - 120));
       console.log(`[EditTool] Verified write attempts=${writeResult.attempts} len=${writeResult.finalContent?.length ?? 0} tail=${JSON.stringify(verifiedTail)}`);
 
+      // Open the edited file in the editor
+      try {
+        await vscode.commands.executeCommand('vscode.open', uri, {
+          preview: false,
+          background: true,
+        });
+        console.log(`[EditTool] Opened edited file: ${filePath}`);
+      } catch (error) {
+        console.warn(`[EditTool] Could not open file: ${filePath}`, error);
+        // Don't fail the edit if we can't open the file
+      }
+
       return {
         success: true,
         data: {

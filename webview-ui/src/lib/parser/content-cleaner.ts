@@ -3,8 +3,24 @@
  * Single Responsibility: Clean and normalize tool call XML content
  */
 
- import { stripLeadingThinkBlocksByRequestBoundary, stripRequestBoundaryMarkers } from '../../utils/think-block-parser';
+ import { stripRequestBoundaryMarkers } from '../../utils/think-block-parser';
  import { TOOL_FUNCTION_CALLS_CLOSE, TOOL_FUNCTION_CALLS_OPEN, TOOL_XML_NAMESPACE } from '../tool-xml';
+ import { findMatchingClosingTag, isInsideParameterValue } from './tag-matcher';
+ import {
+  KIMI_TOOL_CALLS_SECTION_BEGIN_TAGS,
+  KIMI_TOOL_CALLS_SECTION_END_TAGS,
+ } from '../kimi-parser';
+
+ function findNextTagIndex(content: string, fromIndex: number, tags: readonly string[]): number {
+  let best = -1;
+  for (const tag of tags) {
+    const idx = content.indexOf(tag, fromIndex);
+    if (idx !== -1 && (best === -1 || idx < best)) {
+      best = idx;
+    }
+  }
+  return best;
+ }
 
 /**
  * Clean up common AI mistakes in tool call formatting
@@ -83,8 +99,99 @@ export function cleanToolCallContent(content: string): string {
  * Any other occurrences must remain untouched (e.g., inside edit/write_to_file payloads).
  */
 export function removeThinkBlocks(content: string): string {
-  const stripped = stripLeadingThinkBlocksByRequestBoundary(content).strippedContent;
-  return stripRequestBoundaryMarkers(stripped);
+  const THINK_OPEN = '<think>';
+  const THINKING_OPEN = '<thinking>';
+  const THINK_CLOSE = '</think>';
+  const THINKING_CLOSE = '</thinking>';
+
+  let result = '';
+  let i = 0;
+
+  while (i < content.length) {
+    const nextThink = content.indexOf(THINK_OPEN, i);
+    const nextThinking = content.indexOf(THINKING_OPEN, i);
+
+    if (nextThink === -1 && nextThinking === -1) {
+      result += content.slice(i);
+      break;
+    }
+
+    const openPos =
+      nextThink !== -1 && (nextThinking === -1 || nextThink < nextThinking)
+        ? nextThink
+        : nextThinking;
+    const openTag = openPos === nextThink ? THINK_OPEN : THINKING_OPEN;
+    const closeTag = openTag === THINK_OPEN ? THINK_CLOSE : THINKING_CLOSE;
+
+    if (isInsideParameterValue(content, openPos) || (openPos > 0 && content[openPos - 1] === '`')) {
+      result += content.slice(i, openPos + openTag.length);
+      i = openPos + openTag.length;
+      continue;
+    }
+
+    result += content.slice(i, openPos);
+    const thinkContentStart = openPos + openTag.length;
+    const closeIndex = content.indexOf(closeTag, thinkContentStart);
+    const thinkContentEnd = closeIndex === -1 ? content.length : closeIndex;
+
+    let thinkScanPos = thinkContentStart;
+    while (thinkScanPos < thinkContentEnd) {
+      const toolOpenPos = content.indexOf(TOOL_FUNCTION_CALLS_OPEN, thinkScanPos);
+      const kimiSectionOpenPos = findNextTagIndex(content, thinkScanPos, KIMI_TOOL_CALLS_SECTION_BEGIN_TAGS);
+
+      const nextOpen =
+        toolOpenPos !== -1 && (kimiSectionOpenPos === -1 || toolOpenPos < kimiSectionOpenPos)
+          ? toolOpenPos
+          : kimiSectionOpenPos;
+
+      if (nextOpen === -1 || nextOpen >= thinkContentEnd) {
+        break;
+      }
+
+      if (isInsideParameterValue(content, nextOpen) || (nextOpen > 0 && content[nextOpen - 1] === '`')) {
+        thinkScanPos = nextOpen + 1;
+        continue;
+      }
+
+      if (nextOpen === toolOpenPos) {
+        const openTagEnd = toolOpenPos + TOOL_FUNCTION_CALLS_OPEN.length;
+        const toolClosePos = findMatchingClosingTag(
+          content,
+          openTagEnd,
+          TOOL_FUNCTION_CALLS_OPEN,
+          TOOL_FUNCTION_CALLS_CLOSE
+        );
+        if (toolClosePos === -1) {
+          break;
+        }
+
+        const toolBlockEnd = toolClosePos + TOOL_FUNCTION_CALLS_CLOSE.length;
+        result += content.slice(toolOpenPos, toolBlockEnd);
+        thinkScanPos = toolBlockEnd;
+        continue;
+      }
+
+      // Kimi tool_calls section
+      const sectionBeginTag = KIMI_TOOL_CALLS_SECTION_BEGIN_TAGS.find((t) => content.startsWith(t, kimiSectionOpenPos)) ?? '';
+      const sectionContentStart = kimiSectionOpenPos + sectionBeginTag.length;
+      const sectionClosePos = findNextTagIndex(content, sectionContentStart, KIMI_TOOL_CALLS_SECTION_END_TAGS);
+      const sectionEnd = sectionClosePos === -1
+        ? thinkContentEnd
+        : Math.min(
+          thinkContentEnd,
+          sectionClosePos + (KIMI_TOOL_CALLS_SECTION_END_TAGS.find((t) => content.startsWith(t, sectionClosePos))?.length ?? 0)
+        );
+      result += content.slice(kimiSectionOpenPos, sectionEnd);
+      thinkScanPos = sectionEnd;
+    }
+
+    if (closeIndex === -1) {
+      break;
+    }
+    i = closeIndex + closeTag.length;
+  }
+
+  return stripRequestBoundaryMarkers(result);
 }
 
 /**

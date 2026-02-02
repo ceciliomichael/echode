@@ -13,7 +13,7 @@ import { ToolExecutor } from '../../lib/tool-executor';
 import { getToolsForMode } from '../../lib/tool-config';
 import { generateToolExecutionId } from '../../lib/tool-execution-tracker';
 import type { ToolExecutionState } from '../../types/tool';
-import { buildContinuationHistory, getDiagnosticsForToolResults } from '../../utils/continuation-builder';
+import { buildContinuationHistory } from '../../utils/continuation-builder';
 
 import type { ToolExecutionHookProps, ToolExecutionContext, LockedModelConfig } from './types';
 import { executeSingleTool } from './single-executor';
@@ -235,7 +235,8 @@ async function handleBufferedResults(
   const toolResultText = bufferedToolResults.join('\n\n');
   
   // Fetch diagnostics for any files that were modified by the tools
-  const diagnosticsText = await getDiagnosticsForToolResults(bufferedToolResults);
+  // DISABLED: Diagnostics should be explicitly requested by the AI using get_diagnostics
+  const diagnosticsText = '';
 
   // Build continuation history for chat
   const latestWorkspace = (window.workspaceContext || context.workspace)!;

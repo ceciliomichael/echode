@@ -21,12 +21,9 @@ function getXmlFormat(): string {
     return `<tool_usage tool="todo_write">
 <summary>Track task progress with a concise list.</summary>
 <params>
-*   todos: Markdown format task list (Option 1)
-*   tasks: JSON array format (Option 2)
+*   tasks: JSON array format
 </params>
 <notes>
-*   Use EITHER todos (markdown) OR tasks (JSON) - never both.
-*   Markdown: [ ] = pending, [-] = in_progress, [x] = completed
 *   JSON: objects with id, content, status fields
 *   Maximum 5-8 tasks total.
 *   **NEVER** create an empty task list.
@@ -38,20 +35,12 @@ function getMarkdownFormat(): string {
     return `## todo_write
 Track task progress with a CONCISE list.
 
-Parameters (choose ONE format - do not mix):
+Parameters:
 
-**Option 1 - Markdown (RECOMMENDED):**
-Use the todos parameter with checkbox syntax:
-- [ ] = pending
-- [-] = in_progress  
-- [x] = completed
-
-**Option 2 - JSON Array:**
 Use the tasks parameter with objects containing: id, content, status
 Status values: "pending", "in_progress", "completed"
 
 CRITICAL FORMAT REQUIREMENTS:
-- Use EITHER todos (markdown) OR tasks (JSON) - never both
 - JSON tasks MUST be a valid array with objects containing: id, content, status
 
 COMMON ERRORS TO AVOID:
