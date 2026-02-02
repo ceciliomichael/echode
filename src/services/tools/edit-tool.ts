@@ -3,6 +3,7 @@ import type { ITool, ToolExecutionResult, ChatMode, ToolConfirmation } from './t
 import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
 import { FileLockManager } from './utils/file-lock-manager';
 import { writeFileWithRetry } from './utils/write-file-with-retry';
+import { getFileDiagnosticsAfterEdit, formatDiagnosticsForAI } from './utils/diagnostics-utils';
 
 function replaceOnce(original: string, oldString: string, newString: string): { replaced: boolean; content: string; occurrences: number } {
   const firstIndex = original.indexOf(oldString);
@@ -277,10 +278,20 @@ export class EditTool implements ITool {
         // Don't fail the edit if we can't open the file
       }
 
+      // Collect diagnostics to provide immediate feedback
+      let diagnosticsInfo = '';
+      try {
+        const diagnostics = await getFileDiagnosticsAfterEdit(uri);
+        diagnosticsInfo = formatDiagnosticsForAI(diagnostics);
+        console.log(`[EditTool] Collected ${diagnostics.length} diagnostics for ${filePath}`);
+      } catch (error) {
+        console.warn(`[EditTool] Failed to collect diagnostics for ${filePath}`, error);
+      }
+
       return {
         success: true,
         data: {
-          message: `Successfully edited ${filePath}`,
+          message: `Successfully edited ${filePath}${diagnosticsInfo}`,
           explanation,
           path: filePath,
           absolutePath,

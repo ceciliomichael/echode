@@ -3,6 +3,7 @@ import * as path from 'path';
 import type { ITool, ToolExecutionResult } from './tool.interface';
 import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
 import { FileLockManager } from './utils/file-lock-manager';
+import { getFileDiagnosticsAfterEdit } from './utils/diagnostics-utils';
 
 export class GetDiagnosticsTool implements ITool {
   name = 'get_diagnostics';
@@ -38,36 +39,7 @@ export class GetDiagnosticsTool implements ITool {
 
           // If not a directory, open the file to ensure diagnostics are collected
           if (!isDirectoryTarget) {
-            try {
-              const uri = vscode.Uri.file(targetPath);
-              
-              // Start listening for diagnostic changes BEFORE opening the document
-              // This ensures we don't miss updates that happen immediately upon opening
-              const diagnosticsPromise = this.waitForDiagnosticsUpdate(uri, 4000);
-
-              // Open the document to trigger diagnostic collection from language servers
-              const doc = await vscode.workspace.openTextDocument(uri);
-              
-              // Explicitly show the document to force LSPs that require visibility to compute diagnostics
-              // We check if it's already visible to avoid unnecessary UI updates
-              if (!vscode.window.visibleTextEditors.some(e => e.document.uri.toString() === uri.toString())) {
-                await vscode.window.showTextDocument(doc, { 
-                  preserveFocus: true, 
-                  preview: true 
-                });
-              }
-              console.log(`[GetDiagnostics] Opened and showed document ${targetPath} to collect diagnostics`);
-
-              // Wait for diagnostics to update or timeout
-              await diagnosticsPromise;
-
-              // Double-check: If file was very recently modified (e.g. just written), 
-              // ensuring we waited long enough is handled by the promise above.
-              // We don't need a second wait loop usually, as the first one catches the LSP reaction.
-            } catch (e) {
-              // Ignore fs errors (file might not exist yet)
-              console.log(`[GetDiagnostics] Could not open document ${targetPath}:`, e);
-            }
+            // Logic handled by getFileDiagnosticsAfterEdit called below
           } else {
             // If it's a directory, find all files and open them to collect diagnostics
             try {
@@ -138,10 +110,17 @@ export class GetDiagnosticsTool implements ITool {
       };
 
       if (targetPath && !isDirectoryTarget) {
-        // Single file case: fetch directly for this file
+        // Single file case: fetch directly for this file using the robust utility
         const uri = vscode.Uri.file(targetPath);
-        const diagnostics = vscode.languages.getDiagnostics(uri);
-        processDiagnostics(uri, diagnostics);
+        // Note: We use a longer timeout here (4s) as this is an explicit user request for diagnostics
+        const diagnostics = await getFileDiagnosticsAfterEdit(uri, 4000);
+        
+        if (diagnostics.length > 0) {
+          results.push({
+            filePath: targetPath,
+            diagnostics: diagnostics,
+          });
+        }
       } else {
         // Directory or workspace scan case: fetch all and filter
         const allDiagnostics = vscode.languages.getDiagnostics();
@@ -247,35 +226,4 @@ export class GetDiagnosticsTool implements ITool {
     return results;
   }
 
-  /**
-   * Waits for diagnostics to update for a specific file URI.
-   * Resolves when onDidChangeDiagnostics fires for that URI, or after timeout.
-   */
-  private async waitForDiagnosticsUpdate(uri: vscode.Uri, timeoutMs = 2000): Promise<void> {
-    return new Promise<void>((resolve) => {
-      let resolved = false;
-
-      const disposable = vscode.languages.onDidChangeDiagnostics((e) => {
-        // Use case-insensitive comparison to handle Windows paths correctly
-        if (e.uris.some(u => u.fsPath.toLowerCase() === uri.fsPath.toLowerCase())) {
-          if (!resolved) {
-            resolved = true;
-            disposable.dispose();
-            // Give a tiny buffer for full diagnostic set to populate
-            setTimeout(resolve, 50);
-          }
-        }
-      });
-
-      // Timeout fallback
-      setTimeout(() => {
-        if (!resolved) {
-          resolved = true;
-          disposable.dispose();
-          console.log(`[GetDiagnostics] Timeout waiting for diagnostics update for ${uri.fsPath}`);
-          resolve();
-        }
-      }, timeoutMs);
-    });
-  }
 }

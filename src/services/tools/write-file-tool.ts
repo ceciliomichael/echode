@@ -6,6 +6,7 @@ import { detectCodeOmission } from '../../utils/detect-code-omission';
 import { getWorkspaceRoot, resolveAbsolutePath, getCreatedDirectories } from './utils/workspace-utils';
 import { FileLockManager } from './utils/file-lock-manager';
 import { writeFileWithRetry } from './utils/write-file-with-retry';
+import { getFileDiagnosticsAfterEdit, formatDiagnosticsForAI } from './utils/diagnostics-utils';
 
 export class WriteFileTool implements ITool {
   name = 'write_to_file';
@@ -381,6 +382,16 @@ export class WriteFileTool implements ITool {
         // Don't fail the write if we can't open the file
       }
 
+      // Collect diagnostics to provide immediate feedback
+      let diagnosticsInfo = '';
+      try {
+        const diagnostics = await getFileDiagnosticsAfterEdit(uri);
+        diagnosticsInfo = formatDiagnosticsForAI(diagnostics);
+        console.log(`[WRITE_FILE] Collected ${diagnostics.length} diagnostics for ${filePath}`);
+      } catch (error) {
+        console.warn(`[WRITE_FILE] Failed to collect diagnostics for ${filePath}`, error);
+      }
+
       // Post-write verification: try reading back as text
       try {
         const verifyContent = await vscode.workspace.fs.readFile(uri);
@@ -418,7 +429,7 @@ export class WriteFileTool implements ITool {
       return {
         success: true,
         data: {
-          message: `Successfully ${fileExistsOnDisk ? 'modified' : 'created'} ${filePath}`,
+          message: `Successfully ${fileExistsOnDisk ? 'modified' : 'created'} ${filePath}${diagnosticsInfo}`,
           path: filePath,
           absolutePath,
           action: fileExistsOnDisk ? 'modified' : 'created',
