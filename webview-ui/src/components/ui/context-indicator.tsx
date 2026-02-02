@@ -77,6 +77,7 @@ interface ContextUsage {
   historyTokens: number;
   compressedHistoryTokens: number;
   toolResultsTokens: number;
+  reasoningTokens: number;
   totalTokens: number;
   maxTokens: number;
 }
@@ -294,6 +295,16 @@ export function ContextIndicator({ usage, disabled = false, mode, onCompress, on
                 {formatTokens(usage.historyTokens)}
               </span>
             </div>
+            {usage.reasoningTokens > 0 && (
+              <div className="flex justify-between text-xs">
+                <span style={{ color: 'var(--vscode-descriptionForeground)' }}>
+                  Reasoning
+                </span>
+                <span style={{ color: 'var(--vscode-foreground)' }}>
+                  {formatTokens(usage.reasoningTokens)}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between text-xs">
               <span style={{ color: 'var(--vscode-descriptionForeground)' }}>
                 Tool Results

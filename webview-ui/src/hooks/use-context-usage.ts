@@ -5,7 +5,7 @@ import type { ContextSettings } from '../types/api-settings';
 import { DEFAULT_CONTEXT_SETTINGS } from '../types/api-settings';
 import { formatToolResultForAI } from '../utils/tool-execution-helpers';
 import { stripUnavailableToolCalls, isToolAvailableInMode } from '../utils/tool-history-filter';
-import { removeThinkBlocks } from '../utils/think-block-parser';
+import { parseThinkBlocks } from '../utils/think-block-parser';
 
 /**
  * Estimate token count from text using ~4 characters per token
@@ -22,6 +22,7 @@ export interface ContextUsageResult {
   historyTokens: number;
   compressedHistoryTokens: number;
   toolResultsTokens: number;
+  reasoningTokens: number;
   totalTokens: number;
   maxTokens: number;
 }
@@ -67,6 +68,7 @@ export function useContextUsage({
     let historyTokens = 0;
     let compressedHistoryTokens = 0;
     let toolResultsTokens = 0;
+    let reasoningTokens = 0;
 
     effectiveMessages.forEach((message) => {
       // Check for compressed history
@@ -75,8 +77,18 @@ export function useContextUsage({
         compressedHistoryTokens += contentTokens;
       } else {
         // Apply filtering to content to match what is sent to LLM
-        // Remove think blocks first, then strip unavailable tool calls (mirrors chat-history-builder.ts)
-        const contentWithoutThink = removeThinkBlocks(message.content);
+        // Parse think blocks to track reasoning tokens separately
+        const parsed = parseThinkBlocks(message.content);
+        
+        // Calculate tokens for reasoning content
+        parsed.thinkBlocks.forEach(block => {
+          // Add back tags for accurate estimation as they are part of context
+          const blockContent = `<think>${block.content}</think>`;
+          reasoningTokens += estimateTokens(blockContent);
+        });
+
+        // Use text content (without think blocks) for history tokens calculation
+        const contentWithoutThink = parsed.textContent;
         const filteredContent = stripUnavailableToolCalls(contentWithoutThink, mode);
         historyTokens += estimateTokens(filteredContent);
       }
@@ -108,7 +120,7 @@ export function useContextUsage({
       toolResultsTokens += estimateTokens(currentToolResultText);
     }
 
-    const totalTokens = systemPromptTokens + historyTokens + compressedHistoryTokens + toolResultsTokens;
+    const totalTokens = systemPromptTokens + historyTokens + compressedHistoryTokens + toolResultsTokens + reasoningTokens;
     const maxTokens = contextSettings.maxContextTokens;
 
     return {
@@ -116,6 +128,7 @@ export function useContextUsage({
       historyTokens,
       compressedHistoryTokens,
       toolResultsTokens,
+      reasoningTokens,
       totalTokens,
       maxTokens,
     };

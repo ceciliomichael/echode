@@ -3,7 +3,6 @@ import type { ChatMessage } from '../../types/chat-api';
 import { injectCodeQualityReminder } from '../../utils/code-quality-reminder';
 import type { ChatHistoryContext } from './types';
 import type { ToolExecutionState } from '../../types/tool';
-import { removeThinkBlocks } from '../../utils/think-block-parser';
 import { buildChatMessage } from '../../utils/vision-utils';
 import { formatToolExecutionResults } from './tool-result-formatter';
 import { trimHistory } from './helpers';
@@ -74,8 +73,9 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
     // Skip hidden messages
     if (msg.hidden) {continue;}
 
-    // Strip reasoning blocks from message content
-    let processedContent = removeThinkBlocks(msg.content);
+    // Keep reasoning blocks in message content to provide context for the AI
+    // Only strip unavailable tool calls
+    let processedContent = msg.content;
 
     // For assistant messages, strip tool call XML for tools not available in current mode
     if (msg.role === 'assistant') {
