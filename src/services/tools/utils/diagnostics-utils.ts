@@ -10,15 +10,35 @@ export interface DiagnosticInfo {
 }
 
 /**
+ * Checks if a file exists on disk
+ */
+export async function fileExists(uri: vscode.Uri): Promise<boolean> {
+    try {
+        await vscode.workspace.fs.stat(uri);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+/**
  * Waits for diagnostics to update for a specific file after an edit,
  * then returns the diagnostics for that file.
  * 
  * This function ensures the document is visible to trigger "lazy" LSPs.
+ * It also refreshes stale diagnostics from deleted/modified files.
  */
 export async function getFileDiagnosticsAfterEdit(
     uri: vscode.Uri,
     waitTimeoutMs = 2000
 ): Promise<DiagnosticInfo[]> {
+    // 0. Check if file exists - if not, return empty (clears stale diagnostics)
+    const exists = await fileExists(uri);
+    if (!exists) {
+        console.log(`[DiagnosticsUtils] File does not exist: ${uri.fsPath}, returning empty diagnostics`);
+        return [];
+    }
+
     let resolved = false;
     let disposable: vscode.Disposable | undefined;
 
@@ -50,6 +70,11 @@ export async function getFileDiagnosticsAfterEdit(
         }
     } catch (e) {
         console.warn(`[DiagnosticsUtils] Could not open/show document ${uri.fsPath}:`, e);
+        // If we can't open the file, return empty diagnostics
+        if (disposable) {
+            disposable.dispose();
+        }
+        return [];
     }
 
     // 3. Wait for the diagnostics update OR the timeout
@@ -89,6 +114,26 @@ export async function getFileDiagnosticsAfterEdit(
         }));
 
     return results;
+}
+
+/**
+ * Gets URIs of files that have stale diagnostics (file no longer exists).
+ * These should be filtered out when collecting diagnostics.
+ */
+export async function getStaleFileUris(): Promise<Set<string>> {
+    const allDiagnostics = vscode.languages.getDiagnostics();
+    const staleUris = new Set<string>();
+    
+    // Check each file that has diagnostics - if it no longer exists, mark as stale
+    const checkPromises = allDiagnostics.map(async ([uri]) => {
+        const exists = await fileExists(uri);
+        if (!exists) {
+            staleUris.add(uri.toString());
+        }
+    });
+    
+    await Promise.all(checkPromises);
+    return staleUris;
 }
 
 export function severityToString(

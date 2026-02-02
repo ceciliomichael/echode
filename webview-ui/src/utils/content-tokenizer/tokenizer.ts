@@ -45,6 +45,44 @@ function hasKimiSectionBeginAt(content: string, index: number): boolean {
     return /^<\|?tool_calls_section_begin\|?>/i.test(slice);
 }
 
+ function stripLeakedThinkTagsInsideLeadingThinkSegment(segment: string): string {
+     const startsWithThink = segment.startsWith('<think>');
+     const startsWithThinking = segment.startsWith('<thinking>');
+     if (!startsWithThink && !startsWithThinking) {
+         return segment;
+     }
+
+     const openTag = startsWithThink ? '<think>' : '<thinking>';
+     const closeTag = startsWithThink ? '</think>' : '</thinking>';
+
+     // If the model emits duplicated open tags (e.g. "<thinking><thinking>..."),
+     // ensure the content inside the outer wrapper doesn't start with a literal think tag.
+     let rest = segment.slice(openTag.length);
+     while (true) {
+         const trimmed = rest.replace(/^\s+/, '');
+         if (trimmed.startsWith('<think>')) {
+             rest = trimmed.slice('<think>'.length);
+             continue;
+         }
+         if (trimmed.startsWith('<thinking>')) {
+             rest = trimmed.slice('<thinking>'.length);
+             continue;
+         }
+         break;
+     }
+     let result = openTag + rest;
+
+     // Collapse duplicated closing tags which can appear after repairs/streaming.
+     // This also prevents stray close tags from being rendered as plain text.
+     if (closeTag === '</think>') {
+         result = result.replace(/(?:<\/think>\s*){2,}/gi, '</think>');
+     } else {
+         result = result.replace(/(?:<\/thinking>\s*){2,}/gi, '</thinking>');
+     }
+
+     return result;
+ }
+
 /**
  * Fix leaked <thought> tags that appear after closing </think> or </thinking> tags.
  * During streaming, the AI sometimes "leaks" content outside the thinking block with a <thought> tag.
@@ -68,7 +106,7 @@ function fixLeakedThoughtTags(content: string): string {
             return segment;
         }
 
-        let result = segment;
+        let result = stripLeakedThinkTagsInsideLeadingThinkSegment(segment);
 
         // For CLOSED blocks: move <thought> content back inside the block so it renders as thinking.
         // Pattern: </think><thought>content</thought> -> content</think>
@@ -110,6 +148,9 @@ function fixLeakedThoughtTags(content: string): string {
 
         // Final cleanup: remove any leftover wrapper tags inside the thinking segment.
         result = result.replace(/<\/?thought>/gi, '');
+
+        // Ensure leaked/duplicated think tags don't become visible inside the think block.
+        result = stripLeakedThinkTagsInsideLeadingThinkSegment(result);
 
         return result;
     });

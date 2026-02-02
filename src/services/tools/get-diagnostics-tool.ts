@@ -3,13 +3,56 @@ import * as path from 'path';
 import type { ITool, ToolExecutionResult } from './tool.interface';
 import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
 import { FileLockManager } from './utils/file-lock-manager';
-import { getFileDiagnosticsAfterEdit } from './utils/diagnostics-utils';
+import { getFileDiagnosticsAfterEdit, getStaleFileUris } from './utils/diagnostics-utils';
+import { DEFAULT_IGNORED_PATTERNS, parseGitignore, matchesGitignorePattern } from '../../constants/excluded-patterns';
 
 export class GetDiagnosticsTool implements ITool {
   name = 'get_diagnostics';
 
+  /**
+   * Check if a file path should be excluded from diagnostics
+   */
+  private isExcludedPath(filePath: string, workspaceRoot: string, gitignorePatterns: string[]): boolean {
+    // Get path relative to workspace for pattern matching
+    const relativePath = path.relative(workspaceRoot, filePath).replace(/\\/g, '/');
+    
+    // Check against default ignored patterns (node_modules, dist, etc.)
+    for (const pattern of DEFAULT_IGNORED_PATTERNS) {
+      // Check if any path segment matches the pattern
+      const segments = relativePath.split('/');
+      for (const segment of segments) {
+        if (segment === pattern) {
+          return true;
+        }
+        // Handle glob patterns like *.log
+        if (pattern.includes('*')) {
+          const regexPattern = pattern
+            .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+            .replace(/\*/g, '.*');
+          if (new RegExp(`^${regexPattern}$`).test(segment)) {
+            return true;
+          }
+        }
+      }
+    }
+    
+    // Check against gitignore patterns
+    if (gitignorePatterns.length > 0 && matchesGitignorePattern(relativePath, gitignorePatterns)) {
+      return true;
+    }
+    
+    return false;
+  }
+
   async execute(parameters: Record<string, unknown>): Promise<ToolExecutionResult> {
     try {
+      // Get stale file URIs (files that no longer exist but still have diagnostics)
+      const staleUris = await getStaleFileUris();
+      
+      // Get workspace root and gitignore patterns for filtering
+      const workspaceRoot = getWorkspaceRoot();
+      const gitignorePatterns = workspaceRoot ? parseGitignore(workspaceRoot) : [];
+
       const rawPath = typeof parameters.path === 'string' && parameters.path.trim().length > 0
         ? parameters.path.trim()
         : undefined;
@@ -126,7 +169,18 @@ export class GetDiagnosticsTool implements ITool {
         const allDiagnostics = vscode.languages.getDiagnostics();
         
         for (const [uri, diagnostics] of allDiagnostics) {
+          // Skip stale diagnostics from deleted files
+          if (staleUris.has(uri.toString())) {
+            console.log(`[GetDiagnostics] Skipping stale diagnostics for deleted file: ${uri.fsPath}`);
+            continue;
+          }
+
           const filePath = uri.fsPath;
+
+          // Skip excluded paths (node_modules, dist, .git, etc.)
+          if (workspaceRoot && this.isExcludedPath(filePath, workspaceRoot, gitignorePatterns)) {
+            continue;
+          }
 
           if (targetPath) {
             // Directory target
