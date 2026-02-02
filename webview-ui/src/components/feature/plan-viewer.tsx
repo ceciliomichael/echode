@@ -12,7 +12,15 @@ declare global {
  * Used in the custom Plan Viewer webview panel.
  */
 export function PlanViewer() {
-  const content = window.planContent || '';
+  const normalizePlanViewerContent = (value: string): string => {
+    const hasEscapedNewline = value.includes('\\n') || value.includes('\\r\\n');
+    if (hasEscapedNewline) {
+      return value.replace(/\\r\\n/g, '\r\n').replace(/\\n/g, '\n');
+    }
+    return value;
+  };
+
+  const content = normalizePlanViewerContent(window.planContent || '');
 
   if (!content) {
     return (

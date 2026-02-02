@@ -41,6 +41,12 @@ The plan should include:
 - Dependencies or prerequisites
 - Potential risks or considerations
 
+CRITICAL RULES FOR PLAN CONTENT:
+- Do NOT include complete code for any file.
+- Do NOT paste full HTML/CSS/JS/TS/JSON files into the plan.
+- If a snippet is absolutely necessary, keep it SHORT (max ~5-10 lines) and only show the smallest relevant fragment.
+- Prefer describing what to change and where (file path + section) over showing code.
+
 The plan is saved to .echode/plan-{uuid}.md and opened in VS Code. User must click "Verify Plan" to continue.
 
 NOTE: The tool result contains "planFilePath", but the system automatically tracks this for future updates.

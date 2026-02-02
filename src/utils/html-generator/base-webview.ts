@@ -90,6 +90,16 @@ export function generateWebviewHtml(
 
   const theme = vscode.window.activeColorTheme;
 
+  const toSafeInlineScriptJson = (value: unknown): string => {
+    const json = JSON.stringify(value);
+    return json
+      .replace(/<\//g, '<\\/')
+      .replace(/<!--/g, '<\\!--')
+      // Prevent inline script breakage on some runtimes when content includes line separators
+      .replace(/\u2028/g, '\\u2028')
+      .replace(/\u2029/g, '\\u2029');
+  };
+
   // Build script content
   let scriptContent = `
     window.vscode = acquireVsCodeApi();
@@ -104,29 +114,29 @@ export function generateWebviewHtml(
   if (options.isPlanViewer) {
     scriptContent += '\n    window.isPlanViewer = true;';
     if (options.planContent) {
-      scriptContent += `\n    window.planContent = ${JSON.stringify(options.planContent)};`;
+      scriptContent += `\n    window.planContent = ${toSafeInlineScriptJson(options.planContent)};`;
     }
   }
 
   if (options.isToolApproval) {
     scriptContent += '\n    window.isToolApproval = true;';
     if (options.approvalData) {
-      scriptContent += `\n    window.approvalData = ${JSON.stringify(options.approvalData)};`;
+      scriptContent += `\n    window.approvalData = ${toSafeInlineScriptJson(options.approvalData)};`;
     }
   }
 
   if (options.isMermaidPreview) {
     scriptContent += '\n    window.isMermaidPreview = true;';
     if (options.mermaidCode) {
-      scriptContent += `\n    window.mermaidCode = ${JSON.stringify(options.mermaidCode)};`;
+      scriptContent += `\n    window.mermaidCode = ${toSafeInlineScriptJson(options.mermaidCode)};`;
     }
     if (options.mermaidId) {
-      scriptContent += `\n    window.mermaidId = ${JSON.stringify(options.mermaidId)};`;
+      scriptContent += `\n    window.mermaidId = ${toSafeInlineScriptJson(options.mermaidId)};`;
     }
   }
 
   if (options.workspaceInfo) {
-    scriptContent += `\n    window.workspaceContext = ${JSON.stringify(options.workspaceInfo)};`;
+    scriptContent += `\n    window.workspaceContext = ${toSafeInlineScriptJson(options.workspaceInfo)};`;
   }
 
   // Insert base href (for Vite dynamic imports), CSP, and bootstrap script

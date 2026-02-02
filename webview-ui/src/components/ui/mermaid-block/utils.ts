@@ -248,9 +248,18 @@ export const MERMAID_CONTAINER_STYLES = `
 /**
  * Heuristic to fix common mermaid mistakes
  * Primarily fixing unquoted labels in flowcharts: id[Label] -> id["Label"]
+ * Also strips style directives with fill colors to use default theme
  */
 export const fixMermaidCode = (code: string): string => {
   let fixed = code;
+
+  // Remove style directives with fill colors
+  // Matches: "style A fill:#f9f9f9" or "style A fill:#f9f9f9,stroke:#333"
+  // This regex removes entire lines that start with "style" and contain "fill:"
+  fixed = fixed.replace(
+    /^[ \t]*style\s+\S+\s+fill:[^\r\n]*$/gm,
+    ''
+  );
 
   // Fix unquoted text in square brackets for flowcharts
   // Matches: id[Text with spaces] -> id["Text with spaces"]

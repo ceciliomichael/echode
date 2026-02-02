@@ -99,7 +99,7 @@ export class PlanTool implements ITool {
    * In YOLO mode: Auto-verifies immediately, no user action required
    */
   private async handleCreatePlanMode(params: PlanToolParameters, isYoloMode: boolean): Promise<ToolExecutionResult> {
-    const planContent = params.plan;
+    const planContent = normalizePlanContent(params.plan);
 
     if (!planContent || typeof planContent !== 'string' || planContent.trim().length === 0) {
       return {
@@ -172,7 +172,7 @@ export class PlanTool implements ITool {
    * In YOLO mode: Auto-verifies immediately, no user action required
    */
   private async handleUpdatePlanMode(params: PlanToolParameters, isYoloMode: boolean): Promise<ToolExecutionResult> {
-    const planContent = params.plan;
+    const planContent = normalizePlanContent(params.plan);
     let existingPlanFilePath = params.planFilePath;
 
     if (!planContent || typeof planContent !== 'string' || planContent.trim().length === 0) {
@@ -326,4 +326,18 @@ export class PlanTool implements ITool {
       data: result,
     };
   }
+}
+
+function normalizePlanContent(content: unknown): string | undefined {
+  if (typeof content !== 'string') {
+    return undefined;
+  }
+
+  // Some models (observed with Kimi tool args) may send double-escaped newlines as literal "\\n".
+  const hasEscapedNewline = content.includes('\\n') || content.includes('\\r\\n');
+  if (hasEscapedNewline) {
+    return content.replace(/\\r\\n/g, '\r\n').replace(/\\n/g, '\n');
+  }
+
+  return content;
 }
