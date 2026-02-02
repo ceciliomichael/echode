@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
-import { Search, ClipboardList, CircleCheckBig, Loader2, Trash2 } from 'lucide-react';
+import { Search, ClipboardList, CircleCheckBig, Loader2, Trash2, SquareArrowOutUpRight } from 'lucide-react';
 import { useChatHistory } from '../../hooks/use-chat-history';
+import { vscode } from '../../utils/vscode';
 
 interface HistoryDropdownProps {
   onLoadSession: (sessionId: string) => void;
@@ -28,6 +29,12 @@ export function HistoryDropdown({ onLoadSession, onClose }: HistoryDropdownProps
   const handleDeleteSession = (sessionId: string, event: React.MouseEvent) => {
     event.stopPropagation();
     deleteSession(sessionId);
+  };
+
+  const handleOpenInNewTab = (sessionId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    vscode.postMessage({ type: 'openSessionInParallel', sessionId });
+    onClose();
   };
 
   const formatTime = (timestamp: number) => {
@@ -141,7 +148,22 @@ export function HistoryDropdown({ onLoadSession, onClose }: HistoryDropdownProps
                   </span>
                 </div>
                 
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    onClick={(e) => handleOpenInNewTab(session.id, e)}
+                    className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ color: 'var(--vscode-descriptionForeground)' }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = 'var(--vscode-textLink-foreground)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = 'var(--vscode-descriptionForeground)';
+                    }}
+                    aria-label="Open in new tab"
+                    title="Open in new tab"
+                  >
+                    <SquareArrowOutUpRight size={12} />
+                  </button>
                   <button
                     onClick={(e) => handleDeleteSession(session.id, e)}
                     className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"

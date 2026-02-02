@@ -238,5 +238,15 @@ export function createMessageRouter(): MessageRouter {
     );
   });
 
+  router.register('openSessionInParallel', (data, ctx) => {
+    if (typeof data.sessionId === 'string') {
+      ctx.panelManager.openParallelChat(data.sessionId, {
+        historyService: ctx.historyService,
+        toolHistoryService: ctx.toolHistoryService,
+        workspaceManager: ctx.workspaceManager
+      });
+    }
+  });
+
   return router;
 }

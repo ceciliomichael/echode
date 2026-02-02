@@ -44,7 +44,7 @@ function DropdownComponent({ isOpen, onClose, children, variant = 'default' }: D
       data-edit-outside-ignore="true"
       className={
         isFullWidth
-          ? "fixed inset-x-2 top-2 z-[9999] flex flex-col rounded-xl overflow-hidden max-h-[calc(100vh-16px)]"
+          ? "fixed inset-x-2 top-0 z-[9999] flex flex-col rounded-xl overflow-hidden max-h-[calc(100vh-16px)] shadow-xl"
           : "fixed top-2 right-4 w-80 max-h-96 rounded-xl border shadow-lg overflow-hidden z-[9999]"
       }
       style={{
