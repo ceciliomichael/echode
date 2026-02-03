@@ -279,5 +279,9 @@ export const fixMermaidCode = (code: string): string => {
     '$1$2$3 $4|$5| $3'
   );
 
+  // Fix PlantUML arrow syntax " ..|> " to Mermaid dotted arrow "-.->"
+  // Common when AI generates architectural diagrams using PlantUML syntax in Mermaid block
+  fixed = fixed.replace(/\.\.\|>/g, '-.->');
+
   return fixed;
 };

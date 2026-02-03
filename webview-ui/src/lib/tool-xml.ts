@@ -1,4 +1,5 @@
-export const TOOL_XML_NAMESPACE = 'tool';
+export const TOOL_XML_NAMESPACE = 'echode';
+
 
 export function toolTag(name: string): string {
   return `<${TOOL_XML_NAMESPACE}:${name}>`;
