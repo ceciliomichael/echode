@@ -140,7 +140,20 @@ export class ChatHistoryService {
 
   public getLastOpenedSessionId(): string | null {
     try {
-      return this.context.globalState.get<string>(this.getLastOpenedSessionKey()) ?? null;
+      const sessionId = this.context.globalState.get<string>(this.getLastOpenedSessionKey()) ?? null;
+      if (!sessionId) {
+        return null;
+      }
+
+      // If the stored last-opened session points to a sub-agent session,
+      // ignore it and clear the pointer so the main UI won't auto-restore it.
+      const session = this.readSessionFile(sessionId);
+      if (session?.isSubAgent) {
+        this.clearLastOpenedSessionId();
+        return null;
+      }
+
+      return sessionId;
     } catch (_error) {
       return null;
     }
@@ -404,7 +417,7 @@ export class ChatHistoryService {
       if (session?.workspaceId && session.workspaceId !== this.workspaceId) {
         return null;
       }
-      if (session?.id) {
+      if (session?.id && !session.isSubAgent) {
         this.setLastOpenedSessionId(session.id);
       }
       return session;
@@ -418,7 +431,7 @@ export class ChatHistoryService {
     try {
       const index = this.readIndex();
       const latest = index
-        .filter(entry => entry.workspaceId === this.workspaceId)
+        .filter(entry => entry.workspaceId === this.workspaceId && !entry.isSubAgent)
         .sort((a, b) => b.timestamp - a.timestamp)[0];
 
       if (!latest) {
@@ -445,7 +458,10 @@ export class ChatHistoryService {
       // Write session file atomically
       this.writeSessionFile(session);
 
-      this.setLastOpenedSessionId(session.id);
+      // Only the main agent sessions should be auto-restored on extension restart.
+      if (!session.isSubAgent) {
+        this.setLastOpenedSessionId(session.id);
+      }
 
       // Update index
       const index = this.readIndex();

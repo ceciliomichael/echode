@@ -16,7 +16,7 @@ import type { AutocompleteService } from '../autocomplete';
 import { ChatHistoryService, ChatSession } from '../services/chat-history-service';
 import type { ToolHistoryService } from '../services/tool-history';
 import type { WorkspaceManager } from './workspace-manager';
-import { buildSubAgentPrompt } from '../utils/sub-agent-prompt';
+import { buildSubAgentPrompt } from '../utils/sub-agent/prompt-builder';
 import { getAgentsConfig } from '../utils/workspace-scanner';
 
 /**

@@ -6,13 +6,14 @@
 import type { WorkspaceContext } from '../../types/workspace';
 import type { Tool } from '../../types/tool';
 import { IMAGE_AWARENESS_RULES, INTERACTION_RULES, MERMAID_DIAGRAM_RULES } from '../shared';
-import { getAgentIdentity, AGENT_WORKFLOW, getAgentRules } from './sections';
+import { getAgentIdentity, AGENT_WORKFLOW, getAgentRules, SUB_AGENT_RULES } from './sections';
 
 /** Tools available in Agent mode (ordered by frequency of use) */
 const AGENT_TOOLS = [
     'read_file', 'edit', 'write_to_file', 'delete_file',
     'grep_search', 'glob_search', 'list_files',
-    'get_diagnostics', 'todo_write'
+    'get_diagnostics', 'todo_write',
+    'create_subagent', 'use_subagent'
 ] as const;
 
 export function getAgentPrompt(
@@ -22,6 +23,7 @@ export function getAgentPrompt(
 ): string {
     const cwd = workspace?.path || 'the current workspace directory';
     const enabledIds = new Set(enabledTools.map(t => t.id));
+    const subAgentsEnabled = enabledIds.has('create_subagent') || enabledIds.has('use_subagent');
 
     // Filter to only enabled tools
     const toolList = AGENT_TOOLS.filter(tool => enabledIds.has(tool));
@@ -36,6 +38,8 @@ ${MERMAID_DIAGRAM_RULES}
 ${AGENT_WORKFLOW}
 
 ${getAgentRules()}
+
+${subAgentsEnabled ? SUB_AGENT_RULES : ''}
 
 ${IMAGE_AWARENESS_RULES}
 </agent>`;

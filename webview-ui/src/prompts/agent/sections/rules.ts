@@ -44,10 +44,7 @@ PARALLEL EXECUTION STRATEGY:
   * Searching different directories simultaneously
   * Editing different files in one function_calls block
   * Running diagnostics on multiple independent files
-  * **Sub-Agent Delegation**: You can spawn multiple sub-agents (via \`create_subagent\` then \`use_subagent\`) to handle independent large tasks concurrently.
-- **Collaborator Awareness**:
-  * When using parallel sub-agents, they will automatically receive a [COLLABORATION CONTEXT] informing them of their peers' tasks.
-  * You can leverage this by decomposing tasks that depend on each other's *interfaces* (not implementations) and running them in parallel.
+  * **Sub-Agent Delegation**: See SUB-AGENT MASTERY section for full instructions on spawning specialized agents.
 - **When to use sequential**:
   * Operations have dependencies (read then edit same file)
   * Results from one operation needed for the next
