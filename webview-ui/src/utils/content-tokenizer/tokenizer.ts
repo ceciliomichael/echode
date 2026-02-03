@@ -45,6 +45,56 @@ function hasKimiSectionBeginAt(content: string, index: number): boolean {
     return /^<\|?tool_calls_section_begin\|?>/i.test(slice);
 }
 
+ function normalizeThinkTags(content: string): string {
+     // Normalize common think/thinking tag corruption (whitespace/casing) so the tokenizer
+     // can reliably detect wrappers.
+     // Important: avoid rewriting inside tool-call parameter values or inline-code contexts.
+     const tagRegex = /<\s*\/\s*think\s*>|<\s*think\s*>|<\s*\/\s*thinking\s*>|<\s*thinking\s*>/gi;
+     let result = '';
+     let lastIndex = 0;
+     let match: RegExpExecArray | null;
+
+     while ((match = tagRegex.exec(content)) !== null) {
+         const idx = match.index;
+         const raw = match[0];
+
+         // Skip replacements inside function_calls parameter values or inline code.
+         if (isInsideFunctionCallsParameterValue(content, idx) || (idx > 0 && content[idx - 1] === '`')) {
+             continue;
+         }
+
+         result += content.slice(lastIndex, idx);
+
+         const lowered = raw.toLowerCase().replace(/\s+/g, '');
+         switch (lowered) {
+             case '<think>':
+                 result += '<think>';
+                 break;
+             case '</think>':
+                 result += '</think>';
+                 break;
+             case '<thinking>':
+                 result += '<thinking>';
+                 break;
+             case '</thinking>':
+                 result += '</thinking>';
+                 break;
+             default:
+                 result += raw;
+                 break;
+         }
+
+         lastIndex = idx + raw.length;
+     }
+
+     if (!result) {
+         return content;
+     }
+
+     result += content.slice(lastIndex);
+     return result;
+ }
+
  function stripLeakedThinkTagsInsideLeadingThinkSegment(segment: string): string {
      const startsWithThink = segment.startsWith('<think>');
      const startsWithThinking = segment.startsWith('<thinking>');
@@ -71,6 +121,16 @@ function hasKimiSectionBeginAt(content: string, index: number): boolean {
          break;
      }
      let result = openTag + rest;
+
+     // If the model includes literal think/thinking tags inside the think content,
+     // strip those canonical tags from the inner body (leave the outer wrapper intact).
+     const firstCloseIndex = result.indexOf(closeTag, openTag.length);
+     if (firstCloseIndex !== -1) {
+         const inner = result.slice(openTag.length, firstCloseIndex);
+         const after = result.slice(firstCloseIndex + closeTag.length);
+         const cleanedInner = inner.replace(/<\/?(?:think|thinking)>/gi, '');
+         result = openTag + cleanedInner + closeTag + after;
+     }
 
      // Collapse duplicated closing tags which can appear after repairs/streaming.
      // This also prevents stray close tags from being rendered as plain text.
@@ -101,12 +161,13 @@ function fixLeakedThoughtTags(content: string): string {
     const fixedSegments = segments.map((segment) => {
         // Only rewrite <thought> tags within segments that begin with a think block.
         // This preserves the "leading-only" constraint per request segment.
-        const startsWithThink = segment.startsWith('<think>') || segment.startsWith('<thinking>');
+        const normalizedSegment = normalizeThinkTags(segment);
+        const startsWithThink = normalizedSegment.startsWith('<think>') || normalizedSegment.startsWith('<thinking>');
         if (!startsWithThink) {
-            return segment;
+            return normalizedSegment;
         }
 
-        let result = stripLeakedThinkTagsInsideLeadingThinkSegment(segment);
+        let result = stripLeakedThinkTagsInsideLeadingThinkSegment(normalizedSegment);
 
         // For CLOSED blocks: move <thought> content back inside the block so it renders as thinking.
         // Pattern: </think><thought>content</thought> -> content</think>
@@ -253,9 +314,10 @@ function hasPotentialUnparsedTools(content: string, parsedTokens: ContentToken[]
  */
 export function tokenizeContent(content: string, messageId: string = 'unknown'): ContentToken[] {
     const boundarySegments = splitByRequestBoundary(content);
-    const normalizedContent = boundarySegments.join(REQUEST_BOUNDARY_MARKER);
+    const normalizedBoundarySegments = boundarySegments.map((segment) => normalizeThinkTags(segment));
+    const normalizedContent = normalizedBoundarySegments.join(REQUEST_BOUNDARY_MARKER);
 
-    const hasLeadingThink = boundarySegments.some((segment) => segment.startsWith('<think>') || segment.startsWith('<thinking>'));
+    const hasLeadingThink = normalizedBoundarySegments.some((segment) => segment.startsWith('<think>') || segment.startsWith('<thinking>'));
 
     // Only run think-specific repairs when the response starts with a think block.
     // If think tags occur later in the response, they must remain literal text.

@@ -155,8 +155,8 @@ export class GetDiagnosticsTool implements ITool {
       if (targetPath && !isDirectoryTarget) {
         // Single file case: fetch directly for this file using the robust utility
         const uri = vscode.Uri.file(targetPath);
-        // Note: We use a longer timeout here (4s) as this is an explicit user request for diagnostics
-        const diagnostics = await getFileDiagnosticsAfterEdit(uri, 4000);
+        // Note: We use the default timeout (5s) as this is an explicit user request for diagnostics
+        const diagnostics = await getFileDiagnosticsAfterEdit(uri);
         
         if (diagnostics.length > 0) {
           results.push({

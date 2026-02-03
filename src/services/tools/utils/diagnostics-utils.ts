@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import { openFileInBackground } from './editor-utils';
 
 export interface DiagnosticInfo {
     line: number;
@@ -26,12 +25,12 @@ export async function fileExists(uri: vscode.Uri): Promise<boolean> {
  * Waits for diagnostics to update for a specific file after an edit,
  * then returns the diagnostics for that file.
  * 
- * This function ensures the document is visible to trigger "lazy" LSPs.
+ * This function opens the document in the workspace (backend) to trigger LSPs.
  * It also refreshes stale diagnostics from deleted/modified files.
  */
 export async function getFileDiagnosticsAfterEdit(
     uri: vscode.Uri,
-    waitTimeoutMs = 2000
+    waitTimeoutMs = 5000
 ): Promise<DiagnosticInfo[]> {
     // 0. Check if file exists - if not, return empty (clears stale diagnostics)
     const exists = await fileExists(uri);
@@ -57,15 +56,13 @@ export async function getFileDiagnosticsAfterEdit(
         });
     });
 
-    // 2. Ensure the document is open and visible to trigger LSPs
+    // 2. Ensure the document is open in the workspace (backend) to trigger LSPs
     try {
-        // Explicitly show the document to force LSPs that require visibility to compute diagnostics
-        // We check if it's already visible to avoid unnecessary UI updates
-        if (!vscode.window.visibleTextEditors.some(e => e.document.uri.toString() === uri.toString())) {
-            await openFileInBackground(uri, { preview: true });
-        }
+        // Just open the text document model without showing it in the editor UI
+        // This triggers "didOpen" in the LSP which should start diagnostic computation
+        await vscode.workspace.openTextDocument(uri);
     } catch (e) {
-        console.warn(`[DiagnosticsUtils] Could not open/show document ${uri.fsPath}:`, e);
+        console.warn(`[DiagnosticsUtils] Could not open document ${uri.fsPath}:`, e);
         // If we can't open the file, return empty diagnostics
         if (disposable) {
             disposable.dispose();
