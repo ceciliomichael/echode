@@ -78,9 +78,10 @@ export function useChatStreaming({
       // Determine enabled tools
       let enabledTools: string[];
       
-      if (targetMode === 'sub-agent' && subAgentConfig?.allowedTools) {
-        // Use restricted tool set for sub-agent
-        enabledTools = [...subAgentConfig.allowedTools];
+      if (targetMode === 'sub-agent') {
+        // Sub-agent mode must NEVER fall back to global tools.
+        // If allowedTools is missing, default to the safest possible toolset.
+        enabledTools = [...(subAgentConfig?.allowedTools ?? [])];
         if (!enabledTools.includes('report_back')) {
           enabledTools.push('report_back');
         }
@@ -205,8 +206,8 @@ export function useChatStreaming({
     // Otherwise, use user's global settings.
     let enabledToolIds: string[];
     
-    if (subAgentConfig?.allowedTools) {
-      enabledToolIds = [...subAgentConfig.allowedTools];
+    if (subAgentConfig?.enabled) {
+      enabledToolIds = [...(subAgentConfig.allowedTools ?? [])];
       // Ensure report_back is always available for sub-agents if not explicitly listed
       if (!enabledToolIds.includes('report_back')) {
         enabledToolIds.push('report_back');

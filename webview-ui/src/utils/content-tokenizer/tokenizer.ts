@@ -296,6 +296,39 @@ function preprocessToolTags(content: string): string {
     processed = processed.replace(/<!\[CDATA\[/g, '');
     processed = processed.replace(/\]\]>/g, '');
 
+    // Recover missing angle brackets for function_calls markers.
+    // Some models (or intermediate transforms) may emit "tool:function_calls" instead of "<tool:function_calls>".
+    // Keep this flexible by referencing TOOL_XML_NAMESPACE (do not hardcode the namespace).
+    processed = processed.replace(
+        new RegExp(`(^|[\\s>])${escapedNamespace}\\s*:\\s*function_calls(?=\\s|$)`, 'gi'),
+        `$1${TOOL_FUNCTION_CALLS_OPEN}`
+    );
+    processed = processed.replace(
+        new RegExp(`(^|[\\s>])\\/\\s*${escapedNamespace}\\s*:\\s*function_calls(?=\\s|$)`, 'gi'),
+        `$1${TOOL_FUNCTION_CALLS_CLOSE}`
+    );
+
+    // Recover missing function_calls wrapper when invoke blocks are present.
+    // This is intentionally conservative: wrap only when a valid invoke close tag exists.
+    // Note: We do not hardcode the namespace; we use TOOL_XML_NAMESPACE.
+    if (!processed.includes(TOOL_FUNCTION_CALLS_OPEN)) {
+        const invokeOpenRegex = new RegExp(`<\\s*${escapedNamespace}\\s*:\\s*invoke\\b`, 'i');
+        const firstInvoke = processed.search(invokeOpenRegex);
+        if (firstInvoke !== -1 && (firstInvoke === 0 || processed[firstInvoke - 1] !== '`')) {
+            const invokeClose = `</${TOOL_XML_NAMESPACE}:invoke>`;
+            const lastInvokeClose = processed.lastIndexOf(invokeClose);
+            if (lastInvokeClose !== -1 && lastInvokeClose > firstInvoke) {
+                const invokeBlockEnd = lastInvokeClose + invokeClose.length;
+                processed =
+                    processed.slice(0, firstInvoke)
+                    + TOOL_FUNCTION_CALLS_OPEN
+                    + processed.slice(firstInvoke, invokeBlockEnd)
+                    + TOOL_FUNCTION_CALLS_CLOSE
+                    + processed.slice(invokeBlockEnd);
+            }
+        }
+    }
+
     return processed;
 }
 

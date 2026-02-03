@@ -20,6 +20,43 @@ import {
 
 import { TOOL_FUNCTION_CALLS_CLOSE, TOOL_FUNCTION_CALLS_OPEN, TOOL_XML_NAMESPACE } from './tool-xml';
 
+function recoverMissingFunctionCallsWrapper(content: string): string {
+  let processed = content;
+
+  const escapedNamespace = TOOL_XML_NAMESPACE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  // Recover missing angle brackets for wrapper markers like "tool:function_calls".
+  processed = processed.replace(
+    new RegExp(`(^|[\\s>])${escapedNamespace}\\s*:\\s*function_calls(?=\\s|$)`, 'gi'),
+    `$1${TOOL_FUNCTION_CALLS_OPEN}`
+  );
+  processed = processed.replace(
+    new RegExp(`(^|[\\s>])\\/\\s*${escapedNamespace}\\s*:\\s*function_calls(?=\\s|$)`, 'gi'),
+    `$1${TOOL_FUNCTION_CALLS_CLOSE}`
+  );
+
+  // If invoke blocks exist without a function_calls wrapper, wrap the first contiguous invoke sequence.
+  if (!processed.includes(TOOL_FUNCTION_CALLS_OPEN)) {
+    const invokeOpenRegex = new RegExp(`<\\s*${escapedNamespace}\\s*:\\s*invoke\\b`, 'i');
+    const firstInvoke = processed.search(invokeOpenRegex);
+    if (firstInvoke !== -1 && (firstInvoke === 0 || processed[firstInvoke - 1] !== '`')) {
+      const invokeClose = `</${TOOL_XML_NAMESPACE}:invoke>`;
+      const lastInvokeClose = processed.lastIndexOf(invokeClose);
+      if (lastInvokeClose !== -1 && lastInvokeClose > firstInvoke) {
+        const invokeBlockEnd = lastInvokeClose + invokeClose.length;
+        processed =
+          processed.slice(0, firstInvoke)
+          + TOOL_FUNCTION_CALLS_OPEN
+          + processed.slice(firstInvoke, invokeBlockEnd)
+          + TOOL_FUNCTION_CALLS_CLOSE
+          + processed.slice(invokeBlockEnd);
+      }
+    }
+  }
+
+  return processed;
+}
+
 function isInsideThinkBlock(content: string, position: number): boolean {
   const tags = [
     { open: '<think>', close: '</think>' },
@@ -392,7 +429,8 @@ export function extractCompleteInvokeBlocksIncremental(content: string): {
   hasFunctionCallsClose: boolean;
 } {
   // Note: Fence detection removed - it caused issues with writing content containing ```
-  const preprocessed = preprocessContent(content);
+  let preprocessed = preprocessContent(content);
+  preprocessed = recoverMissingFunctionCallsWrapper(preprocessed);
   const blocks: ParsedToolBlock[] = [];
   const pendingBlocks: PendingInvokeBlock[] = [];
 

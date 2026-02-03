@@ -154,7 +154,8 @@ export function getToolsForMode(mode: ChatMode, defaultEnabled = true): Tool[] {
     case 'agent':
     default:
       // Agent mode: all tools EXCEPT plan and publish_findings (mode-exclusive tools)
-      return allTools.filter(t => t.id !== 'plan' && t.id !== 'publish_findings');
+      // report_back is sub-agent-only.
+      return allTools.filter(t => t.id !== 'plan' && t.id !== 'publish_findings' && t.id !== 'report_back');
   }
 }
 

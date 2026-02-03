@@ -366,32 +366,33 @@ export class PanelManager {
         case 'executeTool':
           // Auto-inject session ID for report_back tool so sub-agent doesn't need to track it
           if (data.toolName === 'report_back') {
-            // Ensure parameters object exists and inject sessionId
-            const params = (data.parameters && typeof data.parameters === 'object') 
-              ? data.parameters 
+            const params = (data.parameters && typeof data.parameters === 'object')
+              ? data.parameters
               : {};
             data.parameters = { ...params, sessionId: session.id };
-            
-            // Execute report_back
+
             await handleToolExecution(data, panel);
-            
-            // Check if session was resolved (report_back succeeded)
+
             const currentSession = service.getSession(session.id);
             if (currentSession?.status === 'completed') {
-              // Set safety flag to block any further API requests
               sessionCompleted = true;
-              // Dispose panel immediately to prevent any further API requests
-              // The webview receives the tool result but panel closes before it can continue
-              panel.dispose();
+              // Give the webview time to persist session/tool history so revert can undo sub-agent changes.
+              setTimeout(() => {
+                try {
+                  panel.dispose();
+                } catch {
+                  // ignore
+                }
+              }, 500);
             }
             break;
           }
+
           await handleToolExecution(data, panel);
           break;
         case 'abortToolExecution':
           await handleToolExecution(data, panel);
           break;
-        // ... search handlers ...
         case 'searchFiles':
           await handleSearchFiles(data, panel);
           break;
