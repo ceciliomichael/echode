@@ -10,6 +10,7 @@ export interface Tool {
   description: string;
   aiDescription?: string;
   enabled: boolean;
+  hidden?: boolean;
 }
 
 export interface ToolCall {

@@ -9,6 +9,7 @@ import { getGlobalServerManager } from './services/mcp/mcp-server-manager';
 import { defaultRegistry } from './services/tools/tool-registry';
 import { MarkdownViewerManager } from './services/markdown-viewer/markdown-viewer-manager';
 import { ApprovalViewerManager } from './services/approval/approval-viewer-manager';
+import { CreateSubAgentTool, UseSubAgentTool, ReportBackTool } from './services/tools';
 
 export function activate(context: vscode.ExtensionContext) {
   // Initialize MCP Server Manager (uses ~/.echode/mcp/ for global config)
@@ -22,6 +23,15 @@ export function activate(context: vscode.ExtensionContext) {
 
   const autocompleteService = new AutocompleteService(context);
   const sidebarProvider = new EchodeSidebarProvider(context.extensionUri, context, autocompleteService);
+
+  // Register sub-agent tools
+  defaultRegistry.registerTool(new CreateSubAgentTool());
+  defaultRegistry.registerTool(new ReportBackTool());
+  defaultRegistry.registerTool(new UseSubAgentTool({
+    openSubAgentPanel: async (session) => {
+      await sidebarProvider.openSubAgentPanel(session);
+    }
+  }));
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(

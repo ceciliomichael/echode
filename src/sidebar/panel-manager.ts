@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as os from 'os';
 import { getSettingsHtml, getMermaidPreviewHtml, getMainWebviewHtml } from '../utils/html-generator';
 import { handleApiRequest } from '../handlers/api-handler';
 import { handleChatStream } from '../handlers/chat-streaming-handler';
@@ -9,10 +10,14 @@ import { getSettingsService } from '../services/settings-service';
 import { handleMcpMessage, setupMcpStatusListener } from './handlers/mcp-handler';
 import { handleGetWorkflows, handleSaveWorkflow, handleDeleteWorkflow } from './handlers/workflow-handler';
 import { createMessageRouter, HandlerContext } from './message-router';
+import { getSubAgentService } from '../services/sub-agent/sub-agent-service';
+import { SubAgentSession } from '../services/sub-agent/types';
 import type { AutocompleteService } from '../autocomplete';
-import type { ChatHistoryService } from '../services/chat-history-service';
+import { ChatHistoryService, ChatSession } from '../services/chat-history-service';
 import type { ToolHistoryService } from '../services/tool-history';
 import type { WorkspaceManager } from './workspace-manager';
+import { buildSubAgentPrompt } from '../utils/sub-agent-prompt';
+import { getAgentsConfig } from '../utils/workspace-scanner';
 
 /**
  * Panel Manager
@@ -178,6 +183,231 @@ export class PanelManager {
         this._mermaidPanels.delete(id);
       }
       onClosed?.(id);
+    });
+  }
+
+  /**
+   * Open Sub-Agent Panel
+   */
+  public async openSubAgentPanel(
+    session: SubAgentSession,
+    services: {
+      historyService: ChatHistoryService;
+      toolHistoryService: ToolHistoryService;
+      workspaceManager: WorkspaceManager;
+    }
+  ): Promise<void> {
+    const service = getSubAgentService();
+    const definition = service.getDefinition(session.subAgentId);
+    
+    if (!definition) {
+      throw new Error(`Sub-agent definition not found: ${session.subAgentId}`);
+    }
+
+    const panel = vscode.window.createWebviewPanel(
+      'echode.subAgent',
+      `Sub-Agent: ${definition.name}`,
+      { viewColumn: vscode.ViewColumn.Active, preserveFocus: true },
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: [
+          vscode.Uri.joinPath(this._extensionUri, 'webview-ui', 'dist')
+        ]
+      }
+    );
+
+    panel.iconPath = vscode.Uri.joinPath(this._extensionUri, 'icon.svg');
+    panel.webview.html = getMainWebviewHtml(panel.webview, this._extensionUri);
+
+    // Generate collaborator context (other active agents)
+    const activeSessions = service.getActiveSessions(session.id);
+    let collaboratorContext = '';
+    
+    if (activeSessions.length > 0) {
+      const collaborators = activeSessions.map(s => {
+        const def = service.getDefinition(s.subAgentId);
+        return `- Agent "${def?.name || 'Unknown'}": ${s.task}`;
+      }).join('\n');
+      
+      collaboratorContext = `\n\n[COLLABORATION CONTEXT]\nThe following other agents are currently working on related tasks. If your task depends on their work (e.g., using UI components they are building), assume standard conventions or coordinate implicitly:\n${collaborators}`;
+    }
+
+    // Load AGENTS.md context if available
+    let agentsContext = '';
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (workspaceRoot) {
+      const config = getAgentsConfig(workspaceRoot);
+      if (config) {
+        agentsContext = `\n\n[AGENTS REGISTRY]\n${config}`;
+      }
+    }
+
+    // Prepare system info
+    const systemInfo = {
+      os: os.platform() === 'win32' ? 'Windows' : os.platform() === 'darwin' ? 'macOS' : 'Linux',
+      workspacePath: workspaceRoot || '',
+      currentTime: new Date().toLocaleString()
+    };
+
+    // Initialize chat history for this session
+    const systemPromptContent = buildSubAgentPrompt(definition, collaboratorContext, agentsContext, systemInfo);
+
+    const systemMessage = {
+      id: 'system',
+      role: 'system',
+      content: systemPromptContent,
+      timestamp: new Date().toISOString(),
+      hidden: true // Hide system prompt from UI to prevent "messed up" display
+    };
+
+    const newSession: ChatSession = {
+      id: session.id,
+      title: `Sub-Agent: ${definition.name}`,
+      timestamp: Date.now(),
+      createdAt: Date.now(),
+      workspaceId: 'global', // Will be overwritten by saveSession with correct workspaceId
+      messages: [systemMessage],
+      metadata: {
+        messageCount: 1,
+        preview: 'Sub-Agent Session'
+      },
+      isSubAgent: true
+    };
+
+    // Save initial history
+    await services.historyService.saveSession(newSession);
+
+    // Handle panel disposal (user closed the tab)
+    panel.onDidDispose(() => {
+      const currentSession = service.getSession(session.id);
+      // If session is still pending or running when panel closes, fail it to unblock the main agent
+      if (currentSession && (currentSession.status === 'pending' || currentSession.status === 'running')) {
+        service.failSession(session.id, 'Sub-agent panel was closed before completion.');
+      }
+    });
+
+    // Initialize webview
+    panel.webview.postMessage({ type: 'setSessionId', sessionId: session.id });
+    
+    // Set sub-agent mode in webview
+    panel.webview.postMessage({ 
+      type: 'setSubAgentMode', 
+      enabled: true,
+      initialTask: session.task,
+      allowedTools: definition.allowedTools
+    });
+    
+    // Send initial workspace info
+    services.workspaceManager.sendWorkspaceInfo(panel.webview);
+
+    // Create handler context
+    const handlerContext: HandlerContext = {
+      webview: panel,
+      historyService: services.historyService,
+      toolHistoryService: services.toolHistoryService,
+      workspaceManager: services.workspaceManager,
+      panelManager: this,
+      autocompleteService: this._autocompleteService,
+      setHistoryOpen: (_open: boolean) => { /* No history in sub-agent view */ }
+    };
+
+    // Safety flag to block API requests after session completion
+    let sessionCompleted = false;
+
+    panel.webview.onDidReceiveMessage(async (data) => {
+      // Block all API requests after session is completed
+      if (sessionCompleted) {
+        if (data.type === 'chatStream' || data.type === 'apiRequest') {
+          console.log(`[SubAgent] Blocking ${data.type} - session already completed`);
+          return;
+        }
+      }
+      // Re-send session/mode info on request
+      if (data.type === 'requestWorkspaceInfo') {
+        panel.webview.postMessage({ type: 'setSessionId', sessionId: session.id });
+        panel.webview.postMessage({ 
+          type: 'setSubAgentMode', 
+          enabled: true, 
+          initialTask: session.task,
+          allowedTools: definition.allowedTools
+        });
+      }
+
+      if (data.type === 'getLastOpenedSessionId') {
+        panel.webview.postMessage({ type: 'lastOpenedSessionId', sessionId: session.id });
+        return;
+      }
+
+      // Route messages
+      const handled = await this._messageRouter.route(data, handlerContext);
+      if (handled) {
+        return;
+      }
+
+      // Handle MCP
+      if (typeof data.type === 'string' && data.type.startsWith('mcp.')) {
+        await handleMcpMessage(data, panel);
+        return;
+      }
+
+      // Handle messages not covered by the router (external handlers)
+      switch (data.type) {
+        case 'apiRequest':
+          await handleApiRequest(data, panel);
+          break;
+        case 'chatStream':
+        case 'chatStreamAbort':
+          await handleChatStream(data, panel);
+          break;
+        case 'fetchModels':
+          await handleModelFetch(data, panel);
+          break;
+        case 'executeTool':
+          // Auto-inject session ID for report_back tool so sub-agent doesn't need to track it
+          if (data.toolName === 'report_back') {
+            // Ensure parameters object exists and inject sessionId
+            const params = (data.parameters && typeof data.parameters === 'object') 
+              ? data.parameters 
+              : {};
+            data.parameters = { ...params, sessionId: session.id };
+            
+            // Execute report_back
+            await handleToolExecution(data, panel);
+            
+            // Check if session was resolved (report_back succeeded)
+            const currentSession = service.getSession(session.id);
+            if (currentSession?.status === 'completed') {
+              // Set safety flag to block any further API requests
+              sessionCompleted = true;
+              // Dispose panel immediately to prevent any further API requests
+              // The webview receives the tool result but panel closes before it can continue
+              panel.dispose();
+            }
+            break;
+          }
+          await handleToolExecution(data, panel);
+          break;
+        case 'abortToolExecution':
+          await handleToolExecution(data, panel);
+          break;
+        // ... search handlers ...
+        case 'searchFiles':
+          await handleSearchFiles(data, panel);
+          break;
+        case 'searchWorkflows':
+          await handleSearchWorkflows(data, panel);
+          break;
+        case 'getWorkflows':
+          await handleGetWorkflows(data, panel);
+          break;
+        case 'saveWorkflow':
+          await handleSaveWorkflow(data, panel);
+          break;
+        case 'deleteWorkflow':
+          await handleDeleteWorkflow(data, panel);
+          break;
+      }
     });
   }
 

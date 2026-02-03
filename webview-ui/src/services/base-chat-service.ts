@@ -14,7 +14,7 @@ export interface ChatServiceConfig {
   qwenCodeOauthPath?: string;
   enabledTools?: Array<{ id: string; enabled: boolean }>;
   /** Current chat mode for mode-specific behavior */
-  chatMode?: 'agent' | 'plan' | 'ask' | 'general' | 'chat' | 'review' | 'yolo' | 'manual';
+  chatMode?: 'agent' | 'plan' | 'ask' | 'general' | 'chat' | 'review' | 'yolo' | 'manual' | 'sub-agent';
   /** Timeout in ms before treating a stream as stalled and retrying */
   streamingTimeout: number;
 }

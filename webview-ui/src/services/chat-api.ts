@@ -137,25 +137,22 @@ export class ChatApiService {
       ? getToolsForMode('plan', true)
       : getToolsForMode(activeMode, true);
 
-    // Tool locking: Use locked tool IDs if provided (captured at request start),
-    // otherwise fall back to current settings for backward compatibility
-    if (activeMode === 'agent') {
-      const lockedToolIds = lockedConfig?.enabledToolIds;
-      
-      if (lockedToolIds && lockedToolIds.length > 0) {
-        // Use locked tools from request start - prevents mid-request settings changes
-        modeTools = modeTools.filter(tool => lockedToolIds.includes(tool.id));
-      } else {
-        // Fallback: read from current settings (legacy behavior)
-        const savedEnabledTools = settings.enabledTools;
-        const hasSavedEnabledTools = Array.isArray(savedEnabledTools) && savedEnabledTools.length > 0;
-        
-        if (hasSavedEnabledTools) {
-          modeTools = modeTools.filter(tool => {
-            const settingsTool = savedEnabledTools!.find(t => t.id === tool.id);
-            return settingsTool?.enabled ?? false;
-          });
-        }
+    // Tool locking: Use locked tool IDs if provided (captured at request start).
+    // This is REQUIRED for sub-agent mode, where the main agent grants a specific subset.
+    // If no lock is provided, fall back to settings-based filtering for backward compatibility.
+    const lockedToolIds = lockedConfig?.enabledToolIds;
+    if (lockedToolIds && lockedToolIds.length > 0) {
+      modeTools = modeTools.filter(tool => lockedToolIds.includes(tool.id));
+    } else if (activeMode === 'agent') {
+      // Legacy behavior: only agent mode supports user-configurable tool enable/disable.
+      const savedEnabledTools = settings.enabledTools;
+      const hasSavedEnabledTools = Array.isArray(savedEnabledTools) && savedEnabledTools.length > 0;
+
+      if (hasSavedEnabledTools) {
+        modeTools = modeTools.filter(tool => {
+          const settingsTool = savedEnabledTools!.find(t => t.id === tool.id);
+          return settingsTool?.enabled ?? false;
+        });
       }
     }
 

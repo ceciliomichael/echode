@@ -5,7 +5,7 @@ import * as fs from 'fs';
 import { deleteFileWithRetry } from '../utils/fs-retry';
 import type { ToolExecutionState } from '../types/tool-execution';
 
-interface ChatMessage {
+export interface ChatMessage {
   id: string;
   role: string;
   content: string;
@@ -15,7 +15,28 @@ interface ChatMessage {
   hidden?: boolean;
 }
 
-interface ChatSession {
+export interface ChatSession {
+  id: string;
+  title: string;
+  timestamp: number;
+  createdAt: number;
+  workspaceId: string;
+  messages: ChatMessage[];
+  metadata: {
+    messageCount: number;
+    preview: string;
+  };
+  uiState?: {
+    editingMessageId: string | null;
+    revertPreviewMessageId: string | null;
+  };
+  /** Original messages before compression, used for revert functionality */
+  preCompressionMessages?: ChatMessage[];
+  /** Whether this session is a sub-agent session (hidden from main history) */
+  isSubAgent?: boolean;
+}
+
+export interface ChatSession {
   id: string;
   title: string;
   timestamp: number;
@@ -51,6 +72,7 @@ interface IndexEntry {
   createdAt: number;
   messageCount: number;
   preview: string;
+  isSubAgent?: boolean;
 }
 
 const MAX_SESSIONS = 100;
@@ -200,6 +222,7 @@ export class ChatHistoryService {
       createdAt,
       messageCount,
       preview,
+      isSubAgent: session.isSubAgent,
     };
   }
 
@@ -357,7 +380,7 @@ export class ChatHistoryService {
     try {
       const index = this.readIndex();
       const workspaceSessions = index
-        .filter(entry => entry.workspaceId === this.workspaceId)
+        .filter(entry => entry.workspaceId === this.workspaceId && !entry.isSubAgent)
         .sort((a, b) => b.timestamp - a.timestamp)
         .slice(0, MAX_SESSIONS);
 
@@ -436,6 +459,7 @@ export class ChatHistoryService {
         createdAt: session.createdAt,
         messageCount: session.metadata.messageCount,
         preview: session.metadata.preview,
+        isSubAgent: session.isSubAgent,
       };
 
       if (existingIdx !== -1) {

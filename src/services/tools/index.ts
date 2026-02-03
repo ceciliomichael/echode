@@ -11,6 +11,9 @@ export { GetDiagnosticsTool } from './get-diagnostics-tool';
 export { PlanTool } from './plan-tool';
 export { PublishFindingsTool } from './publish-findings-tool';
 export { RunTerminalTool } from './run-terminal-tool';
+export { CreateSubAgentTool } from './create-subagent-tool';
+export { UseSubAgentTool } from './use-subagent-tool';
+export { ReportBackTool } from './report-back-tool';
  
 // Re-export interfaces and types
 export type { ITool, ToolExecutionResult, ChatMode } from './tool.interface';

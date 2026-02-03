@@ -39,6 +39,7 @@ export interface ChatStreamingProps {
   saveSession: (overrideMessages?: Message[]) => void;
   mode: ChatMode;
   messagesRef: React.MutableRefObject<Message[]>;
+  subAgentConfig?: { enabled: boolean; initialTask: string; allowedTools?: string[] };
 }
 
 /**

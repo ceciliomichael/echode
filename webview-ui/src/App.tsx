@@ -44,10 +44,17 @@ declare global {
   }
 }
 
+interface SubAgentConfig {
+  enabled: boolean;
+  initialTask: string;
+  allowedTools?: string[];
+}
+
 function App() {
   const [settings, setSettings] = useState<ApiSettings>(DEFAULT_API_SETTINGS);
   const [showSetup, setShowSetup] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+  const [subAgentConfig, setSubAgentConfig] = useState<SubAgentConfig | undefined>(undefined);
 
   // Enable MCP tool synchronization
   useMcpToolSync();
@@ -70,6 +77,15 @@ function App() {
       // Handle session ID initialization for parallel chats
       if (message.type === 'setSessionId') {
         window.sessionId = message.sessionId;
+        return;
+      }
+
+      if (message.type === 'setSubAgentMode') {
+        setSubAgentConfig({
+          enabled: message.enabled,
+          initialTask: message.initialTask,
+          allowedTools: message.allowedTools
+        });
         return;
       }
 
@@ -159,7 +175,7 @@ function App() {
 
   return (
     <div className="h-full">
-      <ChatContainer />
+      <ChatContainer subAgentConfig={subAgentConfig} />
     </div>
   );
 }

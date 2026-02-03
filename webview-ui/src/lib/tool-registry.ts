@@ -23,6 +23,9 @@ import './tools/get-diagnostics-tool.tsx';
 import './tools/plan-tool.tsx';
 import './tools/publish-findings-tool.tsx';
 import './tools/run-terminal-tool.tsx';
+import './tools/create-subagent-tool.tsx';
+import './tools/use-subagent-tool.tsx';
+import './tools/report-back-tool.tsx';
 
 /**
  * Tool status callback for mid-execution updates
@@ -58,6 +61,7 @@ export interface ToolMetadata {
   icon: LucideIcon;
   usage: string;
   formatExample: string;
+  hidden?: boolean;
 }
 
 /**
@@ -185,13 +189,17 @@ export function getToolRenderer(
  * Get all registered tools as Tool[] for configuration
  */
 export function getAllTools(defaultEnabled = true): Tool[] {
-  return Array.from(toolMetadata.values()).map((meta) => ({
-    id: meta.id,
-    name: meta.name,
-    description: meta.description,
-    aiDescription: meta.aiDescription,
-    enabled: meta.id === 'run_terminal' ? false : defaultEnabled,
-  }));
+  return Array.from(toolMetadata.values())
+    // Do not filter hidden tools here; they are needed for API/Executor.
+    // UI components (ToolsTab) should filter them explicitly if needed.
+    .map((meta) => ({
+      id: meta.id,
+      name: meta.name,
+      description: meta.description,
+      aiDescription: meta.aiDescription,
+      enabled: meta.id === 'run_terminal' ? false : defaultEnabled,
+      hidden: meta.hidden,
+    }));
 }
 
 /**

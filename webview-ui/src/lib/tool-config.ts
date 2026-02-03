@@ -58,6 +58,20 @@ export const REVIEW_MODE_TOOL_IDS = [
   'publish_findings',
 ] as const;
 
+/** Sub-agent mode: core file tools + report_back. (Dynamic restrictions applied at runtime) */
+export const SUB_AGENT_MODE_TOOL_IDS = [
+  'read_file',
+  'write_to_file',
+  'list_files',
+  'grep_search',
+  'glob_search',
+  'delete_file',
+  'todo_write',
+  'edit',
+  'get_diagnostics',
+  'report_back',
+] as const;
+
 /**
  * Set of all standard built-in tools.
  * Used to identify remote/MCP tools (which are not in this list).
@@ -75,6 +89,9 @@ const STANDARD_TOOL_IDS = new Set([
   'plan',
   'publish_findings',
   'run_terminal',
+  'create_subagent',
+  'use_subagent',
+  'report_back',
 ]);
 
 // ============================================================================
@@ -126,6 +143,12 @@ export function getToolsForMode(mode: ChatMode, defaultEnabled = true): Tool[] {
       return allTools.filter(t =>
         (REVIEW_MODE_TOOL_IDS as readonly string[]).includes(t.id) ||
         !STANDARD_TOOL_IDS.has(t.id)
+      );
+
+    case 'sub-agent':
+      // Sub-agent mode: restricted set defined in SUB_AGENT_MODE_TOOL_IDS
+      return allTools.filter(t =>
+        (SUB_AGENT_MODE_TOOL_IDS as readonly string[]).includes(t.id)
       );
 
     case 'agent':

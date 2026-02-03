@@ -18,3 +18,6 @@ export { getTodoWriteInstructions, type TodoWriteOptions } from './todo-write';
 export { getRunTerminalInstructions, type RunTerminalOptions } from './run-terminal';
 export { getPlanInstructions } from './plan';
 export { getPublishFindingsInstructions } from './publish-findings';
+export { getCreateSubagentInstructions } from './create-subagent';
+export { getUseSubagentInstructions } from './use-subagent';
+export { getReportBackInstructions } from './report-back';

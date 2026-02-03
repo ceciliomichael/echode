@@ -18,7 +18,8 @@ import {
 export function useStreamingChat(
   _currentTodos?: Array<{ id: string; content: string; status: string }>,
   mode: ChatMode = 'agent',
-  onModeChange?: (newMode: ChatMode) => void
+  onModeChange?: (newMode: ChatMode) => void,
+  subAgentConfig?: { enabled: boolean; initialTask: string; allowedTools?: string[] }
 ) {
   // Core state management
   const state = useChatState();
@@ -94,6 +95,7 @@ export function useStreamingChat(
     saveSession: saveCurrentSession,
     mode,
     messagesRef: state.messagesRef,
+    subAgentConfig,
   });
 
   // Plan continuation handler - listens for button clicks and sends user message

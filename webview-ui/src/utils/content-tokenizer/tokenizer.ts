@@ -274,6 +274,16 @@ function mergeConsecutiveThinkBlocks(content: string): string {
 function preprocessToolTags(content: string): string {
     let processed = content;
 
+    // Normalize whitespace/casing for the canonical tool namespace tags.
+    // Tool detection relies on exact string matches for TOOL_FUNCTION_CALLS_OPEN/CLOSE.
+    const escapedNamespace = TOOL_XML_NAMESPACE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    processed = processed.replace(new RegExp(`<\\s*${escapedNamespace}\\s*:\\s*function_calls\\s*>`, 'gi'), TOOL_FUNCTION_CALLS_OPEN);
+    processed = processed.replace(new RegExp(`<\\s*\\/\\s*${escapedNamespace}\\s*:\\s*function_calls\\s*>`, 'gi'), TOOL_FUNCTION_CALLS_CLOSE);
+    processed = processed.replace(new RegExp(`<\\s*${escapedNamespace}\\s*:\\s*invoke(\\s+)`, 'gi'), `<${TOOL_XML_NAMESPACE}:invoke$1`);
+    processed = processed.replace(new RegExp(`<\\s*\\/\\s*${escapedNamespace}\\s*:\\s*invoke\\s*>`, 'gi'), `</${TOOL_XML_NAMESPACE}:invoke>`);
+    processed = processed.replace(new RegExp(`<\\s*${escapedNamespace}\\s*:\\s*parameter(\\s+)`, 'gi'), `<${TOOL_XML_NAMESPACE}:parameter$1`);
+    processed = processed.replace(new RegExp(`<\\s*\\/\\s*${escapedNamespace}\\s*:\\s*parameter\\s*>`, 'gi'), `</${TOOL_XML_NAMESPACE}:parameter>`);
+
     // Fix whitespace issues in opening tags
     processed = processed.replace(/<\s*tool\s*:\s*function_calls\s*>/gi, TOOL_FUNCTION_CALLS_OPEN);
     processed = processed.replace(/<\s*\/\s*tool\s*:\s*function_calls\s*>/gi, TOOL_FUNCTION_CALLS_CLOSE);

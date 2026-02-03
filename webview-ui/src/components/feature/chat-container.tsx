@@ -22,7 +22,14 @@ import { useChatHistory } from '../../hooks/use-chat-history';
 import { getSystemPrompt } from '../../utils/prompts';
 import { storageService } from '../../utils/storage';
 
-export function ChatContainer() {
+interface ChatContainerProps {
+  subAgentConfig?: {
+    enabled: boolean;
+    initialTask: string;
+  };
+}
+
+export function ChatContainer({ subAgentConfig }: ChatContainerProps) {
   const { tasks, updateTodos, clearTodos } = useTodo();
   
   // Get current chat mode
@@ -38,6 +45,9 @@ export function ChatContainer() {
   // Message queue state - allows users to queue messages while AI is working
   const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>([]);
   const isProcessingQueueRef = useRef(false);
+  
+  // Sub-agent auto-start tracking
+  const hasStartedRef = useRef(false);
 
   const contentWidthClass = 'w-full max-w-3xl';
   const horizontalPaddingClass = 'px-4 sm:px-5 lg:px-6';
@@ -63,7 +73,7 @@ export function ChatContainer() {
     abortedUserInput,
     abortedAttachments,
     abortedImageAttachments,
-  } = useStreamingChat(tasks, mode, globalHandleModeChange);
+  } = useStreamingChat(tasks, mode, globalHandleModeChange, subAgentConfig);
 
   // Wrap mode change to abort any active streaming/tool execution first
   // This prevents "stuck" states when switching modes mid-execution
@@ -80,6 +90,7 @@ export function ChatContainer() {
   // For YOLO mode, derive the "effective mode" from the last assistant message
   // This reflects the internal mode transition (plan -> agent) after handoff
   const effectiveMode = (() => {
+    if (subAgentConfig?.enabled) return 'sub-agent';
     if (mode !== 'yolo') return mode;
     
     // Find the last assistant message to check its internal mode
@@ -170,6 +181,27 @@ export function ChatContainer() {
   const clearQueue = useCallback(() => {
     setQueuedMessages([]);
   }, []);
+
+  // Sub-agent auto-start logic
+  useEffect(() => {
+    if (
+      subAgentConfig?.enabled &&
+      !isLoadingSession &&
+      !isStreaming &&
+      !isExecutingTool &&
+      !hasStartedRef.current &&
+      // Wait for session to be loaded (messages should include system prompt)
+      messages.length > 0 &&
+      // Only start if we haven't already processed the initial task
+      messages.filter(m => !m.hidden).length <= 1
+    ) {
+      hasStartedRef.current = true;
+      // Small delay to ensure everything is ready
+      setTimeout(() => {
+        sendMessageDirect(subAgentConfig.initialTask, undefined, undefined);
+      }, 500);
+    }
+  }, [subAgentConfig, isLoadingSession, isStreaming, isExecutingTool, messages, sendMessageDirect]);
 
   // Process queue when AI finishes working
   useEffect(() => {
@@ -400,6 +432,7 @@ export function ChatContainer() {
               restoredInput={abortedUserInput ?? undefined}
               restoredAttachments={abortedAttachments ?? undefined}
               restoredImageAttachments={abortedImageAttachments ?? undefined}
+              subAgentMode={subAgentConfig?.enabled}
             />
           </div>
         </div>

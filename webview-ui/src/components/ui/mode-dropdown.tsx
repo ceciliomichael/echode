@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react';
-import { BookOpen, Check, Code, Hammer, HelpCircle, MessageCircle, Rocket, SearchCheck, ShieldCheck } from 'lucide-react';
+import { BookOpen, Bot, Check, Code, Hammer, HelpCircle, MessageCircle, Rocket, SearchCheck, ShieldCheck } from 'lucide-react';
 import { useHoverEffect, hoverPresets } from '../../hooks/use-hover-effect';
 import type { ChatMode } from '../../types/chat-mode';
 import { CHAT_MODE_OPTIONS } from '../../types/chat-mode';
@@ -13,6 +13,7 @@ const MODE_ICONS: Record<ChatMode, typeof Code> = {
   chat: MessageCircle,
   review: SearchCheck,
   yolo: Rocket,
+  'sub-agent': Bot,
 };
 
 interface ModeDropdownProps {

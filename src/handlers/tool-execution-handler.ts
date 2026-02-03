@@ -4,6 +4,7 @@ import { ReadFileTool, WriteFileTool, ListFilesTool, GrepSearchTool, GlobSearchT
 import { getWorkspaceFiles, getAgentsConfig } from '../utils/workspace-scanner';
 import { ApprovalViewerManager } from '../services/approval/approval-viewer-manager';
 import type { ChatMode } from '../services/tools/tool.interface';
+import { getSubAgentService } from '../services/sub-agent/sub-agent-service';
 
 // Tools that modify the file system and require workspace refresh
 const FILE_MODIFYING_TOOLS = new Set(['write_to_file', 'delete_file', 'edit']);
@@ -153,6 +154,33 @@ export async function handleToolExecution(
     // Inject sessionId into parameters for tools that need session isolation (like todo_write)
     if (sessionId) {
       parameters.sessionKey = sessionId;
+
+      // Validate sub-agent tool permissions
+      // If a session ID is present, check if it belongs to a sub-agent and validate allowedTools
+      const subAgentService = getSubAgentService();
+      const session = subAgentService.getSession(sessionId);
+      
+      if (session) {
+        const definition = subAgentService.getDefinition(session.subAgentId);
+        if (definition) {
+          // Check if tool is allowed (report_back is always allowed)
+          const isAllowed = toolName === 'report_back' || definition.allowedTools.includes(toolName);
+          
+          if (!isAllowed) {
+            console.warn(`[ToolHandler] Blocked unauthorized tool usage: ${toolName} for sub-agent ${definition.name}`);
+            const response: ToolExecutionResponse = {
+              type: 'toolExecutionResult',
+              requestId,
+              result: {
+                success: false,
+                error: `Permission denied: Tool '${toolName}' is not allowed for this agent. Allowed tools: ${definition.allowedTools.join(', ')}`,
+              }
+            };
+            webviewView.webview.postMessage(response);
+            return;
+          }
+        }
+      }
     }
 
     const tool = defaultRegistry.getTool(toolName);

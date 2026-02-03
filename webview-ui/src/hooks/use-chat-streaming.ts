@@ -38,6 +38,7 @@ export function useChatStreaming({
   saveSession,
   mode,
   messagesRef,
+  subAgentConfig,
 }: ChatStreamingProps) {
   const workspace = useWorkspaceContext();
 
@@ -65,14 +66,28 @@ export function useChatStreaming({
 
   const getToolExecutor = (lockedMode?: ChatMode, originalMode?: ChatMode) => {
     // Determine which mode we need tools for: lockedMode (if executing a specific plan/action) or current mode
-    const targetMode = lockedMode ?? modeRef.current;
+    // If we are in sub-agent configuration, override the mode to 'sub-agent'
+    const targetMode = subAgentConfig?.enabled ? 'sub-agent' : (lockedMode ?? modeRef.current);
+    
     // Preserve originalMode for YOLO detection (mode gets converted from 'yolo' to 'plan'/'agent')
     const effectiveOriginalMode = originalMode ?? lockedMode ?? modeRef.current;
 
     // Check if we need to create a new executor (either none exists, or mode mismatch)
     // We check toolExecutorRef.current.mode (which we exposed as public readonly)
     if (!toolExecutorRef.current || toolExecutorRef.current.mode !== targetMode) {
-      const enabledTools = getToolsForMode(targetMode, false).map(t => t.id);
+      // Determine enabled tools
+      let enabledTools: string[];
+      
+      if (targetMode === 'sub-agent' && subAgentConfig?.allowedTools) {
+        // Use restricted tool set for sub-agent
+        enabledTools = [...subAgentConfig.allowedTools];
+        if (!enabledTools.includes('report_back')) {
+          enabledTools.push('report_back');
+        }
+      } else {
+        // Use standard mode-based tools
+        enabledTools = getToolsForMode(targetMode, false).map(t => t.id);
+      }
       
       // Use toolAbortControllerRef (NOT abortControllerRef) for tool abort.
       // toolAbortControllerRef is only aborted when user clicks Stop, NOT when
@@ -128,6 +143,12 @@ export function useChatStreaming({
     // otherwise use current mode ref (handles race condition where mode updates during async flow)
     let currentMode = lockedMode ?? modeRef.current;
     
+    // Sub-agent mode: override to 'sub-agent' to use restricted tool set
+    // This ensures the system prompt only includes allowed tools for the sub-agent
+    if (subAgentConfig?.enabled) {
+      currentMode = 'sub-agent';
+    }
+    
     // YOLO mode phase detection:
     // YOLO starts as 'plan' but internally transitions to 'agent' after handoff.
     // We detect the phase by scanning history for plan tool executions (robust detection).
@@ -178,9 +199,23 @@ export function useChatStreaming({
     // Capture enabled tool IDs at request start to lock tools for this request
     // This prevents mid-request settings changes from affecting the running agent
     const currentSettings = storageService.getSettings();
-    const enabledToolIds = currentSettings.enabledTools
-      ?.filter(t => t.enabled)
-      .map(t => t.id) ?? [];
+    
+    // Determine enabled tools:
+    // If in sub-agent mode with restricted tools, use those (plus report_back).
+    // Otherwise, use user's global settings.
+    let enabledToolIds: string[];
+    
+    if (subAgentConfig?.allowedTools) {
+      enabledToolIds = [...subAgentConfig.allowedTools];
+      // Ensure report_back is always available for sub-agents if not explicitly listed
+      if (!enabledToolIds.includes('report_back')) {
+        enabledToolIds.push('report_back');
+      }
+    } else {
+      enabledToolIds = currentSettings.enabledTools
+        ?.filter(t => t.enabled)
+        .map(t => t.id) ?? [];
+    }
 
     const lockedConfig: LockedModelConfig = {
       provider: selectedProvider,
@@ -237,7 +272,12 @@ export function useChatStreaming({
     setMessages((prev) => [...prev, assistantMessage]);
 
     try {
-      const systemPrompt = getSystemPrompt(latestWorkspace, currentMode);
+      // For sub-agents, pass the dynamically allowed tools to restrict the prompt
+      const systemPrompt = getSystemPrompt(
+        latestWorkspace, 
+        currentMode, 
+        subAgentConfig?.allowedTools
+      );
 
       const messagesToSend = overrideMessages !== undefined ? overrideMessages : baseMessages;
 

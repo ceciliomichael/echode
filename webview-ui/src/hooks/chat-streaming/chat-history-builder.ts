@@ -60,17 +60,37 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
   const staleExecutionIds = identifyStaleFileReads(contextMessages);
   const stalePathsByExecution = identifyStaleFilePaths(contextMessages);
 
-  // Build full chat history with all messages and tool results
-  const chatHistory: ChatMessage[] = [
-    {
+  // Check if we have an existing system message in the context (e.g. for sub-agents)
+  const existingSystemMsg = contextMessages.find(m => m.role === 'system');
+  
+  // Initialize chat history
+  // If we have an existing system message, use it (even if hidden). 
+  // Otherwise, use the default systemPrompt.
+  const chatHistory: ChatMessage[] = [];
+  
+  if (!existingSystemMsg) {
+    chatHistory.push({
       role: 'system',
       content: systemPrompt,
-    },
-  ];
+    });
+  }
 
   // Add messages with tool results embedded
   for (const msg of contextMessages) {
-    // Skip hidden messages
+    // Special handling for system messages: 
+    // If this is the system message we identified, add it (ignoring hidden flag)
+    if (msg.role === 'system') {
+      // Only add if it's the first one we found (to avoid duplicates if logic is complex)
+      if (msg === existingSystemMsg) {
+        chatHistory.push({
+          role: 'system',
+          content: msg.content
+        });
+      }
+      continue;
+    }
+
+    // Skip hidden messages (except the system message handled above)
     if (msg.hidden) {continue;}
 
     // Keep reasoning blocks in message content to provide context for the AI

@@ -13,6 +13,13 @@ export class ToolHistoryService {
   }
 
   /**
+   * Register a new tool history handler
+   */
+  public registerHandler(handler: import('./handlers').IToolHistoryHandler): void {
+    this.handlerRegistry.register(handler);
+  }
+
+  /**
    * Undo a single tool execution by reversing its effects
    */
   async undoToolExecution(

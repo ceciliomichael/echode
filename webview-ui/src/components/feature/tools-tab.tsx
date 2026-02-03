@@ -14,6 +14,7 @@ export function ToolsTab({ enabledTools, onChange }: ToolsTabProps) {
   // - MCP tools: managed in MCP tab
   const allToolsMetadata = getAllToolMetadata().filter(
     (metadata) => 
+      !metadata.hidden && // Filter out hidden tools (like report_back)
       metadata.id !== 'plan' &&
       metadata.id !== 'publish_findings' &&
       !metadata.id.startsWith('mcp_')

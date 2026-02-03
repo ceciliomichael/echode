@@ -41,6 +41,15 @@ function toCrlf(value: string): string {
   return value.replace(/\n/g, '\r\n');
 }
 
+function normalizeForMatch(value: string): string {
+  // Normalize file content to LF for matching against old_string, which is commonly sourced from read_file.
+  return value.includes('\r\n') ? value.replace(/\r\n/g, '\n') : value;
+}
+
+function applyDocumentEol(value: string, eol: vscode.EndOfLine): string {
+  return eol === vscode.EndOfLine.CRLF ? toCrlf(value) : value;
+}
+
 function countMatches(value: string, pattern: RegExp): number {
   const matches = value.match(pattern);
   return matches ? matches.length : 0;
@@ -82,25 +91,13 @@ function tryReplaceWithLineEndingFallback(
   newString: string,
   replaceAll: boolean,
 ): { replaced: boolean; content: string; occurrences: number } {
-  const primary = replaceAll
-    ? replaceAllOccurrences(originalContent, oldString, newString)
-    : replaceOnce(originalContent, oldString, newString);
+  const normalizedOriginal = normalizeForMatch(originalContent);
+  const normalizedOld = normalizeToolNewlines(oldString);
+  const normalizedNew = normalizeToolNewlines(newString);
 
-  if (primary.replaced) {
-    return primary;
-  }
-
-  // If the file is CRLF, retry with CRLF-converted strings.
-  // This preserves exact-match semantics while handling Windows line endings.
-  if (originalContent.includes('\r\n') && !oldString.includes('\r')) {
-    const oldCrlf = toCrlf(oldString);
-    const newCrlf = toCrlf(newString);
-    return replaceAll
-      ? replaceAllOccurrences(originalContent, oldCrlf, newCrlf)
-      : replaceOnce(originalContent, oldCrlf, newCrlf);
-  }
-
-  return primary;
+  return replaceAll
+    ? replaceAllOccurrences(normalizedOriginal, normalizedOld, normalizedNew)
+    : replaceOnce(normalizedOriginal, normalizedOld, normalizedNew);
 }
 
 export class EditTool implements ITool {
@@ -145,13 +142,15 @@ export class EditTool implements ITool {
         return undefined;
       }
 
+      const newContent = applyDocumentEol(replacement.content, document.eol);
+
       return {
         toolName: this.name,
         title: `Edit: ${filePath}`,
         message: explanation ? `This will edit "${filePath}": ${explanation}` : `This will edit "${filePath}".`,
         diff: {
           oldContent: originalContent,
-          newContent: replacement.content,
+          newContent,
           fileName: filePath,
         },
         parameters,
@@ -225,7 +224,7 @@ export class EditTool implements ITool {
       }
 
       const originalContent = document.getText();
-      const eol = originalContent.includes('\r\n') ? 'CRLF' : 'LF';
+      const eol = document.eol === vscode.EndOfLine.CRLF ? 'CRLF' : 'LF';
       const originalTail = originalContent.slice(Math.max(0, originalContent.length - 120));
       console.log(
         `[EditTool] Begin edit file=${filePath} eol=${eol} originalLen=${originalContent.length} oldLen=${oldString.length} newLen=${newString.length}`
@@ -239,7 +238,7 @@ export class EditTool implements ITool {
           return { success: false, error: 'old_string must be unique in the file unless replace_all is true' };
         }
         const fileHasTabs = originalContent.includes('\t');
-        const fileUsesCrlf = originalContent.includes('\r\n');
+        const fileUsesCrlf = document.eol === vscode.EndOfLine.CRLF;
         const hint = typeof rawOldString === 'string'
           ? buildNotFoundHint(rawOldString, oldString, fileHasTabs, fileUsesCrlf)
           : '';
@@ -251,7 +250,7 @@ export class EditTool implements ITool {
         };
       }
 
-      const newContent = replacement.content;
+      const newContent = applyDocumentEol(replacement.content, document.eol);
       const newTail = newContent.slice(Math.max(0, newContent.length - 120));
       console.log(`[EditTool] newContentLen=${newContent.length} newTail=${JSON.stringify(newTail)}`);
 

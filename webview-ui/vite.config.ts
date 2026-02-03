@@ -6,6 +6,7 @@ export default defineConfig(({ command }) => ({
   plugins: [react()],
   base: command === 'build' ? './' : '/',
   build: {
+    chunkSizeWarningLimit: 1000,
     // Ensure all assets use relative paths for VS Code webview compatibility
     assetsDir: 'assets',
     rollupOptions: {

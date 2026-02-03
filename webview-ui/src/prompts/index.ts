@@ -57,9 +57,30 @@ function getEnabledToolsForMode(mode: ChatMode): Tool[] {
 /**
  * Build the system prompt for a specific mode
  * This is the main entry point for prompt generation
+ * 
+ * @param workspace - Current workspace context
+ * @param mode - Chat mode (agent, plan, sub-agent, etc.)
+ * @param dynamicAllowedTools - Optional list of tool IDs to restrict to (used by sub-agents)
  */
-export function getSystemPrompt(workspace: WorkspaceContext | null, mode: ChatMode = 'agent'): string {
-    const enabledTools = getEnabledToolsForMode(mode);
+export function getSystemPrompt(
+    workspace: WorkspaceContext | null, 
+    mode: ChatMode = 'agent',
+    dynamicAllowedTools?: string[]
+): string {
+    // Get base tools for the mode
+    let enabledTools = getEnabledToolsForMode(mode);
+    
+    // If dynamic allowed tools are specified (e.g., for sub-agents),
+    // filter to ONLY those tools (plus report_back for sub-agents)
+    if (dynamicAllowedTools && dynamicAllowedTools.length > 0) {
+        const allowedSet = new Set(dynamicAllowedTools);
+        // Always allow report_back for sub-agents
+        if (mode === 'sub-agent') {
+            allowedSet.add('report_back');
+        }
+        enabledTools = enabledTools.filter(tool => allowedSet.has(tool.id));
+    }
+    
     const settings = storageService.getSettings();
     
     // Get miscellaneous settings for terminal access
@@ -86,6 +107,11 @@ export function getSystemPrompt(workspace: WorkspaceContext | null, mode: ChatMo
 
         case 'review':
             return buildReviewPrompt({ workspace, enabledTools });
+
+        case 'sub-agent':
+            // Use agent prompt builder but enabledTools will be restricted by getEnabledToolsForMode
+            // This acts as a fallback if the backend-injected prompt is missing
+            return buildAgentPrompt({ workspace, enabledTools, fullTerminalAccess });
 
         case 'agent':
         default:

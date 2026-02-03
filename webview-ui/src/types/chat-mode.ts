@@ -1,4 +1,4 @@
-export type ChatMode = 'agent' | 'plan' | 'ask' | 'general' | 'chat' | 'review' | 'yolo' | 'manual';
+export type ChatMode = 'agent' | 'plan' | 'ask' | 'general' | 'chat' | 'review' | 'yolo' | 'manual' | 'sub-agent';
 
 export const DEFAULT_CHAT_MODE: ChatMode = 'agent';
 

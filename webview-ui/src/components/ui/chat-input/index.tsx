@@ -40,6 +40,7 @@ interface ChatInputProps {
   onCancelCompress?: () => void;
   isCompressing?: boolean;
   disableCompress?: boolean;
+  subAgentMode?: boolean;
 }
 
 export function ChatInput({
@@ -66,7 +67,8 @@ export function ChatInput({
   onCompress,
   onCancelCompress,
   isCompressing = false,
-  disableCompress = false
+  disableCompress = false,
+  subAgentMode = false
 }: ChatInputProps) {
   // Show stop button only when streaming OR executing a tool (NOT during compression)
   const showStopButton = isStreaming || isExecutingTool;
@@ -189,7 +191,21 @@ export function ChatInput({
         }}
         aria-label="Chat input area"
       >
-        <form onSubmit={onFormSubmit} className="flex flex-col gap-0">
+        {subAgentMode ? (
+          <div className="flex flex-col items-center justify-center py-3 text-sm text-center opacity-80 gap-2">
+            <div className="flex items-center gap-2 font-medium">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
+              </span>
+              Sub-Agent Active
+            </div>
+            <div className="text-xs opacity-70 px-4">
+              This agent is running autonomously. It will report back when finished.
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={onFormSubmit} className="flex flex-col gap-0">
           <input
             ref={attachmentHandler.fileInputRef}
             type="file"
@@ -271,6 +287,7 @@ export function ChatInput({
             }}
           />
         </form>
+        )}
       </section>
     </div>
   );

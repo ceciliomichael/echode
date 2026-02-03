@@ -15,6 +15,9 @@ import {
     getGetDiagnosticsInstructions,
     getTodoWriteInstructions,
     getRunTerminalInstructions,
+    getCreateSubagentInstructions,
+    getUseSubagentInstructions,
+    getReportBackInstructions,
 } from '../../shared/tools';
 
 /** Standard tool instructions that take no parameters */
@@ -28,6 +31,9 @@ const TOOL_INSTRUCTION_MAP: Record<string, () => string> = {
     'delete_file': () => getDeleteFileInstructions(),
     'get_diagnostics': () => getGetDiagnosticsInstructions(),
     'todo_write': () => getTodoWriteInstructions(),
+    'create_subagent': getCreateSubagentInstructions,
+    'use_subagent': getUseSubagentInstructions,
+    'report_back': getReportBackInstructions,
 };
 
 export interface ToolInstructionOptions {

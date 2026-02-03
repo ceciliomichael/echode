@@ -9,6 +9,7 @@ import { handleGetWorkflows, handleSaveWorkflow, handleDeleteWorkflow } from './
 import { getMainWebviewHtml } from './utils/html-generator';
 import { ChatHistoryService } from './services/chat-history-service';
 import { ToolHistoryService } from './services/tool-history';
+import { SubAgentHandler } from './services/tool-history/handlers/sub-agent-handler';
 import { AutocompleteService } from './autocomplete';
 import { WorkspaceManager, PanelManager, createMessageRouter } from './sidebar';
 import type { HandlerContext } from './sidebar';
@@ -37,6 +38,11 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
     const workspacePath = this.getCurrentWorkspacePath();
     this._historyService = new ChatHistoryService(_context, workspacePath);
     this._toolHistoryService = new ToolHistoryService();
+
+    // Register sub-agent history handler for recursive undo support
+    this._toolHistoryService.registerHandler(
+      new SubAgentHandler(this._historyService, this._toolHistoryService)
+    );
 
     // Initialize workspace manager
     this._workspaceManager = new WorkspaceManager(_context.extensionPath);
@@ -126,6 +132,13 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
   }
 
   /**
+   * Get the PanelManager instance
+   */
+  public getPanelManager(): PanelManager {
+    return this._panelManager;
+  }
+
+  /**
    * Open a parallel chat in a new editor tab
    */
   public openParallelChat(): void {
@@ -133,6 +146,17 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
     const sessionId = `parallel-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     
     this._panelManager.openParallelChat(sessionId, {
+      historyService: this._historyService,
+      toolHistoryService: this._toolHistoryService,
+      workspaceManager: this._workspaceManager
+    });
+  }
+
+  /**
+   * Open Sub-Agent Panel
+   */
+  public async openSubAgentPanel(session: any): Promise<void> {
+    await this._panelManager.openSubAgentPanel(session, {
       historyService: this._historyService,
       toolHistoryService: this._toolHistoryService,
       workspaceManager: this._workspaceManager
