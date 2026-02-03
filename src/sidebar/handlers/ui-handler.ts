@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { openFileInBackground } from '../../services/tools/utils/editor-utils';
 
 /**
  * UI Handler
@@ -41,24 +42,11 @@ export async function handleOpenFileInTab(
   data: UiData,
   _webview: vscode.WebviewView
 ): Promise<void> {
-  try {
-    const fileUri = vscode.Uri.file(data.absolutePath!);
-    const previousActiveEditor = vscode.window.activeTextEditor;
-    const document = await vscode.workspace.openTextDocument(fileUri);
-    await vscode.window.showTextDocument(document, {
-      preview: false,      // Open as permanent tab, not preview
-      preserveFocus: true, // Don't steal focus from the sidebar
-    });
-    // Restore the previously active editor to keep it visible
-    if (previousActiveEditor) {
-      await vscode.window.showTextDocument(previousActiveEditor.document, {
-        viewColumn: previousActiveEditor.viewColumn,
-        preserveFocus: true,
-      });
-    }
-  } catch (error) {
-    console.warn('[OpenFileInTab] Failed to open file:', data.absolutePath, error);
+  if (!data.absolutePath) {
+    return;
   }
+  const fileUri = vscode.Uri.file(data.absolutePath);
+  await openFileInBackground(fileUri);
 }
 
 /**

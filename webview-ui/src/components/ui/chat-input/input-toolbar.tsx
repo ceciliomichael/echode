@@ -46,7 +46,7 @@ interface InputToolbarProps {
 export function InputToolbar({
   onAttachmentClick,
   attachmentCount,
-  maxAttachments = 3,
+  maxAttachments = 5,
   mode,
   onModeChange,
   provider,

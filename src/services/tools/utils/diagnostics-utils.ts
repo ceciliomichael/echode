@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { openFileInBackground } from './editor-utils';
 
 export interface DiagnosticInfo {
     line: number;
@@ -58,15 +59,10 @@ export async function getFileDiagnosticsAfterEdit(
 
     // 2. Ensure the document is open and visible to trigger LSPs
     try {
-        const doc = await vscode.workspace.openTextDocument(uri);
-        
         // Explicitly show the document to force LSPs that require visibility to compute diagnostics
         // We check if it's already visible to avoid unnecessary UI updates
         if (!vscode.window.visibleTextEditors.some(e => e.document.uri.toString() === uri.toString())) {
-            await vscode.window.showTextDocument(doc, { 
-                preserveFocus: true, 
-                preview: true 
-            });
+            await openFileInBackground(uri, { preview: true });
         }
     } catch (e) {
         console.warn(`[DiagnosticsUtils] Could not open/show document ${uri.fsPath}:`, e);

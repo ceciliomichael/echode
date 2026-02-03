@@ -51,7 +51,7 @@ function createFileList(files: File[]): FileList {
 export function useAttachmentHandler({
   initialAttachments = [],
   initialImageAttachments = [],
-  maxAttachments = 3,
+  maxAttachments = 5,
   disabled = false
 }: UseAttachmentHandlerOptions = {}): UseAttachmentHandlerReturn {
   // Refs that always hold current state - synced immediately on set

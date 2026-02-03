@@ -6,7 +6,7 @@ import { detectCodeOmission } from '../../utils/detect-code-omission';
 import { getWorkspaceRoot, resolveAbsolutePath, getCreatedDirectories } from './utils/workspace-utils';
 import { FileLockManager } from './utils/file-lock-manager';
 import { writeFileWithRetry } from './utils/write-file-with-retry';
-import { getFileDiagnosticsAfterEdit, formatDiagnosticsForAI } from './utils/diagnostics-utils';
+import { openFileInBackground } from './utils/editor-utils';
 
 export class WriteFileTool implements ITool {
   name = 'write_to_file';
@@ -371,26 +371,8 @@ export class WriteFileTool implements ITool {
       console.log('[WRITE_FILE] File written successfully');
 
       // Open the file in the editor
-      try {
-        await vscode.commands.executeCommand('vscode.open', uri, {
-          preview: false,
-          background: true,
-        });
-        console.log(`[WRITE_FILE] Opened file in editor: ${filePath}`);
-      } catch (error) {
-        console.warn(`[WRITE_FILE] Could not open file in editor: ${filePath}`, error);
-        // Don't fail the write if we can't open the file
-      }
-
-      // Collect diagnostics to provide immediate feedback
-      let diagnosticsInfo = '';
-      try {
-        const diagnostics = await getFileDiagnosticsAfterEdit(uri);
-        diagnosticsInfo = formatDiagnosticsForAI(diagnostics);
-        console.log(`[WRITE_FILE] Collected ${diagnostics.length} diagnostics for ${filePath}`);
-      } catch (error) {
-        console.warn(`[WRITE_FILE] Failed to collect diagnostics for ${filePath}`, error);
-      }
+      await openFileInBackground(uri);
+      console.log(`[WRITE_FILE] Opened file in editor: ${filePath}`);
 
       // Post-write verification: try reading back as text
       try {
@@ -429,7 +411,7 @@ export class WriteFileTool implements ITool {
       return {
         success: true,
         data: {
-          message: `Successfully ${fileExistsOnDisk ? 'modified' : 'created'} ${filePath}${diagnosticsInfo}`,
+          message: `Successfully ${fileExistsOnDisk ? 'modified' : 'created'} ${filePath}`,
           path: filePath,
           absolutePath,
           action: fileExistsOnDisk ? 'modified' : 'created',
