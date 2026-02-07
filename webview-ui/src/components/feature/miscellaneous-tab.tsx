@@ -24,6 +24,13 @@ export function MiscellaneousTab({
     });
   };
 
+  const handleToggleShowRawAssistantText = () => {
+    onChange({
+      ...miscellaneousSettings,
+      showRawAssistantText: !miscellaneousSettings.showRawAssistantText,
+    });
+  };
+
   return (
     <div className="max-w-2xl space-y-6">
       {/* Header */}
@@ -119,6 +126,49 @@ export function MiscellaneousTab({
             checked={miscellaneousSettings.enableFullTerminalAccess}
             onChange={handleToggleFullTerminalAccess}
             disabled={!isRunTerminalEnabled}
+          />
+        </div>
+      </div>
+
+      {/* Debug Section */}
+      <div className="space-y-4">
+        <h2
+          className="text-sm font-bold pb-2 border-b"
+          style={{
+            color: 'var(--vscode-foreground)',
+            borderColor: 'var(--vscode-panel-border)',
+          }}
+        >
+          Debug
+        </h2>
+
+        <div
+          className="flex items-start justify-between gap-4 p-4 rounded-xl border"
+          style={{
+            backgroundColor: 'var(--vscode-input-background)',
+            borderColor: miscellaneousSettings.showRawAssistantText
+              ? 'var(--vscode-focusBorder)'
+              : 'var(--vscode-input-border)',
+          }}
+        >
+          <div className="flex-1">
+            <p
+              className="text-sm font-medium mb-1"
+              style={{ color: 'var(--vscode-foreground)' }}
+            >
+              Show Raw Assistant Text
+            </p>
+            <p
+              className="text-xs leading-relaxed"
+              style={{ color: 'var(--vscode-descriptionForeground)' }}
+            >
+              Display the exact raw assistant output in chat (before tokenization/parsing) to debug formatting issues.
+            </p>
+          </div>
+
+          <ToggleSwitch
+            checked={miscellaneousSettings.showRawAssistantText}
+            onChange={handleToggleShowRawAssistantText}
           />
         </div>
       </div>

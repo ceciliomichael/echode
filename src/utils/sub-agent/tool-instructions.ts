@@ -162,7 +162,8 @@ When to use:
 Get linter/compiler errors and warnings.
 
 Parameters:
-- path: File or directory to check (Absolute path required, defaults to workspace)
+- path: Optional absolute file or directory path used to filter results. Diagnostics are only collected for files that are currently open in the editor.
+- file_pattern: Optional substring filter applied to open file paths.
 
 When to use:
 - Check for errors after edits

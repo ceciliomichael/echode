@@ -140,3 +140,28 @@ export function stripAllCDataWrappers(text: string): string {
 	// Handles multiple CDATA sections and multi-line content
 	return text.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1");
 }
+
+/**
+ * Strips <thinking>...</thinking> blocks from content
+ * used to exclude reasoning content from the history sent to the AI
+ *
+ * @param text The string that may contain thinking blocks
+ * @returns The content with thinking blocks removed
+ */
+export function stripThinkingBlocks(text: string): string {
+	if (!text) {
+		return text;
+	}
+
+	// Match <thinking>...</thinking> globally
+	// Handles multi-line content and multiple occurrences
+	return text.replace(/<thinking>[\s\S]*?<\/thinking>/g, "");
+}
+
+export function normalizeKimiToolSectionTags(text: string): string {
+	if (!text) {
+		return text;
+	}
+
+	return text.replace(/<\/tool_calls_section_begin>/g, '</tool_calls_section_end>');
+}

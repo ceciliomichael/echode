@@ -4,6 +4,7 @@ import { LLMFactory } from '../services/llm/llm-factory';
 import { ChatMessage, ChatStreamSettings } from '../services/llm/llm-provider.interface';
 import { mergeSameRoleChatMessages } from '../utils/message-merger';
 import { processTodoReminders } from '../utils/todo-reminder';
+import { normalizeKimiToolSectionTags, stripThinkingBlocks } from '../utils/text-normalization';
 import { defaultRegistry } from '../services/tools/tool-registry';
 import { MCPToolAdapter } from '../services/mcp/mcp-tool-adapter';
 import { LLMValidator } from '../services/llm/llm-validator';
@@ -60,6 +61,20 @@ export async function handleChatStream(
 
     // Clone messages for processing
     const processedMessages = messages.map(m => ({ ...m }));
+
+    // Strip reasoning content (thinking blocks) from history
+    // This ensures we don't send previous reasoning steps back to the model
+    for (const message of processedMessages) {
+      if (typeof message.content === 'string') {
+        message.content = normalizeKimiToolSectionTags(stripThinkingBlocks(message.content));
+      } else if (Array.isArray(message.content)) {
+        for (const part of message.content) {
+          if (part.type === 'text' && part.text) {
+            part.text = normalizeKimiToolSectionTags(stripThinkingBlocks(part.text));
+          }
+        }
+      }
+    }
 
     // Get chat mode from settings
     const chatMode = settings.chatMode || 'agent';

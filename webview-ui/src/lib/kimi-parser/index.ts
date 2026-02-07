@@ -14,6 +14,8 @@ export const KIMI_TOOL_CALLS_SECTION_BEGIN_TAGS = [
 export const KIMI_TOOL_CALLS_SECTION_END_TAGS = [
   '<|tool_calls_section_end|>',
   '<tool_calls_section_end>',
+  '</tool_calls_section_end>',
+  '</tool_calls_section_begin>',
 ] as const;
 
 export const KIMI_TOOL_CALL_BEGIN_TAGS = [
@@ -79,8 +81,12 @@ function parseToolHeader(header: string): { toolName: string; callIndex?: number
     return null;
   }
 
+  // Some models emit malformed headers like:
+  // "write_to_file:13 <tool_call_begin>". In that case we only consider the first token.
+  const firstToken = cleaned.split(' ')[0];
+
   // Example: "functions.read_file:1"
-  const match = cleaned.match(/^([^\s:]+)(?::(\d+))?$/);
+  const match = firstToken.match(/^([^\s:]+)(?::(\d+))?$/);
   if (!match) {
     return null;
   }
@@ -157,6 +163,17 @@ function tryParseJsonObject(text: string): Record<string, unknown> {
   }
 }
 
+function findJsonObjectStart(content: string, fromIndex: number, limit: number): number {
+  if (fromIndex >= limit) {
+    return -1;
+  }
+  const idx = content.indexOf('{', fromIndex);
+  if (idx === -1 || idx >= limit) {
+    return -1;
+  }
+  return idx;
+}
+
 export function extractKimiToolCallsSection(content: string, fromIndex = 0): {
   sectionStart: number;
   sectionContentStart: number;
@@ -174,10 +191,18 @@ export function extractKimiToolCallsSection(content: string, fromIndex = 0): {
   const sectionContentStart = sectionStart + startMatch.tag.length;
   const endMatch = findNextTag(content, sectionContentStart, KIMI_TOOL_CALLS_SECTION_END_TAGS);
 
+  // If we can't find a proper end tag, do not swallow the entire remainder of the message.
+  // Some model outputs omit the end tag or accidentally close with a begin tag.
+  const nextSectionStartMatch = !endMatch
+    ? findNextTag(content, sectionContentStart, KIMI_TOOL_CALLS_SECTION_BEGIN_TAGS)
+    : null;
+
   return {
     sectionStart,
     sectionContentStart,
-    sectionEnd: !endMatch ? content.length : endMatch.index + endMatch.tag.length,
+    sectionEnd: endMatch
+      ? endMatch.index + endMatch.tag.length
+      : (nextSectionStartMatch ? nextSectionStartMatch.index : content.length),
     hasSectionEnd: !!endMatch,
     sectionBeginTag: startMatch.tag,
     sectionEndTag: endMatch?.tag ?? null,
@@ -203,20 +228,37 @@ export function extractKimiToolCalls(content: string): KimiParsedToolCall[] {
     const callBegin = callBeginMatch.index;
     const headerStart = callBegin + callBeginMatch.tag.length;
     const argBeginMatch = findNextTag(content, headerStart, KIMI_TOOL_CALL_ARGUMENT_BEGIN_TAGS);
-    if (!argBeginMatch || argBeginMatch.index >= limit) {
+    const jsonStart = findJsonObjectStart(content, headerStart, limit);
+
+    // Some malformed Kimi outputs omit <tool_call_argument_begin> and place JSON immediately after the header.
+    // Choose whichever delimiter comes first.
+    const headerEnd = (() => {
+      if (argBeginMatch && argBeginMatch.index < limit && jsonStart !== -1) {
+        return Math.min(argBeginMatch.index, jsonStart);
+      }
+      if (argBeginMatch && argBeginMatch.index < limit) {
+        return argBeginMatch.index;
+      }
+      if (jsonStart !== -1) {
+        return jsonStart;
+      }
+      return -1;
+    })();
+
+    if (headerEnd === -1) {
       break;
     }
 
-    const argBegin = argBeginMatch.index;
-
-    const header = content.slice(headerStart, argBegin);
+    const header = content.slice(headerStart, headerEnd);
     const parsedHeader = parseToolHeader(header);
     if (!parsedHeader) {
-      i = argBegin + KIMI_TOOL_CALL_ARGUMENT_BEGIN.length;
+      i = headerEnd;
       continue;
     }
 
-    const argsStart = argBegin + argBeginMatch.tag.length;
+    const argsStart = argBeginMatch && argBeginMatch.index === headerEnd
+      ? headerEnd + argBeginMatch.tag.length
+      : headerEnd;
     const callEndMatch = findNextTag(content, argsStart, KIMI_TOOL_CALL_END_TAGS);
     if (!callEndMatch || callEndMatch.index >= limit) {
       break;
@@ -260,27 +302,61 @@ export function extractKimiToolCallsIncremental(content: string): {
 
   const lastCompleteEnd = blocks.length > 0 ? blocks[blocks.length - 1].endIndex : section.sectionContentStart;
 
-  const nextCallBeginMatch = findNextTag(content, lastCompleteEnd, KIMI_TOOL_CALL_BEGIN_TAGS);
-  if (nextCallBeginMatch && nextCallBeginMatch.index < limit) {
-    const headerStart = nextCallBeginMatch.index + nextCallBeginMatch.tag.length;
-    const argBeginMatch = findNextTag(content, headerStart, KIMI_TOOL_CALL_ARGUMENT_BEGIN_TAGS);
-    if (argBeginMatch && argBeginMatch.index < limit) {
-      const argBegin = argBeginMatch.index;
-      const header = content.slice(headerStart, argBegin);
-      const parsedHeader = parseToolHeader(header);
-      if (parsedHeader) {
-        const argsStart = argBegin + argBeginMatch.tag.length;
-        const callEndMatch = findNextTag(content, argsStart, KIMI_TOOL_CALL_END_TAGS);
-        if (!callEndMatch || callEndMatch.index >= limit) {
-          const argsText = content.slice(argsStart, limit);
-          pendingBlocks.push({
-            toolName: parsedHeader.toolName,
-            callIndex: parsedHeader.callIndex,
-            parameters: tryParseJsonObject(argsText),
-          });
-        }
-      }
+  // Emit pending blocks for any remaining begins after the last complete tool call.
+  // This supports parallel calls where 2nd/3rd calls haven't closed yet.
+  let scanPos = lastCompleteEnd;
+  while (scanPos < limit) {
+    const callBeginMatch = findNextTag(content, scanPos, KIMI_TOOL_CALL_BEGIN_TAGS);
+    if (!callBeginMatch || callBeginMatch.index >= limit) {
+      break;
     }
+
+    const headerStart = callBeginMatch.index + callBeginMatch.tag.length;
+    const argBeginMatch = findNextTag(content, headerStart, KIMI_TOOL_CALL_ARGUMENT_BEGIN_TAGS);
+    const jsonStart = findJsonObjectStart(content, headerStart, limit);
+
+    const headerEnd = (() => {
+      if (argBeginMatch && argBeginMatch.index < limit && jsonStart !== -1) {
+        return Math.min(argBeginMatch.index, jsonStart);
+      }
+      if (argBeginMatch && argBeginMatch.index < limit) {
+        return argBeginMatch.index;
+      }
+      if (jsonStart !== -1) {
+        return jsonStart;
+      }
+      return -1;
+    })();
+
+    if (headerEnd === -1) {
+      break;
+    }
+
+    const header = content.slice(headerStart, headerEnd);
+    const parsedHeader = parseToolHeader(header);
+    if (!parsedHeader) {
+      scanPos = headerEnd;
+      continue;
+    }
+
+    const argsStart = argBeginMatch && argBeginMatch.index === headerEnd
+      ? headerEnd + argBeginMatch.tag.length
+      : headerEnd;
+    const callEndMatch = findNextTag(content, argsStart, KIMI_TOOL_CALL_END_TAGS);
+    if (!callEndMatch || callEndMatch.index >= limit) {
+      const argsText = content.slice(argsStart, limit);
+      pendingBlocks.push({
+        toolName: parsedHeader.toolName,
+        callIndex: parsedHeader.callIndex,
+        parameters: tryParseJsonObject(argsText),
+      });
+      // No end tag yet; advance to the next <tool_call_begin> if present.
+      scanPos = argsStart;
+      continue;
+    }
+
+    // Call is complete; skip past it.
+    scanPos = callEndMatch.index + callEndMatch.tag.length;
   }
 
   return {

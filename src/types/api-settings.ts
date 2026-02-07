@@ -51,6 +51,7 @@ export type McpServerOverrides = Record<string, McpServerOverride>;
 
 export interface MiscellaneousSettings {
   enableFullTerminalAccess: boolean;
+  showRawAssistantText: boolean;
 }
 
 export interface ApiSettings {
@@ -130,4 +131,8 @@ export const DEFAULT_SETTINGS: ApiSettings = {
   qwenCodeTemperature: 0.0,
   streamingTimeout: 5000,
   systemPrompt: '',
+  miscellaneousSettings: {
+    enableFullTerminalAccess: false,
+    showRawAssistantText: false,
+  },
 };

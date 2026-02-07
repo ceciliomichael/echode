@@ -79,38 +79,6 @@ export class GetDiagnosticsTool implements ITool {
         // Wait for any active file modifications to finish
         if (targetPath) {
           await FileLockManager.waitForLock(targetPath);
-
-          // If not a directory, open the file to ensure diagnostics are collected
-          if (!isDirectoryTarget) {
-            // Logic handled by getFileDiagnosticsAfterEdit called below
-          } else {
-            // If it's a directory, find all files and open them to collect diagnostics
-            try {
-              const files = await this.findFilesInDirectory(targetPath);
-              console.log(`[GetDiagnostics] Found ${files.length} files in directory ${targetPath}`);
-              
-              // Open files in batches to avoid overwhelming the language server
-              const batchSize = 10;
-              for (let i = 0; i < files.length; i += batchSize) {
-                const batch = files.slice(i, i + batchSize);
-                const promises = batch.map(async (filePath) => {
-                  try {
-                    const uri = vscode.Uri.file(filePath);
-                    await vscode.workspace.openTextDocument(uri);
-                  } catch (e) {
-                    // Ignore individual file errors
-                  }
-                });
-                await Promise.all(promises);
-              }
-              
-              // Wait for all diagnostics to settle
-              console.log(`[GetDiagnostics] Waiting for diagnostics to update for all files...`);
-              await new Promise(resolve => setTimeout(resolve, 4000));
-            } catch (e) {
-              console.log(`[GetDiagnostics] Error scanning directory ${targetPath}:`, e);
-            }
-          }
         }
       }
 
@@ -152,54 +120,75 @@ export class GetDiagnosticsTool implements ITool {
         });
       };
 
-      if (targetPath && !isDirectoryTarget) {
-        // Single file case: fetch directly for this file using the robust utility
-        const uri = vscode.Uri.file(targetPath);
-        // Note: We use the default timeout (5s) as this is an explicit user request for diagnostics
-        const diagnostics = await getFileDiagnosticsAfterEdit(uri);
-        
-        if (diagnostics.length > 0) {
-          results.push({
-            filePath: targetPath,
-            diagnostics: diagnostics,
-          });
+      const openFileUris = vscode.workspace.textDocuments
+        .map((d) => d.uri)
+        .filter((uri) => uri.scheme === 'file');
+
+      const eligibleUris: vscode.Uri[] = [];
+
+      for (const uri of openFileUris) {
+        // Skip stale diagnostics from deleted files
+        if (staleUris.has(uri.toString())) {
+          console.log(`[GetDiagnostics] Skipping stale diagnostics for deleted file: ${uri.fsPath}`);
+          continue;
         }
-      } else {
-        // Directory or workspace scan case: fetch all and filter
-        const allDiagnostics = vscode.languages.getDiagnostics();
-        
-        for (const [uri, diagnostics] of allDiagnostics) {
-          // Skip stale diagnostics from deleted files
-          if (staleUris.has(uri.toString())) {
-            console.log(`[GetDiagnostics] Skipping stale diagnostics for deleted file: ${uri.fsPath}`);
-            continue;
-          }
 
-          const filePath = uri.fsPath;
+        const filePath = uri.fsPath;
 
-          // Skip excluded paths (node_modules, dist, .git, etc.)
-          if (workspaceRoot && this.isExcludedPath(filePath, workspaceRoot, gitignorePatterns)) {
-            continue;
-          }
+        // Skip excluded paths (node_modules, dist, .git, etc.)
+        if (workspaceRoot && this.isExcludedPath(filePath, workspaceRoot, gitignorePatterns)) {
+          continue;
+        }
 
-          if (targetPath) {
-            // Directory target
-            const normalizedFilePath = path.normalize(filePath);
-            const normalizedTarget = path.normalize(targetPath);
+        if (targetPath) {
+          const normalizedFilePath = path.normalize(filePath);
+          const normalizedTarget = path.normalize(targetPath);
 
-            if (
-              normalizedFilePath !== normalizedTarget &&
-              !normalizedFilePath.startsWith(normalizedTarget + path.sep)
-            ) {
+          if (!isDirectoryTarget) {
+            if (normalizedFilePath !== normalizedTarget) {
               continue;
             }
-          } else if (filePattern && !filePath.includes(filePattern)) {
+
+            eligibleUris.push(uri);
             continue;
           }
 
-          processDiagnostics(uri, diagnostics);
+          if (
+            normalizedFilePath !== normalizedTarget &&
+            !normalizedFilePath.startsWith(normalizedTarget + path.sep)
+          ) {
+            continue;
+          }
+        } else if (filePattern && !filePath.includes(filePattern)) {
+          continue;
         }
+
+        eligibleUris.push(uri);
       }
+
+      const concurrency = 5;
+      const queue = eligibleUris.slice();
+
+      const worker = async () => {
+        while (queue.length > 0) {
+          const uri = queue.shift();
+          if (!uri) {
+            return;
+          }
+
+          const diagnostics = await getFileDiagnosticsAfterEdit(uri, 2500);
+          if (diagnostics.length > 0) {
+            results.push({
+              filePath: uri.fsPath,
+              diagnostics: diagnostics,
+            });
+          }
+        }
+      };
+
+      await Promise.all(
+        Array.from({ length: Math.min(concurrency, queue.length || 1) }, () => worker())
+      );
 
       return {
         success: true,
@@ -238,46 +227,6 @@ export class GetDiagnosticsTool implements ITool {
     // Heuristic: if the path has a file extension, treat it as a file; otherwise as a directory.
     const ext = path.extname(resolvedPath);
     return ext.length === 0;
-  }
-
-  /**
-   * Recursively find all files in a directory
-   */
-  private async findFilesInDirectory(dirPath: string): Promise<string[]> {
-    const fs = require('fs').promises;
-    const results: string[] = [];
-
-    try {
-      const entries = await fs.readdir(dirPath, { withFileTypes: true });
-
-      for (const entry of entries) {
-        const fullPath = path.join(dirPath, entry.name);
-
-        if (entry.isDirectory()) {
-          // Recursively scan subdirectories
-          const subFiles = await this.findFilesInDirectory(fullPath);
-          results.push(...subFiles);
-        } else if (entry.isFile()) {
-          // Only include common source code files
-          const ext = path.extname(entry.name).toLowerCase();
-          const includedExtensions = [
-            '.ts', '.tsx', '.js', '.jsx', '.py', '.java', '.c', '.cpp', '.h', '.hpp',
-            '.cs', '.go', '.rs', '.rb', '.php', '.swift', '.kt', '.scala', '.r',
-            '.html', '.css', '.scss', '.sass', '.less', '.vue', '.svelte',
-            '.json', '.xml', '.yaml', '.yml', '.toml', '.ini', '.conf',
-            '.md', '.txt', '.sh', '.bash', '.zsh', '.fish', '.ps1', '.bat', '.cmd'
-          ];
-          
-          if (includedExtensions.includes(ext)) {
-            results.push(fullPath);
-          }
-        }
-      }
-    } catch (error) {
-      console.log(`[GetDiagnostics] Error reading directory ${dirPath}:`, error);
-    }
-
-    return results;
   }
 
 }

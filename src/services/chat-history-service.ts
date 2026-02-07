@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
 import { deleteFileWithRetry } from '../utils/fs-retry';
+import { normalizeKimiToolSectionTags } from '../utils/text-normalization';
 import type { ToolExecutionState } from '../types/tool-execution';
 
 export interface ChatMessage {
@@ -454,6 +455,14 @@ export class ChatHistoryService {
     try {
       // Ensure workspaceId is set
       session.workspaceId = this.workspaceId;
+
+      // Normalize known malformed tool section tags so persisted history stays canonical.
+      // This is especially important for Kimi outputs that close with </tool_calls_section_begin>.
+      for (const message of session.messages) {
+        if (typeof message?.content === 'string') {
+          message.content = normalizeKimiToolSectionTags(message.content);
+        }
+      }
 
       // Write session file atomically
       this.writeSessionFile(session);

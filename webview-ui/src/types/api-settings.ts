@@ -101,10 +101,12 @@ export type McpServerOverrides = Record<string, McpServerOverride>;
  */
 export interface MiscellaneousSettings {
   enableFullTerminalAccess: boolean;
+  showRawAssistantText: boolean;
 }
 
 export const DEFAULT_MISCELLANEOUS_SETTINGS: MiscellaneousSettings = {
   enableFullTerminalAccess: false,
+  showRawAssistantText: false,
 };
 
 // ChatMode is imported from './chat-mode' - re-export for convenience
