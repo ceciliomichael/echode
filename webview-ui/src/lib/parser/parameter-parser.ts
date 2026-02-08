@@ -57,9 +57,16 @@ export function parseXMLParameters(content: string): Record<string, unknown> {
       processedParams.add(paramName);
     } else {
       // No closing tag - streaming parameter (partial content)
-      const partialContent = content.slice(openTagEnd);
-      parameters[paramName] = unescapeXml(partialContent);
-      processedParams.add(paramName);
+      
+      // For path parameters, we want to wait until the full path is available
+      // so the UI doesn't show partial paths like "src/comp" -> "src/components"
+      const isPathParam = /^(path|file_path|absolute_path|TargetFile|source|destination)$/i.test(paramName);
+      
+      if (!isPathParam) {
+        const partialContent = content.slice(openTagEnd);
+        parameters[paramName] = unescapeXml(partialContent);
+        processedParams.add(paramName);
+      }
     }
   }
 

@@ -139,10 +139,26 @@ export class ChatHistoryService {
     return `echode.lastOpenedSession.${this.workspaceId}`;
   }
 
+  /**
+   * Check if a session ID belongs to a parallel chat session.
+   * Parallel chat sessions have IDs prefixed with "parallel-".
+   */
+  private isParallelChatSession(sessionId: string): boolean {
+    return sessionId.startsWith('parallel-');
+  }
+
   public getLastOpenedSessionId(): string | null {
     try {
       const sessionId = this.context.globalState.get<string>(this.getLastOpenedSessionKey()) ?? null;
       if (!sessionId) {
+        return null;
+      }
+
+      // If the stored last-opened session points to a parallel chat session,
+      // ignore it and clear the pointer so the sidebar won't auto-restore it.
+      // Parallel chats should only be restored in their own panel, not the sidebar.
+      if (this.isParallelChatSession(sessionId)) {
+        this.clearLastOpenedSessionId();
         return null;
       }
 
@@ -418,7 +434,7 @@ export class ChatHistoryService {
       if (session?.workspaceId && session.workspaceId !== this.workspaceId) {
         return null;
       }
-      if (session?.id && !session.isSubAgent) {
+      if (session?.id && !session.isSubAgent && !this.isParallelChatSession(session.id)) {
         this.setLastOpenedSessionId(session.id);
       }
       return session;
@@ -468,7 +484,8 @@ export class ChatHistoryService {
       this.writeSessionFile(session);
 
       // Only the main agent sessions should be auto-restored on extension restart.
-      if (!session.isSubAgent) {
+      // Skip parallel chat sessions - they should not override the sidebar's last session.
+      if (!session.isSubAgent && !this.isParallelChatSession(session.id)) {
         this.setLastOpenedSessionId(session.id);
       }
 

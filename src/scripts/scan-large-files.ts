@@ -155,7 +155,7 @@ function scan(workspacePath: string, threshold: number): LargeFileInfo[] {
 // Main
 const args = process.argv.slice(2);
 const workspacePath = args[0];
-const threshold = parseInt(args[1] || '300', 10);
+const threshold = parseInt(args[1] || '301', 10);
 
 if (!workspacePath) {
   console.error(JSON.stringify({ error: 'No workspace path provided' }));

@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import type { ITool, ToolExecutionResult, ChatMode } from './tool.interface';
 import { getWorkspaceRoot } from './utils/workspace-utils';
+import { MarkdownViewerManager } from '../markdown-viewer/markdown-viewer-manager';
 
 /**
  * PublishFindingsTool - Exclusive to Review Mode
@@ -122,22 +123,17 @@ ${rawContent}
 
       console.log('[PUBLISH_FINDINGS] Report written successfully:', absolutePath);
 
-      // Open the report in markdown preview mode (Ctrl+Shift+V equivalent)
-      try {
-        await vscode.commands.executeCommand('markdown.showPreview', uri);
-        console.log('[PUBLISH_FINDINGS] Report opened in markdown preview');
-      } catch (openError) {
-        console.warn('[PUBLISH_FINDINGS] Could not open report in preview:', openError);
-        // Fallback: try opening in editor if preview fails
+      // Open report in custom viewer (echode's html viewer)
+      if (MarkdownViewerManager.isInitialized) {
+        MarkdownViewerManager.instance.openDocument(reportTitle, fullContent, absolutePath, 'Review');
+        console.log('[PUBLISH_FINDINGS] Report opened in custom viewer');
+      } else {
+        // Fallback: Open in markdown preview mode
         try {
-          const doc = await vscode.workspace.openTextDocument(uri);
-          await vscode.window.showTextDocument(doc, { 
-            preview: true, 
-            preserveFocus: true,
-            viewColumn: vscode.ViewColumn.Beside
-          });
-        } catch {
-          // Ignore if both fail
+          await vscode.commands.executeCommand('markdown.showPreview', uri);
+          console.log('[PUBLISH_FINDINGS] Report opened in markdown preview');
+        } catch (openError) {
+          console.warn('[PUBLISH_FINDINGS] Could not open report in preview:', openError);
         }
       }
 

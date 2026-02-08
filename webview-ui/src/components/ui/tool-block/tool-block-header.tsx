@@ -18,7 +18,7 @@ interface ToolBlockHeaderProps {
 }
 
 // Tools that should display the relative path
-const FILE_TOOLS = ['read_file', 'write_to_file', 'edit', 'delete_file'];
+const FILE_TOOLS = ['read_file', 'write_to_file', 'edit', 'delete_file', 'glob_search', 'grep_search', 'get_diagnostics'];
 
 export function ToolBlockHeader({
   isExpanded,
@@ -121,7 +121,7 @@ export function ToolBlockHeader({
         </div>
 
         {/* Filename / Tool Name with optional path */}
-        <div className="flex items-center gap-1.5 min-w-0 truncate">
+        <div className="flex items-baseline gap-1.5 min-w-0 truncate">
           <span
             className="text-sm font-medium shrink-0"
             style={{ color: 'var(--vscode-foreground)', opacity: 0.7 }}

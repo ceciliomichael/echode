@@ -1,5 +1,5 @@
 import type { ChatMode } from '../types/chat-mode';
-import { PLAN_MODE_TOOL_IDS, ASK_MODE_TOOL_IDS, GENERAL_MODE_TOOL_IDS } from '../lib/tool-config';
+import { PLAN_MODE_TOOL_IDS, ASK_MODE_TOOL_IDS, GENERAL_MODE_TOOL_IDS, REVIEW_MODE_TOOL_IDS } from '../lib/tool-config';
 import { TOOL_FUNCTION_CALLS_CLOSE, TOOL_FUNCTION_CALLS_OPEN, TOOL_XML_NAMESPACE } from '../lib/tool-xml';
 
 /**
@@ -17,6 +17,8 @@ const STANDARD_TOOLS = [
   'edit',
   'get_diagnostics',
   'plan',
+  'publish_findings',
+  'run_terminal',
 ];
 
 /**
@@ -50,6 +52,10 @@ export function getFilteredToolsForMode(mode: ChatMode): string[] {
       break;
     case 'general':
       allowedTools = new Set(GENERAL_MODE_TOOL_IDS);
+      break;
+    case 'review':
+      // Review mode: exploration tools + publish_findings
+      allowedTools = new Set(REVIEW_MODE_TOOL_IDS);
       break;
     case 'agent':
     case 'manual':

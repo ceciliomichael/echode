@@ -11,11 +11,13 @@ export function truncatePathMiddle(path: string, maxLength: number = 40): string
     return path;
   }
 
-  const parts = path.split('/');
+  // Normalize backslashes to forward slashes for consistent handling
+  const normalizedPath = path.replace(/\\/g, '/');
+  const parts = normalizedPath.split('/');
   
-  // If only filename or very short path, return as-is
+  // If only filename or very short path, return as-is (with normalized slashes)
   if (parts.length <= 2) {
-    return path;
+    return normalizedPath;
   }
 
   const fileName = parts[parts.length - 1];
@@ -45,7 +47,7 @@ export function truncatePathMiddle(path: string, maxLength: number = 40): string
 
   // If we included all but the last directory, no need for ellipsis
   if (includedFromStart === parts.length - 1) {
-    return path;
+    return normalizedPath;
   }
 
   return result;

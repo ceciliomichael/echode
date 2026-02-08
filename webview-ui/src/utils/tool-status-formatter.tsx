@@ -92,6 +92,12 @@ export function getToolStatusDisplay(
       }
     } else if (toolName === 'run_terminal') {
       executingText = 'Running';
+    } else if (toolName === 'publish_findings') {
+      executingText = 'Publishing';
+    } else if (toolName === 'use_subagent') {
+      executingText = 'Delegating';
+    } else if (toolName === 'create_subagent') {
+      executingText = 'Creating Agent';
     }
 
     return renderWaveLabel(executingText);
@@ -234,6 +240,21 @@ export function getToolStatusDisplay(
   // run_terminal: show "Successful" when completed
   if (toolName === 'run_terminal') {
     return 'Successful';
+  }
+
+  // publish_findings: show "Published" when completed
+  if (toolName === 'publish_findings') {
+    return 'Published';
+  }
+
+  // use_subagent: show "Delegated" when completed
+  if (toolName === 'use_subagent') {
+    return 'Delegated';
+  }
+
+  // create_subagent: show "Agent Created" when completed
+  if (toolName === 'create_subagent') {
+    return 'Agent Created';
   }
 
   // Other tools: show tool name from metadata

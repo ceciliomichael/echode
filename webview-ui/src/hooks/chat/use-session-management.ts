@@ -180,6 +180,19 @@ export function useSessionManagement({
           }
           
           if (isNotFound && requestedSessionId) {
+            // If this was a forced session ID (e.g. parallel chat) that doesn't exist yet,
+            // we should initialize with this ID instead of clearing it.
+            // This ensures we respect the "parallel-*" ID prefix instead of generating a new random UUID.
+            if (window.sessionId && requestedSessionId === window.sessionId) {
+              currentSessionIdRef.current = requestedSessionId;
+              setCurrentSessionId(requestedSessionId);
+              storageService.setCurrentSessionId(requestedSessionId);
+              setMessages([]);
+              setEditingMessageId(null);
+              setRevertPreviewMessageId(null);
+              return;
+            }
+
             // Session genuinely doesn't exist - clear only if this was a specific session request
             // (not a "getLatestSession" which returns null when there are no sessions)
             currentSessionIdRef.current = null;

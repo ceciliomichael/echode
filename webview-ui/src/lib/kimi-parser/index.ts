@@ -102,11 +102,17 @@ function tryParseJsonObject(text: string): Record<string, unknown> {
     return {};
   }
 
-  const extractPartialStringField = (key: string): string | undefined => {
+  const extractPartialStringField = (key: string, requireClosingQuote = false): string | undefined => {
     // Best-effort extraction for streaming / incomplete JSON
     // Matches: "key": "value"  (value may not yet be closed)
     // Capture JSON string content including escaped sequences like \\ and \".
-    const re = new RegExp(`"${key}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)`, 'i');
+    
+    // If requireClosingQuote is true, append " to the regex to ensure it closes
+    const pattern = requireClosingQuote 
+      ? `"${key}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`
+      : `"${key}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)`;
+
+    const re = new RegExp(pattern, 'i');
     const match = trimmed.match(re);
     const raw = match?.[1];
     if (raw === undefined) {
@@ -142,19 +148,20 @@ function tryParseJsonObject(text: string): Record<string, unknown> {
     }
 
     const partial: Record<string, unknown> = {};
-    const path = extractPartialStringField('path');
+    // For path-related fields, require closing quote to avoid partial paths during streaming
+    const path = extractPartialStringField('path', true);
     if (path !== undefined) {
       partial.path = path;
     }
-    const filePath = extractPartialStringField('file_path');
+    const filePath = extractPartialStringField('file_path', true);
     if (filePath !== undefined) {
       partial.file_path = filePath;
     }
-    const absolutePath = extractPartialStringField('absolute_path');
+    const absolutePath = extractPartialStringField('absolute_path', true);
     if (absolutePath !== undefined) {
       partial.absolute_path = absolutePath;
     }
-    const targetFile = extractPartialStringField('TargetFile');
+    const targetFile = extractPartialStringField('TargetFile', true);
     if (targetFile !== undefined) {
       partial.TargetFile = targetFile;
     }

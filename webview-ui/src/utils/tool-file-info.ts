@@ -79,7 +79,7 @@ export function getToolFileInfo(
     const query = parameters.query as string;
     const truncatedQuery = query && query.length > 60 ? query.substring(0, 60) + '...' : query;
     return {
-      displayName: truncatedQuery ? `Search: ${truncatedQuery}` : 'Search',
+      displayName: truncatedQuery ? `${truncatedQuery}` : 'Search',
       fullPath: path || '',
       icon: getIcon(Search),
       iconColor: getIconColor('var(--vscode-editor-foreground)'),
@@ -112,8 +112,13 @@ export function getToolFileInfo(
   // Get diagnostics -> Use Stethoscope icon
   if (toolName === 'get_diagnostics') {
     const targetPath = path || (parameters.file_pattern as string) || 'workspace';
+    // Extract just the last folder name for display
+    const displayName = targetPath === 'workspace' || targetPath === '.' || !targetPath
+      ? 'Diagnostics'
+      : targetPath.split(/[/\\]/).filter(Boolean).pop() || targetPath;
+    
     return {
-      displayName: targetPath,
+      displayName,
       fullPath: path || '',
       icon: getIcon(Stethoscope),
       iconColor: getIconColor('var(--vscode-editorWarning-foreground)'),
