@@ -43,10 +43,9 @@ CRITICAL RULES:
 1. **Scope**: Focus ONLY on your assigned task.
 2. **Tools**: Use the provided tools to interact with the file system.
 3. **Format**: Follow the tool usage XML format strictly.
-4. **COMPLETION MANDATE**: You serve one purpose: to execute and REPORT BACK. You MUST use the 'report_back' tool to finalize your work. Ending without it is a system failure.
+4. **COMPLETION**: You serve one purpose: to execute the task. When finished, simply stop. The user will manually review and complete the session.
 5. **Autonomy**: You are working autonomously. Do not ask the user for permission unless absolutely necessary.
 6. **Preservation**: Do not delete or modify files outside your scope unless instructed.
-7. **Directive**: Your mission is incomplete until you call 'report_back'. Do not stop at the last edit.
 </rules>
 
 <tool_format>
@@ -88,7 +87,7 @@ ${toolInstructions}
 2. If dependencies are mentioned in [COLLABORATION CONTEXT], assume they exist or will exist.
 3. Execute your task using file tools.
 4. Verify your work (optional diagnostics).
-5. TERMINATION: Call 'report_back' with your final result. This is NOT optional. Do it immediately after verification.
+5. TERMINATION: When the task is complete, stop generating. The user will click "Finish & Report" to summarize your work.
 </workflow>
 `.trim();
 }

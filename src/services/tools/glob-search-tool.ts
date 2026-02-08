@@ -23,7 +23,8 @@ export class GlobSearchTool implements ITool {
 
   async execute(parameters: Record<string, unknown>): Promise<ToolExecutionResult> {
     const patterns = this.normalizePatterns(parameters.pattern);
-    const searchPath = (parameters.path as string) || '';
+    const rawPath = parameters.path as string;
+    const searchPath = rawPath?.trim() || '';
     const excludes = normalizeToStringArray(parameters.excludes);
     const maxResults = (parameters.maxResults as number) || 1000;
 

@@ -24,7 +24,7 @@ export class CreateSubAgentTool implements ITool {
         items: {
           type: 'string',
         },
-        description: 'List of tool names this sub-agent is allowed to use. report_back is always included.',
+        description: 'List of tool names this sub-agent is allowed to use.',
       },
     },
     required: ['name', 'persona', 'allowedTools'],
@@ -43,10 +43,12 @@ export class CreateSubAgentTool implements ITool {
 
       // Validate allowedTools
       if (!Array.isArray(allowedTools)) {
-        // Fallback or error - here we'll default to empty array to allow creation with just report_back
-        // effectively, but ideally we should respect the 'required' contract.
-        // However, robust handling is better than crashing.
         allowedTools = []; 
+      }
+
+      // Automatically grant todo_write permission as it is a core structural tool
+      if (!allowedTools.includes('todo_write')) {
+        allowedTools.push('todo_write');
       }
 
       const service = getSubAgentService();

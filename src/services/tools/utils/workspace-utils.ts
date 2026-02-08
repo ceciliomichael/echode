@@ -64,9 +64,18 @@ export function isPathWithinAnyWorkspace(absolutePath: string): boolean {
  * Returns workspaceRoot if the path would escape the workspace.
  */
 export function resolveAbsolutePath(filePath: string, defaultWorkspaceRoot: string): string {
+  // Sanitize path: trim whitespace
+  let cleanPath = filePath.trim();
+
+  // Remove trailing slashes (e.g. "file.ts/") unless it's a root path
+  // Guard against removing root slash (e.g. "C:\" or "/")
+  if (cleanPath.length > 3 && /[/\\]$/.test(cleanPath)) {
+    cleanPath = cleanPath.replace(/[/\\]+$/, '');
+  }
+
   // If absolute path, validate it's within ANY workspace
-  if (path.isAbsolute(filePath)) {
-    const normalizedPath = path.normalize(filePath);
+  if (path.isAbsolute(cleanPath)) {
+    const normalizedPath = path.normalize(cleanPath);
 
     // Check if it's in any open workspace
     if (isPathWithinAnyWorkspace(normalizedPath)) {
@@ -74,14 +83,14 @@ export function resolveAbsolutePath(filePath: string, defaultWorkspaceRoot: stri
     }
 
     // Path is outside all workspaces - return default workspace root
-    console.warn(`[Security] Blocked path outside workspace: ${filePath}`);
+    console.warn(`[Security] Blocked path outside workspace: ${cleanPath}`);
     return defaultWorkspaceRoot;
   }
 
   // Check for Multi-Root Prefixes ("ProjectName/path/to/file")
   // This aligns behavior with PathResolver and allows relative paths targeting specific workspaces
   const folders = getAllWorkspaceFolders();
-  const parts = filePath.split(/[/\\]/);
+  const parts = cleanPath.split(/[/\\]/);
   const potentialPrefix = parts[0];
 
   const matchedFolder = folders.find(f => f.name === potentialPrefix);
@@ -96,17 +105,17 @@ export function resolveAbsolutePath(filePath: string, defaultWorkspaceRoot: stri
       return resolved;
     }
     // If it traversed out, block it
-    console.warn(`[Security] Blocked path traversal attempt in multi-root: ${filePath}`);
+    console.warn(`[Security] Blocked path traversal attempt in multi-root: ${cleanPath}`);
     return matchedFolder.uri.fsPath;
   }
 
   // For standard relative paths, resolve against default workspace root
-  const resolved = path.normalize(path.join(defaultWorkspaceRoot, filePath));
+  const resolved = path.normalize(path.join(defaultWorkspaceRoot, cleanPath));
 
   // Check for path traversal (e.g., "../../../etc/passwd")
   // Since we resolved against defaultWorkspaceRoot, just check if it's within that one
   if (!isPathWithinWorkspace(resolved, defaultWorkspaceRoot)) {
-    console.warn(`[Security] Blocked path traversal attempt: ${filePath}`);
+    console.warn(`[Security] Blocked path traversal attempt: ${cleanPath}`);
     return defaultWorkspaceRoot;
   }
 

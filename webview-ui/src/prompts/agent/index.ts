@@ -24,7 +24,7 @@ export interface AgentPromptOptions {
 export function buildAgentPrompt(options: AgentPromptOptions, modeName: string = 'AGENT'): string {
     const { workspace, enabledTools, fullTerminalAccess = false } = options;
 
-    // Filter out hidden tools (internal tools like report_back) from the main agent prompt
+    // Filter out hidden tools from the main agent prompt
     const visibleTools = enabledTools.filter(t => !t.hidden);
 
     // Tool format section (generic XML format)

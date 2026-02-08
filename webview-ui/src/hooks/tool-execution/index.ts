@@ -14,6 +14,7 @@ import { getToolsForMode } from '../../lib/tool-config';
 import { generateToolExecutionId } from '../../lib/tool-execution-tracker';
 import type { ToolExecutionState } from '../../types/tool';
 import { buildContinuationHistory } from '../../utils/continuation-builder';
+import { formatToolResultForAI } from '../../utils/tool-execution-helpers';
 
 import type { ToolExecutionHookProps, ToolExecutionContext, LockedModelConfig } from './types';
 import { executeSingleTool } from './single-executor';
@@ -232,7 +233,35 @@ async function handleBufferedResults(
   lockedConfig?: LockedModelConfig
 ): Promise<void> {
 
-  const toolResultText = bufferedToolResults.join('\n\n');
+  // Collect ALL tool results for this turn, including previous ones in the same assistant message
+  // This prevents the AI from "forgetting" early tool results in a multi-step chain
+  const allToolResults: string[] = [];
+
+  // 1. Get previous results from history
+  // We rely on the fact that previous recursive steps would have completed their state updates
+  const currentMessages = context.messagesRef.current;
+  const assistantMsg = currentMessages.find(m => m.id === assistantMessageId);
+
+  if (assistantMsg && assistantMsg.toolExecutions) {
+    // Iterate up to toolIndex (exclusive) to get previous tools
+    for (let i = 0; i < toolIndex; i++) {
+      const execId = generateToolExecutionId(assistantMessageId, i);
+      const execution = assistantMsg.toolExecutions.get(execId);
+      
+      // Only include if it has a result and isn't a "pending" state from a race condition
+      if (execution && (execution.status === 'completed' || execution.status === 'error' || execution.status === 'rejected') && execution.result) {
+        // Format the result exactly as we do for buffered results
+        // Use shared helper to ensure consistency
+        const formatted = formatToolResultForAI(execution.toolName, execution.result);
+        allToolResults.push(formatted);
+      }
+    }
+  }
+
+  // 2. Add the new buffered results (which correspond to toolIndex onwards)
+  allToolResults.push(...bufferedToolResults);
+
+  const toolResultText = allToolResults.join('\n\n');
   
   // Fetch diagnostics for any files that were modified by the tools
   // DISABLED: Diagnostics should be explicitly requested by the AI using get_diagnostics

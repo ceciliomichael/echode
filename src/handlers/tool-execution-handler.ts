@@ -163,8 +163,8 @@ export async function handleToolExecution(
       if (session) {
         const definition = subAgentService.getDefinition(session.subAgentId);
         if (definition) {
-          // Check if tool is allowed (report_back is always allowed)
-          const isAllowed = toolName === 'report_back' || definition.allowedTools.includes(toolName);
+          // Check if tool is allowed
+          const isAllowed = definition.allowedTools.includes(toolName);
           
           if (!isAllowed) {
             console.warn(`[ToolHandler] Blocked unauthorized tool usage: ${toolName} for sub-agent ${definition.name}`);

@@ -106,7 +106,8 @@ export class EditTool implements ITool {
   async prepareExecution(
     parameters: Record<string, unknown>
   ): Promise<ToolConfirmation | undefined> {
-    const filePath = parameters.file_path as string;
+    const rawFilePath = parameters.file_path as string;
+    const filePath = rawFilePath?.trim();
     const oldString = normalizeToolNewlines(parameters.old_string as string);
     const newString = normalizeToolNewlines(parameters.new_string as string);
     const explanation = parameters.explanation as string | undefined;
@@ -166,7 +167,8 @@ export class EditTool implements ITool {
     _signal?: AbortSignal,
     _mode?: ChatMode
   ): Promise<ToolExecutionResult> {
-    const filePath = parameters.file_path as string;
+    const rawFilePath = parameters.file_path as string;
+    const filePath = rawFilePath?.trim();
     const rawOldString = parameters.old_string as string;
     const rawNewString = parameters.new_string as string;
     const oldString = normalizeToolNewlines(rawOldString);

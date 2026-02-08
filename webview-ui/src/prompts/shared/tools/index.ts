@@ -20,4 +20,3 @@ export { getPlanInstructions } from './plan';
 export { getPublishFindingsInstructions } from './publish-findings';
 export { getCreateSubagentInstructions } from './create-subagent';
 export { getUseSubagentInstructions } from './use-subagent';
-export { getReportBackInstructions } from './report-back';

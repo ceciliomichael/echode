@@ -188,14 +188,29 @@ When to use:
 Note: This action cannot be undone. Verify before deleting.`);
   }
 
-  // CRITICAL: report_back (Always included for sub-agents)
-  instructions.push(`## report_back
-Report the final result back to the main agent and end the session.
-Parameters:
-- result: (REQUIRED) The result data object/string containing your findings
-- sessionId: (AUTOMATIC) Injected by system, do not provide.
+  if (allowedTools.includes('todo_write')) {
+    instructions.push(`## todo_write
+Track task progress with a CONCISE list.
 
-IMPORTANT: This is your EXIT STRATEGY. You cannot finish without it. Use it IMMEDIATELY when your task is complete.`);
+Parameters:
+- tasks: JSON Array of objects containing: id, content, status
+  - status values: "pending", "in_progress", "completed"
+
+STRICT RULES:
+- **NEVER** create an empty task list. At least 1 task is required.
+- Maximum 5-8 tasks total.
+- Update status as you complete steps.
+
+### EXAMPLE
+<${TOOL_XML_NAMESPACE}:function_calls>
+<${TOOL_XML_NAMESPACE}:invoke name="todo_write">
+    <${TOOL_XML_NAMESPACE}:parameter name="tasks">[
+    { "id": "1", "content": "Analyze code", "status": "completed" },
+    { "id": "2", "content": "Fix bug", "status": "in_progress" }
+]</${TOOL_XML_NAMESPACE}:parameter>
+</${TOOL_XML_NAMESPACE}:invoke>
+</${TOOL_XML_NAMESPACE}:function_calls>`);
+  }
 
   return instructions.join('\n\n');
 }

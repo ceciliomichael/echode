@@ -173,7 +173,7 @@ export class PlanTool implements ITool {
    */
   private async handleUpdatePlanMode(params: PlanToolParameters, isYoloMode: boolean): Promise<ToolExecutionResult> {
     const planContent = normalizePlanContent(params.plan);
-    let existingPlanFilePath = params.planFilePath;
+    let existingPlanFilePath = params.planFilePath?.trim();
 
     if (!planContent || typeof planContent !== 'string' || planContent.trim().length === 0) {
       return {

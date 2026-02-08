@@ -57,6 +57,62 @@ export class ReadFileTool implements ITool {
     return this.readSingleFile(filePath, offset, limit, mode);
   }
 
+  private processContent(
+    filePath: string,
+    absolutePath: string,
+    content: string,
+    offset: number | undefined,
+    limit: number | undefined,
+    mode?: ChatMode
+  ): ToolExecutionResult {
+    const lines = content.split(/\r?\n/);
+    const totalLines = lines.length;
+
+    // Default range values
+    let start = 0;
+    let end = lines.length;
+
+    if (offset === undefined && limit === undefined) {
+      // Default: First 500 lines
+      start = 0;
+      const count = Math.min(500, lines.length);
+      end = Math.min(start + count, lines.length);
+    } else {
+      // Explicit range
+      start = offset ? Math.max(0, offset - 1) : 0;
+      const count = limit || lines.length;
+      end = Math.min(start + count, lines.length);
+    }
+
+    const selectedLines = lines.slice(start, end);
+    const contentWithoutLineNumbers = selectedLines.join('\n');
+
+    // Add mode-specific reminder for large files
+    const refactorReminder = getLargeFileReminder(totalLines, mode);
+    const refactorNotice = refactorReminder
+      ? {
+        type: 'large_file' as const,
+        lineCount: totalLines,
+        mode,
+        message: refactorReminder,
+      }
+      : undefined;
+
+    return {
+      success: true,
+      data: {
+        path: filePath,
+        absolutePath,
+        content: contentWithoutLineNumbers,
+        startLine: start + 1,
+        endLine: end,
+        totalLines,
+        refactorReminder,
+        refactorNotice,
+      },
+    };
+  }
+
   private async readSingleFile(
     filePath: string,
     offset: number | undefined,
@@ -74,7 +130,16 @@ export class ReadFileTool implements ITool {
 
       const { uri, absolutePath } = resolvedPath;
 
-      // Check if file is binary
+      // 1. Optimization: Check if file is already open in an editor
+      // This bypasses filesystem checks for open files and ensures we get the freshest in-memory content
+      // It also avoids false "directory" errors if the path is open as a document
+      const openDocument = vscode.workspace.textDocuments.find(doc => doc.uri.toString() === uri.toString());
+      
+      if (openDocument) {
+        return this.processContent(filePath, absolutePath, openDocument.getText(), offset, limit, mode);
+      }
+
+      // 2. Check if file is binary
       if (isBinaryFile(absolutePath)) {
         return {
           success: false,
@@ -82,7 +147,7 @@ export class ReadFileTool implements ITool {
         };
       }
 
-      // Ensure the file exists (prevents reading stale editor content if the file was deleted/reverted)
+      // 3. Ensure the file exists via filesystem
       let stat: vscode.FileStat;
       try {
         stat = await vscode.workspace.fs.stat(uri);
@@ -93,7 +158,7 @@ export class ReadFileTool implements ITool {
         };
       }
 
-      // Check if path is a directory
+      // 4. Check if path is a directory
       if (stat.type === vscode.FileType.Directory) {
         return {
           success: false,
@@ -101,85 +166,12 @@ export class ReadFileTool implements ITool {
         };
       }
 
-      // Check if file is already open in an editor - use that content for freshest state
-      const openDocument = vscode.workspace.textDocuments.find(doc => doc.uri.toString() === uri.toString());
-      let content: string;
+      // 5. Read from filesystem
+      const fileContent = await vscode.workspace.fs.readFile(uri);
+      const content = Buffer.from(fileContent).toString('utf8');
+      
+      return this.processContent(filePath, absolutePath, content, offset, limit, mode);
 
-      if (openDocument) {
-        content = openDocument.getText();
-      } else {
-        const fileContent = await vscode.workspace.fs.readFile(uri);
-        content = Buffer.from(fileContent).toString('utf8');
-      }
-
-      const lines = content.split(/\r?\n/);
-      const totalLines = lines.length;
-
-      // Apply default 500-line limit when no range specified
-      if (offset === undefined && limit === undefined) {
-        const defaultStart = 0;
-        const defaultCount = Math.min(500, lines.length);
-        const defaultEnd = Math.min(defaultStart + defaultCount, lines.length);
-        const selectedLines = lines.slice(defaultStart, defaultEnd);
-        const contentWithoutLineNumbers = selectedLines.join('\n');
-
-        // Add mode-specific reminder for large files
-        const refactorReminder = getLargeFileReminder(totalLines, mode);
-        const refactorNotice = refactorReminder
-          ? {
-            type: 'large_file',
-            lineCount: totalLines,
-            mode,
-            message: refactorReminder,
-          }
-          : undefined;
-
-        return {
-          success: true,
-          data: {
-            path: filePath,
-            absolutePath,
-            content: contentWithoutLineNumbers,
-            startLine: defaultStart + 1,
-            endLine: defaultEnd,
-            totalLines,
-            refactorReminder,
-            refactorNotice,
-          },
-        };
-      }
-
-      // Apply explicit offset/limit if specified
-      const start = offset ? Math.max(0, offset - 1) : 0;
-      const count = limit || lines.length;
-      const end = Math.min(start + count, lines.length);
-      const selectedLines = lines.slice(start, end);
-      const contentWithoutLineNumbers = selectedLines.join('\n');
-
-      // Add mode-specific reminder for large files
-      const refactorReminder = getLargeFileReminder(totalLines, mode);
-      const refactorNotice = refactorReminder
-        ? {
-          type: 'large_file',
-          lineCount: totalLines,
-          mode,
-          message: refactorReminder,
-        }
-        : undefined;
-
-      return {
-        success: true,
-        data: {
-          path: filePath,
-          absolutePath,
-          content: contentWithoutLineNumbers,
-          startLine: start + 1,
-          endLine: end,
-          totalLines,
-          refactorReminder,
-          refactorNotice,
-        },
-      };
     } catch (error) {
       return {
         success: false,

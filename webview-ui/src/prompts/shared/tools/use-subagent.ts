@@ -13,5 +13,5 @@ Parameters:
 IMPORTANT:
 - The sub-agent must be created first using create_subagent
 - Use the EXACT same name you used when creating the sub-agent
-- The sub-agent will work autonomously and return results via report_back`;
+- The sub-agent will work autonomously. Completion is triggered manually via UI, then results are summarized automatically.`;
 }

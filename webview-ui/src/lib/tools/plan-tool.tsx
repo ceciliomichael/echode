@@ -88,7 +88,7 @@ registerToolPlugin({
 /**
  * Truncates content by maximum number of lines
  */
-function truncateByLines(content: string, maxLines: number = 5): string {
+function truncateByLines(content: string, maxLines: number = 3): string {
   if (!content) return '';
   const lines = content.split('\n');
   if (lines.length <= maxLines) {
@@ -111,6 +111,10 @@ function PlanContentSnippet({ content }: { content?: string }) {
       style={{ 
         backgroundColor: 'var(--vscode-textBlockQuote-background)',
         color: 'var(--vscode-input-foreground)',
+        display: '-webkit-box',
+        WebkitLineClamp: 3,
+        WebkitBoxOrient: 'vertical',
+        overflow: 'hidden'
       }}
     >
       {truncated}
@@ -201,10 +205,14 @@ function HandoffModeRenderer({ summary, message }: { summary?: string; message: 
       </div>
       {summary && (
         <div
-          className="py-2 px-3 rounded-lg"
+          className="py-2 px-3 rounded-lg text-xs"
           style={{ 
             backgroundColor: 'var(--vscode-textBlockQuote-background)',
             color: 'var(--vscode-input-foreground)',
+            display: '-webkit-box',
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden'
           }}
         >
           {summary}

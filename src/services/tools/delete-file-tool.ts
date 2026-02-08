@@ -6,7 +6,8 @@ export class DeleteFileTool implements ITool {
   name = 'delete_file';
 
   async execute(parameters: Record<string, unknown>): Promise<ToolExecutionResult> {
-    const filePath = parameters.path as string;
+    const rawFilePath = parameters.path as string;
+    const filePath = rawFilePath?.trim();
 
     if (!filePath) {
       return { success: false, error: 'File path is required' };

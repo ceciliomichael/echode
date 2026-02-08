@@ -10,6 +10,8 @@ import { Dropdown } from '../ui/dropdown';
 import { HistoryDropdown } from './history-dropdown';
 import { useStreamingChat } from '../../hooks/use-streaming-chat';
 import { useTodo } from '../../hooks/use-todo';
+import { summarizeSubAgentSession } from '../../services/sub-agent-summarizer';
+import { vscode } from '../../utils/vscode';
 import { useChatModel } from '../../hooks/use-chat-model';
 import { useChatMode } from '../../hooks/use-chat-mode';
 import { useExtensionMessages } from '../../hooks/use-extension-messages';
@@ -48,6 +50,8 @@ export function ChatContainer({ subAgentConfig }: ChatContainerProps) {
   
   // Sub-agent auto-start tracking
   const hasStartedRef = useRef(false);
+  // Track completed message to avoid duplicate summarization
+  const completedMessageIdRef = useRef<string | null>(null);
 
   const contentWidthClass = 'w-full max-w-3xl';
   const horizontalPaddingClass = 'px-4 sm:px-5 lg:px-6';
@@ -275,6 +279,41 @@ export function ChatContainer({ subAgentConfig }: ChatContainerProps) {
     sendMessage: handleSendMessage,
     saveCurrentSession,
   });
+
+  // Automatic sub-agent completion detection
+  useEffect(() => {
+    if (!subAgentConfig?.enabled) return;
+
+    // Only run if we have started (initial task sent)
+    if (!hasStartedRef.current) return;
+
+    // Check if system is busy
+    if (isStreaming || isExecutingTool || isCompressing || isLoadingSession) return;
+
+    // Check if the last message is from assistant
+    const lastMsg = messages[messages.length - 1];
+    if (!lastMsg || lastMsg.role !== 'assistant') return;
+
+    // Check if we already completed (avoid loop)
+    if (completedMessageIdRef.current === lastMsg.id) return;
+
+    const timer = setTimeout(async () => {
+      // Mark as completing/completed to prevent duplicate firing
+      completedMessageIdRef.current = lastMsg.id;
+
+      try {
+        const summary = await summarizeSubAgentSession(messages, subAgentConfig.initialTask);
+        vscode.postMessage({
+          type: 'completeSubAgentSession',
+          summary
+        });
+      } catch (error) {
+        console.error('Failed to auto-complete sub-agent session:', error);
+      }
+    }, 2000); // 2 second debounce to ensure no further activity
+
+    return () => clearTimeout(timer);
+  }, [subAgentConfig, isStreaming, isExecutingTool, isCompressing, isLoadingSession, messages, hasStartedRef]);
 
   // Disable compression if chat is empty OR only contains compressed history + AI response (essentially a new chat)
   // This prevents users from compressing an empty chat or an already compressed chat with no new meaningful content

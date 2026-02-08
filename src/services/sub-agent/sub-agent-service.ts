@@ -27,9 +27,9 @@ export class SubAgentService {
     allowedTools: string[]
   ): SubAgentDefinition {
     const id = uuidv4();
-    // Ensure allowedTools is an array and report_back is always allowed
+    // Ensure allowedTools is an array (no auto-added tools)
     const toolsList = Array.isArray(allowedTools) ? allowedTools : [];
-    const finalAllowedTools = [...new Set([...toolsList, 'report_back'])];
+    const finalAllowedTools = [...new Set(toolsList)];
     
     const definition: SubAgentDefinition = {
       id,
@@ -96,7 +96,7 @@ export class SubAgentService {
   }
 
   /**
-   * Called by the report_back tool to complete a session
+   * Called to complete a session (e.g. by manual user action in the UI)
    * Returns true if session was found and resolved, false otherwise
    */
   public resolveSession(sessionId: string, result: any): boolean {

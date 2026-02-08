@@ -163,7 +163,8 @@ export class ListFilesTool implements ITool {
   name = 'list_files';
 
   async execute(parameters: Record<string, unknown>): Promise<ToolExecutionResult> {
-    const dirPath = (parameters.path as string) || '';
+    const rawPath = parameters.path as string;
+    const dirPath = rawPath?.trim() || '';
     const rawRecursive = parameters.recursive;
     const recursive = rawRecursive === true || rawRecursive === 'true';
     const rawIgnoreGitignore = parameters.ignoreGitignore;

@@ -71,13 +71,9 @@ export function getSystemPrompt(
     let enabledTools = getEnabledToolsForMode(mode);
     
     // If dynamic allowed tools are specified (e.g., for sub-agents),
-    // filter to ONLY those tools (plus report_back for sub-agents)
+    // filter to ONLY those tools
     if (dynamicAllowedTools && dynamicAllowedTools.length > 0) {
         const allowedSet = new Set(dynamicAllowedTools);
-        // Always allow report_back for sub-agents
-        if (mode === 'sub-agent') {
-            allowedSet.add('report_back');
-        }
         enabledTools = enabledTools.filter(tool => allowedSet.has(tool.id));
     }
     

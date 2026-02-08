@@ -33,15 +33,24 @@ export class PathResolver {
      * @throws Error if no workspace is open
      */
     public static resolve(userPath: string): ResolvedPath {
+        // Trim whitespace/newlines that might be introduced by AI or user input
+        let cleanPath = userPath.trim();
+
+        // Remove trailing slashes (e.g. "file.ts/") to prevent files being treated as directories
+        // Guard against removing root slash (e.g. "C:\" or "/")
+        if (cleanPath.length > 3 && /[/\\]$/.test(cleanPath)) {
+            cleanPath = cleanPath.replace(/[/\\]+$/, '');
+        }
+        
         const folders = vscode.workspace.workspaceFolders;
         if (!folders || folders.length === 0) {
             throw new Error('No workspace folder open');
         }
 
         // 1. Handle Absolute Paths
-        if (path.isAbsolute(userPath)) {
+        if (path.isAbsolute(cleanPath)) {
             // Find which workspace contains this path
-            const normalizedPath = path.normalize(userPath);
+            const normalizedPath = path.normalize(cleanPath);
             // Sort by length desc to match longest (most specific) root first
             const sortedFolders = [...folders].sort((a, b) => b.uri.fsPath.length - a.uri.fsPath.length);
             

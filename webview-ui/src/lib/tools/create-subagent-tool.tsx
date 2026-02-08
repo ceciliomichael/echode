@@ -30,7 +30,7 @@ Parameters:
 IMPORTANT: After creating, call use_subagent with subAgentName set to the EXACT name you used here.`,
         icon: Bot,
         usage: 'Create new sub-agent',
-        formatExample: `${TOOL_FUNCTION_CALLS_OPEN}\n<${TOOL_XML_NAMESPACE}:invoke name="create_subagent">\n<${TOOL_XML_NAMESPACE}:parameter name="name">Code Reviewer</${TOOL_XML_NAMESPACE}:parameter>\n<${TOOL_XML_NAMESPACE}:parameter name="persona">You are an expert code reviewer.</${TOOL_XML_NAMESPACE}:parameter>\n<${TOOL_XML_NAMESPACE}:parameter name="allowedTools">["read_file", "report_back"]</${TOOL_XML_NAMESPACE}:parameter>\n</${TOOL_XML_NAMESPACE}:invoke>\n${TOOL_FUNCTION_CALLS_CLOSE}`,
+        formatExample: `${TOOL_FUNCTION_CALLS_OPEN}\n<${TOOL_XML_NAMESPACE}:invoke name="create_subagent">\n<${TOOL_XML_NAMESPACE}:parameter name="name">Code Reviewer</${TOOL_XML_NAMESPACE}:parameter>\n<${TOOL_XML_NAMESPACE}:parameter name="persona">You are an expert code reviewer.</${TOOL_XML_NAMESPACE}:parameter>\n<${TOOL_XML_NAMESPACE}:parameter name="allowedTools">["read_file", "grep_search"]</${TOOL_XML_NAMESPACE}:parameter>\n</${TOOL_XML_NAMESPACE}:invoke>\n${TOOL_FUNCTION_CALLS_CLOSE}`,
     },
     handler: {
         execute: executeCreateSubAgent,

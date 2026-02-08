@@ -16,7 +16,8 @@ export class GrepSearchTool implements ITool {
 
   async execute(parameters: Record<string, unknown>): Promise<ToolExecutionResult> {
     const query = parameters.query as string;
-    const searchPath = (parameters.path as string) || '';
+    const rawPath = parameters.path as string;
+    const searchPath = rawPath?.trim() || '';
     const filePattern = parameters.includes as string | undefined;
     const isRegex = (parameters.isRegex as boolean) || false;
     const caseSensitive = (parameters.caseSensitive as boolean) || false;

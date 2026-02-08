@@ -58,7 +58,7 @@ export const REVIEW_MODE_TOOL_IDS = [
   'publish_findings',
 ] as const;
 
-/** Sub-agent mode: core file tools + report_back. (Dynamic restrictions applied at runtime) */
+/** Sub-agent mode: core file tools. (Dynamic restrictions applied at runtime) */
 export const SUB_AGENT_MODE_TOOL_IDS = [
   'read_file',
   'write_to_file',
@@ -69,7 +69,6 @@ export const SUB_AGENT_MODE_TOOL_IDS = [
   'todo_write',
   'edit',
   'get_diagnostics',
-  'report_back',
 ] as const;
 
 /**
@@ -91,7 +90,6 @@ const STANDARD_TOOL_IDS = new Set([
   'run_terminal',
   'create_subagent',
   'use_subagent',
-  'report_back',
 ]);
 
 // ============================================================================
@@ -154,8 +152,7 @@ export function getToolsForMode(mode: ChatMode, defaultEnabled = true): Tool[] {
     case 'agent':
     default:
       // Agent mode: all tools EXCEPT plan and publish_findings (mode-exclusive tools)
-      // report_back is sub-agent-only.
-      return allTools.filter(t => t.id !== 'plan' && t.id !== 'publish_findings' && t.id !== 'report_back');
+      return allTools.filter(t => t.id !== 'plan' && t.id !== 'publish_findings');
   }
 }
 

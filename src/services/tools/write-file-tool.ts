@@ -85,7 +85,8 @@ export class WriteFileTool implements ITool {
   async prepareExecution(
     parameters: Record<string, unknown>
   ): Promise<ToolConfirmation | undefined> {
-    const filePath = parameters.path as string;
+    const rawFilePath = parameters.path as string;
+    const filePath = rawFilePath?.trim();
     const rawContent = parameters.content;
 
     if (!filePath || typeof rawContent !== 'string') {
@@ -172,7 +173,8 @@ export class WriteFileTool implements ITool {
     _signal?: AbortSignal,
     mode?: ChatMode
   ): Promise<ToolExecutionResult> {
-    const filePath = parameters.path as string;
+    const rawFilePath = parameters.path as string;
+    const filePath = rawFilePath?.trim();
     const lineCountParam = parameters.line_count as number | undefined;
     const rawContent = parameters.content;
 

@@ -25,7 +25,6 @@ import './tools/publish-findings-tool.tsx';
 import './tools/run-terminal-tool.tsx';
 import './tools/create-subagent-tool.tsx';
 import './tools/use-subagent-tool.tsx';
-import './tools/report-back-tool.tsx';
 
 /**
  * Tool status callback for mid-execution updates

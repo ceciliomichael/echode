@@ -364,19 +364,20 @@ export class PanelManager {
           await handleModelFetch(data, panel);
           break;
         case 'executeTool':
-          // Auto-inject session ID for report_back tool so sub-agent doesn't need to track it
-          if (data.toolName === 'report_back') {
-            const params = (data.parameters && typeof data.parameters === 'object')
-              ? data.parameters
-              : {};
-            data.parameters = { ...params, sessionId: session.id };
-
-            await handleToolExecution(data, panel);
-
+        case 'abortToolExecution':
+          await handleToolExecution(data, panel);
+          break;
+        case 'completeSubAgentSession':
+          // Handle manual completion triggered by "Finish & Report" button
+          {
+            const summary = data.summary as string;
             const currentSession = service.getSession(session.id);
-            if (currentSession?.status === 'completed') {
+            
+            if (currentSession && (currentSession.status === 'pending' || currentSession.status === 'running')) {
+              service.resolveSession(session.id, { summary });
               sessionCompleted = true;
-              // Give the webview time to persist session/tool history so revert can undo sub-agent changes.
+              
+              // Give the webview time to persist session/tool history so revert can undo sub-agent changes
               setTimeout(() => {
                 try {
                   panel.dispose();
@@ -385,10 +386,7 @@ export class PanelManager {
                 }
               }, 500);
             }
-            break;
           }
-
-          await handleToolExecution(data, panel);
           break;
         case 'abortToolExecution':
           await handleToolExecution(data, panel);
