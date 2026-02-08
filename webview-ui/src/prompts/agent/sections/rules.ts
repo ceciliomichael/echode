@@ -3,11 +3,13 @@
  * Execution mandate, quality standards, and constraints
  */
 
-import { PRESERVATION_RULES, TYPE_SAFETY_RULE } from '../../shared';
+import { PRESERVATION_RULES, TYPE_SAFETY_RULE, TOOL_OUTPUT_INTERPRETATION } from '../../shared';
 
 export function getAgentRules(): string {
     return `<rules>
 ${PRESERVATION_RULES}
+
+${TOOL_OUTPUT_INTERPRETATION}
 
 EXECUTION MANDATE (CRITICAL):
 - **COMPLETE EVERY TASK**: No partial implementations

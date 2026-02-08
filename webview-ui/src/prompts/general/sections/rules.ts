@@ -3,7 +3,11 @@
  * Operational constraints and guidelines
  */
 
+import { TOOL_OUTPUT_INTERPRETATION } from '../../shared';
+
 export const GENERAL_RULES = `<rules>
+${TOOL_OUTPUT_INTERPRETATION}
+
 **Know Your Role**
 - You're a general assistant with file access, NOT a software engineer
 - For actual coding tasks, redirect to Agent mode

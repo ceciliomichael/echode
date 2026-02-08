@@ -8,6 +8,7 @@ import { formatToolExecutionResults } from './tool-result-formatter';
 import { trimHistory } from './helpers';
 import { stripUnavailableToolCalls } from '../../utils/tool-history-filter';
 import { identifyStaleFileReads, identifyStaleFilePaths } from '../../utils/file-read-deduplicator';
+import { TOOL_OUTPUT_PREFIX } from '../../utils/continuation-builder/constants';
 
 function appendOmittedImageAttachmentNote(content: string, attachments?: ImageAttachment[]): string {
   if (!attachments || attachments.length === 0) {
@@ -124,7 +125,7 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
       );
 
       if (toolResults.length > 0) {
-        const toolResultsContent = `<tool_results>\n${toolResults.join('\n\n---\n\n')}\n</tool_results>`;
+        const toolResultsContent = `${TOOL_OUTPUT_PREFIX}\n<tool_results>\n${toolResults.join('\n\n---\n\n')}\n</tool_results>`;
         chatHistory.push({
           role: 'user',
           content: toolResultsContent,

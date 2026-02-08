@@ -3,7 +3,11 @@
  * THE critical rule: stay in scope, be complete, don't be lazy
  */
 
+import { TOOL_OUTPUT_INTERPRETATION } from '../../shared';
+
 export const PLAN_SCOPE_RULES = `<scope_discipline>
+${TOOL_OUTPUT_INTERPRETATION}
+
 ## SCOPE & COMPLETENESS
 Plan what was requested - do it WELL and COMPLETELY.
 

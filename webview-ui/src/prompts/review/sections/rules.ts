@@ -3,7 +3,11 @@
  * Constraints for accuracy, scope, quality, and reporting
  */
 
+import { TOOL_OUTPUT_INTERPRETATION } from '../../shared';
+
 export const REVIEW_RULES = `<rules>
+${TOOL_OUTPUT_INTERPRETATION}
+
 ## Accuracy Rules
 - NEVER report issues without HIGH CONFIDENCE unless marked with confidence level
 - ALWAYS include line numbers and code snippets as evidence

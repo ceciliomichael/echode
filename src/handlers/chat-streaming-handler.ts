@@ -5,6 +5,7 @@ import { ChatMessage, ChatStreamSettings } from '../services/llm/llm-provider.in
 import { mergeSameRoleChatMessages } from '../utils/message-merger';
 import { processTodoReminders } from '../utils/todo-reminder';
 import { normalizeKimiToolSectionTags, stripThinkingBlocks } from '../utils/text-normalization';
+import { convertMessagesToolFormat } from '../utils/tool-format-converter';
 import { defaultRegistry } from '../services/tools/tool-registry';
 import { MCPToolAdapter } from '../services/mcp/mcp-tool-adapter';
 import { LLMValidator } from '../services/llm/llm-validator';
@@ -59,12 +60,18 @@ export async function handleChatStream(
     // Validate settings before proceeding
     LLMValidator.validateSettings(settings);
 
+    const isKimiModel = settings.model.toLowerCase().includes('kimi');
+
     // Clone messages for processing
     const processedMessages = messages.map(m => ({ ...m }));
 
+    // Convert tool format based on target model type
+    // This ensures history from different model formats is compatible
+    const convertedMessages = convertMessagesToolFormat(processedMessages, isKimiModel);
+
     // Strip reasoning content (thinking blocks) from history
     // This ensures we don't send previous reasoning steps back to the model
-    for (const message of processedMessages) {
+    for (const message of convertedMessages) {
       if (typeof message.content === 'string') {
         message.content = normalizeKimiToolSectionTags(stripThinkingBlocks(message.content));
       } else if (Array.isArray(message.content)) {
@@ -81,8 +88,8 @@ export async function handleChatStream(
 
     // Process todo reminders: strip old ones, inject fresh (skip for chat mode)
     const messagesWithTodos = chatMode !== 'chat'
-      ? processTodoReminders(processedMessages)
-      : processedMessages;
+      ? processTodoReminders(convertedMessages)
+      : convertedMessages;
 
     // Resolve @[problems](__problems__) mentions with actual diagnostics
     await resolveProblemsMemntions(messagesWithTodos);

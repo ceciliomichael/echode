@@ -20,6 +20,12 @@ export const CONTEXT_TRUNCATION_NOTICE =
   `The initial user task and the most recent exchanges have been retained for continuity.`;
 
 /**
+ * Tool output prefix - prepended to tool result messages
+ * Clearly marks system-generated content to prevent AI confusion with user messages
+ */
+export const TOOL_OUTPUT_PREFIX = '[SYSTEM TOOL OUTPUT]';
+
+/**
  * Continuation instruction appended to tool results
  * Makes it clear that tools have completed and AI should proceed to next step
  */

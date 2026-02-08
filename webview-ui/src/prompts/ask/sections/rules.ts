@@ -3,7 +3,11 @@
  * Constraints to ensure accuracy and prevent hallucinations
  */
 
+import { TOOL_OUTPUT_INTERPRETATION } from '../../shared';
+
 export const ASK_RULES = `<rules>
+${TOOL_OUTPUT_INTERPRETATION}
+
 **Evidence-Based**
 - Every claim must be backed by code you have read.
 - Cite your sources: Mention the specific file paths and function names.

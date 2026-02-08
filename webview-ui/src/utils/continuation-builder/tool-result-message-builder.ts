@@ -3,7 +3,7 @@
  */
 
 import type { ToolResultMessageOptions } from './types';
-import { CONTINUATION_INSTRUCTION } from './constants';
+import { CONTINUATION_INSTRUCTION, TOOL_OUTPUT_PREFIX } from './constants';
 import { truncateDiagnostics } from './diagnostics-utils';
 
 /**
@@ -16,7 +16,7 @@ export function buildToolResultMessage(options: ToolResultMessageOptions): strin
   const boundedDiagnostics = truncateDiagnostics(diagnosticsText);
 
   let message = summaryPrefix || '';
-  message += '<tool_results>\n' + toolResultText + '\n</tool_results>';
+  message += `${TOOL_OUTPUT_PREFIX}\n<tool_results>\n` + toolResultText + '\n</tool_results>';
 
   // Add diagnostics section if present
   if (boundedDiagnostics.trim()) {
