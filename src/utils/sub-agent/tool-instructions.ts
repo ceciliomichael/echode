@@ -173,16 +173,17 @@ When to use:
 Workflow: Edit -> get_diagnostics -> fix errors -> verify`);
   }
 
-  if (allowedTools.includes('delete_file')) {
-    instructions.push(`## delete_file
-Delete a file from the workspace.
+  if (allowedTools.includes('delete')) {
+    instructions.push(`## delete
+Delete a file or folder from the workspace.
 
 Parameters:
-- path: File path (Absolute path required)
+- path: File or folder path (Absolute path required)
+- type: Type to delete - 'file' or 'folder' (required)
 
 When to use:
-- User explicitly requests file deletion
-- Removing obsolete or redundant files
+- User explicitly requests file or folder deletion
+- Removing obsolete or redundant files/folders
 - Cleanup during refactoring
 
 Note: This action cannot be undone. Verify before deleting.`);

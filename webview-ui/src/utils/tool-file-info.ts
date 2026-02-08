@@ -126,8 +126,8 @@ export function getToolFileInfo(
     };
   }
 
-  // Delete file -> Use Trash icon
-  if (toolName === 'delete_file') {
+  // Delete -> Use Trash icon
+  if (toolName === 'delete') {
     const fileName = path ? extractFileName(path) : 'file';
     return {
       displayName: fileName,

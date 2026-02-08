@@ -41,7 +41,7 @@ EchoDE can invoke tools to interact with your workspace:
 | `list_files` | Explore directory structure |
 | `edit` | Make surgical edits to existing files |
 | `write_to_file` | Create new files or complete rewrites |
-| `delete_file` | Remove files safely |
+| `delete` | Remove files safely |
 | `get_diagnostics` | Collect linter and compiler errors |
 | `todo_write` | Create and manage task lists |
 | `todo_read` | Review current task progress |
@@ -176,7 +176,7 @@ EchoDE operates in four distinct modes, each designed for specific workflows. Sw
 The default and most powerful mode. EchoDE has full read-write access to your workspace.
 
 **Available Tools:**
-- File operations: `read_file`, `write_to_file`, `edit`, `delete_file`
+- File operations: `read_file`, `write_to_file`, `edit`, `delete`
 - Search: `grep_search`, `glob_search`, `list_files`
 - Task management: `todo_write`, `todo_read`
 - Quality assurance: `get_diagnostics`

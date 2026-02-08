@@ -1,13 +1,13 @@
 import * as vscode from 'vscode';
 import { defaultRegistry } from '../services/tools/tool-registry';
-import { ReadFileTool, WriteFileTool, ListFilesTool, GrepSearchTool, GlobSearchTool, DeleteFileTool, TodoWriteTool, EditTool, GetDiagnosticsTool, PlanTool, PublishFindingsTool, RunTerminalTool } from '../services/tools';
+import { ReadFileTool, WriteFileTool, ListFilesTool, GrepSearchTool, GlobSearchTool, DeleteTool, TodoWriteTool, EditTool, GetDiagnosticsTool, PlanTool, PublishFindingsTool, RunTerminalTool } from '../services/tools';
 import { getWorkspaceFiles, getAgentsConfig } from '../utils/workspace-scanner';
 import { ApprovalViewerManager } from '../services/approval/approval-viewer-manager';
 import type { ChatMode } from '../services/tools/tool.interface';
 import { getSubAgentService } from '../services/sub-agent/sub-agent-service';
 
 // Tools that modify the file system and require workspace refresh
-const FILE_MODIFYING_TOOLS = new Set(['write_to_file', 'delete_file', 'edit']);
+const FILE_MODIFYING_TOOLS = new Set(['write_to_file', 'delete', 'edit']);
 
 function escapeForLog(value: string): string {
   return value
@@ -64,7 +64,7 @@ function formatToolExecutionDebug(toolName: string, parameters: Record<string, u
 }
 
 // Tools that require approval in Manual Mode
-const APPROVAL_REQUIRED_TOOLS = new Set(['write_to_file', 'delete_file', 'edit', 'run_terminal']);
+const APPROVAL_REQUIRED_TOOLS = new Set(['write_to_file', 'delete', 'edit', 'run_terminal']);
 
 // Optional callback that can be set by the sidebar provider to trigger
 // a refactor/large-file scan after successful write_to_file/edit
@@ -83,7 +83,7 @@ defaultRegistry.registerTool(new WriteFileTool());
 defaultRegistry.registerTool(new ListFilesTool());
 defaultRegistry.registerTool(new GrepSearchTool());
 defaultRegistry.registerTool(new GlobSearchTool());
-defaultRegistry.registerTool(new DeleteFileTool());
+defaultRegistry.registerTool(new DeleteTool());
 defaultRegistry.registerTool(new TodoWriteTool());
 defaultRegistry.registerTool(new EditTool());
 defaultRegistry.registerTool(new GetDiagnosticsTool());

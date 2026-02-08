@@ -34,9 +34,9 @@ export function formatToolResultForAI(
       return `[write_to_file] ${path} → ${action === 'created' ? 'CREATED' : action === 'no_change' ? 'NO CHANGES' : 'MODIFIED'}`;
     }
 
-    case 'delete_file': {
+    case 'delete': {
       const path = data?.path as string;
-      return `[delete_file] ${path} → DELETED`;
+      return `[delete] ${path} → DELETED`;
     }
 
     default:

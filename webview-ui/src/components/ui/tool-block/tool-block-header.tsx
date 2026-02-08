@@ -18,7 +18,7 @@ interface ToolBlockHeaderProps {
 }
 
 // Tools that should display the relative path
-const FILE_TOOLS = ['read_file', 'write_to_file', 'edit', 'delete_file', 'glob_search', 'grep_search', 'get_diagnostics'];
+const FILE_TOOLS = ['read_file', 'write_to_file', 'edit', 'delete', 'glob_search', 'grep_search', 'get_diagnostics'];
 
 export function ToolBlockHeader({
   isExpanded,

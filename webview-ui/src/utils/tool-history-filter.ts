@@ -12,7 +12,7 @@ const STANDARD_TOOLS = [
   'list_files',
   'grep_search',
   'glob_search',
-  'delete_file',
+  'delete',
   'todo_write',
   'edit',
   'get_diagnostics',

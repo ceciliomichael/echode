@@ -65,7 +65,7 @@ export function getToolStatusDisplay(
       executingText = 'Reading';
     } else if (toolName === 'write_to_file') {
       executingText = 'Writing';
-    } else if (toolName === 'delete_file') {
+    } else if (toolName === 'delete') {
       executingText = 'Deleting';
     } else if (toolName === 'list_files') {
       executingText = 'Listing';
@@ -263,7 +263,6 @@ export function getToolStatusDisplay(
   const shortName = displayName
     .replace('List Files', 'List')
     .replace('Grep Search', 'Grep')
-    .replace('Delete File', 'Delete');
 
   return shortName;
 }

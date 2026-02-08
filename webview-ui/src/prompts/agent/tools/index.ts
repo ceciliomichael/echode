@@ -27,7 +27,7 @@ const TOOL_INSTRUCTION_MAP: Record<string, () => string> = {
     'grep_search': () => getGrepSearchInstructions(),
     'glob_search': () => getGlobSearchInstructions(),
     'list_files': () => getListFilesInstructions(),
-    'delete_file': () => getDeleteFileInstructions(),
+    'delete': () => getDeleteFileInstructions(),
     'get_diagnostics': () => getGetDiagnosticsInstructions(),
     'todo_write': () => getTodoWriteInstructions(),
     'create_subagent': getCreateSubagentInstructions,

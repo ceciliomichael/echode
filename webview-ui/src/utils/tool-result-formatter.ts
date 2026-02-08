@@ -58,9 +58,9 @@ ${content}
       return `[edit] ${path} → ${action === 'no_change' ? 'NO CHANGES' : 'APPLIED'}`;
     }
 
-    case 'delete_file': {
+    case 'delete': {
       const path = data.path as string;
-      return `[delete_file] ${path} → DELETED`;
+      return `[delete] ${path} → DELETED`;
     }
 
     case 'grep_search': {

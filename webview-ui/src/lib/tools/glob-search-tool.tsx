@@ -1,4 +1,4 @@
-import { FileSearch } from 'lucide-react';
+import { FileSearch, Folder } from 'lucide-react';
 import type { ToolExecutionResult } from '../../types/tool';
 import { registerToolPlugin } from './tool-plugin';
 import { executeToolViaExtension } from '../tool-utils';
@@ -23,7 +23,9 @@ interface GlobFileItemProps {
 function GlobFileItem({
   file,
 }: GlobFileItemProps) {
-  const iconConfig = getFileIconConfig(file.name);
+  const iconConfig = file.type === 'folder' 
+    ? { icon: Folder, color: 'var(--vscode-charts-blue)' }
+    : getFileIconConfig(file.name);
   const Icon = iconConfig.icon;
 
   return (
@@ -33,7 +35,7 @@ function GlobFileItem({
       iconColor={iconConfig.color}
       startLine={0}
       endLine={0}
-      chipLabel={`${file.lines} lines`}
+      chipLabel={file.type === 'folder' ? 'folder' : `${file.lines} lines`}
       chipStyle={{
         backgroundColor: 'transparent',
         color: 'var(--vscode-descriptionForeground)',

@@ -20,7 +20,7 @@ const TOOL_INSTRUCTION_MAP: Record<string, () => string> = {
     'edit': getEditInstructions,
     'write_to_file': getWriteFileInstructions,
     'list_files': () => getListFilesInstructions(),
-    'delete_file': () => getDeleteFileInstructions(),
+    'delete': () => getDeleteFileInstructions(),
     'get_diagnostics': () => getGetDiagnosticsInstructions(),
 };
 

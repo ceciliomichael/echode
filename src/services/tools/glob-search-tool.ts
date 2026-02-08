@@ -4,6 +4,7 @@ import { ITool, ToolExecutionResult } from './tool.interface';
 import { getAllWorkspaceFolders } from './utils/workspace-utils';
 import { PathResolver } from '../path-resolver';
 import { listFilesWithRipgrep } from '../ripgrep';
+import { DEFAULT_IGNORED_PATTERNS } from '../../constants/excluded-patterns';
 
 interface FileResult {
   path: string;
@@ -88,11 +89,10 @@ export class GlobSearchTool implements ITool {
         const fileResults = await listFilesWithRipgrep(target.searchPath, {
           limit: remainingLimit,
           globPatterns: patterns,
-          excludePatterns: excludes,
+          excludePatterns: [...DEFAULT_IGNORED_PATTERNS, ...(excludes || [])],
         });
 
-        const fileList = fileResults
-          .filter(f => f.type === 'file');
+        const fileList = fileResults;
 
         for (const f of fileList) {
           // If multi-root search, prefix the path with workspace name
@@ -107,11 +107,13 @@ export class GlobSearchTool implements ITool {
             : path.join(target.root, f.path);
           
           let lineCount = 0;
-          try {
-            const content = fs.readFileSync(absolutePath, 'utf8');
-            lineCount = content.split('\n').length;
-          } catch {
-            lineCount = 0;
+          if (f.type === 'file') {
+            try {
+              const content = fs.readFileSync(absolutePath, 'utf8');
+              lineCount = content.split('\n').length;
+            } catch {
+              lineCount = 0;
+            }
           }
 
           results.push({

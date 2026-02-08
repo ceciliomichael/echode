@@ -1,7 +1,7 @@
 /**
  * Plan Mode - Tool Instructions
  * Uses shared tool factories with XML format
- * NOTE: NO editing tools (edit, write_to_file, delete_file) exist in Plan mode
+ * NOTE: NO editing tools (edit, write_to_file, delete) exist in Plan mode
  */
 
 import type { Tool } from '../../../types/tool';

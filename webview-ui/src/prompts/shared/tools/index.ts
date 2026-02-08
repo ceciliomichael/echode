@@ -12,7 +12,7 @@ export { getWriteFileInstructions } from './write-file';
 export { getListFilesInstructions, type ListFilesOptions } from './list-files';
 export { getGrepSearchInstructions, type GrepSearchOptions } from './grep-search';
 export { getGlobSearchInstructions, type GlobSearchOptions } from './glob-search';
-export { getDeleteFileInstructions, type DeleteFileOptions } from './delete-file';
+export { getDeleteFileInstructions, type DeleteFileOptions } from './delete';
 export { getGetDiagnosticsInstructions, type GetDiagnosticsOptions } from './get-diagnostics';
 export { getTodoWriteInstructions, type TodoWriteOptions } from './todo-write';
 export { getRunTerminalInstructions, type RunTerminalOptions } from './run-terminal';

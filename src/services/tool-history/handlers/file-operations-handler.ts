@@ -6,10 +6,10 @@ import { cleanupEmptyDirectories } from '../utils/directory-cleanup';
 import { deleteFileWithRetry, writeFileWithRetry } from '../../../utils/fs-retry';
 
 /**
- * Handler for file operation tools: write_to_file, edit, delete_file
+ * Handler for file operation tools: write_to_file, edit, delete
  */
 export class FileOperationsHandler implements IToolHistoryHandler {
-  readonly supportedTools = ['write_to_file', 'edit', 'delete_file'];
+  readonly supportedTools = ['write_to_file', 'edit', 'delete'];
 
   /**
    * Resolve file path from tool data, prioritizing absolute path if available
@@ -41,8 +41,8 @@ export class FileOperationsHandler implements IToolHistoryHandler {
         return this.undoWriteFile(data, workspacePath);
       case 'edit':
         return this.undoEdit(data, workspacePath);
-      case 'delete_file':
-        return this.undoDeleteFile(data, workspacePath);
+      case 'delete':
+        return this.undoDelete(data, workspacePath);
       default:
         return { success: true };
     }
@@ -58,8 +58,8 @@ export class FileOperationsHandler implements IToolHistoryHandler {
         return this.redoWriteFile(data, workspacePath);
       case 'edit':
         return this.redoEdit(data, workspacePath);
-      case 'delete_file':
-        return this.redoDeleteFile(data, workspacePath);
+      case 'delete':
+        return this.redoDelete(data, workspacePath);
       default:
         return { success: true };
     }
@@ -161,36 +161,46 @@ export class FileOperationsHandler implements IToolHistoryHandler {
   }
 
   /**
-   * Undo delete_file operation
+   * Undo delete operation
    */
-  private async undoDeleteFile(
+  private async undoDelete(
     data: ToolDataRecord,
     workspacePath: string
   ): Promise<ToolHistoryResult> {
     const filePath = data.path as string;
-    const deletedContent = data.deletedContent as string;
+    const deletedContent = data.deletedContent as string | null;
+    const type = data.type as string | undefined;
 
     const absolutePath = this.resolvePath(data, workspacePath);
     const uri = vscode.Uri.file(absolutePath);
 
     try {
-      // Ensure parent directory exists
-      const dirPath = path.dirname(absolutePath);
-      const dirUri = vscode.Uri.file(dirPath);
-      try {
-        await vscode.workspace.fs.createDirectory(dirUri);
-      } catch {
-        // Directory might already exist
-      }
+      if (type === 'folder') {
+        // For folders, recreate the directory
+        await vscode.workspace.fs.createDirectory(uri);
+        return { success: true };
+      } else {
+        // For files, restore content
+        // Ensure parent directory exists
+        const dirPath = path.dirname(absolutePath);
+        const dirUri = vscode.Uri.file(dirPath);
+        try {
+          await vscode.workspace.fs.createDirectory(dirUri);
+        } catch {
+          // Directory might already exist
+        }
 
-      // Restore deleted file (with retry for locked files)
-      const contentBytes = Buffer.from(deletedContent, 'utf8');
-      await writeFileWithRetry(uri, contentBytes);
-      return { success: true };
+        // Restore deleted file (with retry for locked files)
+        if (deletedContent !== null) {
+          const contentBytes = Buffer.from(deletedContent, 'utf8');
+          await writeFileWithRetry(uri, contentBytes);
+        }
+        return { success: true };
+      }
     } catch (error) {
       return {
         success: false,
-        error: `Failed to restore deleted file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: `Failed to restore deleted ${type || 'file'} ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
   }
@@ -273,25 +283,27 @@ export class FileOperationsHandler implements IToolHistoryHandler {
   }
 
   /**
-   * Redo delete_file operation
+   * Redo delete operation
    */
-  private async redoDeleteFile(
+  private async redoDelete(
     data: ToolDataRecord,
     workspacePath: string
   ): Promise<ToolHistoryResult> {
     const filePath = data.path as string;
+    const type = data.type as string | undefined;
 
     const absolutePath = this.resolvePath(data, workspacePath);
     const uri = vscode.Uri.file(absolutePath);
 
     try {
       // Delete with retry logic (handles EBUSY from dev servers/linters)
-      await deleteFileWithRetry(uri);
+      // Use recursive delete for folders
+      await vscode.workspace.fs.delete(uri, { recursive: type === 'folder', useTrash: true });
       return { success: true };
     } catch (error) {
       return {
         success: false,
-        error: `Failed to redo delete file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: `Failed to redo delete ${type || 'file'} ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
   }

@@ -10,7 +10,7 @@ import { getAgentIdentity, AGENT_WORKFLOW, getAgentRules, SUB_AGENT_RULES } from
 
 /** Tools available in Agent mode (ordered by frequency of use) */
 const AGENT_TOOLS = [
-    'read_file', 'edit', 'write_to_file', 'delete_file',
+    'read_file', 'edit', 'write_to_file', 'delete',
     'grep_search', 'glob_search', 'list_files',
     'get_diagnostics', 'todo_write',
     'create_subagent', 'use_subagent'

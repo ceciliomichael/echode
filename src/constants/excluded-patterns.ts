@@ -18,6 +18,7 @@ export const ALWAYS_MENTIONABLE_PATTERNS = [
   '.env*',    // Matches .env, .env.local, .env.production, etc.
   'config*',  // Matches config.yaml, config.json, config.js, etc.
   'AGENTS.md',
+  'data',     // Always allow data folder
 ];
 
 /**

@@ -18,5 +18,5 @@ For file operations:
 - **Reading**: Use \`read_file\` to see contents, \`list_files\` for directories
 - **Creating**: Use \`write_to_file\` for new files
 - **Editing**: Use \`edit\` for targeted changes (preferred) or \`write_to_file\` for full rewrites
-- **Deleting**: Use \`delete_file\` when asked to remove files
+- **Deleting**: Use \`delete\` when asked to remove files
 </workflow>`;

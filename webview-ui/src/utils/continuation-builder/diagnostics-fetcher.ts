@@ -13,7 +13,7 @@ import { executeToolViaExtension } from '../../lib/tool-utils';
 const FILE_MODIFYING_TOOLS = new Set([
   'write_to_file',
   'edit',
-  'delete_file',
+  'delete',
 ]);
 
 /**
@@ -27,7 +27,7 @@ export function extractModifiedFilePaths(toolResults: string[]): string[] {
     // 1) "Tool: edit\nPath: src/file.ts\n..."
     // 2) "[edit] src/file.ts → APPLIED"
 
-    const toolHeaderMatch = result.match(/^Tool: (write_to_file|edit|delete_file)/);
+    const toolHeaderMatch = result.match(/^Tool: (write_to_file|edit|delete)/);
     if (toolHeaderMatch) {
       const pathMatch = result.match(/Path: ([^\n]+)/);
       if (pathMatch && pathMatch[1]) {
@@ -39,7 +39,7 @@ export function extractModifiedFilePaths(toolResults: string[]): string[] {
       continue;
     }
 
-    const bracketMatch = result.match(/^\[(write_to_file|edit|delete_file)\]\s+(.+?)\s+→/);
+    const bracketMatch = result.match(/^\[(write_to_file|edit|delete)\]\s+(.+?)\s+→/);
     if (bracketMatch) {
       const filePath = bracketMatch[2].trim();
       if (!modifiedPaths.includes(filePath)) {

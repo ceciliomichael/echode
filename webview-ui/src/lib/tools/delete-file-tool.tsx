@@ -11,34 +11,35 @@ async function executeDeleteFile(
   parameters: Record<string, unknown>,
   signal?: AbortSignal,
 ): Promise<ToolExecutionResult> {
-  return executeToolViaExtension('delete_file', parameters, signal);
+  return executeToolViaExtension('delete', parameters, signal);
 }
 
-// Register delete_file tool
+// Register delete tool
 registerToolPlugin({
   metadata: {
-    id: 'delete_file',
-    name: 'Delete File',
-    description: 'Delete a file from the workspace',
+    id: 'delete',
+    name: 'Delete',
+    description: 'Delete a file or folder from the workspace',
     icon: Trash2,
     usage: 'Delete a file from the workspace',
-    formatExample: `${TOOL_FUNCTION_CALLS_OPEN}\n<${TOOL_XML_NAMESPACE}:invoke name="delete_file">\n<${TOOL_XML_NAMESPACE}:parameter name="path">src/old-file.ts</${TOOL_XML_NAMESPACE}:parameter>\n</${TOOL_XML_NAMESPACE}:invoke>\n${TOOL_FUNCTION_CALLS_CLOSE}`,
+    formatExample: `${TOOL_FUNCTION_CALLS_OPEN}\n<${TOOL_XML_NAMESPACE}:invoke name="delete">\n<${TOOL_XML_NAMESPACE}:parameter name="path">src/old-file.ts</${TOOL_XML_NAMESPACE}:parameter>\n<${TOOL_XML_NAMESPACE}:parameter name="type">file</${TOOL_XML_NAMESPACE}:parameter>\n</${TOOL_XML_NAMESPACE}:invoke>\n${TOOL_FUNCTION_CALLS_CLOSE}`,
   },
   handler: {
     execute: executeDeleteFile,
   },
   renderer: (data: unknown) => {
     if (typeof data === 'object' && data !== null && 'path' in data) {
-      const result = data as { path: string; action?: string };
+      const result = data as { path: string; type?: string; action?: string };
+      const label = result.type === 'folder' ? 'Deleted folder' : 'Deleted file';
       return (
         <div className="space-y-1">
           <div className="text-xs font-semibold opacity-70 flex items-center gap-2">
             <Trash2 className="w-3.5 h-3.5" />
-            <span>Deleted file: {result.path}</span>
+            <span>{label}: {result.path}</span>
           </div>
         </div>
       );
     }
-    return <div className="text-xs opacity-70">File deleted successfully</div>;
+    return <div className="text-xs opacity-70">Deleted successfully</div>;
   },
 });

@@ -15,7 +15,7 @@ You have access to these file tools for general tasks:
 - \`edit\`: Make targeted edits to specific parts of a file
 
 **Organizing**
-- \`delete_file\`: Remove files you no longer need
+- \`delete\`: Remove files you no longer need
 
 **What these are great for:**
 ✅ Writing and editing documents, notes, markdown files

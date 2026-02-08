@@ -45,7 +45,7 @@ export const GENERAL_MODE_TOOL_IDS = [
   'write_to_file',
   'edit',
   'list_files',
-  'delete_file',
+  'delete',
 ] as const;
 
 /** Review mode: read-only exploration + publish_findings (exclusive tool) */
@@ -65,7 +65,7 @@ export const SUB_AGENT_MODE_TOOL_IDS = [
   'list_files',
   'grep_search',
   'glob_search',
-  'delete_file',
+  'delete',
   'todo_write',
   'edit',
   'get_diagnostics',
@@ -81,7 +81,7 @@ const STANDARD_TOOL_IDS = new Set([
   'list_files',
   'grep_search',
   'glob_search',
-  'delete_file',
+  'delete',
   'todo_write',
   'edit',
   'get_diagnostics',
