@@ -204,24 +204,58 @@ export function extractKimiToolCallsSection(content: string, fromIndex = 0): {
     ? findNextTag(content, sectionContentStart, KIMI_TOOL_CALLS_SECTION_BEGIN_TAGS)
     : null;
 
+  const fallbackLimit = nextSectionStartMatch ? nextSectionStartMatch.index : content.length;
+
+  // If the section end tag is missing, try to stop at the last completed tool call.
+  // This prevents swallowing assistant text that comes after the tool calls.
+  let lastToolCallEnd: { index: number; tag: string } | null = null;
+  if (!endMatch) {
+    let scan = sectionContentStart;
+    while (scan < fallbackLimit) {
+      const m = findNextTag(content, scan, KIMI_TOOL_CALL_END_TAGS);
+      if (!m || m.index >= fallbackLimit) {
+        break;
+      }
+      lastToolCallEnd = m;
+      scan = m.index + m.tag.length;
+    }
+  }
+
   return {
     sectionStart,
     sectionContentStart,
     sectionEnd: endMatch
       ? endMatch.index + endMatch.tag.length
-      : (nextSectionStartMatch ? nextSectionStartMatch.index : content.length),
+      : (lastToolCallEnd
+        ? lastToolCallEnd.index + lastToolCallEnd.tag.length
+        : fallbackLimit),
     hasSectionEnd: !!endMatch,
     sectionBeginTag: startMatch.tag,
     sectionEndTag: endMatch?.tag ?? null,
   };
 }
 
-export function extractKimiToolCalls(content: string): KimiParsedToolCall[] {
-  const section = extractKimiToolCallsSection(content, 0);
-  if (!section) {
-    return [];
-  }
+function extractAllKimiToolCallsSections(content: string): Array<NonNullable<ReturnType<typeof extractKimiToolCallsSection>>> {
+  const sections: Array<NonNullable<ReturnType<typeof extractKimiToolCallsSection>>> = [];
+  let pos = 0;
+  while (pos < content.length) {
+    const section = extractKimiToolCallsSection(content, pos);
+    if (!section) {
+      break;
+    }
+    sections.push(section);
 
+    // Ensure forward progress even with malformed content.
+    const nextPos = Math.max(section.sectionEnd, section.sectionStart + 1);
+    if (nextPos <= pos) {
+      break;
+    }
+    pos = nextPos;
+  }
+  return sections;
+}
+
+function extractKimiToolCallsFromSection(content: string, section: NonNullable<ReturnType<typeof extractKimiToolCallsSection>>): KimiParsedToolCall[] {
   const blocks: KimiParsedToolCall[] = [];
   let i = section.sectionContentStart;
   const limit = section.sectionEnd;
@@ -237,8 +271,6 @@ export function extractKimiToolCalls(content: string): KimiParsedToolCall[] {
     const argBeginMatch = findNextTag(content, headerStart, KIMI_TOOL_CALL_ARGUMENT_BEGIN_TAGS);
     const jsonStart = findJsonObjectStart(content, headerStart, limit);
 
-    // Some malformed Kimi outputs omit <tool_call_argument_begin> and place JSON immediately after the header.
-    // Choose whichever delimiter comes first.
     const headerEnd = (() => {
       if (argBeginMatch && argBeginMatch.index < limit && jsonStart !== -1) {
         return Math.min(argBeginMatch.index, jsonStart);
@@ -272,7 +304,6 @@ export function extractKimiToolCalls(content: string): KimiParsedToolCall[] {
     }
 
     const callEnd = callEndMatch.index;
-
     const argsText = content.slice(argsStart, callEnd);
     const parameters = tryParseJsonObject(argsText);
     const endIndex = callEnd + callEndMatch.tag.length;
@@ -292,26 +323,43 @@ export function extractKimiToolCalls(content: string): KimiParsedToolCall[] {
   return blocks;
 }
 
+export function extractKimiToolCalls(content: string): KimiParsedToolCall[] {
+  const sections = extractAllKimiToolCallsSections(content);
+  if (sections.length === 0) {
+    return [];
+  }
+
+  const blocks: KimiParsedToolCall[] = [];
+  for (const section of sections) {
+    blocks.push(...extractKimiToolCallsFromSection(content, section));
+  }
+  return blocks;
+}
+
 export function extractKimiToolCallsIncremental(content: string): {
   blocks: KimiParsedToolCall[];
   pendingBlocks: KimiPendingToolCall[];
   hasToolCallsClose: boolean;
 } {
-  const section = extractKimiToolCallsSection(content, 0);
-  if (!section) {
+  const sections = extractAllKimiToolCallsSections(content);
+  if (sections.length === 0) {
     return { blocks: [], pendingBlocks: [], hasToolCallsClose: false };
   }
 
-  const blocks = extractKimiToolCalls(content);
+  const blocks: KimiParsedToolCall[] = [];
+  // Collect complete blocks from all sections.
+  for (const section of sections) {
+    blocks.push(...extractKimiToolCallsFromSection(content, section));
+  }
 
+  // Pending blocks only apply to the last section (the one currently being streamed).
   const pendingBlocks: KimiPendingToolCall[] = [];
-  const limit = section.sectionEnd;
+  const lastSection = sections[sections.length - 1];
+  const limit = lastSection.sectionEnd;
 
-  const lastCompleteEnd = blocks.length > 0 ? blocks[blocks.length - 1].endIndex : section.sectionContentStart;
+  const lastCompleteEnd = blocks.length > 0 ? blocks[blocks.length - 1].endIndex : lastSection.sectionContentStart;
 
-  // Emit pending blocks for any remaining begins after the last complete tool call.
-  // This supports parallel calls where 2nd/3rd calls haven't closed yet.
-  let scanPos = lastCompleteEnd;
+  let scanPos = Math.max(lastCompleteEnd, lastSection.sectionContentStart);
   while (scanPos < limit) {
     const callBeginMatch = findNextTag(content, scanPos, KIMI_TOOL_CALL_BEGIN_TAGS);
     if (!callBeginMatch || callBeginMatch.index >= limit) {
@@ -357,7 +405,6 @@ export function extractKimiToolCallsIncremental(content: string): {
         callIndex: parsedHeader.callIndex,
         parameters: tryParseJsonObject(argsText),
       });
-      // No end tag yet; advance to the next <tool_call_begin> if present.
       scanPos = argsStart;
       continue;
     }
@@ -366,10 +413,16 @@ export function extractKimiToolCallsIncremental(content: string): {
     scanPos = callEndMatch.index + callEndMatch.tag.length;
   }
 
+  const implicitlyClosed =
+    !lastSection.hasSectionEnd &&
+    blocks.length > 0 &&
+    pendingBlocks.length === 0 &&
+    content.slice(lastSection.sectionEnd).trim().length === 0;
+
   return {
     blocks,
     pendingBlocks,
-    hasToolCallsClose: section.hasSectionEnd,
+    hasToolCallsClose: lastSection.hasSectionEnd || implicitlyClosed,
   };
 }
 

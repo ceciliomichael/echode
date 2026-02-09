@@ -52,6 +52,8 @@ export function ChatContainer({ subAgentConfig }: ChatContainerProps) {
   const hasStartedRef = useRef(false);
   // Track completed message to avoid duplicate summarization
   const completedMessageIdRef = useRef<string | null>(null);
+  // Track summarization state
+  const [isSummarizing, setIsSummarizing] = useState(false);
 
   const contentWidthClass = 'w-full max-w-3xl';
   const horizontalPaddingClass = 'px-4 sm:px-5 lg:px-6';
@@ -300,6 +302,8 @@ export function ChatContainer({ subAgentConfig }: ChatContainerProps) {
     const timer = setTimeout(async () => {
       // Mark as completing/completed to prevent duplicate firing
       completedMessageIdRef.current = lastMsg.id;
+      
+      setIsSummarizing(true);
 
       try {
         const summary = await summarizeSubAgentSession(messages, subAgentConfig.initialTask);
@@ -309,6 +313,8 @@ export function ChatContainer({ subAgentConfig }: ChatContainerProps) {
         });
       } catch (error) {
         console.error('Failed to auto-complete sub-agent session:', error);
+      } finally {
+        setIsSummarizing(false);
       }
     }, 2000); // 2 second debounce to ensure no further activity
 
@@ -472,6 +478,7 @@ export function ChatContainer({ subAgentConfig }: ChatContainerProps) {
               restoredAttachments={abortedAttachments ?? undefined}
               restoredImageAttachments={abortedImageAttachments ?? undefined}
               subAgentMode={subAgentConfig?.enabled}
+              isSummarizing={isSummarizing}
             />
           </div>
         </div>

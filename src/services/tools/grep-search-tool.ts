@@ -4,6 +4,7 @@ import { getAllWorkspaceFolders } from './utils/workspace-utils';
 import { PathResolver } from '../path-resolver';
 import { regexSearchFilesStructured } from '../ripgrep';
 import { GrepFileResult } from '../ripgrep/types';
+import { DEFAULT_IGNORED_PATTERNS, getExcludePatternsWithGitignore, gitignorePatternsToGlob } from '../../constants/excluded-patterns';
 
 /**
  * Grep Search Tool - Uses native ripgrep for fast regex searching
@@ -84,13 +85,31 @@ export class GrepSearchTool implements ITool {
       let filesWithMatches = 0;
       let aggregatedFormattedString = '';
 
+      // Prepare user excludes
+      const rawExcludes = parameters.excludes;
+      const userExcludes = Array.isArray(rawExcludes) 
+        ? rawExcludes.filter((x): x is string => typeof x === 'string')
+        : (typeof rawExcludes === 'string' ? [rawExcludes] : []);
+
       for (const target of targets) {
+        // Build comprehensive exclude patterns: defaults + gitignore + user-provided
+        const gitignorePatterns = getExcludePatternsWithGitignore(target.root);
+        const normalizedDefaults = gitignorePatternsToGlob(DEFAULT_IGNORED_PATTERNS);
+        const normalizedUserExcludes = gitignorePatternsToGlob(userExcludes);
+
+        const allExcludePatterns = [
+          ...normalizedDefaults,
+          ...gitignorePatterns,
+          ...normalizedUserExcludes
+        ];
+
         const result = await regexSearchFilesStructured(
           target.root,
           target.searchPath,
           query,
           globPattern,
-          caseSensitive
+          caseSensitive,
+          allExcludePatterns
         );
 
         // If searching across multiple workspaces, prefix the file paths

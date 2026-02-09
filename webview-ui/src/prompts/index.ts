@@ -34,7 +34,7 @@ function getEnabledToolsForMode(mode: ChatMode): Tool[] {
     // 2. Apply user preferences
     const userEnabledMap = new Map(savedTools?.map(t => [t.id, t.enabled]));
 
-    let baseTools = modeTools.map(tool => {
+    const baseTools = modeTools.map(tool => {
         if (userEnabledMap.has(tool.id)) {
             // Respect user preference ONLY if it's an allowed tool
             return { ...tool, enabled: userEnabledMap.get(tool.id)! };
@@ -72,12 +72,13 @@ export function getSystemPrompt(
     
     // If dynamic allowed tools are specified (e.g., for sub-agents),
     // filter to ONLY those tools
-    if (dynamicAllowedTools && dynamicAllowedTools.length > 0) {
+    if (dynamicAllowedTools) {
         const allowedSet = new Set(dynamicAllowedTools);
         enabledTools = enabledTools.filter(tool => allowedSet.has(tool.id));
     }
     
     const settings = storageService.getSettings();
+    const model = settings.model;
     
     // Get miscellaneous settings for terminal access
     const fullTerminalAccess = settings.miscellaneousSettings?.enableFullTerminalAccess ?? false;
@@ -87,31 +88,31 @@ export function getSystemPrompt(
             return buildChatPrompt({ workspace, enabledTools });
 
         case 'general':
-            return buildGeneralPrompt({ workspace, enabledTools });
+            return buildGeneralPrompt({ workspace, enabledTools, model });
 
         case 'ask':
-            return buildAskPrompt({ workspace, enabledTools });
+            return buildAskPrompt({ workspace, enabledTools, model });
 
         case 'plan':
-            return buildPlanPrompt({ workspace, enabledTools });
+            return buildPlanPrompt({ workspace, enabledTools, model });
 
         case 'yolo':
             // YOLO mode starts with Plan prompt (internally acts as Plan first)
             // After auto-verify, it switches to Agent prompt via lockedMode
             // Key difference: isYoloMode=true skips clarification questions
-            return buildPlanPrompt({ workspace, enabledTools, isYoloMode: true });
+            return buildPlanPrompt({ workspace, enabledTools, model, isYoloMode: true });
 
         case 'review':
-            return buildReviewPrompt({ workspace, enabledTools });
+            return buildReviewPrompt({ workspace, enabledTools, model });
 
         case 'sub-agent':
             // Use agent prompt builder but enabledTools will be restricted by getEnabledToolsForMode
             // This acts as a fallback if the backend-injected prompt is missing
-            return buildAgentPrompt({ workspace, enabledTools, fullTerminalAccess });
+            return buildAgentPrompt({ workspace, enabledTools, model, fullTerminalAccess });
 
         case 'agent':
         default:
-            return buildAgentPrompt({ workspace, enabledTools, fullTerminalAccess });
+            return buildAgentPrompt({ workspace, enabledTools, model, fullTerminalAccess });
     }
 }
 

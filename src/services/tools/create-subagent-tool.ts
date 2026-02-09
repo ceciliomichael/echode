@@ -35,24 +35,32 @@ export class CreateSubAgentTool implements ITool {
       const name = parameters.name as string;
       const persona = parameters.persona as string;
       const workflow = parameters.workflow as string | undefined;
-      let allowedTools = parameters.allowedTools as string[];
+      let allowedTools = parameters.allowedTools;
 
       // Validate required fields
       if (!name) throw new Error('Name is required');
       if (!persona) throw new Error('Persona is required');
 
-      // Validate allowedTools
+      // Robust parsing for allowedTools
+      if (typeof allowedTools === 'string') {
+        try {
+          // Try parsing as JSON first
+          allowedTools = JSON.parse(allowedTools);
+        } catch {
+          // If simple comma separated string, split and clean
+          allowedTools = (allowedTools as string).split(',').map(t => t.trim().replace(/['"\[\]]/g, ''));
+        }
+      }
+
+      // Final validation to ensure array
       if (!Array.isArray(allowedTools)) {
         allowedTools = []; 
       }
 
-      // Automatically grant todo_write permission as it is a core structural tool
-      if (!allowedTools.includes('todo_write')) {
-        allowedTools.push('todo_write');
-      }
+      const finalAllowedTools = allowedTools as string[];
 
       const service = getSubAgentService();
-      const definition = service.createSubAgent(name, persona, workflow, allowedTools);
+      const definition = service.createSubAgent(name, persona, workflow, finalAllowedTools);
       
       return {
         success: true,

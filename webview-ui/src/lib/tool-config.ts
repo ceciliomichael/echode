@@ -13,6 +13,7 @@ import { getAllToolMetadata, getAllTools as getToolsFromRegistry } from './tool-
 import type { ChatMode } from '../types/chat-mode';
 import { getMcpUsageRules } from '../prompts/shared/mcp-usage-rules';
 import { TOOL_XML_NAMESPACE } from './tool-xml';
+import { getToolFormatKind } from './tool-format-policy';
 
 // ============================================================================
 // MODE-SPECIFIC TOOL SETS
@@ -165,7 +166,7 @@ export function getToolsForMode(mode: ChatMode, defaultEnabled = true): Tool[] {
  * NOTE: This is GENERIC - mode-specific instructions are in prompts/[mode]/tools/
  */
 
-export function getToolSystemPrompt(enabledTools: Tool[]): string {
+export function getToolSystemPrompt(enabledTools: Tool[], model?: string): string {
   if (enabledTools.length === 0) { return ''; }
 
   const allMetadata = getAllToolMetadata();
@@ -223,8 +224,23 @@ ${mcpRules}
 </mcp_tools>`
     : '';
 
-  return `<tools>
-<tool_format>
+  const formatKind = getToolFormatKind(model);
+  const toolFormatSection = formatKind === 'kimi'
+    ? `<tool_format>
+CRITICAL: Tool calls are a STRICT PROTOCOL.
+
+CANONICAL FORMAT:
+<tool_calls_section_begin>
+<tool_call_begin> tool_name:0 <tool_call_argument_begin> {"param":"value"} <tool_call_end>
+<tool_calls_section_end>
+
+RULES:
+1. Output ONLY ONE tool calls section and nothing else.
+2. For parallel tools: include multiple <tool_call_begin>...<tool_call_end> blocks inside the single section.
+3. The argument payload MUST be a single valid JSON object.
+4. Tags must be properly closed.
+</tool_format>`
+    : `<tool_format>
 CRITICAL: You must strictly follow this XML format structure. Valid XML is STRICTLY  required.
 
 WHEN USER ASKS ABOUT FORMAT:
@@ -256,7 +272,10 @@ FORMAT RULES:
 2. Each tool call must be inside a <${TOOL_XML_NAMESPACE}:invoke> tag.
 3. Parameters must be strictly inside <${TOOL_XML_NAMESPACE}:parameter> tags.
 4. XML tags must be properly closed.
-</tool_format>
+</tool_format>`;
+
+  return `<tools>
+${toolFormatSection}
 
 ${availableToolsSection}${mcpToolsSection}
 </tools>`;

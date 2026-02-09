@@ -2,6 +2,7 @@ import { IToolHistoryHandler } from './handler.interface';
 import { ToolHistoryResult, ToolDataRecord } from '../types';
 import { ChatHistoryService } from '../../chat-history-service';
 import { ToolHistoryService } from '../tool-history-service';
+import { getSubAgentService } from '../../sub-agent/sub-agent-service';
 
 export class SubAgentHandler implements IToolHistoryHandler {
   readonly supportedTools = ['use_subagent'];
@@ -81,8 +82,20 @@ export class SubAgentHandler implements IToolHistoryHandler {
       }
 
       if (!sessionId) {
-        console.error('[SubAgentHandler] No session ID found. Data:', JSON.stringify(data));
-        return { success: false, error: 'No session ID found in sub-agent result. Cannot revert sub-agent actions.' };
+        // If the sub-agent is still running, the use_subagent tool execution may not have
+        // returned its final result (which includes sessionId) yet.
+        // In that case, try to fall back to the only active sub-agent session (if unambiguous).
+        const active = getSubAgentService().getActiveSessions();
+        if (active.length === 1) {
+          sessionId = active[0].id;
+          console.warn('[SubAgentHandler] No sessionId in tool result; falling back to active session:', sessionId);
+        } else {
+          console.error('[SubAgentHandler] No session ID found. Data:', JSON.stringify(data));
+          return {
+            success: false,
+            error: 'No session ID found in sub-agent result. Cannot revert sub-agent actions.'
+          };
+        }
       }
       
       console.log('[SubAgentHandler] Reverting session:', sessionId);

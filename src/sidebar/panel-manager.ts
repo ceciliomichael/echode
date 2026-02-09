@@ -251,7 +251,10 @@ export class PanelManager {
     };
 
     // Initialize chat history for this session
-    const systemPromptContent = buildSubAgentPrompt(definition, collaboratorContext, agentsContext, systemInfo);
+    const effectiveSettings = getSettingsService().getEffectiveSettings(workspaceRoot);
+    const systemPromptContent = buildSubAgentPrompt(definition, collaboratorContext, agentsContext, systemInfo, {
+      model: effectiveSettings.model
+    });
 
     const systemMessage = {
       id: 'system',
@@ -499,18 +502,6 @@ export class PanelManager {
         case 'searchFiles':
           await handleSearchFiles(data, panel);
           break;
-        case 'searchWorkflows':
-          await handleSearchWorkflows(data, panel);
-          break;
-        case 'getWorkflows':
-          await handleGetWorkflows(data, panel);
-          break;
-        case 'saveWorkflow':
-          await handleSaveWorkflow(data, panel);
-          break;
-        case 'deleteWorkflow':
-          await handleDeleteWorkflow(data, panel);
-          break;
       }
     });
   }
@@ -524,6 +515,8 @@ export class PanelManager {
     const newUri = vscode.Uri.parse(`echode-diff:${fileName}.new`);
 
     // Register text document content provider
+    // Note: In a real implementation, we should manage this provider globally to avoid leaks/duplicates,
+    // but for this specific method scope it handles the immediate diff request.
     const provider = new class implements vscode.TextDocumentContentProvider {
       provideTextDocumentContent(uri: vscode.Uri): string {
         if (uri.path.endsWith('.old')) {
@@ -548,14 +541,5 @@ export class PanelManager {
       // Clean up after a delay to allow the diff to open
       setTimeout(() => registration.dispose(), 1000);
     }
-  }
-
-  /**
-   * Dispose all panels
-   */
-  public dispose(): void {
-    this._settingsPanel?.dispose();
-    this._mermaidPanels.forEach(panel => panel.dispose());
-    this._mermaidPanels.clear();
   }
 }

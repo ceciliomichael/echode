@@ -26,13 +26,19 @@ export class ToolHistoryService {
     toolExecution: ToolExecutionState,
     workspacePath: string
   ): Promise<{ success: boolean; error?: string }> {
-    if (!toolExecution.result?.success || !toolExecution.result.data) {
-      console.log(`[ToolHistory] Skipping undo for ${toolExecution.toolName} (no successful result)`);
-      return { success: true }; // Nothing to undo if tool failed
+    // Special-case: allow reverting certain tools even if they haven't completed yet.
+    // Example: use_subagent can be reverted while the sub-agent is still running.
+    const allowUndoWithoutSuccessfulResult = toolExecution.toolName === 'use_subagent';
+
+    if (!allowUndoWithoutSuccessfulResult) {
+      if (!toolExecution.result?.success || !toolExecution.result.data) {
+        console.log(`[ToolHistory] Skipping undo for ${toolExecution.toolName} (no successful result)`);
+        return { success: true }; // Nothing to undo if tool failed
+      }
     }
 
     const { toolName } = toolExecution;
-    const data = toolExecution.result.data as Record<string, unknown>;
+    const data = (toolExecution.result?.data ?? {}) as Record<string, unknown>;
     console.log(`[ToolHistory] Undoing ${toolName}:`, data.path || data);
 
     try {

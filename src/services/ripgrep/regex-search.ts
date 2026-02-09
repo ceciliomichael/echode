@@ -24,6 +24,7 @@ export async function regexSearchFiles(
     regex: string,
     filePattern?: string,
     caseSensitive: boolean = false,
+    excludePatterns: string[] = [],
 ): Promise<string> {
     const vscodeAppRoot = vscode.env.appRoot;
     const rgPath = await getBinPath(vscodeAppRoot);
@@ -51,6 +52,11 @@ export async function regexSearchFiles(
     // Using --glob "*" overrides .gitignore behavior, so we omit it when no pattern is specified
     if (filePattern) {
         args.push('--glob', filePattern);
+    }
+
+    // Add exclude patterns (must come AFTER includes to take precedence)
+    for (const pattern of excludePatterns) {
+        args.push('--glob', `!${pattern}`);
     }
 
     args.push('--context', '1', '--no-messages', directoryPath);
@@ -89,6 +95,7 @@ export async function regexSearchFilesStructured(
     regex: string,
     filePattern?: string,
     caseSensitive: boolean = false,
+    excludePatterns: string[] = [],
 ): Promise<GrepSearchResult> {
     const vscodeAppRoot = vscode.env.appRoot;
     const rgPath = await getBinPath(vscodeAppRoot);
@@ -120,6 +127,11 @@ export async function regexSearchFilesStructured(
     // Only add --glob if a specific file pattern is provided
     if (filePattern) {
         args.push('--glob', filePattern);
+    }
+
+    // Add exclude patterns (must come AFTER includes to take precedence)
+    for (const pattern of excludePatterns) {
+        args.push('--glob', `!${pattern}`);
     }
 
     args.push('--context', '1', '--no-messages', directoryPath);

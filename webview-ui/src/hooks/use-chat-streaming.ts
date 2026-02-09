@@ -119,6 +119,9 @@ export function useChatStreaming({
 
     console.log('[sendMessage] STARTING - No concurrent operation detected');
 
+    // If the user previously stopped an execution, re-enable streaming for this new request.
+    isStoppingRef.current = false;
+
     // === SETUP: Initialize state flags ===
     sendingMessageRef.current = true;
     isStreamingRef.current = true;

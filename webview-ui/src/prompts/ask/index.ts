@@ -12,17 +12,18 @@ import { getToolSystemPrompt } from '../../lib/tool-config';
 export interface AskPromptOptions {
     workspace: WorkspaceContext | null;
     enabledTools: Tool[];
+    model?: string;
 }
 
 /**
  * Build the complete Ask mode system prompt
  */
 export function buildAskPrompt(options: AskPromptOptions): string {
-    const { workspace, enabledTools } = options;
+    const { workspace, enabledTools, model } = options;
 
     // Tool format section
     const toolsSection = enabledTools.length > 0
-        ? getToolSystemPrompt(enabledTools)
+        ? getToolSystemPrompt(enabledTools, model)
         : `<tool_status>
 No tools are currently enabled.
 </tool_status>`;

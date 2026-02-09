@@ -26,7 +26,11 @@ export class UseSubAgentTool implements ITool {
 
   constructor(private host: SubAgentHost) {}
 
-  async execute(parameters: Record<string, unknown>): Promise<ToolExecutionResult> {
+  async execute(
+    parameters: Record<string, unknown>,
+    _onProgress?: (progress: unknown) => void,
+    signal?: AbortSignal
+  ): Promise<ToolExecutionResult> {
     try {
       const subAgentName = parameters.subAgentName as string;
       const task = parameters.task as string;
@@ -34,11 +38,38 @@ export class UseSubAgentTool implements ITool {
       const service = getSubAgentService();
       const { session, resultPromise } = service.createSession(subAgentName, task);
 
+      // If the caller aborts (e.g. user clicks Stop in main chat), fail the session and stop.
+      const onAbort = () => {
+        try {
+          service.failSession(session.id, 'Aborted by user.');
+        } catch {
+          // ignore
+        }
+      };
+
+      if (signal?.aborted) {
+        onAbort();
+        return {
+          success: false,
+          error: 'Tool execution aborted',
+        };
+      }
+
+      signal?.addEventListener('abort', onAbort, { once: true });
+
       // Open the sub-agent panel via host interface
       await this.host.openSubAgentPanel(session);
 
       // Wait for the sub-agent to report back
       const result = await resultPromise;
+
+      // If the user aborted while we were waiting, do not return a successful result.
+      if (signal?.aborted) {
+        return {
+          success: false,
+          error: 'Tool execution aborted',
+        };
+      }
 
       return {
         success: true,
@@ -54,6 +85,8 @@ export class UseSubAgentTool implements ITool {
         success: false,
         error: `Error executing sub-agent task: ${errorMessage}`
       };
+    } finally {
+      // no-op; listener auto-cleans via { once: true }
     }
   }
 }

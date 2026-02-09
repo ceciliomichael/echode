@@ -4,7 +4,7 @@ import { ITool, ToolExecutionResult } from './tool.interface';
 import { getAllWorkspaceFolders } from './utils/workspace-utils';
 import { PathResolver } from '../path-resolver';
 import { listFilesWithRipgrep } from '../ripgrep';
-import { DEFAULT_IGNORED_PATTERNS } from '../../constants/excluded-patterns';
+import { DEFAULT_IGNORED_PATTERNS, getExcludePatternsWithGitignore, gitignorePatternsToGlob } from '../../constants/excluded-patterns';
 
 interface FileResult {
   path: string;
@@ -86,10 +86,22 @@ export class GlobSearchTool implements ITool {
         // Adjust limit based on what we already have
         const remainingLimit = maxResults - results.length;
         
+        // Build comprehensive exclude patterns: defaults + gitignore + user-provided
+        // Normalize defaults and user excludes to ensure deep matching (e.g. "node_modules" -> "**/node_modules")
+        const gitignorePatterns = getExcludePatternsWithGitignore(target.root);
+        const normalizedDefaults = gitignorePatternsToGlob(DEFAULT_IGNORED_PATTERNS);
+        const normalizedUserExcludes = gitignorePatternsToGlob(excludes || []);
+
+        const allExcludePatterns = [
+          ...normalizedDefaults,
+          ...gitignorePatterns,
+          ...normalizedUserExcludes
+        ];
+        
         const fileResults = await listFilesWithRipgrep(target.searchPath, {
           limit: remainingLimit,
           globPatterns: patterns,
-          excludePatterns: [...DEFAULT_IGNORED_PATTERNS, ...(excludes || [])],
+          excludePatterns: allExcludePatterns,
         });
 
         const fileList = fileResults;

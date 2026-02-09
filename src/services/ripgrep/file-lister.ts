@@ -34,13 +34,6 @@ export async function listFilesWithRipgrep(
         '--hidden',
     ];
 
-    // All exclusions handled by ripgrep's native .gitignore support
-
-    // Add custom exclude patterns
-    for (const pattern of excludePatterns) {
-        args.push('-g', `!${pattern}`);
-    }
-
     // Add include glob patterns
     // Normalize patterns: add **/ prefix if not present to match anywhere in tree
     // This matches user expectation that "resources/*.json" finds files in any "resources" folder
@@ -53,6 +46,13 @@ export async function listFilesWithRipgrep(
         }
         
         args.push('-g', normalizedPattern);
+    }
+
+    // All exclusions handled by ripgrep's native .gitignore support
+
+    // Add custom exclude patterns (must come AFTER includes to take precedence in ripgrep)
+    for (const pattern of excludePatterns) {
+        args.push('-g', `!${pattern}`);
     }
 
     args.push(workspacePath);
@@ -170,6 +170,21 @@ async function findMatchingDirectories(
 
                 // Check if excluded
                 const isExcluded = excludePatterns.some(exclude => {
+                    // Handle common **/name pattern from gitignore normalization (e.g. **/node_modules)
+                    // This ensures strict directory name matching avoiding partial matches (e.g. "node_modules_test")
+                    if (exclude.startsWith('**/') && !exclude.slice(3).includes('*') && !exclude.slice(3).includes('/')) {
+                        const name = exclude.slice(3); // e.g. "node_modules"
+                        // Check if any path segment matches the name exactly
+                        return entryRelativePath.split('/').includes(name);
+                    }
+
+                    // Handle **/path/** pattern (e.g. **/dist/temp/**)
+                    if (exclude.startsWith('**/') && exclude.endsWith('/**')) {
+                        const inner = exclude.slice(3, -3); // e.g. "dist/temp"
+                        return entryRelativePath === inner || entryRelativePath.startsWith(`${inner}/`) || entryRelativePath.includes(`/${inner}/`);
+                    }
+                    
+                    // Fallback to simple inclusion check
                     return entry.name === exclude || 
                            entryRelativePath.includes(exclude.replace('**/', '').replace('*/', ''));
                 });

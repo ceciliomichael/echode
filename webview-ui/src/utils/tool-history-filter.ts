@@ -59,7 +59,8 @@ export function getFilteredToolsForMode(mode: ChatMode): string[] {
       break;
     case 'agent':
     case 'manual':
-      // Agent and Manual modes have all tools EXCEPT plan
+    case 'sub-agent':
+      // Agent, Manual, and Sub-agent modes have all tools EXCEPT plan
       // We explicitly exclude 'plan' to prevent the agent from trying to manage the plan lifecycle
       allowedTools = new Set(STANDARD_TOOLS.filter(t => t !== 'plan'));
       break;

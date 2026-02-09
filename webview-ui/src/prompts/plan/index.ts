@@ -13,6 +13,7 @@ import { getToolSystemPrompt } from '../../lib/tool-config';
 export interface PlanPromptOptions {
     workspace: WorkspaceContext | null;
     enabledTools: Tool[];
+    model?: string;
     /** YOLO mode: Skip clarification, go straight to planning */
     isYoloMode?: boolean;
 }
@@ -21,11 +22,11 @@ export interface PlanPromptOptions {
  * Build the complete Plan mode system prompt
  */
 export function buildPlanPrompt(options: PlanPromptOptions): string {
-    const { workspace, enabledTools, isYoloMode } = options;
+    const { workspace, enabledTools, isYoloMode, model } = options;
 
     // Tool format section (generic XML format)
     const toolsSection = enabledTools.length > 0
-        ? getToolSystemPrompt(enabledTools)
+        ? getToolSystemPrompt(enabledTools, model)
         : `<tool_status>
 No tools are currently enabled.
 </tool_status>`;

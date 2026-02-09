@@ -13,6 +13,7 @@ import { getToolSystemPrompt } from '../../lib/tool-config';
 export interface GeneralPromptOptions {
     workspace: WorkspaceContext | null;
     enabledTools: Tool[];
+    model?: string;
     /** Enable full terminal access (bypass command restrictions) */
     fullTerminalAccess?: boolean;
 }
@@ -21,11 +22,11 @@ export interface GeneralPromptOptions {
  * Build the complete General mode system prompt
  */
 export function buildGeneralPrompt(options: GeneralPromptOptions): string {
-    const { workspace, enabledTools, fullTerminalAccess = false } = options;
+    const { workspace, enabledTools, fullTerminalAccess = false, model } = options;
 
     // Tool format section
     const toolsSection = enabledTools.length > 0
-        ? getToolSystemPrompt(enabledTools)
+        ? getToolSystemPrompt(enabledTools, model)
         : `<tool_status>
 No tools are currently enabled.
 </tool_status>`;

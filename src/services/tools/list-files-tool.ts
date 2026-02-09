@@ -3,7 +3,7 @@ import * as path from 'path';
 import { ITool, ToolExecutionResult } from './tool.interface';
 import { resolveAbsolutePath, getAllWorkspaceFolders } from './utils/workspace-utils';
 import { PathResolver } from '../path-resolver';
-import { parseGitignore, matchesGitignorePattern } from '../../constants/excluded-patterns';
+import { parseGitignore, matchesGitignorePattern, DEFAULT_IGNORED_PATTERNS } from '../../constants/excluded-patterns';
 
 const MAX_LIST_FILES_RESULTS = 200;
 
@@ -207,7 +207,7 @@ export class ListFilesTool implements ITool {
     // assume they want to see it (they mentioned it explicitly)
     if (!ignoreGitignore && dirPath) {
       try {
-        const rootPatterns = getGitignorePatterns(workspaceRoot);
+        const rootPatterns = [...DEFAULT_IGNORED_PATTERNS, ...getGitignorePatterns(workspaceRoot)];
         // Note: matchesGitignorePattern typically expects relative path
         // We need the path relative to the workspace root
         const relToCheck = path.relative(workspaceRoot, absolutePath);
@@ -230,8 +230,9 @@ export class ListFilesTool implements ITool {
       // Initial contexts: scan up from dirPath
       const contexts: GitignoreContext[] = [];
 
-      // 1. Root context
-      contexts.push({ basePath: '', patterns: getGitignorePatterns(workspaceRoot) });
+      // 1. Root context - Include DEFAULT_IGNORED_PATTERNS here so they apply globally
+      const rootPatterns = [...DEFAULT_IGNORED_PATTERNS, ...getGitignorePatterns(workspaceRoot)];
+      contexts.push({ basePath: '', patterns: rootPatterns });
 
       // 2. Scan intermediate directories if dirPath is set
       // e.g. path='src/tools'. Check 'src/.gitignore' and 'src/tools/.gitignore'

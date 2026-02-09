@@ -6,6 +6,7 @@ import { mergeSameRoleChatMessages } from '../utils/message-merger';
 import { processTodoReminders } from '../utils/todo-reminder';
 import { normalizeKimiToolSectionTags, stripThinkingBlocks } from '../utils/text-normalization';
 import { convertMessagesToolFormat } from '../utils/tool-format-converter';
+import { getToolFormatKind, isKimiModel, getToolProtocolReminder } from '../utils/tool-format-policy';
 import { defaultRegistry } from '../services/tools/tool-registry';
 import { MCPToolAdapter } from '../services/mcp/mcp-tool-adapter';
 import { LLMValidator } from '../services/llm/llm-validator';
@@ -60,14 +61,14 @@ export async function handleChatStream(
     // Validate settings before proceeding
     LLMValidator.validateSettings(settings);
 
-    const isKimiModel = settings.model.toLowerCase().includes('kimi');
+    const targetIsKimi = isKimiModel(settings.model);
 
     // Clone messages for processing
     const processedMessages = messages.map(m => ({ ...m }));
 
     // Convert tool format based on target model type
     // This ensures history from different model formats is compatible
-    const convertedMessages = convertMessagesToolFormat(processedMessages, isKimiModel);
+    const convertedMessages = convertMessagesToolFormat(processedMessages, targetIsKimi);
 
     // Strip reasoning content (thinking blocks) from history
     // This ensures we don't send previous reasoning steps back to the model
@@ -86,8 +87,9 @@ export async function handleChatStream(
     // Get chat mode from settings
     const chatMode = settings.chatMode || 'agent';
 
-    // Process todo reminders: strip old ones, inject fresh (skip for chat mode)
-    const messagesWithTodos = chatMode !== 'chat'
+    // Process todo reminders: strip old ones, inject fresh (skip for chat and sub-agent modes)
+    // Sub-agents should not see the main agent's todo context or be nudged to use todo_write.
+    const messagesWithTodos = (chatMode !== 'chat' && chatMode !== 'sub-agent')
       ? processTodoReminders(convertedMessages)
       : convertedMessages;
 
@@ -122,6 +124,8 @@ export async function handleChatStream(
           
           const allEnabledToolNames = [...standardToolNames, ...mcpToolNames];
           const enabledToolNamesString = allEnabledToolNames.join(', ') || '';
+
+          const isTodoWriteEnabled = enabledStandardTools.some(t => t.id === 'todo_write');
 
           let toolsMessage = '';
           if (allEnabledToolNames.length === 0) {
@@ -164,28 +168,11 @@ export async function handleChatStream(
             modeSpecificReminder = '\n- You are in Q&A mode - answer questions, do NOT implement changes.';
           }
 
-          const isKimiModel = settings.model.toLowerCase().includes('kimi');
-
-          const toolProtocolReminder = isKimiModel
-            ? `- Tool calls are a STRICT PROTOCOL. When using tools, output ONLY ONE tool calls section and nothing else.
-- Canonical format:
-<tool_calls_section_begin>
-<tool_call_begin> tool_name:0 <tool_call_argument_begin> {"param":"value"} <tool_call_end>
-<tool_calls_section_end>
-- For parallel tools: include multiple <tool_call_begin>...<tool_call_end> blocks inside the single section.
-- Argument rules: The argument payload MUST be a single valid JSON object.
-- todo_write argument rules (IMPORTANT):
-  - Use ONLY: {"tasks": [{"id":"1","content":"...","status":"pending"}]}
-  - Do NOT use a todos/markdown parameter.
-- Keep tool syntax internal. Never show it to the user.`
-            : `- Tool calls are a STRICT PROTOCOL. When using tools, output ONLY ONE XML block and nothing else.
-- Canonical format: <${TOOL_XML_NAMESPACE}:function_calls><${TOOL_XML_NAMESPACE}:invoke name="tool_name"><${TOOL_XML_NAMESPACE}:parameter name="param">value</${TOOL_XML_NAMESPACE}:parameter></${TOOL_XML_NAMESPACE}:invoke></${TOOL_XML_NAMESPACE}:function_calls>
-- Allowed tags inside tool XML: <${TOOL_XML_NAMESPACE}:function_calls>, <${TOOL_XML_NAMESPACE}:invoke>, <${TOOL_XML_NAMESPACE}:parameter> (and their matching closing tags) only.
-- Attribute rules: The tool name MUST be in invoke's name attribute. Parameter names MUST be in parameter's name attribute. Use single or double quotes.
-- Value rules: Put the raw value as text content inside <${TOOL_XML_NAMESPACE}:parameter>. Do not wrap values in extra XML. Do not escape into additional nested tool tags.
-- Do not include tool XML as an example, explanation, or inside code blocks/backticks.
-- Do not nest tool XML inside parameters.
-- Keep tool syntax internal. Never show it to the user.`;
+          const toolProtocolReminder = getToolProtocolReminder(
+            getToolFormatKind(settings.model),
+            TOOL_XML_NAMESPACE,
+            { includeTodoWriteRules: isTodoWriteEnabled }
+          );
 
           const systemReminderFinal = `\n\n<system_reminder>\nPlease remember:${toolsMessage}
 ${toolProtocolReminder}

@@ -25,7 +25,7 @@ export interface ChatStreamSettings {
   enabledTools?: Array<{ id: string; enabled: boolean }>;
   zaiThinking?: boolean;
   /** Current chat mode for mode-specific behavior */
-  chatMode?: 'agent' | 'plan' | 'ask' | 'general' | 'chat';
+  chatMode?: 'agent' | 'plan' | 'ask' | 'general' | 'chat' | 'sub-agent';
   /** Timeout in ms before retry if no streaming data received (default: 10000) */
   streamingTimeout?: number;
 }

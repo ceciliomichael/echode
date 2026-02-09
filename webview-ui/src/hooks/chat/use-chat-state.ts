@@ -56,7 +56,7 @@ export function useChatState() {
 
   const abortAndReset = useCallback(() => {
     // Set stopping flag FIRST - this will be checked by async tool execution
-    // Do NOT reset isStoppingRef here - let tool execution code reset it after handling
+    // Do NOT auto-reset isStoppingRef here. It should remain true until the next explicit send.
     isStoppingRef.current = true;
 
     // Abort any pending HTTP request
@@ -77,12 +77,6 @@ export function useChatState() {
     hasStreamedContentRef.current = false;
     setIsExecutingTool(false);
     setIsStreaming(false);
-
-    // Schedule reset of stopping flag after current execution cycle
-    // This ensures async code has time to check the flag
-    setTimeout(() => {
-      isStoppingRef.current = false;
-    }, 100);
 
     return true;
   }, [setIsExecutingTool, setIsStreaming]);

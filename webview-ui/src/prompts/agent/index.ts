@@ -14,6 +14,7 @@ import { getToolSystemPrompt } from '../../lib/tool-config';
 export interface AgentPromptOptions {
     workspace: WorkspaceContext | null;
     enabledTools: Tool[];
+    model?: string;
     /** Enable full terminal access (bypass command restrictions) */
     fullTerminalAccess?: boolean;
 }
@@ -22,14 +23,14 @@ export interface AgentPromptOptions {
  * Build the complete Agent mode system prompt
  */
 export function buildAgentPrompt(options: AgentPromptOptions, modeName: string = 'AGENT'): string {
-    const { workspace, enabledTools, fullTerminalAccess = false } = options;
+    const { workspace, enabledTools, fullTerminalAccess = false, model } = options;
 
     // Filter out hidden tools from the main agent prompt
     const visibleTools = enabledTools.filter(t => !t.hidden);
 
     // Tool format section (generic XML format)
     const toolsSection = visibleTools.length > 0
-        ? getToolSystemPrompt(visibleTools)
+        ? getToolSystemPrompt(visibleTools, model)
         : `<tool_status>
 No tools are currently enabled.
 </tool_status>`;
