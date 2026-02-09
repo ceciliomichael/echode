@@ -37,7 +37,9 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
   const isCompressedHistory = isFirstMessage && content.trimStart().startsWith('<compressed_history>');
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLParagraphElement>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const [isSingleLine, setIsSingleLine] = useState(true);
   const displayContent = stripAttachedFileBlocks(content);
 
   // Track if we were at the bottom BEFORE edit mode changes.
@@ -125,7 +127,22 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
     }
   }, [isEditing]);
 
-  // Removed line detection effect as it is no longer needed with the CSS float strategy
+  // Detect if content is single line for button positioning
+  useEffect(() => {
+    if (!contentRef.current) return;
+
+    const element = contentRef.current;
+    const computedStyle = window.getComputedStyle(element);
+    const lineHeight = parseFloat(computedStyle.lineHeight || '0');
+
+    if (!lineHeight) {
+      setTimeout(() => setIsSingleLine(true), 0);
+      return;
+    }
+
+    const lineCount = element.scrollHeight / lineHeight;
+    setTimeout(() => setIsSingleLine(lineCount <= 1.1), 0);
+  }, [displayContent]);
 
   const handleMessageClick = (e: React.MouseEvent) => {
     // Don't trigger edit if clicking the revert button
@@ -207,6 +224,7 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
       >
         <div className="overflow-hidden">
           <p
+            ref={contentRef}
             className="text-sm leading-relaxed whitespace-pre-wrap break-words pointer-events-none"
             style={{
               display: '-webkit-box',
@@ -222,12 +240,11 @@ export function UserMessage({ content, messageId, onEdit, onUpdate, isEditing, o
         {onRevert && isHovered && (
           <button
             onClick={handleRevertClick}
-            className="absolute right-1.5 bottom-1.5 pl-3 pr-1.5 py-1 rounded-md transition-colors"
+            className={`absolute right-1.5 pl-3 pr-1.5 py-1 rounded-md transition-colors ${isSingleLine ? 'top-1/2 -translate-y-1/2' : 'bottom-1.5'}`}
             style={{
               backgroundColor: 'var(--vscode-editor-background)',
               color: 'var(--vscode-input-foreground)'
             }}
-
             title="Revert to this message"
           >
             <Undo2 size={14} className="hover:opacity-60 transition-opacity" />
