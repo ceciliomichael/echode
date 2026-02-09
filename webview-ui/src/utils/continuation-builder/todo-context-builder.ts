@@ -10,8 +10,14 @@ import type { ChatMode } from '../../types/chat-mode';
  * Mode-aware: Plan mode gets planning-focused instructions, Agent mode gets implementation instructions
  */
 export function buildTodoContext(todos: TodoItem[], _mode: ChatMode = 'agent'): string {
+  void _mode;
   if (todos.length === 0) {
     return '';
+  }
+
+  const completedCount = todos.filter((t) => t.status === 'completed').length;
+  if (completedCount === todos.length) {
+    return '\n\n<current_todo_list>\nAll tasks completed.\n</current_todo_list>';
   }
 
   const pendingTasks = todos

@@ -204,6 +204,7 @@ export class UnifiedChatService implements IChatService {
         window.vscode.postMessage({
           type: 'chatStream',
           requestId,
+          sessionId: window.sessionId,
           messages,
           settings: {
             provider: effectiveProvider as Provider,

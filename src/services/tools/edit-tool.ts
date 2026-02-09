@@ -4,6 +4,7 @@ import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
 import { FileLockManager } from './utils/file-lock-manager';
 import { writeFileWithRetry } from './utils/write-file-with-retry';
 import { openFileInBackground } from './utils/editor-utils';
+import { normalizeToLf } from './utils/newline-utils';
 
 function replaceOnce(original: string, oldString: string, newString: string): { replaced: boolean; content: string; occurrences: number } {
   const firstIndex = original.indexOf(oldString);
@@ -31,10 +32,7 @@ function replaceAllOccurrences(original: string, oldString: string, newString: s
 }
 
 function normalizeToolNewlines(value: string): string {
-  if (!value.includes('\r')) {
-    return value;
-  }
-  return value.replace(/\r\n/g, '\n').replace(/\r/g, '');
+  return normalizeToLf(value);
 }
 
 function toCrlf(value: string): string {
@@ -43,7 +41,7 @@ function toCrlf(value: string): string {
 
 function normalizeForMatch(value: string): string {
   // Normalize file content to LF for matching against old_string, which is commonly sourced from read_file.
-  return value.includes('\r\n') ? value.replace(/\r\n/g, '\n') : value;
+  return normalizeToLf(value);
 }
 
 function applyDocumentEol(value: string, eol: vscode.EndOfLine): string {

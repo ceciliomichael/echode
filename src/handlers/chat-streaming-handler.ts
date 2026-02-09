@@ -20,6 +20,7 @@ interface ChatStreamRequest {
   requestId: string;
   messages: ChatMessage[];
   settings: ChatStreamSettings;
+  sessionId?: string;
 }
 
 // Registry to track active streams for cancellation
@@ -33,7 +34,7 @@ export async function handleChatStream(
   webview: vscode.WebviewView | vscode.WebviewPanel
 ): Promise<void> {
   const request = data as ChatStreamRequest;
-  const { requestId, messages, settings } = request;
+  const { requestId, messages, settings, sessionId } = request;
 
   // Handle abort request
   if ((data as any).type === 'chatStreamAbort') {
@@ -90,7 +91,7 @@ export async function handleChatStream(
     // Process todo reminders: strip old ones, inject fresh (skip for chat and sub-agent modes)
     // Sub-agents should not see the main agent's todo context or be nudged to use todo_write.
     const messagesWithTodos = (chatMode !== 'chat' && chatMode !== 'sub-agent')
-      ? processTodoReminders(convertedMessages)
+      ? processTodoReminders(convertedMessages, sessionId)
       : convertedMessages;
 
     // Resolve @[problems](__problems__) mentions with actual diagnostics

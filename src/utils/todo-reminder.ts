@@ -48,8 +48,8 @@ function stripTodoRemindersFromMessages(messages: ChatMessage[]): ChatMessage[] 
  * Build a todo reminder string from current todo state
  * Returns null if no todos exist or all tasks are completed
  */
-function buildTodoReminder(): string | null {
-  const tasks = TodoWriteTool.getTodos();
+function buildTodoReminder(sessionKey?: string): string | null {
+  const tasks = TodoWriteTool.getTodos(sessionKey);
   if (tasks.length === 0) {
     return null;
   }
@@ -115,12 +115,19 @@ function injectReminderIntoLastUserMessage(messages: ChatMessage[], reminder: st
  * Main entry point: strip old todo reminders and inject fresh one
  * Skips injection if no todos exist
  */
-export function processTodoReminders(messages: ChatMessage[]): ChatMessage[] {
+export function processTodoReminders(messages: ChatMessage[], sessionKey?: string): ChatMessage[];
+export function processTodoReminders(sessionKey: string | undefined, messages: ChatMessage[]): ChatMessage[];
+export function processTodoReminders(
+  arg1: ChatMessage[] | string | undefined,
+  arg2?: string | ChatMessage[]
+): ChatMessage[] {
+  const messages = Array.isArray(arg1) ? arg1 : (Array.isArray(arg2) ? arg2 : []);
+  const sessionKey = typeof arg1 === 'string' ? arg1 : (typeof arg2 === 'string' ? arg2 : undefined);
   // Strip old reminders from ALL messages
   const cleaned = stripTodoRemindersFromMessages(messages);
 
   // Build fresh reminder
-  const reminder = buildTodoReminder();
+  const reminder = buildTodoReminder(sessionKey);
   if (!reminder) {
     return cleaned;
   }

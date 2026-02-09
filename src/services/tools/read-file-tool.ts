@@ -4,6 +4,7 @@ import type { ITool, ToolExecutionResult, ChatMode } from './tool.interface';
 import { PathResolver } from '../path-resolver';
 // import { addLineNumbers } from '../../utils/line-number-utils';
 import { isBinaryFile } from '../../constants/excluded-patterns';
+import { normalizeToLf } from './utils/newline-utils';
 
 /**
  * Get mode-specific large file reminder
@@ -65,7 +66,8 @@ export class ReadFileTool implements ITool {
     limit: number | undefined,
     mode?: ChatMode
   ): ToolExecutionResult {
-    const lines = content.split(/\r?\n/);
+    const normalizedContent = normalizeToLf(content);
+    const lines = normalizedContent.split('\n');
     const totalLines = lines.length;
 
     // Default range values

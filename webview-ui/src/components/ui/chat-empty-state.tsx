@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MessageCircle, CircleCheckBig } from 'lucide-react';
+import { CircleCheckBig } from 'lucide-react';
 import type { ChatSessionSummary } from '../../types/chat-session';
 
 interface ChatEmptyStateProps {
@@ -28,19 +28,11 @@ export function ChatEmptyState({ recentSessions = [], onLoadSession }: ChatEmpty
   return (
     <div className="flex flex-col items-center justify-center h-full min-h-[400px]">
       <div className="text-center space-y-3 px-4">
-        <div
-          className="inline-flex items-center justify-center w-16 h-16 rounded-full border"
-          style={{
-            backgroundColor: 'var(--vscode-input-background)',
-            borderColor: 'var(--vscode-panel-border)'
-          }}
-        >
-          <MessageCircle
-            size={32}
-            strokeWidth={1.5}
-            style={{ color: 'var(--vscode-foreground)', opacity: 0.4 }}
-          />
-        </div>
+        <img
+          src="./icon.svg"
+          alt="Chat"
+          className="w-16 h-16 opacity-80 mx-auto"
+        />
         <div className="space-y-1">
           <h2
             className="text-base font-medium"
