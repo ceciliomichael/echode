@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react';
+import { type FormEvent, useRef } from 'react';
 import { useMessageEditForm } from '../../../hooks/use-message-edit-form';
 import { useWorkflowValidation } from '../../../hooks/use-workflow-validation';
 import { ContextMenu } from '../context-menu';
@@ -51,6 +51,8 @@ export function MessageEditForm({
   contextUsage,
   isSaveMode
 }: MessageEditFormProps) {
+  const inputWrapperRef = useRef<HTMLDivElement>(null);
+
   // Get valid workflow names for slash command validation
   const { validWorkflowNames } = useWorkflowValidation();
 
@@ -110,19 +112,18 @@ export function MessageEditForm({
             canAddMore={attachmentHandler.canAddMore}
           />
 
-          <div className="w-full relative rounded-xl">
+          <div className="w-full relative rounded-xl" ref={inputWrapperRef}>
             {contextMenu.showContextMenu && (
-              <div className="absolute top-full left-0 right-0 z-50 mt-1">
-                <ContextMenu
-                  onSelect={contextMenu.handleMentionSelect}
-                  searchQuery={contextMenu.searchQuery}
-                  onMouseDown={(e) => e.preventDefault()}
-                  selectedIndex={contextMenu.selectedMenuIndex}
-                  setSelectedIndex={contextMenu.setSelectedMenuIndex}
-                  selectedType={contextMenu.selectedMenuType}
-                  dynamicSearchResults={contextMenu.fileSearchResults}
-                />
-              </div>
+              <ContextMenu
+                onSelect={contextMenu.handleMentionSelect}
+                searchQuery={contextMenu.searchQuery}
+                onMouseDown={(e) => e.preventDefault()}
+                selectedIndex={contextMenu.selectedMenuIndex}
+                setSelectedIndex={contextMenu.setSelectedMenuIndex}
+                selectedType={contextMenu.selectedMenuType}
+                dynamicSearchResults={contextMenu.fileSearchResults}
+                anchorRef={inputWrapperRef}
+              />
             )}
             <InputWithHighlights
               ref={textareaRef}

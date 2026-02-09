@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { File, Folder, Info, Zap } from 'lucide-react';
 
 import {
@@ -17,6 +18,7 @@ interface ContextMenuProps {
     setSelectedIndex: (index: number) => void;
     selectedType: ContextMenuOptionType | null;
     dynamicSearchResults?: SearchResult[];
+    anchorRef?: React.RefObject<HTMLElement | null>;
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({
@@ -27,8 +29,35 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     setSelectedIndex,
     selectedType,
     dynamicSearchResults = [],
+    anchorRef,
 }) => {
     const menuRef = useRef<HTMLDivElement>(null);
+    const [position, setPosition] = useState<{ left: number; width: number; bottom: number } | null>(null);
+
+    useLayoutEffect(() => {
+        if (!anchorRef?.current) return;
+
+        const updatePosition = () => {
+            const rect = anchorRef.current!.getBoundingClientRect();
+            setPosition({
+                left: rect.left,
+                width: rect.width,
+                // Place above the anchor with 4px gap
+                bottom: window.innerHeight - rect.top + 4
+            });
+        };
+
+        updatePosition();
+        
+        // Update on scroll or resize
+        window.addEventListener('scroll', updatePosition, true);
+        window.addEventListener('resize', updatePosition);
+
+        return () => {
+            window.removeEventListener('scroll', updatePosition, true);
+            window.removeEventListener('resize', updatePosition);
+        };
+    }, [anchorRef]);
 
     const filteredOptions = useMemo(() => {
         return getContextMenuOptions(searchQuery, selectedType, dynamicSearchResults);
@@ -77,9 +106,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         );
     };
 
-    return (
+    const content = (
         <div
-            className="w-full z-50 overflow-hidden"
+            className={anchorRef ? "fixed z-[9999] overflow-hidden" : "w-full z-[1000] overflow-hidden"}
+            style={anchorRef && position ? { left: position.left, width: position.width, bottom: position.bottom } : {}}
             onMouseDown={onMouseDown}
         >
             <div
@@ -119,4 +149,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             </div>
         </div>
     );
+
+    if (anchorRef) {
+        return createPortal(content, document.body);
+    }
+
+    return content;
 };

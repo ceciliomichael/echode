@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { X, Play } from 'lucide-react';
 import type { QueuedMessage, ImageAttachment } from '../../../types/chat';
 import type { ChatMode } from '../../../types/chat-mode';
@@ -31,8 +31,6 @@ export function QueueItem({
 }: QueueItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const contentRef = useRef<HTMLParagraphElement>(null);
-  const [isSingleLine, setIsSingleLine] = useState(true);
 
   // Clean up content by removing file attachment blocks for display
   const getDisplayContent = (content: string): string => {
@@ -40,23 +38,6 @@ export function QueueItem({
   };
 
   const displayContent = getDisplayContent(message.content);
-
-  // Detect single line for button positioning
-  useEffect(() => {
-    if (!contentRef.current) return;
-
-    const element = contentRef.current;
-    const computedStyle = window.getComputedStyle(element);
-    const lineHeight = parseFloat(computedStyle.lineHeight || '0');
-
-    if (!lineHeight) {
-      setTimeout(() => setIsSingleLine(true), 0);
-      return;
-    }
-
-    const lineCount = element.scrollHeight / lineHeight;
-    setTimeout(() => setIsSingleLine(lineCount <= 1.1), 0);
-  }, [displayContent]);
 
   const handleSave = (content: string, imageAttachments?: ImageAttachment[]) => {
     onUpdate(message.id, content, imageAttachments);
@@ -135,15 +116,15 @@ export function QueueItem({
       {/* Content */}
       <div className="overflow-hidden flex-1 min-w-0">
         <p
-          ref={contentRef}
           className="text-sm leading-relaxed whitespace-pre-wrap break-words pointer-events-none"
           style={{
-            display: '-webkit-box',
-            WebkitBoxOrient: 'vertical',
-            WebkitLineClamp: 5,
+            display: 'block',
+            maxHeight: '8em', // Approx 5 lines
             overflow: 'hidden',
           }}
         >
+          {/* Spacer for top-right buttons - only shown on hover */}
+          {isHovered && <span className="float-right w-10 h-5" />}
           <Mention text={displayContent} />
         </p>
 
@@ -153,7 +134,7 @@ export function QueueItem({
       {/* Action buttons - shown on hover */}
       {isHovered && (
         <div
-          className={`absolute right-2 flex items-center gap-1 ${isSingleLine ? 'top-1/2 -translate-y-1/2' : 'bottom-1.5'}`}
+          className="absolute right-2 top-2 flex items-center gap-1"
         >
           <button
             onClick={handleForceSend}

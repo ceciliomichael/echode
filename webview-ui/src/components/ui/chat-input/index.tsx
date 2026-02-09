@@ -1,4 +1,4 @@
-import type { FormEvent, KeyboardEvent } from 'react';
+import { type FormEvent, type KeyboardEvent, useRef } from 'react';
 import { useChatInput } from '../../../hooks/use-chat-input';
 import { useRefactorScan } from '../../../hooks/use-refactor-scan';
 import { useWorkflowValidation } from '../../../hooks/use-workflow-validation';
@@ -72,6 +72,8 @@ export function ChatInput({
   subAgentMode = false,
   isSummarizing = false
 }: ChatInputProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
   // Show stop button only when streaming OR executing a tool (NOT during compression)
   const showStopButton = isStreaming || isExecutingTool;
 
@@ -166,7 +168,7 @@ export function ChatInput({
       style={{
         paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))",
         backgroundColor: 'var(--vscode-sideBar-background)',
-        zIndex: 10,
+        zIndex: 200,
         position: 'relative',
       }}
     >
@@ -230,19 +232,18 @@ export function ChatInput({
             disabled={disabled}
           />
 
-          <div className="w-full relative rounded-xl">
+          <div className="w-full relative rounded-xl" ref={containerRef}>
             {contextMenu.showContextMenu && (
-              <div className="absolute bottom-full left-0 right-0 z-50 mb-1">
-                <ContextMenu
-                  onSelect={contextMenu.handleMentionSelect}
-                  searchQuery={contextMenu.searchQuery}
-                  onMouseDown={(e) => e.preventDefault()}
-                  selectedIndex={contextMenu.selectedMenuIndex}
-                  setSelectedIndex={contextMenu.setSelectedMenuIndex}
-                  selectedType={contextMenu.selectedMenuType}
-                  dynamicSearchResults={contextMenu.fileSearchResults}
-                />
-              </div>
+              <ContextMenu
+                onSelect={contextMenu.handleMentionSelect}
+                searchQuery={contextMenu.searchQuery}
+                onMouseDown={(e) => e.preventDefault()}
+                selectedIndex={contextMenu.selectedMenuIndex}
+                setSelectedIndex={contextMenu.setSelectedMenuIndex}
+                selectedType={contextMenu.selectedMenuType}
+                dynamicSearchResults={contextMenu.fileSearchResults}
+                anchorRef={containerRef}
+              />
             )}
             <InputWithHighlights
               ref={textareaRef}
