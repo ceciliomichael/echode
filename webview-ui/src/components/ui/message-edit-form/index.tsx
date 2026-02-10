@@ -123,6 +123,7 @@ export function MessageEditForm({
                 selectedType={contextMenu.selectedMenuType}
                 dynamicSearchResults={contextMenu.fileSearchResults}
                 anchorRef={inputWrapperRef}
+                direction={dropdownDirection}
               />
             )}
             <InputWithHighlights

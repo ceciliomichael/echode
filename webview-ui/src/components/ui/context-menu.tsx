@@ -19,6 +19,7 @@ interface ContextMenuProps {
     selectedType: ContextMenuOptionType | null;
     dynamicSearchResults?: SearchResult[];
     anchorRef?: React.RefObject<HTMLElement | null>;
+    direction?: 'up' | 'down';
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({
@@ -30,21 +31,32 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     selectedType,
     dynamicSearchResults = [],
     anchorRef,
+    direction = 'up',
 }) => {
     const menuRef = useRef<HTMLDivElement>(null);
-    const [position, setPosition] = useState<{ left: number; width: number; bottom: number } | null>(null);
+    const [position, setPosition] = useState<Partial<Pick<React.CSSProperties, 'left' | 'width' | 'top' | 'bottom'>> | null>(null);
 
     useLayoutEffect(() => {
         if (!anchorRef?.current) return;
 
         const updatePosition = () => {
             const rect = anchorRef.current!.getBoundingClientRect();
-            setPosition({
-                left: rect.left,
-                width: rect.width,
-                // Place above the anchor with 4px gap
-                bottom: window.innerHeight - rect.top + 4
-            });
+            
+            if (direction === 'down') {
+                setPosition({
+                    left: rect.left,
+                    width: rect.width,
+                    // Place below the anchor with 4px gap
+                    top: rect.bottom + 4
+                });
+            } else {
+                setPosition({
+                    left: rect.left,
+                    width: rect.width,
+                    // Place above the anchor with 4px gap
+                    bottom: window.innerHeight - rect.top + 4
+                });
+            }
         };
 
         updatePosition();
@@ -57,7 +69,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             window.removeEventListener('scroll', updatePosition, true);
             window.removeEventListener('resize', updatePosition);
         };
-    }, [anchorRef]);
+    }, [anchorRef, direction]);
 
     const filteredOptions = useMemo(() => {
         return getContextMenuOptions(searchQuery, selectedType, dynamicSearchResults);
@@ -109,7 +121,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     const content = (
         <div
             className={anchorRef ? "fixed z-[9999] overflow-hidden" : "w-full z-[1000] overflow-hidden"}
-            style={anchorRef && position ? { left: position.left, width: position.width, bottom: position.bottom } : {}}
+            style={anchorRef && position ? { ...position } : {}}
             onMouseDown={onMouseDown}
         >
             <div

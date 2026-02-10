@@ -1,5 +1,6 @@
 import { type FormEvent, type KeyboardEvent, useRef } from 'react';
 import { useChatInput } from '../../../hooks/use-chat-input';
+import { useDropdownDirection } from '../../../hooks/use-dropdown-direction';
 import { useRefactorScan } from '../../../hooks/use-refactor-scan';
 import { useWorkflowValidation } from '../../../hooks/use-workflow-validation';
 import { buildRefactorMessage } from '../../../utils/message-builders';
@@ -73,6 +74,7 @@ export function ChatInput({
   isSummarizing = false
 }: ChatInputProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownDirection = useDropdownDirection(containerRef);
 
   // Show stop button only when streaming OR executing a tool (NOT during compression)
   const showStopButton = isStreaming || isExecutingTool;
@@ -243,6 +245,7 @@ export function ChatInput({
                 selectedType={contextMenu.selectedMenuType}
                 dynamicSearchResults={contextMenu.fileSearchResults}
                 anchorRef={containerRef}
+                direction={dropdownDirection}
               />
             )}
             <InputWithHighlights
