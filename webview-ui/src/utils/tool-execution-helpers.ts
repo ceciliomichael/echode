@@ -1,6 +1,7 @@
 import type { ToolExecutor } from '../lib/tool-executor';
 import type { ParsedToolBlock } from '../types/tool';
 import type { ToolProgress } from '../lib/tool-utils';
+import type { ImageAttachment } from '../types/chat';
 
 /**
  * Progress callback for tools that support streaming progress (run_terminal)
@@ -20,6 +21,16 @@ export function formatToolResultForAI(
   }
 
   const data = result.data as Record<string, unknown> | undefined;
+
+  // Special-case: if read_file returned an image payload, do NOT stringify the full dataUrl.
+  // The image should be forwarded as a multimodal attachment instead.
+  if (toolName === 'read_file' && data?.kind === 'image') {
+    const p = data.path as string | undefined;
+    const mimeType = data.mimeType as string | undefined;
+    const byteLength = data.byteLength as number | undefined;
+    const kb = typeof byteLength === 'number' ? `${Math.round(byteLength / 1024)}KB` : '';
+    return `[read_file] ${p ?? '(image)'} → IMAGE${mimeType ? ` (${mimeType}${kb ? ` ${kb}` : ''})` : ''}`;
+  }
 
   switch (toolName) {
     case 'edit': {
@@ -43,6 +54,49 @@ export function formatToolResultForAI(
       // Other tools (read_file, grep_search, etc.) keep detailed output
       return `Tool: ${toolName}\nResult: ${JSON.stringify(result.data, null, 2)}`;
   }
+}
+
+function parseDataUrl(dataUrl: string): { mimeType: string; base64: string } | null {
+  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) {
+    return null;
+  }
+  return { mimeType: match[1], base64: match[2] };
+}
+
+export function extractImageAttachmentsFromToolResult(
+  toolName: string,
+  result: { success: boolean; data?: unknown; error?: string }
+): ImageAttachment[] {
+  if (!result.success) {
+    return [];
+  }
+
+  if (toolName !== 'read_file' || !result.data || typeof result.data !== 'object') {
+    return [];
+  }
+
+  const data = result.data as { kind?: unknown; dataUrl?: unknown; mimeType?: unknown; byteLength?: unknown; path?: unknown };
+  if (data.kind !== 'image' || typeof data.dataUrl !== 'string') {
+    return [];
+  }
+
+  const parsed = parseDataUrl(data.dataUrl);
+  if (!parsed) {
+    return [];
+  }
+
+  const size = typeof data.byteLength === 'number' ? data.byteLength : 0;
+  const name = typeof data.path === 'string' ? data.path.split('/').pop() : undefined;
+
+  return [
+    {
+      data: parsed.base64,
+      mimeType: (typeof data.mimeType === 'string' ? data.mimeType : parsed.mimeType),
+      size,
+      name,
+    }
+  ];
 }
 
 interface ToolExecutionResult {

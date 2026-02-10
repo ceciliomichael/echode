@@ -196,7 +196,9 @@ export function getAllTools(defaultEnabled = true): Tool[] {
       name: meta.name,
       description: meta.description,
       aiDescription: meta.aiDescription,
-      enabled: meta.id === 'run_terminal' ? false : defaultEnabled,
+      enabled: (meta.id === 'run_terminal' || meta.id === 'create_subagent' || meta.id === 'use_subagent')
+        ? false
+        : defaultEnabled,
       hidden: meta.hidden,
     }));
 }

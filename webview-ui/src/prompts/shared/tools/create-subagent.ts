@@ -13,6 +13,6 @@ Parameters:
 - workflow: (optional) Step-by-step instructions for the sub-agent to follow
 
 IMPORTANT:
-- All three parameters (name, persona, allowedTools) are REQUIRED
+- The first three parameters (name, persona, allowedTools) are REQUIRED
 - After creation, use use_subagent with the SAME name to delegate tasks`;
 }

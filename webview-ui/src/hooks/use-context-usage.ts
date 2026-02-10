@@ -5,7 +5,7 @@ import type { ContextSettings } from '../types/api-settings';
 import { DEFAULT_CONTEXT_SETTINGS } from '../types/api-settings';
 import { formatToolResultForAI } from '../utils/tool-execution-helpers';
 import { stripUnavailableToolCalls, isToolAvailableInMode } from '../utils/tool-history-filter';
-import { parseThinkBlocks } from '../utils/think-block-parser';
+import { removeThinkBlocks } from '../utils/think-block-parser';
 
 /**
  * Estimate token count from text using ~4 characters per token
@@ -22,7 +22,6 @@ export interface ContextUsageResult {
   historyTokens: number;
   compressedHistoryTokens: number;
   toolResultsTokens: number;
-  reasoningTokens: number;
   totalTokens: number;
   maxTokens: number;
 }
@@ -68,7 +67,6 @@ export function useContextUsage({
     let historyTokens = 0;
     let compressedHistoryTokens = 0;
     let toolResultsTokens = 0;
-    let reasoningTokens = 0;
 
     effectiveMessages.forEach((message) => {
       // Check for compressed history
@@ -76,19 +74,8 @@ export function useContextUsage({
         const contentTokens = estimateTokens(message.content);
         compressedHistoryTokens += contentTokens;
       } else {
-        // Apply filtering to content to match what is sent to LLM
-        // Parse think blocks to track reasoning tokens separately
-        const parsed = parseThinkBlocks(message.content);
-        
-        // Calculate tokens for reasoning content
-        parsed.thinkBlocks.forEach(block => {
-          // Add back tags for accurate estimation as they are part of context
-          const blockContent = `<think>${block.content}</think>`;
-          reasoningTokens += estimateTokens(blockContent);
-        });
-
-        // Use text content (without think blocks) for history tokens calculation
-        const contentWithoutThink = parsed.textContent;
+        // Strip think blocks and unavailable tool calls to match what is actually sent to the LLM
+        const contentWithoutThink = removeThinkBlocks(message.content);
         const filteredContent = stripUnavailableToolCalls(contentWithoutThink, mode);
         historyTokens += estimateTokens(filteredContent);
       }
@@ -120,7 +107,8 @@ export function useContextUsage({
       toolResultsTokens += estimateTokens(currentToolResultText);
     }
 
-    const totalTokens = systemPromptTokens + historyTokens + compressedHistoryTokens + toolResultsTokens + reasoningTokens;
+    // Exclude reasoning tokens from total as they are not sent to the model in the context window
+    const totalTokens = systemPromptTokens + historyTokens + compressedHistoryTokens + toolResultsTokens;
     const maxTokens = contextSettings.maxContextTokens;
 
     return {
@@ -128,7 +116,6 @@ export function useContextUsage({
       historyTokens,
       compressedHistoryTokens,
       toolResultsTokens,
-      reasoningTokens,
       totalTokens,
       maxTokens,
     };

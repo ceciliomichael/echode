@@ -26,7 +26,6 @@ export interface ContinuationConfig {
 export interface ToolResultMessageOptions {
   toolResultText: string;
   diagnosticsText: string;
-  todoContext: string;
   summaryPrefix?: string;
 }
 

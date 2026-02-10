@@ -25,6 +25,8 @@ registerToolPlugin({
         description: 'Read file contents',
         aiDescription: `Read file contents.
 
+Supports reading text files and common image formats (returns an image preview).
+
 Parameters:
 - path: (required) File path with extension
 - offset: (optional) Start line (1-based)
@@ -38,6 +40,43 @@ Parameters:
     },
     renderer: (data: unknown) => {
         if (typeof data === 'object' && data !== null) {
+            const maybeImage = data as { kind?: unknown; dataUrl?: unknown };
+            if (maybeImage.kind === 'image' && typeof maybeImage.dataUrl === 'string') {
+                const result = data as {
+                    kind: 'image';
+                    path: string;
+                    mimeType?: string;
+                    byteLength?: number;
+                    dataUrl: string;
+                };
+
+                return (
+                    <div className="flex flex-col flex-1 min-h-0">
+                        <div className="flex-1 min-h-0 flex items-center justify-center">
+                            <div
+                                className="p-2 rounded"
+                                style={{
+                                    backgroundColor: 'var(--vscode-textCodeBlock-background)',
+                                    border: '1px solid var(--vscode-input-border)',
+                                    maxHeight: '100%',
+                                }}
+                            >
+                                <img
+                                    src={result.dataUrl}
+                                    alt={result.path}
+                                    style={{
+                                        maxWidth: '100%',
+                                        maxHeight: '360px',
+                                        objectFit: 'contain',
+                                        display: 'block',
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
             if ('content' in data) {
                 const result = data as {
                     content: string;

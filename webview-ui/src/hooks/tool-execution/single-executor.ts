@@ -9,7 +9,7 @@ import type { ToolBlock, ToolExecutionContext, ExecuteToolAndContinueFn, LockedM
 import { ToolExecutor } from '../../lib/tool-executor';
 import { createToolExecutionState, updateToolExecutionStatus, generateToolExecutionId } from '../../lib/tool-execution-tracker';
 import { buildContinuationHistory } from '../../utils/continuation-builder';
-import { executeToolWithStopCheck, type ToolProgressCallback } from '../../utils/tool-execution-helpers';
+import { executeToolWithStopCheck, extractImageAttachmentsFromToolResult, type ToolProgressCallback } from '../../utils/tool-execution-helpers';
 import { runContinuationStream } from './continuation-stream';
 
 /**
@@ -64,7 +64,6 @@ export async function executeSingleTool(
     setIsExecutingTool,
     updateToolExecution,
     messagesRef,
-    currentTodos,
     mode,
     workspace,
   } = context;
@@ -180,6 +179,16 @@ export async function executeSingleTool(
   // Format tool results for AI context
   const toolResultText = result.toolResults.join('\n\n');
 
+  // If the tool produced image payloads (e.g., read_file on an image), forward them as multimodal attachments.
+  const toolResultAttachments: ImageAttachment[] | undefined = (() => {
+    const executed = result.executedToolCalls[0];
+    if (!executed) {
+      return undefined;
+    }
+    const attachments = extractImageAttachmentsFromToolResult(executed.toolName, executed.result);
+    return attachments.length > 0 ? attachments : undefined;
+  })();
+
   // Check if stopped
   if (isStoppingRef.current) {
     setIsExecutingTool(false);
@@ -200,10 +209,10 @@ export async function executeSingleTool(
     assistantContent,
     toolResultText,
     diagnosticsText,
-    currentTodos,
     mode,
     userAttachments,
-    toolIndex === 0  // isFirstIteration: only add user message on first tool
+    toolIndex === 0,  // isFirstIteration: only add user message on first tool
+    toolResultAttachments
   );
 
   // Continue streaming - clear executing tool state

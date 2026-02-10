@@ -36,8 +36,8 @@ function getMarkdownFormat(): string {
 Track task progress with a CONCISE list.
 
 Parameters:
+- tasks: Array of task objects containing id, content, and status (required)
 
-Use the tasks parameter with objects containing: id, content, status
 Status values: "pending", "in_progress", "completed"
 
 CRITICAL FORMAT REQUIREMENTS:
@@ -54,5 +54,13 @@ STRICT RULES:
 - Group related steps into single tasks
 - Keep descriptions under 10 words
 - No micro-steps - summarize logically related work
-- Update status as you complete steps`;
+- Update status ONLY when it actually changes (pending → in_progress → completed)
+- Do NOT call \`todo_write\` redundantly if no status has changed
+
+COMPLETION RULES (CRITICAL):
+- Mark a task "completed" ONLY after its changes are fully implemented and verified
+- Once ALL tasks are "completed", you are DONE. Give a brief final summary and STOP.
+- Do NOT call \`todo_write\` again after all tasks are already completed
+- Do NOT read more files, explore, or second-guess after all tasks are done
+- Do NOT start new work that wasn't in the original task list`;
 }

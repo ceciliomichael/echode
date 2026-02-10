@@ -7,6 +7,7 @@ import { buildChatMessage } from '../../utils/vision-utils';
 import { formatToolExecutionResults } from './tool-result-formatter';
 import { trimHistory } from './helpers';
 import { stripUnavailableToolCalls } from '../../utils/tool-history-filter';
+import { removeThinkBlocks } from '../../utils/think-block-parser';
 import { identifyStaleFileReads, identifyStaleFilePaths } from '../../utils/file-read-deduplicator';
 import { TOOL_OUTPUT_PREFIX } from '../../utils/continuation-builder/constants';
 
@@ -94,12 +95,12 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
     // Skip hidden messages (except the system message handled above)
     if (msg.hidden) {continue;}
 
-    // Keep reasoning blocks in message content to provide context for the AI
-    // Only strip unavailable tool calls
     let processedContent = msg.content;
 
-    // For assistant messages, strip tool call XML for tools not available in current mode
+    // For assistant messages, strip think blocks so the model gets a clean reasoning slate,
+    // then strip tool call XML for tools not available in current mode
     if (msg.role === 'assistant') {
+      processedContent = removeThinkBlocks(processedContent);
       processedContent = stripUnavailableToolCalls(processedContent, mode);
     }
 

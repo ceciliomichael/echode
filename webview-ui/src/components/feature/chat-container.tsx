@@ -368,16 +368,7 @@ export function ChatContainer({ subAgentConfig }: ChatContainerProps) {
 
   return (
     <>
-      {editingMessageId && (
-        <div
-          className="fixed inset-0 z-40 transition-opacity"
-          style={{
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            backdropFilter: 'blur(0.5px)',
-            pointerEvents: 'none'
-          }}
-        />
-      )}
+      {/* Overlay removed as requested */}
 
       <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--vscode-sideBar-background)' }}>
         <div
@@ -387,7 +378,8 @@ export function ChatContainer({ subAgentConfig }: ChatContainerProps) {
           className="flex-1 overflow-y-auto"
           style={{
             scrollbarGutter: 'stable',
-            overflowAnchor: 'none',
+            // Enable overflow anchor to handle input resizing properly
+            overflowAnchor: 'auto',
           }}
           onClick={() => {
             if (editingMessageId) {
@@ -453,7 +445,7 @@ export function ChatContainer({ subAgentConfig }: ChatContainerProps) {
                 (abortedImageAttachments ? `images-${abortedImageAttachments.length}` : '') ||
                 'default'
               }
-              disabled={!!editingMessageId}
+              disabled={false}
               onSendMessage={handleSendMessage}
               onNewChat={onNewChat}
               isStreaming={isStreaming}

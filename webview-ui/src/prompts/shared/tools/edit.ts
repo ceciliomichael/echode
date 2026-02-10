@@ -18,6 +18,17 @@ Parameters:
 - explanation: Description of the change being made (required)
 - replace_all: Optional boolean; if true replaces all occurrences
 
+### WHEN TO READ BEFORE EDITING
+- **MUST read first**: File not yet seen in this conversation, or file was modified by another tool/step since you last saw it
+- **SKIP reading**: File content is already in the conversation context and hasn't changed since
+- **Rule**: If uncertain whether you have the current content, read first. A wasted read is better than a failed edit.
+
+### CRITICAL: old_string ACCURACY
+- old_string must be copied **exactly** from the file content you have in context (from \`read_file\` output or prior tool results)
+- Include enough surrounding lines to make old_string unique in the file
+- **Never guess or reconstruct** old_string from memory — always use the exact text you can see
+- Whitespace, indentation, and punctuation must match exactly
+
 ### EXAMPLE
 <${TOOL_XML_NAMESPACE}:function_calls>
 <${TOOL_XML_NAMESPACE}:invoke name="edit">

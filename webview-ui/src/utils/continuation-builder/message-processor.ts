@@ -10,6 +10,7 @@ import { MAX_HISTORY_MESSAGES, N_MESSAGES_TO_ALWAYS_KEEP } from './constants';
 import { buildChatMessage } from '../vision-utils';
 import { summarizeToolSections, stripDiagnosticsSections } from '../tool-context-cleaner';
 import { stripUnavailableToolCalls } from '../tool-history-filter';
+import { removeThinkBlocks } from '../think-block-parser';
 import { formatToolResultsForHistory } from '../tool-result-formatter';
 
 function appendOmittedImageAttachmentNote(content: string, msg: Message): string {
@@ -71,8 +72,10 @@ export function processFirstMessage(
     cleanedContent = `<historical_context description="This is the original task/request from the start of the conversation. Focus on the LATEST user message at the bottom for the current instruction.">\n${cleanedContent}\n</historical_context>`;
   }
 
-  // For assistant messages, strip tool call XML for tools not available in current mode
+  // For assistant messages, strip think blocks so the model reasons fresh each turn,
+  // then strip tool call XML for tools not available in current mode
   if (msg.role === 'assistant') {
+    cleanedContent = removeThinkBlocks(cleanedContent);
     cleanedContent = stripUnavailableToolCalls(cleanedContent, mode);
   }
 
@@ -135,8 +138,10 @@ export function processRemainingMessages(
       ? stripDiagnosticsSections(msg.content)
       : msg.content;
 
-    // For assistant messages, strip tool call XML for tools not available in current mode
+    // For assistant messages, strip think blocks so the model reasons fresh each turn,
+    // then strip tool call XML for tools not available in current mode
     if (msg.role === 'assistant') {
+      processedContent = removeThinkBlocks(processedContent);
       processedContent = stripUnavailableToolCalls(processedContent, mode);
     }
 

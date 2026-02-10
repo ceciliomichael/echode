@@ -5,7 +5,6 @@
 
 // Main exports
 export { buildContinuationHistory } from './continuation-history-builder';
-export { buildTodoContext } from './todo-context-builder';
 export { calculateContextTokens } from './token-estimator';
 export { getDiagnosticsForToolResults } from './diagnostics-fetcher';
 

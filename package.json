@@ -2,7 +2,7 @@
   "name": "echode",
   "displayName": "EchoDE Coder",
   "description": "Agentic Coding",
-  "version": "1.2.590",
+  "version": "1.2.614",
   "publisher": "EchoSphere",
   "icon": "icon.png",
   "repository": {
@@ -212,6 +212,7 @@
     "openai": "^6.9.1",
     "react-virtuoso": "^4.17.0",
     "remark-gfm": "^4.0.1",
+    "sharp": "^0.34.5",
     "zod": "^3.25.76"
   }
 }

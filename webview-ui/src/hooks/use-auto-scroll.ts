@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { Message } from '../types/chat';
 
 /**
@@ -28,7 +28,8 @@ export function useAutoScroll(
   messages: Message[],
   shouldAutoScroll: boolean = true,
 ): void {
-  const [userHasScrolled, setUserHasScrolled] = useState(false);
+  // Use ref instead of state to avoid stale closures in ResizeObserver
+  const userHasScrolledRef = useRef(false);
   const numUserMsgs = useMemo(() => getNumUserMsgs(messages), [messages.length]);
   
   // Track if a scroll event was initiated by our code (ResizeObserver)
@@ -36,11 +37,12 @@ export function useAutoScroll(
 
   // Reset scroll state when a new user message is added
   useEffect(() => {
-    setUserHasScrolled(false);
+    userHasScrolledRef.current = false;
   }, [numUserMsgs]);
 
   useEffect(() => {
-    if (!ref.current || messages.length === 0) return;
+    if (!ref.current) return;
+    const elem = ref.current;
 
     const handleScroll = () => {
       // If the scroll was triggered programmatically by us (e.g. ResizeObserver),
@@ -50,31 +52,25 @@ export function useAutoScroll(
       }
 
       // If auto-scroll is disabled (e.g. editing a message), we shouldn't update
-      // the userHasScrolled state. This prevents unnecessary re-renders that can
-      // cause layout thrashing and scroll jumping, while maintaining the pre-edit
-      // scroll state.
+      // the state.
       if (!shouldAutoScroll) {
         return;
       }
 
-      const elem = ref.current;
-      if (!elem) return;
-
-      // Check if user is at the bottom with a permissive threshold (10px)
+      // Check if user is at the bottom with a permissive threshold
       // This accounts for sub-pixel rendering and browser quirks during layout shifts
       const isAtBottom =
-        Math.abs(elem.scrollHeight - elem.scrollTop - elem.clientHeight) < 10;
+        Math.abs(elem.scrollHeight - elem.scrollTop - elem.clientHeight) < 25;
 
       /**
        * We stop auto scrolling if a user manually scrolled up.
        * We resume auto scrolling if a user manually scrolled to the bottom.
        */
-      setUserHasScrolled(!isAtBottom);
+      userHasScrolledRef.current = !isAtBottom;
     };
 
     const resizeObserver = new ResizeObserver(() => {
-      const elem = ref.current;
-      if (!elem || userHasScrolled || !shouldAutoScroll) return;
+      if (!elem || userHasScrolledRef.current || !shouldAutoScroll) return;
       
       // Mark this as a programmatic scroll
       isAutoScrolling.current = true;
@@ -83,25 +79,24 @@ export function useAutoScroll(
       elem.scrollTop = elem.scrollHeight;
       
       // Reset the flag after a short delay to ensure the scroll event has fired/settled.
-      // 50ms is enough to cover the next tick where the scroll event usually fires.
       setTimeout(() => {
         isAutoScrolling.current = false;
       }, 50);
     });
 
-    ref.current.addEventListener('scroll', handleScroll);
+    elem.addEventListener('scroll', handleScroll);
 
-    // Observe the container itself
-    resizeObserver.observe(ref.current);
+    // Observe the container itself (triggers when chat input resizes)
+    resizeObserver.observe(elem);
 
     // Observe all immediate children for size changes
-    Array.from(ref.current.children).forEach((child) => {
+    Array.from(elem.children).forEach((child) => {
       resizeObserver.observe(child);
     });
 
     return () => {
       resizeObserver.disconnect();
-      ref.current?.removeEventListener('scroll', handleScroll);
+      elem.removeEventListener('scroll', handleScroll);
     };
-  }, [ref, messages.length, userHasScrolled, shouldAutoScroll]);
+  }, [ref, shouldAutoScroll]); // Removed messages.length and userHasScrolled from deps
 }

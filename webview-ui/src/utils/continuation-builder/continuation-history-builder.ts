@@ -7,14 +7,14 @@ import type { Message, ImageAttachment } from '../../types/chat';
 import type { ChatMessage } from '../../types/chat-api';
 import type { WorkspaceContext } from '../../types/workspace';
 import type { ChatMode } from '../../types/chat-mode';
-import type { TodoItem } from './types';
 import { CONTEXT_TRUNCATION_NOTICE } from './constants';
 import { getSystemPrompt } from '../prompts';
 import { getCurrentModel, isVisionCapableModel, buildChatMessage } from '../vision-utils';
-import { buildTodoContext } from './todo-context-builder';
+
 import { buildToolResultMessage } from './tool-result-message-builder';
 import { truncateMessageHistory, processFirstMessage, processRemainingMessages } from './message-processor';
 import { injectCodeQualityReminder } from '../code-quality-reminder';
+import { removeThinkBlocks } from '../think-block-parser';
 
 /**
  * Build normal history with full message chain
@@ -27,9 +27,9 @@ function buildNormalHistory(
   assistantContent: string,
   toolResultText: string,
   diagnosticsText: string,
-  currentTodos: TodoItem[],
   mode: ChatMode,
   userAttachments: ImageAttachment[] | undefined,
+  toolResultAttachments: ImageAttachment[] | undefined,
   modelSupportsVision: boolean,
   isFirstIteration: boolean
 ): ChatMessage[] {
@@ -87,23 +87,27 @@ function buildNormalHistory(
   }
 
   // Always add assistant response (contains tool calls)
+  // Strip think blocks so the model reasons fresh without prior reasoning pollution
   continuationHistory.push({
     role: 'assistant',
-    content: assistantContent,
+    content: removeThinkBlocks(assistantContent),
   });
 
   // Build the tool result message in a structured format
-  const todoContext = buildTodoContext(currentTodos, mode);
   const toolResultMessageContent = buildToolResultMessage({
     toolResultText,
     diagnosticsText,
-    todoContext,
   });
 
-  continuationHistory.push({
-    role: 'user',
-    content: toolResultMessageContent,
-  });
+  // If the tool produced images (e.g., read_file on an image), attach them as multimodal inputs.
+  continuationHistory.push(
+    buildChatMessage(
+      'user',
+      toolResultMessageContent,
+      toolResultAttachments,
+      modelSupportsVision
+    )
+  );
 
   return continuationHistory;
 }
@@ -118,10 +122,10 @@ export function buildContinuationHistory(
   assistantContent: string,
   toolResultText: string,
   diagnosticsText: string,
-  currentTodos: TodoItem[],
   mode: ChatMode = 'agent',
   userAttachments?: ImageAttachment[],
-  isFirstIteration: boolean = true
+  isFirstIteration: boolean = true,
+  toolResultAttachments?: ImageAttachment[]
 ): ChatMessage[] {
   // Check if current model supports vision for image attachments
   const currentModel = getCurrentModel();
@@ -135,9 +139,9 @@ export function buildContinuationHistory(
     assistantContent,
     toolResultText,
     diagnosticsText,
-    currentTodos,
     mode,
     userAttachments,
+    toolResultAttachments,
     modelSupportsVision,
     isFirstIteration
   );

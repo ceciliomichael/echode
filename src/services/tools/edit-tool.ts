@@ -6,96 +6,98 @@ import { writeFileWithRetry } from './utils/write-file-with-retry';
 import { openFileInBackground } from './utils/editor-utils';
 import { normalizeToLf } from './utils/newline-utils';
 
-function replaceOnce(original: string, oldString: string, newString: string): { replaced: boolean; content: string; occurrences: number } {
-  const firstIndex = original.indexOf(oldString);
-  if (firstIndex === -1) {
-    return { replaced: false, content: original, occurrences: 0 };
-  }
-
-  const secondIndex = original.indexOf(oldString, firstIndex + oldString.length);
-  if (secondIndex !== -1) {
-    return { replaced: false, content: original, occurrences: 2 };
-  }
-
-  const content = original.slice(0, firstIndex) + newString + original.slice(firstIndex + oldString.length);
-  return { replaced: true, content, occurrences: 1 };
-}
-
-function replaceAllOccurrences(original: string, oldString: string, newString: string): { replaced: boolean; content: string; occurrences: number } {
-  if (!original.includes(oldString)) {
-    return { replaced: false, content: original, occurrences: 0 };
-  }
-
-  const occurrences = original.split(oldString).length - 1;
-  const content = original.split(oldString).join(newString);
-  return { replaced: true, content, occurrences };
-}
-
-function normalizeToolNewlines(value: string): string {
-  return normalizeToLf(value);
-}
-
-function toCrlf(value: string): string {
-  return value.replace(/\n/g, '\r\n');
-}
-
-function normalizeForMatch(value: string): string {
-  // Normalize file content to LF for matching against old_string, which is commonly sourced from read_file.
-  return normalizeToLf(value);
-}
-
-function applyDocumentEol(value: string, eol: vscode.EndOfLine): string {
-  return eol === vscode.EndOfLine.CRLF ? toCrlf(value) : value;
-}
-
-function countMatches(value: string, pattern: RegExp): number {
-  const matches = value.match(pattern);
-  return matches ? matches.length : 0;
-}
-
-function buildNotFoundHint(
-  rawOldString: string,
-  normalizedOldString: string,
-  fileHasTabs: boolean,
-  fileUsesCrlf: boolean,
-): string {
-  const rawCarriageReturns = countMatches(rawOldString, /\r/g);
-  const normalizedTabs = countMatches(normalizedOldString, /\t/g);
-
-  const hints: string[] = [];
-
-  if (rawCarriageReturns > 0) {
-    hints.push('Detected Windows-style carriage returns (\\r) in old_string; they were normalized.');
-  }
-
-  if (fileUsesCrlf && rawCarriageReturns === 0) {
-    hints.push('The file appears to use CRLF (\\r\\n) line endings; old_string may have been provided with LF (\\n).');
-  }
-
-  if (fileHasTabs) {
-    if (normalizedTabs === 0) {
-      hints.push('The file contains tab characters. If indentation uses tabs, copying visible spaces instead of actual tab characters will not match.');
+/**
+ * Build a mapping from normalized (LF) string positions back to original string positions.
+ * For every index in the normalized string, maps[i] = corresponding index in the original.
+ * This lets us find a match in LF-normalized space and splice the original content directly.
+ */
+function buildIndexMap(original: string): number[] {
+  const map: number[] = [];
+  let oi = 0;
+  while (oi < original.length) {
+    if (original[oi] === '\r' && oi + 1 < original.length && original[oi + 1] === '\n') {
+      // CRLF: map this normalized position to the \r position, skip \r
+      map.push(oi);
+      oi += 2; // skip \r\n, mapped as single \n
     } else {
-      hints.push('old_string contains tab characters; ensure the file actually uses tabs at those positions.');
+      map.push(oi);
+      oi += 1;
     }
   }
-
-  return hints.join(' ');
+  // Sentinel: map the end-of-normalized-string to end-of-original
+  map.push(original.length);
+  return map;
 }
 
-function tryReplaceWithLineEndingFallback(
+/**
+ * Find all occurrences of `needle` in `haystack`, returning start indices.
+ */
+function findAllIndices(haystack: string, needle: string): number[] {
+  const indices: number[] = [];
+  let pos = 0;
+  while (pos <= haystack.length - needle.length) {
+    const idx = haystack.indexOf(needle, pos);
+    if (idx === -1) { break; }
+    indices.push(idx);
+    pos = idx + needle.length;
+  }
+  return indices;
+}
+
+interface ReplaceResult {
+  replaced: boolean;
+  content: string;
+  occurrences: number;
+}
+
+/**
+ * Core replacement logic. Works by:
+ * 1. Normalizing both file content and old_string to LF for matching
+ * 2. Finding match positions in normalized space
+ * 3. Mapping those positions back to the original content
+ * 4. Splicing the original content directly, preserving all original line endings outside the edit
+ * 5. new_string uses the file's detected EOL style
+ */
+function replaceInOriginal(
   originalContent: string,
   oldString: string,
   newString: string,
   replaceAll: boolean,
-): { replaced: boolean; content: string; occurrences: number } {
-  const normalizedOriginal = normalizeForMatch(originalContent);
-  const normalizedOld = normalizeToolNewlines(oldString);
-  const normalizedNew = normalizeToolNewlines(newString);
+): ReplaceResult {
+  const normalizedContent = normalizeToLf(originalContent);
+  const normalizedOld = normalizeToLf(oldString);
+  const normalizedNew = normalizeToLf(newString);
 
-  return replaceAll
-    ? replaceAllOccurrences(normalizedOriginal, normalizedOld, normalizedNew)
-    : replaceOnce(normalizedOriginal, normalizedOld, normalizedNew);
+  const matches = findAllIndices(normalizedContent, normalizedOld);
+
+  if (matches.length === 0) {
+    return { replaced: false, content: originalContent, occurrences: 0 };
+  }
+
+  if (!replaceAll && matches.length > 1) {
+    return { replaced: false, content: originalContent, occurrences: matches.length };
+  }
+
+  // Detect file's line ending to apply to new_string
+  const usesCrlf = originalContent.includes('\r\n');
+  const finalNew = usesCrlf ? normalizedNew.replace(/\n/g, '\r\n') : normalizedNew;
+
+  // Build index map from normalized positions → original positions
+  const indexMap = buildIndexMap(originalContent);
+
+  // Apply replacements from end to start so indices stay valid
+  const toReplace = replaceAll ? matches : [matches[0]];
+  let result = originalContent;
+
+  for (let i = toReplace.length - 1; i >= 0; i--) {
+    const normStart = toReplace[i];
+    const normEnd = normStart + normalizedOld.length;
+    const origStart = indexMap[normStart];
+    const origEnd = indexMap[normEnd];
+    result = result.slice(0, origStart) + finalNew + result.slice(origEnd);
+  }
+
+  return { replaced: true, content: result, occurrences: toReplace.length };
 }
 
 export class EditTool implements ITool {
@@ -106,8 +108,8 @@ export class EditTool implements ITool {
   ): Promise<ToolConfirmation | undefined> {
     const rawFilePath = parameters.file_path as string;
     const filePath = rawFilePath?.trim();
-    const oldString = normalizeToolNewlines(parameters.old_string as string);
-    const newString = normalizeToolNewlines(parameters.new_string as string);
+    const oldString = parameters.old_string as string;
+    const newString = parameters.new_string as string;
     const explanation = parameters.explanation as string | undefined;
     const replaceAll = (parameters.replace_all as boolean | undefined) ?? false;
 
@@ -115,11 +117,11 @@ export class EditTool implements ITool {
       return undefined;
     }
 
-    if (oldString.length === 0) {
+    if (normalizeToLf(oldString).length === 0) {
       return undefined;
     }
 
-    if (newString === oldString) {
+    if (normalizeToLf(newString) === normalizeToLf(oldString)) {
       return undefined;
     }
 
@@ -135,13 +137,11 @@ export class EditTool implements ITool {
       const document = await vscode.workspace.openTextDocument(uri);
       const originalContent = document.getText();
 
-      const replacement = tryReplaceWithLineEndingFallback(originalContent, oldString, newString, replaceAll);
+      const replacement = replaceInOriginal(originalContent, oldString, newString, replaceAll);
 
       if (!replacement.replaced) {
         return undefined;
       }
-
-      const newContent = applyDocumentEol(replacement.content, document.eol);
 
       return {
         toolName: this.name,
@@ -149,7 +149,7 @@ export class EditTool implements ITool {
         message: explanation ? `This will edit "${filePath}": ${explanation}` : `This will edit "${filePath}".`,
         diff: {
           oldContent: originalContent,
-          newContent,
+          newContent: replacement.content,
           fileName: filePath,
         },
         parameters,
@@ -167,10 +167,8 @@ export class EditTool implements ITool {
   ): Promise<ToolExecutionResult> {
     const rawFilePath = parameters.file_path as string;
     const filePath = rawFilePath?.trim();
-    const rawOldString = parameters.old_string as string;
-    const rawNewString = parameters.new_string as string;
-    const oldString = normalizeToolNewlines(rawOldString);
-    const newString = normalizeToolNewlines(rawNewString);
+    const oldString = parameters.old_string as string;
+    const newString = parameters.new_string as string;
     const explanation = parameters.explanation as string | undefined;
     const replaceAll = (parameters.replace_all as boolean | undefined) ?? false;
 
@@ -186,11 +184,14 @@ export class EditTool implements ITool {
       return { success: false, error: 'new_string must be a string' };
     }
 
-    if (oldString.length === 0) {
+    const normalizedOld = normalizeToLf(oldString);
+    const normalizedNew = normalizeToLf(newString);
+
+    if (normalizedOld.length === 0) {
       return { success: false, error: 'old_string must be non-empty' };
     }
 
-    if (newString === oldString) {
+    if (normalizedNew === normalizedOld) {
       return { success: false, error: 'new_string must be different from old_string' };
     }
 
@@ -200,8 +201,6 @@ export class EditTool implements ITool {
     }
 
     const absolutePath = resolveAbsolutePath(filePath, workspaceRoot);
-
-    console.log(`[EditTool] Resolved path file=${filePath} absolutePath=${absolutePath}`);
 
     let acquired = FileLockManager.tryAcquire(absolutePath);
     if (!acquired) {
@@ -224,35 +223,17 @@ export class EditTool implements ITool {
       }
 
       const originalContent = document.getText();
-      const eol = document.eol === vscode.EndOfLine.CRLF ? 'CRLF' : 'LF';
-      const originalTail = originalContent.slice(Math.max(0, originalContent.length - 120));
-      console.log(
-        `[EditTool] Begin edit file=${filePath} eol=${eol} originalLen=${originalContent.length} oldLen=${oldString.length} newLen=${newString.length}`
-      );
-      console.log(`[EditTool] originalTail=${JSON.stringify(originalTail)}`);
 
-      const replacement = tryReplaceWithLineEndingFallback(originalContent, oldString, newString, replaceAll);
+      const replacement = replaceInOriginal(originalContent, oldString, newString, replaceAll);
 
       if (!replacement.replaced) {
         if (!replaceAll && replacement.occurrences >= 2) {
           return { success: false, error: 'old_string must be unique in the file unless replace_all is true' };
         }
-        const fileHasTabs = originalContent.includes('\t');
-        const fileUsesCrlf = document.eol === vscode.EndOfLine.CRLF;
-        const hint = typeof rawOldString === 'string'
-          ? buildNotFoundHint(rawOldString, oldString, fileHasTabs, fileUsesCrlf)
-          : '';
-        return {
-          success: false,
-          error: hint.length > 0
-            ? `old_string was not found in the file. ${hint}`
-            : 'old_string was not found in the file',
-        };
+        return { success: false, error: 'old_string was not found in the file' };
       }
 
-      const newContent = applyDocumentEol(replacement.content, document.eol);
-      const newTail = newContent.slice(Math.max(0, newContent.length - 120));
-      console.log(`[EditTool] newContentLen=${newContent.length} newTail=${JSON.stringify(newTail)}`);
+      const newContent = replacement.content;
 
       const writeResult = await writeFileWithRetry(uri, newContent, 3, 75);
       if (!writeResult.success) {
@@ -262,12 +243,8 @@ export class EditTool implements ITool {
         };
       }
 
-      const verifiedTail = (writeResult.finalContent ?? '').slice(Math.max(0, (writeResult.finalContent ?? '').length - 120));
-      console.log(`[EditTool] Verified write attempts=${writeResult.attempts} len=${writeResult.finalContent?.length ?? 0} tail=${JSON.stringify(verifiedTail)}`);
-
       // Open the edited file in the editor
       await openFileInBackground(uri);
-      console.log(`[EditTool] Opened edited file: ${filePath}`);
 
       return {
         success: true,

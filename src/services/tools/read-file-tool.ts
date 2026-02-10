@@ -5,6 +5,55 @@ import { PathResolver } from '../path-resolver';
 // import { addLineNumbers } from '../../utils/line-number-utils';
 import { isBinaryFile } from '../../constants/excluded-patterns';
 import { normalizeToLf } from './utils/newline-utils';
+import sharp from 'sharp';
+
+const IMAGE_EXT_TO_MIME: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.ico': 'image/x-icon',
+  '.bmp': 'image/bmp',
+  '.svg': 'image/svg+xml',
+};
+
+const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // 2MB
+
+const IMAGE_PREVIEW_MAX_WIDTH = 1024;
+const IMAGE_PREVIEW_MAX_HEIGHT = 1024;
+const IMAGE_PREVIEW_JPEG_QUALITY = 70;
+const IMAGE_PREVIEW_WEBP_QUALITY = 70;
+
+function getImageMimeType(filePath: string): string | undefined {
+  const ext = path.extname(filePath).toLowerCase();
+  return IMAGE_EXT_TO_MIME[ext];
+}
+
+async function createImagePreview(
+  input: Uint8Array,
+  originalMimeType: string
+): Promise<{ mimeType: string; bytes: Buffer<ArrayBufferLike> }> {
+  const pipeline = sharp(Buffer.from(input), { failOnError: false })
+    .rotate()
+    .resize({
+      width: IMAGE_PREVIEW_MAX_WIDTH,
+      height: IMAGE_PREVIEW_MAX_HEIGHT,
+      fit: 'inside',
+      withoutEnlargement: true,
+    });
+
+  if (originalMimeType === 'image/png') {
+    return { mimeType: 'image/png', bytes: await pipeline.png({ compressionLevel: 9 }).toBuffer() };
+  }
+
+  if (originalMimeType === 'image/webp') {
+    return { mimeType: 'image/webp', bytes: await pipeline.webp({ quality: IMAGE_PREVIEW_WEBP_QUALITY }).toBuffer() };
+  }
+
+  // Default to jpeg for most other raster images.
+  return { mimeType: 'image/jpeg', bytes: await pipeline.jpeg({ quality: IMAGE_PREVIEW_JPEG_QUALITY }).toBuffer() };
+}
 
 /**
  * Get mode-specific large file reminder
@@ -141,15 +190,7 @@ export class ReadFileTool implements ITool {
         return this.processContent(filePath, absolutePath, openDocument.getText(), offset, limit, mode);
       }
 
-      // 2. Check if file is binary
-      if (isBinaryFile(absolutePath)) {
-        return {
-          success: false,
-          error: `Cannot read binary file '${filePath}'. Binary files (like .jar, .exe, .zip, images, etc.) are not readable as text.`,
-        };
-      }
-
-      // 3. Ensure the file exists via filesystem
+      // 2. Ensure the file exists via filesystem
       let stat: vscode.FileStat;
       try {
         stat = await vscode.workspace.fs.stat(uri);
@@ -160,7 +201,7 @@ export class ReadFileTool implements ITool {
         };
       }
 
-      // 4. Check if path is a directory
+      // 3. Check if path is a directory
       if (stat.type === vscode.FileType.Directory) {
         return {
           success: false,
@@ -168,7 +209,64 @@ export class ReadFileTool implements ITool {
         };
       }
 
-      // 5. Read from filesystem
+      // 4. Check if file is an image
+      const imageMimeType = getImageMimeType(absolutePath);
+      if (imageMimeType) {
+        if (stat.size > MAX_IMAGE_BYTES) {
+          return {
+            success: false,
+            error: `Cannot read image '${filePath}' because it is too large (${stat.size} bytes). Maximum supported size is ${MAX_IMAGE_BYTES} bytes.`,
+          };
+        }
+
+        const fileContent = await vscode.workspace.fs.readFile(uri);
+        let previewMimeType = imageMimeType;
+        let previewBytes: Buffer<ArrayBufferLike> = Buffer.from(fileContent);
+
+        // Downscale/re-encode to a lower-resolution preview for payload size control.
+        // If preview generation fails, fall back to returning the original bytes.
+        try {
+          if (imageMimeType !== 'image/svg+xml') {
+            const preview = await createImagePreview(fileContent, imageMimeType);
+            previewMimeType = preview.mimeType;
+            previewBytes = preview.bytes;
+          }
+        } catch {
+          // ignore
+        }
+
+        if (previewBytes.byteLength > MAX_IMAGE_BYTES) {
+          return {
+            success: false,
+            error: `Cannot read image '${filePath}' because the generated preview is too large (${previewBytes.byteLength} bytes). Maximum supported size is ${MAX_IMAGE_BYTES} bytes.`,
+          };
+        }
+
+        const base64 = previewBytes.toString('base64');
+        const dataUrl = `data:${previewMimeType};base64,${base64}`;
+
+        return {
+          success: true,
+          data: {
+            kind: 'image',
+            path: filePath,
+            absolutePath,
+            mimeType: previewMimeType,
+            byteLength: previewBytes.byteLength,
+            dataUrl,
+          },
+        };
+      }
+
+      // 5. Check if file is binary (non-image)
+      if (isBinaryFile(absolutePath)) {
+        return {
+          success: false,
+          error: `Cannot read binary file '${filePath}'. This tool only supports text files and common image formats.`,
+        };
+      }
+
+      // 6. Read from filesystem
       const fileContent = await vscode.workspace.fs.readFile(uri);
       const content = Buffer.from(fileContent).toString('utf8');
       

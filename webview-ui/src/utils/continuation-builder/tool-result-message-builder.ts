@@ -8,10 +8,11 @@ import { truncateDiagnostics } from './diagnostics-utils';
 
 /**
  * Build the tool result message in a structured format
- * Combines tool results, diagnostics, and todo context into a single message
+ * Combines tool results and diagnostics into a single message
+ * Note: Todo reminders are handled by the backend in src/utils/todo-reminder.ts
  */
 export function buildToolResultMessage(options: ToolResultMessageOptions): string {
-  const { toolResultText, diagnosticsText, todoContext, summaryPrefix } = options;
+  const { toolResultText, diagnosticsText, summaryPrefix } = options;
 
   const boundedDiagnostics = truncateDiagnostics(diagnosticsText);
 
@@ -21,11 +22,6 @@ export function buildToolResultMessage(options: ToolResultMessageOptions): strin
   // Add diagnostics section if present
   if (boundedDiagnostics.trim()) {
     message += '\n\n<diagnostics>\n' + boundedDiagnostics + '\n</diagnostics>';
-  }
-
-  // Add todo context if present
-  if (todoContext.trim()) {
-    message += '\n' + todoContext;
   }
 
   // Simple continuation instruction

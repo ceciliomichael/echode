@@ -14,7 +14,7 @@ import { getToolsForMode } from '../../lib/tool-config';
 import { generateToolExecutionId } from '../../lib/tool-execution-tracker';
 import type { ToolExecutionState } from '../../types/tool';
 import { buildContinuationHistory } from '../../utils/continuation-builder';
-import { formatToolResultForAI } from '../../utils/tool-execution-helpers';
+import { formatToolResultForAI, extractImageAttachmentsFromToolResult } from '../../utils/tool-execution-helpers';
 
 import type { ToolExecutionHookProps, ToolExecutionContext, LockedModelConfig } from './types';
 import { executeSingleTool } from './single-executor';
@@ -236,6 +236,7 @@ async function handleBufferedResults(
   // Collect ALL tool results for this turn, including previous ones in the same assistant message
   // This prevents the AI from "forgetting" early tool results in a multi-step chain
   const allToolResults: string[] = [];
+  const allToolResultAttachments: ImageAttachment[] = [];
 
   // 1. Get previous results from history
   // We rely on the fact that previous recursive steps would have completed their state updates
@@ -254,12 +255,32 @@ async function handleBufferedResults(
         // Use shared helper to ensure consistency
         const formatted = formatToolResultForAI(execution.toolName, execution.result);
         allToolResults.push(formatted);
+
+        // Extract image attachments from tool results (e.g., read_file image previews)
+        allToolResultAttachments.push(
+          ...extractImageAttachmentsFromToolResult(execution.toolName, execution.result)
+        );
       }
     }
   }
 
   // 2. Add the new buffered results (which correspond to toolIndex onwards)
   allToolResults.push(...bufferedToolResults);
+
+  // Also collect image attachments from the buffered tool executions.
+  // In parallel execution mode, the bufferedToolResults are strings only, so we must
+  // look up the actual tool execution results stored on the assistant message.
+  if (assistantMsg && assistantMsg.toolExecutions) {
+    for (let i = toolIndex; i < toolIndex + bufferedToolResults.length; i++) {
+      const execId = generateToolExecutionId(assistantMessageId, i);
+      const execution = assistantMsg.toolExecutions.get(execId);
+      if (execution?.result) {
+        allToolResultAttachments.push(
+          ...extractImageAttachmentsFromToolResult(execution.toolName, execution.result)
+        );
+      }
+    }
+  }
 
   const toolResultText = allToolResults.join('\n\n');
   
@@ -277,10 +298,10 @@ async function handleBufferedResults(
     assistantContent,
     toolResultText,
     diagnosticsText,
-    context.currentTodos,
     context.mode,
     userAttachments,
-    toolIndex === 0  // isFirstIteration: only add user message on first tool
+    toolIndex === 0,  // isFirstIteration: only add user message on first tool
+    allToolResultAttachments.length > 0 ? allToolResultAttachments : undefined
   );
 
   // Continue streaming with buffered results

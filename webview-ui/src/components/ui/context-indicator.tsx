@@ -302,7 +302,6 @@ export function ContextIndicator({ usage, disabled = false, mode, onCompress, on
                 {formatTokens(usage.toolResultsTokens)}
               </span>
             </div>
-
             <div
               className="border-t pt-1.5 mt-1.5 flex justify-between text-xs"
               style={{ borderColor: 'var(--vscode-input-border)' }}

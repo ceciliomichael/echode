@@ -26,6 +26,8 @@ function getMarkdownFormat(): string {
     return `## read_file
 Read file contents.
 
+Supports reading text files and common image formats. Images are returned as a downscaled preview.
+
 Parameters:
 - path: File path (Absolute path required)
 - offset: Start line, 1-based (optional)
@@ -46,6 +48,7 @@ function getXmlFormat(): string {
 </params>
 <notes>
 *   Use to inspect code details and understand implementation.
+*   Images return a downscaled preview payload.
 </notes>
 </tool_usage>`;
 }
@@ -54,9 +57,11 @@ function getReviewFormat(): string {
     return `## read_file
 Read and analyze file contents.
 
+Supports reading text files and common image formats. Images are returned as a downscaled preview.
+
 Parameters:
 - path: File path (Absolute path required)
-- offset: Start line, 1-indexed (optional)
+- offset: Start line, 1-based (optional)
 - limit: Max lines to read, default 500 (optional)
 
 Usage for Code Review:

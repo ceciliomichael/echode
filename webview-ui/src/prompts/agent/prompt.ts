@@ -13,6 +13,7 @@ const AGENT_TOOLS = [
     'read_file', 'edit', 'write_to_file', 'delete',
     'grep_search', 'glob_search', 'list_files',
     'get_diagnostics', 'todo_write',
+    'run_terminal',
     'create_subagent', 'use_subagent'
 ] as const;
 

@@ -36,7 +36,7 @@ async function main() {
 		sourcesContent: false,
 		platform: 'node',
 		outfile: 'dist/extension.js',
-		external: ['vscode', 'better-sqlite3'],
+		external: ['vscode', 'better-sqlite3', 'sharp'],
 		logLevel: 'silent',
 		plugins: [
 			esbuildProblemMatcherPlugin,
