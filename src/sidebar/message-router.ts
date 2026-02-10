@@ -21,6 +21,7 @@ export interface HandlerContext {
   panelManager: PanelManager;
   autocompleteService: AutocompleteService;
   setHistoryOpen: (open: boolean) => void;
+  isParallelChat?: boolean;
 }
 
 /**
@@ -117,11 +118,11 @@ export function createMessageRouter(): MessageRouter {
 
   // Session handlers
   router.register('saveSession', async (data, ctx) => {
-    await handleSaveSession(data, ctx.webview, ctx.historyService);
+    await handleSaveSession(data, ctx.webview, ctx.historyService, { skipLastOpenedUpdate: ctx.isParallelChat });
   });
 
   router.register('getSession', async (data, ctx) => {
-    await handleGetSession(data, ctx.webview, ctx.historyService);
+    await handleGetSession(data, ctx.webview, ctx.historyService, { skipLastOpenedUpdate: ctx.isParallelChat });
   });
 
   router.register('getLatestSession', async (data, ctx) => {

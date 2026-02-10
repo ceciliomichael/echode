@@ -21,9 +21,10 @@ interface SessionData {
 export async function handleSaveSession(
   data: SessionData,
   _webview: vscode.WebviewView,
-  historyService: ChatHistoryService
+  historyService: ChatHistoryService,
+  options?: { skipLastOpenedUpdate?: boolean }
 ): Promise<void> {
-  await historyService.saveSession(data.session as SessionPayload);
+  await historyService.saveSession(data.session as SessionPayload, options);
 }
 
 /**
@@ -32,10 +33,11 @@ export async function handleSaveSession(
 export async function handleGetSession(
   data: SessionData,
   webview: vscode.WebviewView,
-  historyService: ChatHistoryService
+  historyService: ChatHistoryService,
+  options?: { skipLastOpenedUpdate?: boolean }
 ): Promise<void> {
   try {
-    const session = await historyService.getSession(data.sessionId!);
+    const session = await historyService.getSession(data.sessionId!, options);
     webview.webview.postMessage({
       type: 'sessionLoaded',
       session,

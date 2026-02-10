@@ -454,7 +454,8 @@ export class PanelManager {
       workspaceManager: services.workspaceManager,
       panelManager: this,
       autocompleteService: this._autocompleteService,
-      setHistoryOpen: (_open: boolean) => { /* No history modal in parallel chat */ }
+      setHistoryOpen: (_open: boolean) => { /* No history modal in parallel chat */ },
+      isParallelChat: true
     };
 
     panel.webview.onDidReceiveMessage(async (data) => {

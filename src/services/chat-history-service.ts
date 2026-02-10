@@ -428,13 +428,13 @@ export class ChatHistoryService {
     }
   }
 
-  async getSession(sessionId: string): Promise<ChatSession | null> {
+  async getSession(sessionId: string, options?: { skipLastOpenedUpdate?: boolean }): Promise<ChatSession | null> {
     try {
       const session = this.readSessionFile(sessionId);
       if (session?.workspaceId && session.workspaceId !== this.workspaceId) {
         return null;
       }
-      if (session?.id && !session.isSubAgent && !this.isParallelChatSession(session.id)) {
+      if (session?.id && !session.isSubAgent && !this.isParallelChatSession(session.id) && !options?.skipLastOpenedUpdate) {
         this.setLastOpenedSessionId(session.id);
       }
       return session;
@@ -467,7 +467,7 @@ export class ChatHistoryService {
     }
   }
 
-  async saveSession(session: ChatSession): Promise<void> {
+  async saveSession(session: ChatSession, options?: { skipLastOpenedUpdate?: boolean }): Promise<void> {
     try {
       // Ensure workspaceId is set
       session.workspaceId = this.workspaceId;
@@ -485,7 +485,7 @@ export class ChatHistoryService {
 
       // Only the main agent sessions should be auto-restored on extension restart.
       // Skip parallel chat sessions - they should not override the sidebar's last session.
-      if (!session.isSubAgent && !this.isParallelChatSession(session.id)) {
+      if (!session.isSubAgent && !this.isParallelChatSession(session.id) && !options?.skipLastOpenedUpdate) {
         this.setLastOpenedSessionId(session.id);
       }
 
