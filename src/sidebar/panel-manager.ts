@@ -15,7 +15,7 @@ import { SubAgentSession } from '../services/sub-agent/types';
 import type { AutocompleteService } from '../autocomplete';
 import { ChatHistoryService, ChatSession } from '../services/chat-history-service';
 import type { ToolHistoryService } from '../services/tool-history';
-import type { WorkspaceManager } from './workspace-manager';
+import { type WorkspaceManager, detectShellType } from './workspace-manager';
 import { buildSubAgentPrompt } from '../utils/sub-agent/prompt-builder';
 import { getAgentsConfig } from '../utils/workspace-scanner';
 
@@ -247,7 +247,8 @@ export class PanelManager {
     const systemInfo = {
       os: os.platform() === 'win32' ? 'Windows' : os.platform() === 'darwin' ? 'macOS' : 'Linux',
       workspacePath: workspaceRoot || '',
-      currentTime: new Date().toLocaleString()
+      currentTime: new Date().toLocaleString(),
+      shellType: detectShellType(),
     };
 
     // Initialize chat history for this session

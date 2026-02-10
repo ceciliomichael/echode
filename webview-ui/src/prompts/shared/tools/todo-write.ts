@@ -59,8 +59,10 @@ STRICT RULES:
 
 COMPLETION RULES (CRITICAL):
 - Mark a task "completed" ONLY after its changes are fully implemented and verified
+- **BEFORE marking ALL tasks completed**: Run \`get_diagnostics\` on modified files first. Only mark all done if diagnostics pass.
 - Once ALL tasks are "completed", you are DONE. Give a brief final summary and STOP.
 - Do NOT call \`todo_write\` again after all tasks are already completed
 - Do NOT read more files, explore, or second-guess after all tasks are done
-- Do NOT start new work that wasn't in the original task list`;
+- Do NOT start new work that wasn't in the original task list
+- Do NOT call any more tools after all tasks are completed`;
 }

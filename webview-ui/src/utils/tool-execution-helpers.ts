@@ -50,6 +50,17 @@ export function formatToolResultForAI(
       return `[delete] ${path} → DELETED`;
     }
 
+    case 'todo_write': {
+      const tasks = data?.tasks as Array<{ status: string }> | undefined;
+      const allCompleted = data?.allCompleted === true;
+      const total = tasks?.length ?? 0;
+      const completed = tasks?.filter(t => t.status === 'completed').length ?? 0;
+      if (allCompleted) {
+        return `[todo_write] All ${total} tasks completed. ALL TASKS DONE — give a brief final summary and STOP. Do not call any more tools.`;
+      }
+      return `[todo_write] ${completed}/${total} tasks completed`;
+    }
+
     default:
       // Other tools (read_file, grep_search, etc.) keep detailed output
       return `Tool: ${toolName}\nResult: ${JSON.stringify(result.data, null, 2)}`;

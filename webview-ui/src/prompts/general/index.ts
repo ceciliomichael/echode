@@ -34,6 +34,7 @@ No tools are currently enabled.
     // Build tool instruction options
     const toolOptions: ToolInstructionOptions = {
         fullTerminalAccess,
+        shellType: workspace?.shellType,
     };
 
     // Mode-specific tool instructions
@@ -43,7 +44,8 @@ No tools are currently enabled.
     const prompt = getGeneralPrompt(workspace, enabledTools);
 
     const userRules = getUserRules(workspace);
-    const systemInfo = getSystemInfo(workspace);
+    const terminalEnabled = enabledTools.some(t => t.id === 'run_terminal');
+    const systemInfo = getSystemInfo(workspace, { terminalEnabled });
 
     // Assemble
     const sections = [

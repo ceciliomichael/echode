@@ -3,7 +3,7 @@
  */
 
 // Managers
-export { WorkspaceManager } from './workspace-manager';
+export { WorkspaceManager, detectShellType } from './workspace-manager';
 export { PanelManager } from './panel-manager';
 
 // Message Router

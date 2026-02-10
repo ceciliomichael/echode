@@ -50,11 +50,16 @@ export class TodoWriteTool implements ITool {
       
       todoStorage.set(sessionKey, tasks);
 
+      const allCompleted = tasks.length > 0 && tasks.every(t => t.status === 'completed');
+
       return {
         success: true,
         data: {
-          message: `Updated todo list with ${tasks.length} task(s)`,
+          message: allCompleted
+            ? `All ${tasks.length} task(s) completed. You are DONE.`
+            : `Updated todo list with ${tasks.length} task(s)`,
           tasks,
+          allCompleted,
           oldTasks, // Include old state for undo
           sessionKey, // Include session key for history tracking
         },

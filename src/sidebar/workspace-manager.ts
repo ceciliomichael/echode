@@ -1,8 +1,60 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as os from 'os';
 import { spawn } from 'child_process';
 import { getWorkspaceFiles, getAgentsConfig } from '../utils/workspace-scanner';
 import { getAllWorkspaceFolders } from '../services/tools/utils/workspace-utils';
+
+/**
+ * Detect the user's default terminal shell type.
+ * Checks VS Code's terminal profile settings, then falls back to OS defaults.
+ * Returns a human-readable shell name like "PowerShell", "Command Prompt", "Bash", etc.
+ */
+export function detectShellType(): string {
+    const platform = os.platform();
+    const terminalConfig = vscode.workspace.getConfiguration('terminal.integrated');
+
+    // Check platform-specific default profile setting
+    let profileName: string | undefined;
+    if (platform === 'win32') {
+        profileName = terminalConfig.get<string>('defaultProfile.windows');
+    } else if (platform === 'darwin') {
+        profileName = terminalConfig.get<string>('defaultProfile.osx');
+    } else {
+        profileName = terminalConfig.get<string>('defaultProfile.linux');
+    }
+
+    // If a profile name is set, normalize it
+    if (profileName) {
+        return normalizeShellName(profileName);
+    }
+
+    // Fallback: check the SHELL env var (Unix) or COMSPEC (Windows)
+    if (platform === 'win32') {
+        const comspec = process.env.COMSPEC || '';
+        if (comspec.toLowerCase().includes('cmd.exe')) { return 'Command Prompt'; }
+        return 'PowerShell';
+    } else {
+        const shell = process.env.SHELL || '/bin/bash';
+        return normalizeShellName(path.basename(shell));
+    }
+}
+
+/**
+ * Normalize a shell profile name or binary name to a clean display name.
+ */
+function normalizeShellName(name: string): string {
+    const lower = name.toLowerCase();
+    if (lower.includes('powershell') || lower === 'pwsh') { return 'PowerShell'; }
+    if (lower.includes('cmd') || lower === 'command prompt') { return 'Command Prompt'; }
+    if (lower.includes('bash') || lower === 'git bash') { return 'Bash'; }
+    if (lower.includes('zsh')) { return 'Zsh'; }
+    if (lower.includes('fish')) { return 'Fish'; }
+    if (lower.includes('nushell') || lower === 'nu') { return 'Nushell'; }
+    if (lower.includes('wsl')) { return 'WSL'; }
+    // Return as-is if unrecognized
+    return name;
+}
 
 /**
  * Workspace Manager
@@ -113,6 +165,7 @@ export class WorkspaceManager {
       name: workspaceFolders[0].name,
       files: allFiles,
       agentsConfig: getAgentsConfig(workspaceFolders[0].uri.fsPath),
+      shellType: detectShellType(),
       isMultiRoot,
       folders: isMultiRoot
         ? workspaceFolders.map(folder => ({

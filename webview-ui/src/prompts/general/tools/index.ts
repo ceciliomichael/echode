@@ -27,6 +27,8 @@ const TOOL_INSTRUCTION_MAP: Record<string, () => string> = {
 export interface ToolInstructionOptions {
     /** Enable full terminal access (bypass command restrictions) */
     fullTerminalAccess?: boolean;
+    /** Detected shell type (e.g. "PowerShell", "Command Prompt", "Bash") */
+    shellType?: string;
 }
 
 /**
@@ -38,13 +40,13 @@ export function getGeneralToolInstructions(
     enabledTools: Tool[],
     options: ToolInstructionOptions = {}
 ): string {
-    const { fullTerminalAccess = false } = options;
+    const { fullTerminalAccess = false, shellType } = options;
 
     const instructions = enabledTools
         .map(tool => {
-            // Handle run_terminal specially since it needs the fullAccess parameter
+            // Handle run_terminal specially since it needs the fullAccess and shellType parameters
             if (tool.id === 'run_terminal') {
-                return getRunTerminalInstructions({ fullAccessEnabled: fullTerminalAccess });
+                return getRunTerminalInstructions({ fullAccessEnabled: fullTerminalAccess, shellType });
             }
             const getInstructions = TOOL_INSTRUCTION_MAP[tool.id];
             return getInstructions ? getInstructions() : '';

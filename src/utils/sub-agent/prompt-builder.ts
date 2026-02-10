@@ -7,6 +7,8 @@ export interface SubAgentSystemInfo {
   os: string;
   workspacePath: string;
   currentTime: string;
+  /** Detected terminal shell type (e.g. "PowerShell", "Command Prompt", "Bash") */
+  shellType?: string;
 }
 
 export interface SubAgentPromptOptions {
@@ -29,9 +31,13 @@ export function buildSubAgentPrompt(
   // Generate a comma-separated list of allowed tools for the available_tools section
   const allowedToolsList = definition.allowedTools.map(t => `\`${t}\``).join(', ');
 
+  const shellLine = systemInfo?.shellType && definition.allowedTools.includes('run_terminal')
+    ? `\n<shell>${systemInfo.shellType}</shell>`
+    : '';
+
   const systemInfoSection = systemInfo ? `
 <system_info>
-<os>${systemInfo.os}</os>
+<os>${systemInfo.os}</os>${shellLine}
 <current_time>${systemInfo.currentTime}</current_time>
 <workspace_path>${systemInfo.workspacePath}</workspace_path>
 </system_info>` : '';

@@ -29,6 +29,16 @@ Parameters:
 - **Never guess or reconstruct** old_string from memory — always use the exact text you can see
 - Whitespace, indentation, and punctuation must match exactly
 
+### IF AN EDIT FAILS (STRICT RECOVERY PROTOCOL)
+- If the tool says **old_string not found**:
+  - Do NOT retry with a guessed old_string
+  - If the error includes line numbers/snippet context, immediately call \`read_file\` for that region and copy the exact text
+  - Retry the edit once with the exact old_string copied from \`read_file\`
+- If the tool says **old_string must be unique**:
+  - Do NOT guess which occurrence to edit
+  - Expand old_string to include more surrounding context so it matches only one place, OR set replace_all=true if the request truly intends all occurrences
+- Avoid unnecessary \`write_to_file\` rewrites: a failed edit means your old_string was wrong or stale. Re-read and retry; do not rewrite the whole file as a workaround.
+
 ### EXAMPLE
 <${TOOL_XML_NAMESPACE}:function_calls>
 <${TOOL_XML_NAMESPACE}:invoke name="edit">

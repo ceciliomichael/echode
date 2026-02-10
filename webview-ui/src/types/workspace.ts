@@ -19,6 +19,8 @@ export interface WorkspaceContext {
   files: string[];
   /** AGENTS.md content if present */
   agentsConfig: string | null;
+  /** Detected default terminal shell type (e.g. "PowerShell", "Command Prompt", "Bash") */
+  shellType?: string;
   /** True if workspace has multiple root folders */
   isMultiRoot?: boolean;
   /** All workspace folders (populated in multi-root workspaces) */

@@ -139,12 +139,10 @@ export function formatToolExecutionResults(
           const files = data.files as Array<{ name: string }> | undefined;
           formattedResult = `Directory: ${data.path as string}\nDirectories: ${directories?.map(d => d.name).join(', ') || 'none'}\nFiles: ${files?.map(f => f.name).join(', ') || 'none'}`;
         } else if (execution.toolName === 'edit' || execution.toolName === 'write_to_file') {
-          // For file modification tools, send MINIMAL info to AI - it already knows what it wrote
           const path = data.path as string;
           const action = data.action as string | undefined;
           const diagnostics = data.diagnostics as Array<{ severity: string; message: string }> | undefined;
           
-          // Ultra-concise format
           if (execution.toolName === 'edit') {
             formattedResult = action === 'no_change' 
               ? `${path} → NO CHANGES` 

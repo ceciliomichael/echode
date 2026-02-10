@@ -6,6 +6,11 @@ import type { ToolResultMessageOptions } from './types';
 import { CONTINUATION_INSTRUCTION, TOOL_OUTPUT_PREFIX } from './constants';
 import { truncateDiagnostics } from './diagnostics-utils';
 
+/** Detect if tool results contain a todo_write with all tasks completed */
+function detectAllTodosCompleted(toolResultText: string): boolean {
+  return toolResultText.includes('ALL TASKS DONE');
+}
+
 /**
  * Build the tool result message in a structured format
  * Combines tool results and diagnostics into a single message
@@ -24,8 +29,12 @@ export function buildToolResultMessage(options: ToolResultMessageOptions): strin
     message += '\n\n<diagnostics>\n' + boundedDiagnostics + '\n</diagnostics>';
   }
 
-  // Simple continuation instruction
-  message += '\n\n' + CONTINUATION_INSTRUCTION;
+  // When all todos are completed, replace continuation with a stop signal
+  if (detectAllTodosCompleted(toolResultText)) {
+    message += '\n\n[ALL TASKS COMPLETED. Give a brief final summary and STOP. Do not call any more tools or read any more files.]';
+  } else {
+    message += '\n\n' + CONTINUATION_INSTRUCTION;
+  }
 
   return message;
 }

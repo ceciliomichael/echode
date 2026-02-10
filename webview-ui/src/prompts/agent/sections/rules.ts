@@ -62,6 +62,7 @@ TASK MANAGEMENT:
 - Update task status ONLY when it actually changes (pending → in_progress → completed)
 - Do NOT call \`todo_write\` redundantly if status hasn't changed
 - Mark tasks complete only after ALL their changes are implemented and verified
+- **BEFORE marking ALL tasks completed**: Run \`get_diagnostics\` on modified files first. Only mark all done if diagnostics pass.
 - **WHEN ALL TASKS ARE COMPLETED**: Give a brief final summary and STOP. Do not call \`todo_write\` again, do not read more files, do not explore further, do not second-guess your work. The job is done.
 
 ${TYPE_SAFETY_RULE}

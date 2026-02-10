@@ -69,11 +69,16 @@ function getTimeContext(): string {
     return `${formatted} (${timezone})`;
 }
 
+export interface SystemInfoOptions {
+    /** Whether run_terminal is enabled — controls shell type inclusion */
+    terminalEnabled?: boolean;
+}
+
 /**
  * Get system information section with workspace details
  * Used by modes that need workspace context (agent, plan, ask, general)
  */
-export function getSystemInfo(workspace: WorkspaceContext | null): string {
+export function getSystemInfo(workspace: WorkspaceContext | null, options: SystemInfoOptions = {}): string {
     if (!workspace) {
         return `<system_info>No open workspace.</system_info>`;
     }
@@ -82,11 +87,16 @@ export function getSystemInfo(workspace: WorkspaceContext | null): string {
     const fileSection = buildFileSection(workspace);
     const timeContext = getTimeContext();
 
+    // Only include shell type when run_terminal is enabled
+    const shellLine = options.terminalEnabled && workspace.shellType
+        ? `\n<shell>${workspace.shellType}</shell>`
+        : '';
+
     // Unified note - paths are always relative (folder prefix in multi-root acts as subdirectory)
     const note = `The file list shows relative paths. Use list_files or glob_search to explore further.`;
 
     return `<system_info>
-<os>Windows</os>
+<os>Windows</os>${shellLine}
 <current_time>${timeContext}</current_time>
 ${workspaceMetadata}
 ${fileSection}
