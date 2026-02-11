@@ -27,10 +27,12 @@ Parameters:
 - new_string: Replacement text (must be different from old_string)
 - explanation: Description of the change
 - replace_all: Optional boolean to replace all occurrences
+- expected_replacements: Optional number (default 1) — how many occurrences to replace
 
 Rules:
-- old_string must match exactly (including whitespace).
-- If old_string appears multiple times, set replace_all=true or make old_string more specific.
+- old_string must match exactly (including whitespace and indentation).
+- If old_string appears multiple times, either include more surrounding context to make it unique, set replace_all=true, or set expected_replacements to the exact count.
+- Always read_file FIRST before editing. Copy old_string verbatim from the file — never guess or reconstruct from memory.
 - Do not batch multiple unrelated edits into one call.`,
     icon: FilePenLine,
     usage: 'Targeted edits to existing files',

@@ -199,6 +199,31 @@ export async function executeSingleTool(
   // DISABLED: Diagnostics should be explicitly requested by the AI using get_diagnostics
   const diagnosticsText = ''; 
 
+  // Compute which file paths were modified by this tool (and previous tools in this turn)
+  // so stale detection works even if React state hasn't flushed yet
+  const modifiedFilePaths = new Set<string>();
+  // Check the current tool result
+  if (executedTool?.result?.success) {
+    const d = executedTool.result.data as Record<string, unknown> | undefined;
+    if ((toolBlock.toolName === 'edit' || toolBlock.toolName === 'write_to_file') &&
+        d?.path && typeof d.path === 'string' && d?.action !== 'no_change') {
+      modifiedFilePaths.add(d.path);
+    }
+  }
+  // Also check previous tool executions in this turn from stored state
+  const assistantMsg = messagesRef.current.find(m => m.id === assistantMessageId);
+  if (assistantMsg?.toolExecutions) {
+    assistantMsg.toolExecutions.forEach((exec) => {
+      if ((exec.toolName === 'edit' || exec.toolName === 'write_to_file') &&
+          exec.status === 'completed' && exec.result?.success) {
+        const d = exec.result.data as Record<string, unknown> | undefined;
+        if (d?.action !== 'no_change' && d?.path && typeof d.path === 'string') {
+          modifiedFilePaths.add(d.path);
+        }
+      }
+    });
+  }
+
   // Build continuation history
   const latestWorkspace = (window.workspaceContext || workspace)!;
 
@@ -212,7 +237,8 @@ export async function executeSingleTool(
     mode,
     userAttachments,
     toolIndex === 0,  // isFirstIteration: only add user message on first tool
-    toolResultAttachments
+    toolResultAttachments,
+    modifiedFilePaths
   );
 
   // Continue streaming - clear executing tool state

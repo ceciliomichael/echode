@@ -9,13 +9,12 @@ export { calculateContextTokens } from './token-estimator';
 export { getDiagnosticsForToolResults } from './diagnostics-fetcher';
 
 // Type exports
-export type { TodoItem, ContinuationConfig, ToolResultMessageOptions, TruncationResult } from './types';
+export type { TodoItem, ContinuationConfig, ToolResultMessageOptions } from './types';
 
 // Constants (for advanced usage)
 export {
-  MAX_HISTORY_MESSAGES,
   MAX_DIAGNOSTICS_CHARS,
-  N_MESSAGES_TO_ALWAYS_KEEP,
-  CONTEXT_TRUNCATION_NOTICE,
+  RECENT_TURNS_FULL_RESULTS,
   CONTINUATION_INSTRUCTION,
+  TOOL_OUTPUT_PREFIX,
 } from './constants';

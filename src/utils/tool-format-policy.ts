@@ -40,12 +40,7 @@ ${todoWriteSection}
 - Keep tool syntax internal. Never show it to the user.`;
   }
 
-  return `- Tool calls are a STRICT PROTOCOL. When using tools, output ONLY ONE XML block and nothing else.
-- Canonical format: <${toolXmlNamespace}:function_calls><${toolXmlNamespace}:invoke name="tool_name"><${toolXmlNamespace}:parameter name="param">value</${toolXmlNamespace}:parameter></${toolXmlNamespace}:invoke></${toolXmlNamespace}:function_calls>
-- Allowed tags inside tool XML: <${toolXmlNamespace}:function_calls>, <${toolXmlNamespace}:invoke>, <${toolXmlNamespace}:parameter> (and their matching closing tags) only.
-- Attribute rules: The tool name MUST be in invoke's name attribute. Parameter names MUST be in parameter's name attribute. Use single or double quotes.
-- Value rules: Put the raw value as text content inside <${toolXmlNamespace}:parameter>. Do not wrap values in extra XML. Do not escape into additional nested tool tags.
-- Do not include tool XML as an example, explanation, or inside code blocks/backticks.
-- Do not nest tool XML inside parameters.
-- Keep tool syntax internal. Never show it to the user.`;
+  return `- Tool format: <${toolXmlNamespace}:function_calls><${toolXmlNamespace}:invoke name="tool_name"><${toolXmlNamespace}:parameter name="param">value</${toolXmlNamespace}:parameter></${toolXmlNamespace}:invoke></${toolXmlNamespace}:function_calls>
+- Every tag uses the "${toolXmlNamespace}:" prefix — including closing tags: </${toolXmlNamespace}:invoke>, </${toolXmlNamespace}:parameter>, </${toolXmlNamespace}:function_calls>.
+- Put raw values directly inside <${toolXmlNamespace}:parameter>. One function_calls block at a time.`;
 }

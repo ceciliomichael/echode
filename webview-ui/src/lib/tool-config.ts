@@ -241,37 +241,28 @@ RULES:
 4. Tags must be properly closed.
 </tool_format>`
     : `<tool_format>
-CRITICAL: You must strictly follow this XML format structure. Valid XML is STRICTLY  required.
+To use a tool, wrap it exactly like this:
 
-WHEN USER ASKS ABOUT FORMAT:
-1. Give the format without the "${TOOL_XML_NAMESPACE}" namespace.
-2. Follow number 1
-
-SEQUENTIAL EXECUTION:
 <${TOOL_XML_NAMESPACE}:function_calls>
-    <${TOOL_XML_NAMESPACE}:invoke name="TOOL_NAME">
-        <${TOOL_XML_NAMESPACE}:parameter name="param1">value1</${TOOL_XML_NAMESPACE}:parameter>
-        <${TOOL_XML_NAMESPACE}:parameter name="param2">value2</${TOOL_XML_NAMESPACE}:parameter>
-    </${TOOL_XML_NAMESPACE}:invoke>
+<${TOOL_XML_NAMESPACE}:invoke name="tool_name">
+<${TOOL_XML_NAMESPACE}:parameter name="param1">value1</${TOOL_XML_NAMESPACE}:parameter>
+<${TOOL_XML_NAMESPACE}:parameter name="param2">value2</${TOOL_XML_NAMESPACE}:parameter>
+</${TOOL_XML_NAMESPACE}:invoke>
 </${TOOL_XML_NAMESPACE}:function_calls>
 
-PARALLEL EXECUTION:
+For parallel calls, put multiple invoke blocks inside one function_calls block:
+
 <${TOOL_XML_NAMESPACE}:function_calls>
-    <${TOOL_XML_NAMESPACE}:invoke name="TOOL_NAME">
-        <${TOOL_XML_NAMESPACE}:parameter name="param1">value1</${TOOL_XML_NAMESPACE}:parameter>
-        <${TOOL_XML_NAMESPACE}:parameter name="param2">value2</${TOOL_XML_NAMESPACE}:parameter>
-    </${TOOL_XML_NAMESPACE}:invoke>
-    <${TOOL_XML_NAMESPACE}:invoke name="TOOL_NAME_2">
-        <${TOOL_XML_NAMESPACE}:parameter name="param1">value1</${TOOL_XML_NAMESPACE}:parameter>
-        <${TOOL_XML_NAMESPACE}:parameter name="param2">value2</${TOOL_XML_NAMESPACE}:parameter>
-    </${TOOL_XML_NAMESPACE}:invoke>
+<${TOOL_XML_NAMESPACE}:invoke name="tool_a">
+<${TOOL_XML_NAMESPACE}:parameter name="p">v</${TOOL_XML_NAMESPACE}:parameter>
+</${TOOL_XML_NAMESPACE}:invoke>
+<${TOOL_XML_NAMESPACE}:invoke name="tool_b">
+<${TOOL_XML_NAMESPACE}:parameter name="p">v</${TOOL_XML_NAMESPACE}:parameter>
+</${TOOL_XML_NAMESPACE}:invoke>
 </${TOOL_XML_NAMESPACE}:function_calls>
 
-FORMAT RULES:
-1. The root element must be <${TOOL_XML_NAMESPACE}:function_calls>.
-2. Each tool call must be inside a <${TOOL_XML_NAMESPACE}:invoke> tag.
-3. Parameters must be strictly inside <${TOOL_XML_NAMESPACE}:parameter> tags.
-4. XML tags must be properly closed.
+Every tag — opening and closing — uses the "${TOOL_XML_NAMESPACE}:" prefix. The closing tags are </${TOOL_XML_NAMESPACE}:parameter>, </${TOOL_XML_NAMESPACE}:invoke>, and </${TOOL_XML_NAMESPACE}:function_calls>.
+Put raw values directly inside <${TOOL_XML_NAMESPACE}:parameter>. Output one function_calls block at a time.
 </tool_format>`;
 
   return `<tools>

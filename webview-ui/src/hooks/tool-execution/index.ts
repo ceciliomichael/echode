@@ -243,6 +243,22 @@ async function handleBufferedResults(
   const currentMessages = context.messagesRef.current;
   const assistantMsg = currentMessages.find(m => m.id === assistantMessageId);
 
+  // Compute which file paths were modified by ANY tool in this turn
+  // so we can mark earlier read_file results as stale (OUTDATED)
+  const modifiedFilePaths = new Set<string>();
+  if (assistantMsg && assistantMsg.toolExecutions) {
+    assistantMsg.toolExecutions.forEach((exec) => {
+      if ((exec.toolName === 'edit' || exec.toolName === 'write_to_file') &&
+          exec.status === 'completed' && exec.result?.success) {
+        const d = exec.result.data as Record<string, unknown> | undefined;
+        const action = d?.action as string | undefined;
+        if (action !== 'no_change' && d?.path && typeof d.path === 'string') {
+          modifiedFilePaths.add(d.path);
+        }
+      }
+    });
+  }
+
   if (assistantMsg && assistantMsg.toolExecutions) {
     // Iterate up to toolIndex (exclusive) to get previous tools
     for (let i = 0; i < toolIndex; i++) {
@@ -251,9 +267,9 @@ async function handleBufferedResults(
       
       // Only include if it has a result and isn't a "pending" state from a race condition
       if (execution && (execution.status === 'completed' || execution.status === 'error' || execution.status === 'rejected') && execution.result) {
-        // Format the result exactly as we do for buffered results
-        // Use shared helper to ensure consistency
-        const formatted = formatToolResultForAI(execution.toolName, execution.result);
+        // Format the result with stale detection — if a read_file target was
+        // later edited/written in this same turn, mark it OUTDATED
+        const formatted = formatToolResultForAI(execution.toolName, execution.result, modifiedFilePaths);
         allToolResults.push(formatted);
 
         // Extract image attachments from tool results (e.g., read_file image previews)
@@ -301,7 +317,8 @@ async function handleBufferedResults(
     context.mode,
     userAttachments,
     toolIndex === 0,  // isFirstIteration: only add user message on first tool
-    allToolResultAttachments.length > 0 ? allToolResultAttachments : undefined
+    allToolResultAttachments.length > 0 ? allToolResultAttachments : undefined,
+    modifiedFilePaths
   );
 
   // Continue streaming with buffered results

@@ -10,14 +10,20 @@ export type ToolProgressCallback = (progress: ToolProgress) => void;
 
 /**
  * Format tool result for AI context - returns concise message for file modification tools
- * while preserving detailed output for search/read tools that need their data
+ * while preserving detailed output for search/read tools that need their data.
+ * 
+ * @param staleFilePaths - Optional set of file paths whose reads are stale
+ *   (file was edited/written later in the same turn). When provided, read_file
+ *   results for these paths show a condensed "OUTDATED" message instead of full content.
  */
 export function formatToolResultForAI(
   toolName: string,
-  result: { success: boolean; data?: unknown; error?: string }
+  result: { success: boolean; data?: unknown; error?: string },
+  staleFilePaths?: Set<string>
 ): string {
   if (!result.success) {
-    return `Tool: ${toolName}\nError: ${result.error}`;
+    const msg = result.error || 'Unknown error';
+    return `[${toolName} ERROR] ${msg}`;
   }
 
   const data = result.data as Record<string, unknown> | undefined;
@@ -33,10 +39,81 @@ export function formatToolResultForAI(
   }
 
   switch (toolName) {
+    case 'read_file': {
+      const path = data?.path as string | undefined;
+      const content = data?.content as string | undefined;
+      const totalLines = data?.totalLines as number | undefined;
+      const startLine = data?.startLine as number | undefined;
+      const endLine = data?.endLine as number | undefined;
+
+      // Check if this read is stale (file was edited/written later in the same turn)
+      if (path && staleFilePaths?.has(path)) {
+        return `[read_file] ${path} (OUTDATED - file was modified after this read)\n[Content hidden - the edit/write result above shows the current file state]`;
+      }
+
+      if (!path || !content) {
+        return `Tool: read_file\nResult: ${JSON.stringify(data, null, 2)}`;
+      }
+
+      const rangeInfo = (startLine && endLine && totalLines && (startLine !== 1 || endLine !== totalLines))
+        ? ` [lines ${startLine}-${endLine}]`
+        : '';
+      const lineInfo = totalLines ? ` (${totalLines} lines)` : '';
+
+      return `[read_file] ${path}${lineInfo}${rangeInfo}\n┌─ FILE CONTENT (use for edit old_string) ─┐\n${content}\n└─ END ${path} ─┘`;
+    }
+
     case 'edit': {
       const path = data?.path as string;
       const action = data?.action as string | undefined;
-      return `[edit] ${path} → ${action === 'no_change' ? 'NO CHANGES' : 'APPLIED'}`;
+      const reason = data?.reason as string | undefined;
+
+      if (action === 'no_change') {
+        if (reason === 'old_string_equals_new_string') {
+          return `[edit] ${path} → NO CHANGES (old_string and new_string are identical — file already has the desired content, move on)`;
+        }
+        return `[edit] ${path} → NO CHANGES`;
+      }
+
+      let out = `[edit] ${path} → APPLIED (edit verified, change is now in the file)`;
+
+      const oldContent = data?.oldContent as string | undefined;
+      const newContent = data?.newContent as string | undefined;
+      if (oldContent && newContent) {
+        const oldLines = oldContent.replace(/\r\n/g, '\n').split('\n');
+        const newLines = newContent.replace(/\r\n/g, '\n').split('\n');
+
+        let firstDiff = 0;
+        for (let i = 0; i < Math.min(oldLines.length, newLines.length); i++) {
+          if (oldLines[i] !== newLines[i]) { firstDiff = i; break; }
+        }
+
+        let lastDiff = newLines.length - 1;
+        for (let i = 0; i < Math.min(oldLines.length, newLines.length); i++) {
+          if (oldLines[oldLines.length - 1 - i] !== newLines[newLines.length - 1 - i]) {
+            lastDiff = newLines.length - 1 - i;
+            break;
+          }
+        }
+
+        const pad = 5;
+        const start = Math.max(0, firstDiff - pad);
+        let end = Math.min(newLines.length, lastDiff + pad + 1);
+
+        const maxLines = 50;
+        if (end - start > maxLines) {
+          end = Math.min(newLines.length, start + maxLines);
+        }
+
+        const window = newLines
+          .slice(start, end)
+          .map((l, i) => `${start + i + 1} | ${l}`)
+          .join('\n');
+
+        out += `\n[current file state around edit, lines ${start + 1}-${end} of ${newLines.length}]\n${window}`;
+      }
+
+      return out;
     }
 
     case 'write_to_file': {

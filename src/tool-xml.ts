@@ -1,2 +1,2 @@
-export const TOOL_XML_NAMESPACE = 'tool_use';
+export const TOOL_XML_NAMESPACE = 'echode';
 

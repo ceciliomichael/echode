@@ -18,7 +18,7 @@ function formatStaleReadFile(
     if (staleFilePaths && !staleFilePaths.has(filePath)) {
       return ''; // Not stale, return empty to signal normal formatting
     }
-    return `┌─ ${filePath} (outdated - see later read) ─┐\n[Content hidden - file was re-read with newer version]\n└─ END ${filePath} ─┘`;
+    return `┌─ ${filePath} (OUTDATED - file was modified since this read) ─┐\n[Content hidden - re-read file for current content]\n└─ END ${filePath} ─┘`;
   }
   
   // Multi-file case - filter only stale paths
@@ -31,7 +31,7 @@ function formatStaleReadFile(
         // Not stale, will be handled by normal formatting
         continue;
       }
-      results.push(`┌─ ${f.path} (outdated - see later read) ─┐\n[Content hidden - file was re-read with newer version]\n└─ END ${f.path} ─┘`);
+      results.push(`┌─ ${f.path} (OUTDATED - file was modified since this read) ─┐\n[Content hidden - re-read file for current content]\n└─ END ${f.path} ─┘`);
     }
     
     return results.join('\n\n');
@@ -58,11 +58,25 @@ export function formatToolExecutionResults(
   const toolResults: string[] = [];
   const skippedTools: string[] = [];
 
-  toolExecutions.forEach((execution) => {
+  // Sort executions by startedAt to preserve chronological order
+  const sortedExecutions = Array.from(toolExecutions.values()).sort(
+    (a, b) => (a.startedAt || 0) - (b.startedAt || 0)
+  );
+
+  // Count eligible executions for step numbering
+  const eligibleExecutions = sortedExecutions.filter(e => {
+    if (!isToolAvailableInMode(e.toolName, mode)) { return false; }
+    const hasResult = e.status === 'completed' || e.status === 'error' || e.status === 'rejected';
+    return hasResult && e.result;
+  });
+  const totalSteps = eligibleExecutions.length;
+  let stepNumber = 0;
+
+  for (const execution of sortedExecutions) {
     // Skip tools not available in current mode to prevent AI confusion
     if (!isToolAvailableInMode(execution.toolName, mode)) {
       skippedTools.push(execution.toolName);
-      return;
+      continue;
     }
     
     // Include completed, error, and rejected statuses in history
@@ -72,6 +86,7 @@ export function formatToolExecutionResults(
                       execution.status === 'rejected';
     
     if (hasResult && execution.result) {
+      stepNumber++;
       if (execution.result.success) {
         // Format result based on tool type
         const data = execution.result.data as Record<string, unknown>;
@@ -96,7 +111,7 @@ export function formatToolExecutionResults(
               formattedResult = files
                 .map(f => {
                   if (stalePathsForThis.has(f.path)) {
-                    return `┌─ ${f.path} (outdated - see later read) ─┐\n[Content hidden - file was re-read with newer version]\n└─ END ${f.path} ─┘`;
+                    return `┌─ ${f.path} (OUTDATED - file was modified since this read) ─┐\n[Content hidden - re-read file for current content]\n└─ END ${f.path} ─┘`;
                   }
                   return `┌─ ${f.path}${searchHint} ─┐\n${truncateContent(f.content, MAX_FILE_CONTENT_CHARS)}\n└─ END ${f.path} ─┘`;
                 })
@@ -144,9 +159,40 @@ export function formatToolExecutionResults(
           const diagnostics = data.diagnostics as Array<{ severity: string; message: string }> | undefined;
           
           if (execution.toolName === 'edit') {
-            formattedResult = action === 'no_change' 
-              ? `${path} → NO CHANGES` 
-              : `${path} → APPLIED`;
+            const reason = data.reason as string | undefined;
+            if (action === 'no_change') {
+              formattedResult = reason === 'old_string_equals_new_string'
+                ? `${path} → NO CHANGES (old_string and new_string are identical — file already has the desired content, move on)`
+                : `${path} → NO CHANGES`;
+            } else {
+              formattedResult = `${path} → APPLIED (edit verified, change is now in the file)`;
+            }
+            
+            if (action !== 'no_change') {
+              const newContent = data.newContent as string | undefined;
+              const oldContent = data.oldContent as string | undefined;
+              if (newContent && oldContent) {
+                const newLines = newContent.replace(/\r\n/g, '\n').split('\n');
+                const oldLines = oldContent.replace(/\r\n/g, '\n').split('\n');
+                let firstDiff = 0;
+                for (let i = 0; i < Math.min(oldLines.length, newLines.length); i++) {
+                  if (oldLines[i] !== newLines[i]) { firstDiff = i; break; }
+                }
+                let lastDiff = newLines.length - 1;
+                for (let i = 0; i < Math.min(oldLines.length, newLines.length); i++) {
+                  if (oldLines[oldLines.length - 1 - i] !== newLines[newLines.length - 1 - i]) {
+                    lastDiff = newLines.length - 1 - i; break;
+                  }
+                }
+                const pad = 5;
+                const start = Math.max(0, firstDiff - pad);
+                const end = Math.min(newLines.length, lastDiff + pad + 1);
+                const regionWindow = newLines.slice(start, end)
+                  .map((l, i) => `${start + i + 1} | ${l}`)
+                  .join('\n');
+                formattedResult += `\n[current file state around edit, lines ${start + 1}-${end} of ${newLines.length}]\n${regionWindow}`;
+              }
+            }
           } else {
             formattedResult = action === 'created' 
               ? `${path} → CREATED` 
@@ -170,13 +216,22 @@ export function formatToolExecutionResults(
           formattedResult = JSON.stringify(data);
         }
 
-        toolResults.push(`[${execution.toolName}]\n${formattedResult}`);
+        const stepLabel = totalSteps > 1 ? `(step ${stepNumber}/${totalSteps}) ` : '';
+        toolResults.push(`${stepLabel}[${execution.toolName}]\n${formattedResult}`);
       } else {
-        // Tool error
-        toolResults.push(`[${execution.toolName} ERROR]\n${execution.result.error}`);
+        // Tool error — include tool name and error for actionable feedback
+        const errorMsg = execution.result.error || 'Unknown error';
+        const stepLabel = totalSteps > 1 ? `(step ${stepNumber}/${totalSteps}) ` : '';
+        if (execution.toolName === 'edit') {
+          // For edit errors, the error message already contains actionable guidance
+          // from the backend (anchor context, line numbers, etc.)
+          toolResults.push(`${stepLabel}[edit ERROR] ${errorMsg}`);
+        } else {
+          toolResults.push(`${stepLabel}[${execution.toolName} ERROR] ${errorMsg}`);
+        }
       }
     }
-  });
+  }
 
   return { toolResults, skippedTools };
 }

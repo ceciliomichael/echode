@@ -5,11 +5,11 @@ import type { ChatHistoryContext } from './types';
 import type { ToolExecutionState } from '../../types/tool';
 import { buildChatMessage } from '../../utils/vision-utils';
 import { formatToolExecutionResults } from './tool-result-formatter';
-import { trimHistory } from './helpers';
 import { stripUnavailableToolCalls } from '../../utils/tool-history-filter';
 import { removeThinkBlocks } from '../../utils/think-block-parser';
 import { identifyStaleFileReads, identifyStaleFilePaths } from '../../utils/file-read-deduplicator';
-import { TOOL_OUTPUT_PREFIX } from '../../utils/continuation-builder/constants';
+import { TOOL_OUTPUT_PREFIX, RECENT_TURNS_FULL_RESULTS } from '../../utils/continuation-builder/constants';
+import { mergeConsecutiveSameRoleMessages } from '../../utils/chat-history-utils';
 
 function appendOmittedImageAttachmentNote(content: string, attachments?: ImageAttachment[]): string {
   if (!attachments || attachments.length === 0) {
@@ -19,33 +19,59 @@ function appendOmittedImageAttachmentNote(content: string, attachments?: ImageAt
 }
 
 /**
- * Extract list of files read in the conversation for context
+ * Compress tool executions into 1-line summaries for older turns.
  */
-function extractFilesRead(messages: Message[]): string[] {
-  const filesRead: string[] = [];
-
-  for (const msg of messages) {
-    if (msg.toolExecutions) {
-      msg.toolExecutions.forEach((execution: ToolExecutionState) => {
-        if (execution.toolName === 'read_file' && execution.status === 'completed' && execution.result?.success) {
-          const data = execution.result.data as Record<string, unknown>;
-          if (data.path) {
-            const rangeInfo = (data.startLine && data.endLine && (data.startLine !== 1 || data.endLine !== data.totalLines))
-              ? ` [${data.startLine}-${data.endLine}]`
-              : '';
-            filesRead.push(`${data.path}${rangeInfo}`);
-          }
-        }
-      });
+function compressToolExecutions(toolExecutions: Map<string, ToolExecutionState>): string {
+  const lines: string[] = [];
+  toolExecutions.forEach((execution) => {
+    const data = execution.result?.data as Record<string, unknown> | undefined;
+    if (!execution.result?.success) {
+      lines.push(`[${execution.toolName}] ERROR`);
+      return;
     }
-  }
-
-  return filesRead;
+    switch (execution.toolName) {
+      case 'read_file':
+        lines.push(`[read_file] ${data?.path || '?'}`);
+        break;
+      case 'edit': {
+        const action = data?.action as string || 'applied';
+        lines.push(`[edit] ${data?.path || '?'} → ${action === 'no_change' ? 'NO CHANGES' : 'APPLIED'}`);
+        break;
+      }
+      case 'write_to_file': {
+        const action = data?.action as string || 'modified';
+        lines.push(`[write_to_file] ${data?.path || '?'} → ${action === 'created' ? 'CREATED' : action === 'no_change' ? 'NO CHANGES' : 'MODIFIED'}`);
+        break;
+      }
+      case 'grep_search':
+        lines.push(`[grep_search] "${data?.query || '?'}"`);
+        break;
+      default:
+        lines.push(`[${execution.toolName}] done`);
+    }
+  });
+  return lines.join('\n');
 }
 
 /**
- * Build chat history with system prompt, context messages, tool results, and final user message
- * Returns the final chat history ready to send to the LLM
+ * Get indices of messages that have tool executions.
+ */
+function getToolTurnIndices(messages: Message[]): number[] {
+  const indices: number[] = [];
+  for (let i = 0; i < messages.length; i++) {
+    if (messages[i].toolExecutions && messages[i].toolExecutions!.size > 0) {
+      indices.push(i);
+    }
+  }
+  return indices;
+}
+
+/**
+ * Build chat history with system prompt, context messages, tool results, and final user message.
+ * 
+ * Strategy: ALL messages stay in history (no truncation).
+ * Only the last RECENT_TURNS_FULL_RESULTS tool turns keep full results.
+ * Older turns get compressed to 1-line summaries.
  */
 export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMessage[] {
   const {
@@ -58,16 +84,12 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
   } = ctx;
 
   // Identify stale file reads BEFORE building history
-  // This ensures older reads of the same file are summarized, not shown in full
   const staleExecutionIds = identifyStaleFileReads(contextMessages);
   const stalePathsByExecution = identifyStaleFilePaths(contextMessages);
 
   // Check if we have an existing system message in the context (e.g. for sub-agents)
   const existingSystemMsg = contextMessages.find(m => m.role === 'system');
   
-  // Initialize chat history
-  // If we have an existing system message, use it (even if hidden). 
-  // Otherwise, use the default systemPrompt.
   const chatHistory: ChatMessage[] = [];
   
   if (!existingSystemMsg) {
@@ -77,12 +99,18 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
     });
   }
 
+  // Determine which tool turns are "recent" (keep full results)
+  const toolTurnIndices = getToolTurnIndices(contextMessages);
+  const recentToolTurnStart = toolTurnIndices.length > RECENT_TURNS_FULL_RESULTS
+    ? toolTurnIndices[toolTurnIndices.length - RECENT_TURNS_FULL_RESULTS]
+    : 0;
+
   // Add messages with tool results embedded
-  for (const msg of contextMessages) {
-    // Special handling for system messages: 
-    // If this is the system message we identified, add it (ignoring hidden flag)
+  for (let i = 0; i < contextMessages.length; i++) {
+    const msg = contextMessages[i];
+
+    // Special handling for system messages
     if (msg.role === 'system') {
-      // Only add if it's the first one we found (to avoid duplicates if logic is complex)
       if (msg === existingSystemMsg) {
         chatHistory.push({
           role: 'system',
@@ -92,13 +120,11 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
       continue;
     }
 
-    // Skip hidden messages (except the system message handled above)
-    if (msg.hidden) {continue;}
+    // Skip hidden messages
+    if (msg.hidden) { continue; }
 
     let processedContent = msg.content;
 
-    // For assistant messages, strip think blocks so the model gets a clean reasoning slate,
-    // then strip tool call XML for tools not available in current mode
     if (msg.role === 'assistant') {
       processedContent = removeThinkBlocks(processedContent);
       processedContent = stripUnavailableToolCalls(processedContent, mode);
@@ -106,7 +132,6 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
 
     const contentWithAttachmentNote = appendOmittedImageAttachmentNote(processedContent, msg.attachments);
 
-    // Build message with vision support if available
     const chatMessage = buildChatMessage(
       msg.role,
       contentWithAttachmentNote,
@@ -115,58 +140,46 @@ export function buildChatHistoryWithToolResults(ctx: ChatHistoryContext): ChatMe
     );
     chatHistory.push(chatMessage);
 
-    // If this message has tool executions, add them as context
+    // Add tool results for this message
     if (msg.toolExecutions && msg.toolExecutions.size > 0) {
-      // Pass stale file info to formatter so outdated reads get summarized
-      const { toolResults } = formatToolExecutionResults(
-        msg.toolExecutions,
-        mode,
-        staleExecutionIds,
-        stalePathsByExecution
-      );
+      const isRecentTurn = i >= recentToolTurnStart;
 
-      if (toolResults.length > 0) {
-        const toolResultsContent = `${TOOL_OUTPUT_PREFIX}\n<tool_results>\n${toolResults.join('\n\n---\n\n')}\n</tool_results>`;
-        chatHistory.push({
-          role: 'user',
-          content: toolResultsContent,
-        });
+      if (isRecentTurn) {
+        // Full tool results for recent turns (with stale detection)
+        const { toolResults } = formatToolExecutionResults(
+          msg.toolExecutions,
+          mode,
+          staleExecutionIds,
+          stalePathsByExecution
+        );
+        if (toolResults.length > 0) {
+          chatHistory.push({
+            role: 'user',
+            content: `${TOOL_OUTPUT_PREFIX}\n<tool_results>\n${toolResults.join('\n\n---\n\n')}\n</tool_results>`,
+          });
+        }
+      } else {
+        // Compressed 1-line summaries for older turns
+        const compressed = compressToolExecutions(msg.toolExecutions);
+        if (compressed) {
+          chatHistory.push({
+            role: 'user',
+            content: `<tool_results_summary>\n${compressed}\n</tool_results_summary>`,
+          });
+        }
       }
     }
   }
 
-  // Apply history trimming after assembling messages and tool results
-  const trimmedHistory = trimHistory(chatHistory);
-
-  // Add current user message with attachments
-  const hasToolResults = contextMessages.some(msg => msg.toolExecutions && msg.toolExecutions.size > 0);
-  const filesRead = extractFilesRead(contextMessages);
-
-  // Build instruction based on context - concise and actionable
-  let instruction = '';
-
-  if (filesRead.length > 0) {
-    instruction += `\n\n<session_state>\nFiles read: ${filesRead.slice(-10).join(', ')}${filesRead.length > 10 ? ` (+${filesRead.length - 10} more)` : ''}`;
-
-    if (mode === 'agent' || mode === 'general') {
-      instruction += `\nFor edit: copy old_string exactly from <tool_results> above.`;
-    }
-
-    instruction += `\n</session_state>`;
-  }
-
-  if (hasToolResults) {
-    instruction += '\n[Use <tool_results> for exact content. Stay focused.]';
-  }
-
+  // Add current user message
   const finalUserMessage = buildChatMessage(
     'user',
-    content + instruction,
+    content,
     attachments,
     modelSupportsVision
   );
-  trimmedHistory.push(finalUserMessage);
+  chatHistory.push(finalUserMessage);
 
-  return injectCodeQualityReminder(trimmedHistory, mode);
+  return injectCodeQualityReminder(mergeConsecutiveSameRoleMessages(chatHistory), mode);
 }
 

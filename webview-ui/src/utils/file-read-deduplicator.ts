@@ -73,8 +73,35 @@ function extractAllFilePaths(execution: ToolExecutionState): string[] {
 }
 
 /**
+ * Extract file path from an edit or write_to_file execution result
+ */
+function extractEditedFilePath(execution: ToolExecutionState): string | null {
+  if (execution.toolName !== 'edit' && execution.toolName !== 'write_to_file') {
+    return null;
+  }
+  
+  if (execution.status !== 'completed' || !execution.result?.success) {
+    return null;
+  }
+  
+  const data = execution.result.data as Record<string, unknown>;
+  const action = data.action as string | undefined;
+  
+  // Only count actual modifications, not no_change
+  if (action === 'no_change') {
+    return null;
+  }
+  
+  if ('path' in data && typeof data.path === 'string') {
+    return data.path;
+  }
+  
+  return null;
+}
+
+/**
  * Scan all messages and identify which read_file executions are stale.
- * A read is stale if the same file path is read again later in the conversation.
+ * A read is stale if the same file path is read again OR edited later in the conversation.
  * 
  * @param messages - All messages in the conversation
  * @returns Set of execution IDs that are stale (should be summarized, not shown in full)
@@ -82,6 +109,8 @@ function extractAllFilePaths(execution: ToolExecutionState): string[] {
 export function identifyStaleFileReads(messages: Message[]): Set<string> {
   // Collect all read_file occurrences
   const allReads: FileReadOccurrence[] = [];
+  // Track which files were modified (edited/written) and at which message index + timestamp
+  const fileModifications: { filePath: string; messageIndex: number; startedAt: number }[] = [];
   
   messages.forEach((msg, messageIndex) => {
     if (!msg.toolExecutions || msg.toolExecutions.size === 0) {
@@ -108,6 +137,12 @@ export function identifyStaleFileReads(messages: Message[]): Set<string> {
             messageIndex,
           });
         }
+      }
+      
+      // Track edit/write_to_file operations
+      const editedPath = extractEditedFilePath(execution);
+      if (editedPath) {
+        fileModifications.push({ filePath: editedPath, messageIndex, startedAt: execution.startedAt || 0 });
       }
     });
   });
@@ -137,6 +172,22 @@ export function identifyStaleFileReads(messages: Message[]): Set<string> {
     }
   }
   
+  // Also mark reads as stale if the file was edited AFTER the read
+  // This includes edits in the SAME message (same turn) — the read happened before the edit
+  for (const read of allReads) {
+    if (staleExecutionIds.has(read.executionId)) {
+      continue; // Already stale
+    }
+    for (const mod of fileModifications) {
+      if (mod.filePath === read.filePath && mod.messageIndex >= read.messageIndex) {
+        // Same message: read is stale because edits in the same turn always run after reads
+        // Later message: read is obviously stale
+        staleExecutionIds.add(read.executionId);
+        break;
+      }
+    }
+  }
+  
   return staleExecutionIds;
 }
 
@@ -151,9 +202,13 @@ export function identifyStaleFileReads(messages: Message[]): Set<string> {
 export function identifyStaleFilePaths(messages: Message[]): Map<string, Set<string>> {
   // Track the last read for each file path: path -> executionId
   const lastReadByPath = new Map<string, string>();
+  // Track which files were edited and at which message index
+  const editedFiles = new Map<string, number>(); // path -> latest edit messageIndex
+  // Track read execution -> messageIndex for edit-staleness check
+  const readMessageIndex = new Map<string, number>(); // executionId -> messageIndex
   
-  // First pass: find the last read for each file path
-  messages.forEach((msg) => {
+  // First pass: find the last read for each file path AND track edits
+  messages.forEach((msg, messageIndex) => {
     if (!msg.toolExecutions || msg.toolExecutions.size === 0) {
       return;
     }
@@ -163,12 +218,28 @@ export function identifyStaleFilePaths(messages: Message[]): Map<string, Set<str
       for (const path of paths) {
         // Later reads overwrite earlier ones
         lastReadByPath.set(path, execution.toolExecutionId);
+        readMessageIndex.set(execution.toolExecutionId, messageIndex);
+      }
+      
+      // Track edits
+      const editedPath = extractEditedFilePath(execution);
+      if (editedPath) {
+        editedFiles.set(editedPath, messageIndex);
       }
     });
   });
   
-  // Second pass: mark paths as stale if they're not the last read
+  // Second pass: mark paths as stale if they're not the last read OR if file was edited after
   const stalePathsByExecution = new Map<string, Set<string>>();
+  
+  const markStale = (executionId: string, path: string) => {
+    let stalePaths = stalePathsByExecution.get(executionId);
+    if (!stalePaths) {
+      stalePaths = new Set<string>();
+      stalePathsByExecution.set(executionId, stalePaths);
+    }
+    stalePaths.add(path);
+  };
   
   messages.forEach((msg) => {
     if (!msg.toolExecutions || msg.toolExecutions.size === 0) {
@@ -181,12 +252,16 @@ export function identifyStaleFilePaths(messages: Message[]): Map<string, Set<str
         const lastReadId = lastReadByPath.get(path);
         if (lastReadId && lastReadId !== execution.toolExecutionId) {
           // This path was read again later, mark it as stale
-          let stalePaths = stalePathsByExecution.get(execution.toolExecutionId);
-          if (!stalePaths) {
-            stalePaths = new Set<string>();
-            stalePathsByExecution.set(execution.toolExecutionId, stalePaths);
-          }
-          stalePaths.add(path);
+          markStale(execution.toolExecutionId, path);
+        }
+        
+        // Also check if the file was edited after this read (or in the same turn)
+        const editMsgIdx = editedFiles.get(path);
+        const readMsgIdx = readMessageIndex.get(execution.toolExecutionId);
+        if (editMsgIdx !== undefined && readMsgIdx !== undefined && editMsgIdx >= readMsgIdx) {
+          // Same message (>=): read ran before edit in the same turn, so read content is stale
+          // Later message (>): file was edited after the read
+          markStale(execution.toolExecutionId, path);
         }
       }
     });

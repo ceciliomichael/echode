@@ -70,6 +70,16 @@ export function cleanToolCallContent(content: string): string {
     hadErrors = true;
   }
 
+  // Fix bare closing tags missing the namespace prefix.
+  // AI sometimes writes </invoke> instead of </tool:invoke>, etc.
+  // Only target known tool tag names to avoid mangling unrelated content.
+  if (cleaned.includes('</invoke>') || cleaned.includes('</parameter>') || cleaned.includes('</function_calls>')) {
+    hadErrors = true;
+    cleaned = cleaned.replace(/<\/invoke>/g, `</${TOOL_XML_NAMESPACE}:invoke>`);
+    cleaned = cleaned.replace(/<\/parameter>/g, `</${TOOL_XML_NAMESPACE}:parameter>`);
+    cleaned = cleaned.replace(/<\/function_calls>/g, `</${TOOL_XML_NAMESPACE}:function_calls>`);
+  }
+
   // Fix malformed closing tags with backslashes: <\param> -> </param>
   const backslashClosings = cleaned.match(/<\\[\w_-]+>/g);
   if (backslashClosings) {

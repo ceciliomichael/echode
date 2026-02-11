@@ -1,17 +1,23 @@
 /**
  * Message processing utilities for continuation history
+ * 
+ * Strategy: ALL messages stay in history (no truncation).
+ * Only the last RECENT_TURNS_FULL_RESULTS turns keep full tool results.
+ * Older turns get compressed to 1-line summaries per tool.
+ * This prevents stale context confusion without losing conversation flow.
  */
 
 import type { Message } from '../../types/chat';
 import type { ChatMessage } from '../../types/chat-api';
 import type { ChatMode } from '../../types/chat-mode';
-import type { TruncationResult } from './types';
-import { MAX_HISTORY_MESSAGES, N_MESSAGES_TO_ALWAYS_KEEP } from './constants';
+import type { ToolExecutionState } from '../../types/tool';
+import { RECENT_TURNS_FULL_RESULTS, TOOL_OUTPUT_PREFIX } from './constants';
 import { buildChatMessage } from '../vision-utils';
-import { summarizeToolSections, stripDiagnosticsSections } from '../tool-context-cleaner';
+import { stripDiagnosticsSections } from '../tool-context-cleaner';
 import { stripUnavailableToolCalls } from '../tool-history-filter';
 import { removeThinkBlocks } from '../think-block-parser';
 import { formatToolResultsForHistory } from '../tool-result-formatter';
+import { identifyStaleFilePaths } from '../file-read-deduplicator';
 
 function appendOmittedImageAttachmentNote(content: string, msg: Message): string {
   if (!msg.attachments || msg.attachments.length === 0) {
@@ -21,125 +27,118 @@ function appendOmittedImageAttachmentNote(content: string, msg: Message): string
 }
 
 /**
- * Truncate message history to stay within context limits
- * Keeps first message (original task) + last N messages
+ * Compress tool executions into 1-line summaries.
+ * Used for older turns to save context space.
  */
-export function truncateMessageHistory(messages: Message[]): TruncationResult {
-  if (messages.length <= MAX_HISTORY_MESSAGES) {
-    return {
-      messages,
-      wasTruncated: false,
-    };
-  }
+function compressToolResults(toolExecutions: Map<string, ToolExecutionState>): string {
+  const lines: string[] = [];
 
-  // Keep first message (original task) + last N messages
-  const firstMessage = messages[0];
-  const lastMessages = messages.slice(-N_MESSAGES_TO_ALWAYS_KEEP);
+  toolExecutions.forEach((execution) => {
+    const data = execution.result?.data as Record<string, unknown> | undefined;
 
-  // Check if first message is already in the last messages (avoid duplicate)
-  if (lastMessages.includes(firstMessage)) {
-    return {
-      messages: lastMessages,
-      wasTruncated: true,
-    };
-  }
+    if (!execution.result?.success) {
+      lines.push(`[${execution.toolName}] ERROR`);
+      return;
+    }
 
-  return {
-    messages: [firstMessage, ...lastMessages],
-    wasTruncated: true,
-  };
+    switch (execution.toolName) {
+      case 'read_file': {
+        const path = data?.path as string || '?';
+        lines.push(`[read_file] ${path}`);
+        break;
+      }
+      case 'edit': {
+        const path = data?.path as string || '?';
+        const action = data?.action as string || 'applied';
+        lines.push(`[edit] ${path} → ${action === 'no_change' ? 'NO CHANGES' : 'APPLIED'}`);
+        break;
+      }
+      case 'write_to_file': {
+        const path = data?.path as string || '?';
+        const action = data?.action as string || 'modified';
+        lines.push(`[write_to_file] ${path} → ${action === 'created' ? 'CREATED' : action === 'no_change' ? 'NO CHANGES' : 'MODIFIED'}`);
+        break;
+      }
+      case 'grep_search': {
+        const query = data?.query as string || '?';
+        lines.push(`[grep_search] "${query}"`);
+        break;
+      }
+      case 'list_files': {
+        const path = data?.path as string || '?';
+        lines.push(`[list_files] ${path}`);
+        break;
+      }
+      case 'todo_write': {
+        const allCompleted = data?.allCompleted === true;
+        lines.push(`[todo_write] ${allCompleted ? 'ALL DONE' : 'updated'}`);
+        break;
+      }
+      default:
+        lines.push(`[${execution.toolName}] done`);
+    }
+  });
+
+  return lines.join('\n');
 }
 
 /**
- * Process the first message in the history
- * Handles content cleaning and tool result summarization when truncated
+ * Count how many messages have tool executions (i.e., are "tool turns").
+ * Returns indices of messages with tool executions, ordered.
  */
-export function processFirstMessage(
-  msg: Message,
-  wasTruncated: boolean,
+function getToolTurnIndices(messages: Message[]): number[] {
+  const indices: number[] = [];
+  for (let i = 0; i < messages.length; i++) {
+    if (messages[i].toolExecutions && messages[i].toolExecutions!.size > 0) {
+      indices.push(i);
+    }
+  }
+  return indices;
+}
+
+/**
+ * Process all messages into chat history.
+ * Recent tool turns get full results; older turns get compressed summaries.
+ * No messages are dropped.
+ */
+export function processAllMessages(
+  messages: Message[],
   mode: ChatMode,
-  modelSupportsVision: boolean
+  modelSupportsVision: boolean,
+  extraModifiedPaths?: Set<string>
 ): ChatMessage[] {
   const result: ChatMessage[] = [];
 
-  // If truncated, clean any embedded tool sections from old message content
-  let cleanedContent = wasTruncated
-    ? summarizeToolSections(msg.content)
-    : msg.content;
-
-  // If truncated, wrap in a block to distinguish it as historical context
-  if (wasTruncated && msg.role === 'user') {
-    cleanedContent = `<historical_context description="This is the original task/request from the start of the conversation. Focus on the LATEST user message at the bottom for the current instruction.">\n${cleanedContent}\n</historical_context>`;
+  // Compute stale file paths across ALL messages so reads before edits get hidden
+  const stalePathsByExecution = identifyStaleFilePaths(messages);
+  const allStalePaths = new Set<string>();
+  for (const paths of stalePathsByExecution.values()) {
+    for (const p of paths) {
+      allStalePaths.add(p);
+    }
   }
-
-  // For assistant messages, strip think blocks so the model reasons fresh each turn,
-  // then strip tool call XML for tools not available in current mode
-  if (msg.role === 'assistant') {
-    cleanedContent = removeThinkBlocks(cleanedContent);
-    cleanedContent = stripUnavailableToolCalls(cleanedContent, mode);
-  }
-
-  cleanedContent = appendOmittedImageAttachmentNote(cleanedContent, msg);
-
-  const chatMessage = buildChatMessage(
-    msg.role,
-    cleanedContent,
-    undefined,
-    modelSupportsVision
-  );
-  result.push(chatMessage);
-
-  // Add tool results for first message if any
-  // When truncated, only add a brief summary instead of full results
-  if (msg.toolExecutions && msg.toolExecutions.size > 0) {
-    if (wasTruncated) {
-      // Summarize old tool results
-      const toolNames = Array.from(msg.toolExecutions.values())
-        .map(t => t.toolName)
-        .slice(0, 5)
-        .join(', ');
-      result.push({
-        role: 'user',
-        content: `[Previous tools used: ${toolNames}]`,
-      });
-    } else {
-      // Keep full tool results for recent messages
-      const toolResults = formatToolResultsForHistory(msg.toolExecutions, mode);
-      if (toolResults.length > 0) {
-        result.push({
-          role: 'user',
-          content: `<previous_tool_results>\n${toolResults.join('\n\n---\n\n')}\n</previous_tool_results>`,
-        });
-      }
+  // Merge in extra modified paths from the current tool execution turn
+  // These may not be in stored state yet due to React batching
+  if (extraModifiedPaths) {
+    for (const p of extraModifiedPaths) {
+      allStalePaths.add(p);
     }
   }
 
-  return result;
-}
+  // Determine which tool turns are "recent" (keep full results)
+  const toolTurnIndices = getToolTurnIndices(messages);
+  const recentToolTurnStart = toolTurnIndices.length > RECENT_TURNS_FULL_RESULTS
+    ? toolTurnIndices[toolTurnIndices.length - RECENT_TURNS_FULL_RESULTS]
+    : 0;
 
-/**
- * Process remaining messages (after the first one)
- * Handles content cleaning and tool results for each message
- */
-export function processRemainingMessages(
-  messages: Message[],
-  mode: ChatMode,
-  modelSupportsVision: boolean
-): ChatMessage[] {
-  const result: ChatMessage[] = [];
-
-  // Skip first message (index 0) since it's processed separately
-  for (let i = 1; i < messages.length; i++) {
+  for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
 
-    // For user messages, strip old <diagnostics> blocks to avoid stale diagnostic data
-    // Fresh diagnostics for the current iteration are added separately
+    // Process message content
     let processedContent = msg.role === 'user'
       ? stripDiagnosticsSections(msg.content)
       : msg.content;
 
-    // For assistant messages, strip think blocks so the model reasons fresh each turn,
-    // then strip tool call XML for tools not available in current mode
     if (msg.role === 'assistant') {
       processedContent = removeThinkBlocks(processedContent);
       processedContent = stripUnavailableToolCalls(processedContent, mode);
@@ -147,7 +146,6 @@ export function processRemainingMessages(
 
     processedContent = appendOmittedImageAttachmentNote(processedContent, msg);
 
-    // Build message with vision support if available
     const chatMessage = buildChatMessage(
       msg.role,
       processedContent,
@@ -158,12 +156,26 @@ export function processRemainingMessages(
 
     // Add tool results for this message
     if (msg.toolExecutions && msg.toolExecutions.size > 0) {
-      const toolResults = formatToolResultsForHistory(msg.toolExecutions, mode);
-      if (toolResults.length > 0) {
-        result.push({
-          role: 'user',
-          content: `<previous_tool_results>\n${toolResults.join('\n\n---\n\n')}\n</previous_tool_results>`,
-        });
+      const isRecentTurn = i >= recentToolTurnStart;
+
+      if (isRecentTurn) {
+        // Full tool results for recent turns (with stale detection)
+        const toolResults = formatToolResultsForHistory(msg.toolExecutions, mode, allStalePaths);
+        if (toolResults.length > 0) {
+          result.push({
+            role: 'user',
+            content: `${TOOL_OUTPUT_PREFIX}\n<tool_results>\n${toolResults.join('\n\n---\n\n')}\n</tool_results>`,
+          });
+        }
+      } else {
+        // Compressed 1-line summaries for older turns
+        const compressed = compressToolResults(msg.toolExecutions);
+        if (compressed) {
+          result.push({
+            role: 'user',
+            content: `<tool_results_summary>\n${compressed}\n</tool_results_summary>`,
+          });
+        }
       }
     }
   }

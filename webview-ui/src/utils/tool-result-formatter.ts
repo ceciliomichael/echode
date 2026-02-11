@@ -14,7 +14,7 @@ function truncateContent(content: string, maxChars: number): string {
  * Format a single tool execution result into a concise, structured string.
  * Follows the pattern: Tool → Status → Key info only.
  */
-function formatSingleToolResult(execution: ToolExecutionState, mode: ChatMode): string {
+function formatSingleToolResult(execution: ToolExecutionState, mode: ChatMode, staleFilePaths?: Set<string>): string {
   const data = execution.result?.data as Record<string, unknown> | undefined;
 
   if (!execution.result?.success) {
@@ -32,6 +32,11 @@ function formatSingleToolResult(execution: ToolExecutionState, mode: ChatMode): 
       const startLine = data.startLine as number;
       const endLine = data.endLine as number;
       const content = data.content as string;
+
+      // Check if this read is stale (file was edited or re-read later)
+      if (staleFilePaths && staleFilePaths.has(path)) {
+        return `[read_file] ${path} (OUTDATED - file was modified since this read)\n[Content hidden - re-read file for current content]`;
+      }
 
       const rangeInfo = (startLine !== 1 || endLine !== totalLines)
         ? ` [lines ${startLine}-${endLine}]`
@@ -55,7 +60,43 @@ ${content}
     case 'edit': {
       const path = data.path as string;
       const action = data.action as string | undefined;
-      return `[edit] ${path} → ${action === 'no_change' ? 'NO CHANGES' : 'APPLIED'}`;
+      const reason = data.reason as string | undefined;
+      let result: string;
+      if (action === 'no_change') {
+        result = reason === 'old_string_equals_new_string'
+          ? `[edit] ${path} → NO CHANGES (old_string and new_string are identical — file already has the desired content, move on)`
+          : `[edit] ${path} → NO CHANGES`;
+      } else {
+        result = `[edit] ${path} → APPLIED (edit verified, change is now in the file)`;
+      }
+
+      if (action !== 'no_change') {
+        const newContent = data.newContent as string | undefined;
+        const oldContent = data.oldContent as string | undefined;
+        if (newContent && oldContent) {
+          const newLines = newContent.replace(/\r\n/g, '\n').split('\n');
+          const oldLines = oldContent.replace(/\r\n/g, '\n').split('\n');
+          let firstDiff = 0;
+          for (let i = 0; i < Math.min(oldLines.length, newLines.length); i++) {
+            if (oldLines[i] !== newLines[i]) { firstDiff = i; break; }
+          }
+          let lastDiff = newLines.length - 1;
+          for (let i = 0; i < Math.min(oldLines.length, newLines.length); i++) {
+            if (oldLines[oldLines.length - 1 - i] !== newLines[newLines.length - 1 - i]) {
+              lastDiff = newLines.length - 1 - i; break;
+            }
+          }
+          const pad = 5;
+          const start = Math.max(0, firstDiff - pad);
+          const end = Math.min(newLines.length, lastDiff + pad + 1);
+          const window = newLines.slice(start, end)
+            .map((l, i) => `${start + i + 1} | ${l}`)
+            .join('\n');
+          result += `\n[current file state around edit, lines ${start + 1}-${end} of ${newLines.length}]\n${window}`;
+        }
+      }
+
+      return result;
     }
 
     case 'delete': {
@@ -124,23 +165,30 @@ ${content}
  * 
  * @param toolExecutions - Map of tool executions
  * @param mode - Current chat mode (used to filter out tools not available in current mode)
+ * @param staleFilePaths - Optional set of file paths whose reads are stale (file was edited/re-read later)
  */
 export function formatToolResultsForHistory(
   toolExecutions: Map<string, ToolExecutionState>,
-  mode: ChatMode = 'agent'
+  mode: ChatMode = 'agent',
+  staleFilePaths?: Set<string>
 ): string[] {
   const toolResults: string[] = [];
 
-  toolExecutions.forEach((execution) => {
+  // Sort executions by startedAt to preserve chronological order
+  const sortedExecutions = Array.from(toolExecutions.values()).sort(
+    (a, b) => (a.startedAt || 0) - (b.startedAt || 0)
+  );
+
+  for (const execution of sortedExecutions) {
     // Skip tools not available in current mode to prevent AI confusion
     if (!isToolAvailableInMode(execution.toolName, mode)) {
-      return;
+      continue;
     }
 
     if (execution.status === 'completed' && execution.result) {
-      toolResults.push(formatSingleToolResult(execution, mode));
+      toolResults.push(formatSingleToolResult(execution, mode, staleFilePaths));
     }
-  });
+  }
 
   return toolResults;
 }
