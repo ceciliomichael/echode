@@ -177,7 +177,7 @@ export async function handleChatStream(
 
           const systemReminderFinal = `\n\n<system_reminder>\nPlease remember:${toolsMessage}
 ${toolProtocolReminder}
-- For edit: old_string must match exactly (unique unless replace_all is true). Do not attempt to batch multiple edits in one call.
+- For edit: old_string must match exactly (unique unless replace_all is true). Use start_line/end_line from read_file output to scope edits precisely. Do not attempt to batch multiple edits in one call. Always read a file before editing if you haven't seen it yet.
 - Avoid redundant file reads when you already have the necessary code in context, but if you are unsure or need to verify details, call the relevant tool again instead of guessing.
 - Always base code descriptions and edits on the latest tool output you have. If you are missing details, fetch them with tools first.
 - Stay focused on the current task.${modeSpecificReminder}

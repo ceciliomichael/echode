@@ -20,8 +20,10 @@ ${TOOL_OUTPUT_INTERPRETATION}
 - **READ FIRST** if the file was modified by another tool call since you last saw it
 - **SKIP READING** if the file content is already in your context and unchanged
 - **WHEN UNSURE** → read. A wasted read is always better than a failed edit.
+- **USE LINE NUMBERS**: Note line numbers from read_file output and pass them as start_line/end_line in your edit for precision — this scopes the search and eliminates ambiguity.
 - **old_string MUST be exact**: Copy it character-for-character from the \`read_file\` output in context. Never guess.
-- **If an edit fails**: Read the file again first, then retry with the exact content.
+- **If a line-range edit fails**: The error shows the ACTUAL content at those lines. Copy it exactly and retry.
+- **If an edit fails (no line range)**: Read the file again first, then retry with the exact content and line numbers.
 
 **Stay Grounded**
 - Only use the tools you actually have (listed in context)

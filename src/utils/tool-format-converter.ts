@@ -55,7 +55,30 @@ function parseXmlInvokeBlock(invokeContent: string): { name: string; parameters:
 	let match: RegExpExecArray | null;
 	while ((match = paramRegex.exec(invokeContent)) !== null) {
 		const paramName = match[1];
-		let paramValue = match[2];
+		const rawValue = match[2];
+
+		// For edit tool, preserve content (no unescaping) but strip only outer newlines to avoid XML indentation artifacts
+		if (toolName === 'edit' && (paramName === 'old_string' || paramName === 'new_string' || paramName === 'explanation')) {
+			const cleaned = rawValue.replace(/^\r?\n/, '').replace(/\r?\n$/, '');
+			const logPreview = (value: string) => {
+				const max = 200;
+				return value.length > max ? `${value.slice(0, max)}…(truncated ${value.length - max} chars)` : value;
+			};
+			try {
+				console.log('[tool-format-converter] edit param parsed', {
+					toolName,
+					paramName,
+					rawPreview: logPreview(rawValue),
+					cleanedPreview: logPreview(cleaned),
+				});
+			} catch {
+				// avoid breaking parsing due to logging issues
+			}
+			parameters[paramName] = cleaned;
+			continue;
+		}
+
+		let paramValue = rawValue;
 
 		// Trim but preserve internal whitespace for code content
 		paramValue = paramValue.replace(/^\r?\n/, '').replace(/\r?\n$/, '');

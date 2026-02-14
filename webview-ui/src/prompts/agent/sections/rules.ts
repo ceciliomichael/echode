@@ -39,9 +39,11 @@ EDIT & READ DISCIPLINE (CRITICAL - prevents failed edits):
 - **READ FIRST** if the file was modified by another tool call since you last saw it
 - **SKIP READING** if the file content is already in your context and unchanged
 - **WHEN UNSURE** → read. A wasted read is always better than a failed edit.
-- **old_string MUST be exact**: Copy it character-for-character from the \`read_file\` output you have in context. Never reconstruct from memory or guess what the file looks like.
-- **If an edit fails**: Do NOT retry with a guess. Read the file again first, then retry with the exact content.
-- **Multiple edits to same file**: After each successful edit, the file has changed. Use the returned \`newContent\` from the edit result as your new context, or read again before the next edit.
+- **USE LINE NUMBERS**: When you read a file, note the line numbers. Pass them as start_line/end_line in your edit for precision — this scopes the search to that range and eliminates ambiguity.
+- **old_string MUST be exact**: Copy it character-for-character from the read_file output you have in context. Never reconstruct from memory or guess what the file looks like.
+- **If a line-range edit fails**: The error shows the ACTUAL content at those lines. Copy it exactly and retry — no need to call read_file again.
+- **If an edit fails (no line range)**: Do NOT retry with a guess. Read the file again first, then retry with the exact content and line numbers.
+- **Multiple edits to same file**: After each successful edit, the file has changed. Use the returned newContent from the edit result as your new context, or read again before the next edit.
 
 PARALLEL EXECUTION STRATEGY:
 - **Always prefer parallel** when operations are independent

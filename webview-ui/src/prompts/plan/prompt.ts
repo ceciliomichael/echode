@@ -52,6 +52,8 @@ export function getPlanPrompt(
     const workflow = isYoloMode ? PLAN_WORKFLOW_YOLO : PLAN_WORKFLOW_STANDARD;
 
     return `<plan_mode>
+DO NOT REPEAT THE <xml_tags> on a normal conversation.
+
 ${identity}
 
 <context>

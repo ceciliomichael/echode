@@ -82,21 +82,36 @@ export const config = {
     instructions.push(`## edit
 **PRIMARY TOOL** - Use this for ALL existing file edits.
 
-Use \`edit\` for targeted edits to existing files using exact string replacement.
+Use \`edit\` for targeted edits to existing files using exact string replacement with optional line-range scoping.
+
+The tool is tolerant of whitespace/indentation drift **inside the specified line range** (exact → whitespace-tolerant → indentation-flexible), and also handles a trailing newline after the range. Outside the given line range it will not match.
 
 Parameters:
 - file_path: File path (required)
 - old_string: The exact text to replace (required; must be unique unless replace_all is true)
 - new_string: Replacement text (required; must be different from old_string)
 - explanation: Description of the change being made (required)
+- start_line: 1-based start line to scope the edit (optional but recommended)
+- end_line: 1-based end line to scope the edit (optional but recommended)
 - replace_all: Optional boolean; if true replaces all occurrences
 
-### EXAMPLE
+### LINE-RANGE SCOPING
+When you provide start_line and end_line, the tool narrows its search to that range only. This eliminates ambiguity and prevents wrong-location edits. Whitespace/indentation drift within that range is tolerated. On failure, the tool returns the ACTUAL content at those lines so you can self-correct immediately.
+
+### SMART WORKFLOW
+1. Read the file first if you haven't seen it yet in this conversation
+2. Note the line numbers from read_file output
+3. Use those line numbers as start_line/end_line in your edit for precision; keep the range tight around the snippet
+4. If an edit fails with line range, the error shows actual content — copy it exactly and retry
+
+### EXAMPLE — Line-range scoped edit (RECOMMENDED)
 <${TOOL_XML_NAMESPACE}:function_calls>
 <${TOOL_XML_NAMESPACE}:invoke name="edit">
     <${TOOL_XML_NAMESPACE}:parameter name="file_path">src/file.ts</${TOOL_XML_NAMESPACE}:parameter>
     <${TOOL_XML_NAMESPACE}:parameter name="old_string">const DEBUG = false;</${TOOL_XML_NAMESPACE}:parameter>
     <${TOOL_XML_NAMESPACE}:parameter name="new_string">const DEBUG = true;</${TOOL_XML_NAMESPACE}:parameter>
+    <${TOOL_XML_NAMESPACE}:parameter name="start_line">5</${TOOL_XML_NAMESPACE}:parameter>
+    <${TOOL_XML_NAMESPACE}:parameter name="end_line">5</${TOOL_XML_NAMESPACE}:parameter>
     <${TOOL_XML_NAMESPACE}:parameter name="explanation">Enable debug logging</${TOOL_XML_NAMESPACE}:parameter>
 </${TOOL_XML_NAMESPACE}:invoke>
 </${TOOL_XML_NAMESPACE}:function_calls>`);

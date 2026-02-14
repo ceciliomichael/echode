@@ -15,6 +15,7 @@ export const KIMI_TOOL_CALLS_SECTION_END_TAGS = [
   '<|tool_calls_section_end|>',
   '<tool_calls_section_end>',
   '</tool_calls_section_end>',
+  '</tool_calls_section>',
   '</tool_calls_section_begin>',
 ] as const;
 

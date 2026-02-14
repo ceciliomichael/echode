@@ -96,7 +96,256 @@ interface ReplaceResult {
   replaced: boolean;
   content: string;
   occurrences: number;
-  strategy?: 'exact' | 'whitespace-tolerant' | 'token-based' | 'indent-flexible';
+  strategy?: 'exact' | 'whitespace-tolerant' | 'token-based' | 'indent-flexible' | 'line-range-exact' | 'line-range-flexible';
+}
+
+// ============================================================================
+// LINE-RANGE SCOPED REPLACEMENT
+// ============================================================================
+
+/**
+ * Extract lines from content by 1-based line range [startLine, endLine] inclusive.
+ * Returns the substring and its character offset in the original content.
+ */
+function extractLineRange(
+  content: string,
+  startLine: number,
+  endLine: number,
+): { text: string; charStart: number; charEnd: number; actualStartLine: number; actualEndLine: number } {
+  const lines = content.split('\n');
+  const clampedStart = Math.max(1, Math.min(startLine, lines.length));
+  const clampedEnd = Math.max(clampedStart, Math.min(endLine, lines.length));
+
+  let charStart = 0;
+  for (let i = 0; i < clampedStart - 1; i++) {
+    charStart += lines[i].length + 1; // +1 for '\n'
+  }
+
+  let charEnd = charStart;
+  for (let i = clampedStart - 1; i < clampedEnd; i++) {
+    charEnd += lines[i].length;
+    if (i < clampedEnd - 1) { charEnd += 1; } // +1 for '\n' between lines
+  }
+
+  const text = lines.slice(clampedStart - 1, clampedEnd).join('\n');
+  return { text, charStart, charEnd, actualStartLine: clampedStart, actualEndLine: clampedEnd };
+}
+
+/**
+ * Get a numbered snippet of lines for error feedback.
+ */
+function getNumberedSnippet(content: string, startLine: number, endLine: number): string {
+  const lines = content.split('\n');
+  const clampedStart = Math.max(1, Math.min(startLine, lines.length));
+  const clampedEnd = Math.max(clampedStart, Math.min(endLine, lines.length));
+  return lines
+    .slice(clampedStart - 1, clampedEnd)
+    .map((line, i) => `${clampedStart + i} | ${line}`)
+    .join('\n');
+}
+
+/**
+ * Line-range scoped replacement: narrows the search to a specific line range.
+ * This dramatically improves accuracy by:
+ * 1. Reducing ambiguity (old_string only needs to be unique within the range)
+ * 2. Catching stale content immediately (returns actual lines on mismatch)
+ * 3. Preventing edits to wrong locations in the file
+ */
+function replaceInLineRange(
+  originalContent: string,
+  oldString: string,
+  newString: string,
+  startLine: number,
+  endLine: number,
+  allowExpand: boolean = true,
+): ReplaceResult & { rangeContent?: string; actualStartLine?: number; actualEndLine?: number } {
+  const normalizedContent = normalizeToLf(originalContent);
+  const normalizedOld = normalizeToLf(oldString);
+  const normalizedNew = normalizeToLf(newString);
+  const usesCrlf = originalContent.includes('\r\n');
+
+  const range = extractLineRange(normalizedContent, startLine, endLine);
+  const trailingChar = normalizedContent[range.charEnd];
+  const rangeTextWithTrailingNewline = trailingChar === '\n' ? `${range.text}\n` : undefined;
+
+  // Strategy 1: Exact match within the line range
+  const exactCount = countOccurrences(range.text, normalizedOld);
+  const exactCountWithTrailing = rangeTextWithTrailingNewline ? countOccurrences(rangeTextWithTrailingNewline, normalizedOld) : 0;
+  if (exactCount === 1) {
+    const idx = range.text.indexOf(normalizedOld);
+    const absStart = range.charStart + idx;
+    const absEnd = absStart + normalizedOld.length;
+
+    const indexMap = buildIndexMap(originalContent);
+    const origStart = indexMap[absStart];
+    const origEnd = indexMap[absEnd];
+    const finalNew = usesCrlf ? normalizedNew.replace(/\n/g, '\r\n') : normalizedNew;
+    const result = originalContent.slice(0, origStart) + finalNew + originalContent.slice(origEnd);
+    return { replaced: true, content: result, occurrences: 1, strategy: 'line-range-exact' };
+  }
+  if (exactCount === 0 && exactCountWithTrailing === 1 && rangeTextWithTrailingNewline) {
+    const idx = rangeTextWithTrailingNewline.indexOf(normalizedOld);
+    const absStart = range.charStart + idx;
+    const absEnd = absStart + normalizedOld.length;
+
+    const indexMap = buildIndexMap(originalContent);
+    const origStart = indexMap[absStart];
+    const origEnd = indexMap[absEnd];
+    const finalNew = usesCrlf ? normalizedNew.replace(/\n/g, '\r\n') : normalizedNew;
+    const result = originalContent.slice(0, origStart) + finalNew + originalContent.slice(origEnd);
+    return { replaced: true, content: result, occurrences: 1, strategy: 'line-range-exact' };
+  }
+
+  // Strategy 2: Whitespace-tolerant match within the line range
+  const wsRegex = buildWhitespaceTolerantRegex(normalizedOld);
+  const wsMatches = Array.from(range.text.matchAll(new RegExp(wsRegex.source, wsRegex.flags)));
+  const wsMatchesTrailing = rangeTextWithTrailingNewline
+    ? Array.from(rangeTextWithTrailingNewline.matchAll(new RegExp(wsRegex.source, wsRegex.flags)))
+    : [];
+  if (wsMatches.length === 1) {
+    const match = wsMatches[0];
+    const absStart = range.charStart + match.index!;
+    const absEnd = absStart + match[0].length;
+
+    const indexMap = buildIndexMap(originalContent);
+    const origStart = indexMap[absStart];
+    const origEnd = indexMap[absEnd];
+    const finalNew = usesCrlf ? normalizedNew.replace(/\n/g, '\r\n') : normalizedNew;
+    const result = originalContent.slice(0, origStart) + finalNew + originalContent.slice(origEnd);
+    return { replaced: true, content: result, occurrences: 1, strategy: 'line-range-flexible' };
+  }
+  if (wsMatches.length === 0 && wsMatchesTrailing.length === 1 && rangeTextWithTrailingNewline) {
+    const match = wsMatchesTrailing[0];
+    const absStart = range.charStart + match.index!;
+    const absEnd = absStart + match[0].length;
+
+    const indexMap = buildIndexMap(originalContent);
+    const origStart = indexMap[absStart];
+    const origEnd = indexMap[absEnd];
+    const finalNew = usesCrlf ? normalizedNew.replace(/\n/g, '\r\n') : normalizedNew;
+    const result = originalContent.slice(0, origStart) + finalNew + originalContent.slice(origEnd);
+    return { replaced: true, content: result, occurrences: 1, strategy: 'line-range-flexible' };
+  }
+  if (wsMatches.length === 0 && wsMatchesTrailing.length === 1 && rangeTextWithTrailingNewline) {
+    const match = wsMatchesTrailing[0];
+    const absStart = range.charStart + match.index!;
+    const absEnd = absStart + match[0].length;
+
+    const indexMap = buildIndexMap(originalContent);
+    const origStart = indexMap[absStart];
+    const origEnd = indexMap[absEnd];
+    const finalNew = usesCrlf ? normalizedNew.replace(/\n/g, '\r\n') : normalizedNew;
+    const result = originalContent.slice(0, origStart) + finalNew + originalContent.slice(origEnd);
+    return { replaced: true, content: result, occurrences: 1, strategy: 'line-range-flexible' };
+  }
+
+  // Strategy 3: Indentation-flexible match within the line range (multi-line only)
+  if (normalizedOld.includes('\n') && normalizedOld.length >= 20) {
+    const strippedOld = stripLeadingWhitespace(normalizedOld);
+    const candidates: Array<{ text: string; charStart: number }> = [{ text: range.text, charStart: range.charStart }];
+    if (rangeTextWithTrailingNewline) {
+      candidates.push({ text: rangeTextWithTrailingNewline, charStart: range.charStart });
+    }
+
+    for (const candidate of candidates) {
+      const strippedCandidate = stripLeadingWhitespace(candidate.text);
+      const matchIndex = strippedCandidate.indexOf(strippedOld);
+      if (matchIndex === -1) { continue; }
+
+      // Derive line/character offsets within the candidate
+      const linesBefore = strippedCandidate.slice(0, matchIndex).split('\n').length - 1;
+      const candidateLines = candidate.text.split('\n');
+      let normMatchStart = 0;
+      for (let i = 0; i < linesBefore; i++) {
+        normMatchStart += candidateLines[i].length + 1;
+      }
+
+      const oldLines = normalizedOld.split('\n');
+      const matchedFileLines = candidateLines.slice(linesBefore, linesBefore + oldLines.length);
+      if (matchedFileLines.length < oldLines.length) { continue; }
+
+      let allMatch = true;
+      for (let i = 0; i < oldLines.length; i++) {
+        if (oldLines[i].trimStart() !== matchedFileLines[i].trimStart()) {
+          allMatch = false;
+          break;
+        }
+      }
+      if (!allMatch) { continue; }
+
+      // Compute indent offset based on first non-empty line
+      let indentOffset = '';
+      for (let i = 0; i < oldLines.length; i++) {
+        const oldIndent = getLeadingWhitespace(oldLines[i]);
+        const fileIndent = getLeadingWhitespace(matchedFileLines[i]);
+        if (oldLines[i].trim().length > 0 && matchedFileLines[i].trim().length > 0) {
+          if (fileIndent.startsWith(oldIndent)) {
+            indentOffset = fileIndent.slice(oldIndent.length);
+          } else if (oldIndent.startsWith(fileIndent)) {
+            indentOffset = '';
+          }
+          break;
+        }
+      }
+
+      const newLines = normalizedNew.split('\n');
+      const adjustedNew = newLines
+        .map((line) => (line.trim().length === 0 ? line : indentOffset + line))
+        .join('\n');
+
+      let normMatchEnd = normMatchStart;
+      for (let i = 0; i < oldLines.length; i++) {
+        normMatchEnd += matchedFileLines[i].length;
+        if (i < oldLines.length - 1) { normMatchEnd += 1; }
+      }
+
+      const absStart = candidate.charStart + normMatchStart;
+      const absEnd = candidate.charStart + normMatchEnd;
+      const indexMap = buildIndexMap(originalContent);
+      const origStart = indexMap[absStart];
+      const origEnd = indexMap[absEnd];
+      const finalNew = usesCrlf ? adjustedNew.replace(/\n/g, '\r\n') : adjustedNew;
+      const result = originalContent.slice(0, origStart) + finalNew + originalContent.slice(origEnd);
+      return { replaced: true, content: result, occurrences: 1, strategy: 'line-range-flexible' };
+    }
+  }
+
+  // Failed — return the actual content at the range for self-correction
+  if (allowExpand) {
+    const lines = normalizedContent.split('\n');
+    const expandedStart = Math.max(1, startLine - 50);
+    const expandedEnd = Math.min(lines.length, endLine + 50);
+    const oldLineCount = normalizedOld.split('\n').length;
+    const rangeLineCount = range.text.split('\n').length;
+    const shouldExpand = expandedStart !== startLine || expandedEnd !== endLine || oldLineCount > rangeLineCount;
+
+    if (shouldExpand) {
+      const expandedAttempt = replaceInLineRange(
+        originalContent,
+        oldString,
+        newString,
+        expandedStart,
+        expandedEnd,
+        false,
+      );
+
+      if (expandedAttempt.replaced) {
+        return {
+          ...expandedAttempt,
+          strategy: expandedAttempt.strategy ?? 'line-range-flexible',
+        };
+      }
+    }
+  }
+
+  return {
+    replaced: false,
+    content: originalContent,
+    occurrences: exactCount,
+    rangeContent: range.text,
+    actualStartLine: range.actualStartLine,
+    actualEndLine: range.actualEndLine,
+  };
 }
 
 function indexToLineNumber(text: string, index: number): number {
@@ -488,6 +737,8 @@ export class EditTool implements ITool {
     const explanation = parameters.explanation as string | undefined;
     const replaceAll = (parameters.replace_all as boolean | undefined) ?? false;
     const expectedReplacements = Math.max(1, Number(parameters.expected_replacements) || 1);
+    const startLine = parameters.start_line !== null && parameters.start_line !== undefined ? Math.max(1, Number(parameters.start_line) || 0) : undefined;
+    const endLine = parameters.end_line !== null && parameters.end_line !== undefined ? Math.max(1, Number(parameters.end_line) || 0) : undefined;
 
     if (!filePath) {
       return undefined;
@@ -513,7 +764,13 @@ export class EditTool implements ITool {
       const document = await vscode.workspace.openTextDocument(uri);
       const originalContent = document.getText();
 
-      const replacement = replaceInOriginal(originalContent, oldString, newString, replaceAll, expectedReplacements);
+      // Use line-range scoped replacement when both start_line and end_line are provided
+      let replacement: ReplaceResult;
+      if (startLine !== undefined && endLine !== undefined && !replaceAll) {
+        replacement = replaceInLineRange(originalContent, oldString, newString, startLine, endLine);
+      } else {
+        replacement = replaceInOriginal(originalContent, oldString, newString, replaceAll, expectedReplacements);
+      }
 
       if (!replacement.replaced) {
         return undefined;
@@ -549,6 +806,9 @@ export class EditTool implements ITool {
     const explanation = parameters.explanation as string | undefined;
     const replaceAll = (parameters.replace_all as boolean | undefined) ?? false;
     const expectedReplacements = Math.max(1, Number(parameters.expected_replacements) || 1);
+    const startLine = parameters.start_line !== null && parameters.start_line !== undefined ? Math.max(1, Number(parameters.start_line) || 0) : undefined;
+    const endLine = parameters.end_line !== null && parameters.end_line !== undefined ? Math.max(1, Number(parameters.end_line) || 0) : undefined;
+    const hasLineRange = startLine !== undefined && endLine !== undefined;
 
     if (!filePath) {
       return { success: false, error: 'file_path is required' };
@@ -615,11 +875,11 @@ export class EditTool implements ITool {
         const dbg = vscode.window.createOutputChannel('EchoDE Edit Debug', { log: true });
         const nOld = normalizeToLf(oldString);
         const nFile = normalizeToLf(originalContent);
-        dbg.appendLine(`[EDIT ATTEMPT] file: ${filePath}`);
+        dbg.appendLine(`[EDIT ATTEMPT] file: ${filePath}${hasLineRange ? ` lines ${startLine}-${endLine}` : ''}`);
         dbg.appendLine(`[EDIT ATTEMPT] oldString len=${oldString.length} norm=${nOld.length} crlf=${oldString.includes('\r\n')} tab=${oldString.includes('\t')}`);
         dbg.appendLine(`[EDIT ATTEMPT] file len=${originalContent.length} norm=${nFile.length} crlf=${originalContent.includes('\r\n')} tab=${originalContent.includes('\t')}`);
         dbg.appendLine(`[EDIT ATTEMPT] old first 150: ${JSON.stringify(nOld.slice(0, 150))}`);
-        dbg.appendLine(`[EDIT ATTEMPT] strategy pipeline: exact → ws-tolerant → token → indent-flex`);
+        dbg.appendLine(`[EDIT ATTEMPT] strategy: ${hasLineRange ? 'line-range-scoped' : 'exact → ws-tolerant → token → indent-flex'}`);
         const idxRes = nFile.indexOf(nOld);
         dbg.appendLine(`[EDIT ATTEMPT] normalized indexOf: ${idxRes}`);
         if (idxRes === -1) {
@@ -640,6 +900,76 @@ export class EditTool implements ITool {
         dbg.appendLine('---');
       }
 
+      // ================================================================
+      // LINE-RANGE SCOPED PATH: When start_line/end_line are provided,
+      // use the narrowed search for higher accuracy. On failure, return
+      // the actual file content at those lines so the AI can self-correct.
+      // ================================================================
+      if (hasLineRange && !replaceAll) {
+        const rangeResult = replaceInLineRange(originalContent, oldString, newString, startLine!, endLine!);
+
+        if (!rangeResult.replaced) {
+          const failCount = recordFailure(absolutePath);
+          const normalizedContent = normalizeToLf(originalContent);
+
+          // Provide the actual content at the specified line range for immediate self-correction
+          const actualSnippet = getNumberedSnippet(normalizedContent, startLine!, endLine!);
+          const rangeLabel = `lines ${rangeResult.actualStartLine ?? startLine}-${rangeResult.actualEndLine ?? endLine}`;
+
+          const errorMessage =
+            `old_string not found in ${rangeLabel} of ${filePath}.\n\n` +
+            `<error_details>\n` +
+            `Your old_string does not match the actual file content at the specified line range.\n\n` +
+            `ACTUAL CONTENT at ${rangeLabel}:\n${actualSnippet}\n\n` +
+            `Recovery: Copy the exact text from the actual content above into old_string and retry.\n` +
+            `</error_details>`;
+
+          const escalation = failCount >= 2
+            ? `\n\n[WARNING: ${failCount} consecutive edit failures on this file. The actual content at your specified lines is shown above. Copy it EXACTLY.]`
+            : '';
+
+          return {
+            success: false,
+            error: errorMessage + escalation,
+          };
+        }
+
+        // Success — reset consecutive failure counter
+        resetFailures(absolutePath);
+
+        const newContent = rangeResult.content;
+        const writeResult = await writeFileWithRetry(uri, newContent, 3, 75);
+        if (!writeResult.success) {
+          return {
+            success: false,
+            error: writeResult.error ?? 'Failed to write file with integrity verification',
+          };
+        }
+
+        await openFileInBackground(uri);
+
+        return {
+          success: true,
+          data: {
+            message: `Successfully edited ${filePath} (lines ${startLine}-${endLine})`,
+            explanation,
+            path: filePath,
+            absolutePath,
+            action: newContent === originalContent ? 'no_change' : 'modified',
+            oldContent: originalContent,
+            newContent,
+            occurrences: rangeResult.occurrences,
+            strategy: rangeResult.strategy,
+            replaceAll: false,
+            lineRange: { start: startLine, end: endLine },
+            attempts: writeResult.attempts,
+          },
+        };
+      }
+
+      // ================================================================
+      // STANDARD PATH: Full-file 4-tier matching pipeline (no line range)
+      // ================================================================
       const replacement = replaceInOriginal(originalContent, oldString, newString, replaceAll, expectedReplacements);
 
       if (!replacement.replaced) {
