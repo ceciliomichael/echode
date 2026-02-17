@@ -188,6 +188,10 @@ export function findMatchingClosingTag(
             }
             pos = nextOpen + openTag.length;
         } else {
+            if (isInsideFunctionCallsParameterValue(content, nextClose)) {
+                pos = nextClose + closeTag.length;
+                continue;
+            }
             depth--;
             if (depth === 0) {
                 return nextClose;
@@ -284,6 +288,10 @@ export function findMatchingInvokeClosingTagRespectingParams(content: string, op
             }
             pos = nextOpen + openMatch![0].length;
         } else {
+            if (isInsideInvokeParameterValue(content, nextClose)) {
+                pos = nextClose + closeTag.length;
+                continue;
+            }
             depth--;
             if (depth === 0) {
                 return nextClose;
