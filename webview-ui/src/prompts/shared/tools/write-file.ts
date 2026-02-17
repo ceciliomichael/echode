@@ -27,6 +27,8 @@ Requirements:
 - Content must be COMPLETE (no placeholders like "// rest of code")
 - No truncation - include every line
 - No line numbers in content
+- Preserve normal source formatting and indentation
+- Never minify or collapse code into a single line unless explicitly asked
 
 ### EXAMPLE - Creating a new file
 <${TOOL_XML_NAMESPACE}:function_calls>

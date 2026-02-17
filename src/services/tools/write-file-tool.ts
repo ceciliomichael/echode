@@ -7,6 +7,7 @@ import { getWorkspaceRoot, resolveAbsolutePath, getCreatedDirectories } from './
 import { FileLockManager } from './utils/file-lock-manager';
 import { writeFileWithRetry } from './utils/write-file-with-retry';
 import { openFileInBackground } from './utils/editor-utils';
+import { autoFormatIfLikelyMinified } from './utils/auto-format';
 
 export class WriteFileTool implements ITool {
   name = 'write_to_file';
@@ -370,6 +371,17 @@ export class WriteFileTool implements ITool {
         };
       }
 
+      // Heuristic safety: when model output collapses code into a single line,
+      // ask VS Code formatter to restore readable structure.
+      let finalContent = content;
+      const autoFormat = await autoFormatIfLikelyMinified(uri, filePath, content);
+      if (autoFormat.applied) {
+        finalContent = autoFormat.content;
+        console.log('[WRITE_FILE] Auto-format applied to likely minified content');
+      } else if (autoFormat.reason) {
+        console.log('[WRITE_FILE] Auto-format skipped:', autoFormat.reason);
+      }
+
       console.log('[WRITE_FILE] File written successfully');
 
       // Open the file in the editor
@@ -381,6 +393,7 @@ export class WriteFileTool implements ITool {
         const verifyContent = await vscode.workspace.fs.readFile(uri);
         const verifyString = Buffer.from(verifyContent).toString('utf8');
         const verifyCheck = this.detectBinaryContent(verifyString);
+        finalContent = verifyString;
 
         if (verifyCheck.isBinary) {
           console.log('[WRITE_FILE] WARNING: Written file looks binary on read-back:', verifyCheck.reason);
@@ -394,7 +407,7 @@ export class WriteFileTool implements ITool {
       console.log('[WRITE_FILE] ==================== SUCCESS ====================');
 
       // Calculate line count and add mode-specific reminder for large files
-      const lineCount = content.split(/\r?\n/).length;
+      const lineCount = finalContent.split(/\r?\n/).length;
       let largeFileReminder: string | undefined;
       if (lineCount > 300 && (mode === 'agent' || mode === 'general' || mode === undefined)) {
         const action = fileExistsOnDisk ? 'MODIFIED' : 'CREATED';
@@ -418,7 +431,7 @@ export class WriteFileTool implements ITool {
           absolutePath,
           action: fileExistsOnDisk ? 'modified' : 'created',
           oldContent: oldContent,
-          newContent: content,
+          newContent: finalContent,
           createdDirectories: fileExistsOnDisk ? [] : createdDirectories,
           lineCount,
           largeFileReminder,

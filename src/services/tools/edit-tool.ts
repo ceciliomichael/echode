@@ -4,6 +4,7 @@ import { getWorkspaceRoot, resolveAbsolutePath } from './utils/workspace-utils';
 import { FileLockManager } from './utils/file-lock-manager';
 import { writeFileWithRetry } from './utils/write-file-with-retry';
 import { openFileInBackground } from './utils/editor-utils';
+import { autoFormatIfLikelyMinified } from './utils/auto-format';
 import { normalizeToLf } from './utils/newline-utils';
 
 // ============================================================================
@@ -946,6 +947,12 @@ export class EditTool implements ITool {
           };
         }
 
+        let finalNewContent = newContent;
+        const autoFormat = await autoFormatIfLikelyMinified(uri, filePath, newContent);
+        if (autoFormat.applied) {
+          finalNewContent = autoFormat.content;
+        }
+
         await openFileInBackground(uri);
 
         return {
@@ -955,9 +962,9 @@ export class EditTool implements ITool {
             explanation,
             path: filePath,
             absolutePath,
-            action: newContent === originalContent ? 'no_change' : 'modified',
+            action: finalNewContent === originalContent ? 'no_change' : 'modified',
             oldContent: originalContent,
-            newContent,
+            newContent: finalNewContent,
             occurrences: rangeResult.occurrences,
             strategy: rangeResult.strategy,
             replaceAll: false,
@@ -1032,6 +1039,12 @@ export class EditTool implements ITool {
         };
       }
 
+      let finalNewContent = newContent;
+      const autoFormat = await autoFormatIfLikelyMinified(uri, filePath, newContent);
+      if (autoFormat.applied) {
+        finalNewContent = autoFormat.content;
+      }
+
       // Open the edited file in the editor
       await openFileInBackground(uri);
 
@@ -1042,9 +1055,9 @@ export class EditTool implements ITool {
           explanation,
           path: filePath,
           absolutePath,
-          action: newContent === originalContent ? 'no_change' : 'modified',
+          action: finalNewContent === originalContent ? 'no_change' : 'modified',
           oldContent: originalContent,
-          newContent,
+          newContent: finalNewContent,
           occurrences: replacement.occurrences,
           strategy: replacement.strategy,
           replaceAll,
