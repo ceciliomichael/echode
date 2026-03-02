@@ -3,8 +3,18 @@ import OpenAI from 'openai';
 import { ChatMessage, ChatStreamSettings } from '../llm-provider.interface';
 import { StreamingTimeoutError } from '../../../utils/streaming-timeout';
 import { QwenOAuthCredentials } from './credential-manager';
+import { resolveQwenCodeModel } from './model-mapping';
 
 const DEFAULT_STREAMING_TIMEOUT = 10000; // 10 seconds
+
+type QwenChatCompletionChunkLike = {
+  choices: Array<{
+    delta?: {
+      content?: string;
+      reasoning_content?: string;
+    };
+  }>;
+};
 
 export class QwenStreamingHandler {
   private client: OpenAI | null = null;
@@ -38,6 +48,7 @@ export class QwenStreamingHandler {
   ): Promise<void> {
     const timeoutMs = settings.streamingTimeout ?? DEFAULT_STREAMING_TIMEOUT;
     const client = this.getOrCreateClient(credentials, baseUrl);
+    const resolvedModel = resolveQwenCodeModel(settings.model);
 
     const internalAbortController = new AbortController();
     const combinedAborted = () => signal.aborted || internalAbortController.signal.aborted;
@@ -59,7 +70,7 @@ export class QwenStreamingHandler {
 
     try {
       const stream = await client.chat.completions.create({
-        model: settings.model,
+        model: resolvedModel.apiModel,
         messages: messages.map(m => ({
           role: m.role as 'user' | 'assistant' | 'system',
           content: m.content
@@ -67,10 +78,16 @@ export class QwenStreamingHandler {
         max_tokens: settings.maxTokens,
         temperature: settings.temperature ?? 0.0,
         stream: true,
-      }, { signal: internalAbortController.signal });
+        ...(resolvedModel.enableThinking ? { extra_body: { enable_thinking: true } } : {}),
+      }, { signal: internalAbortController.signal }) as unknown as AsyncIterable<QwenChatCompletionChunkLike>;
 
       // Qwen returns cumulative content, not deltas - track full content to extract only new text
       let fullContent = '';
+      // Track reasoning/thinking state and cumulative reasoning text
+      let fullReasoning = '';
+      let isInThinkingBlock = false;
+      let hasPostedNonThinkingChunk = false;
+      let hasEmittedThinkingOpen = false;
 
       const processStream = async () => {
         for await (const chunk of stream) {
@@ -78,7 +95,60 @@ export class QwenStreamingHandler {
             break;
           }
 
-          const content = chunk.choices[0]?.delta?.content;
+          const delta = chunk.choices[0]?.delta;
+          if (!delta) {
+            continue;
+          }
+
+          const reasoningContent = delta.reasoning_content;
+          if (reasoningContent) {
+            // Mark first chunk received and clear timeout
+            if (!hasReceivedFirstChunk) {
+              hasReceivedFirstChunk = true;
+              if (timeoutId) {
+                clearTimeout(timeoutId);
+                timeoutId = null;
+              }
+            }
+
+            // Qwen reasoning can also be cumulative; emit only new text when possible
+            let newReasoningText = reasoningContent;
+            if (reasoningContent.startsWith(fullReasoning)) {
+              newReasoningText = reasoningContent.substring(fullReasoning.length);
+            }
+            fullReasoning = reasoningContent;
+
+            if (newReasoningText) {
+              // Only emit <thinking> wrapper if it is the first visible output
+              if (!hasEmittedThinkingOpen && hasPostedNonThinkingChunk) {
+                webview.webview.postMessage({
+                  type: 'chatStreamChunk',
+                  requestId,
+                  chunk: newReasoningText
+                });
+              } else {
+                if (!isInThinkingBlock) {
+                  isInThinkingBlock = true;
+                  if (!hasEmittedThinkingOpen) {
+                    hasEmittedThinkingOpen = true;
+                    webview.webview.postMessage({
+                      type: 'chatStreamChunk',
+                      requestId,
+                      chunk: '<thinking>'
+                    });
+                  }
+                }
+
+                webview.webview.postMessage({
+                  type: 'chatStreamChunk',
+                  requestId,
+                  chunk: newReasoningText
+                });
+              }
+            }
+          }
+
+          const content = delta.content;
           if (content) {
             // Mark first chunk received and clear timeout
             if (!hasReceivedFirstChunk) {
@@ -97,13 +167,33 @@ export class QwenStreamingHandler {
             fullContent = content;
 
             if (newText) {
+              // Close thinking block before normal visible output
+              if (hasEmittedThinkingOpen && isInThinkingBlock) {
+                isInThinkingBlock = false;
+                webview.webview.postMessage({
+                  type: 'chatStreamChunk',
+                  requestId,
+                  chunk: '</thinking>'
+                });
+              }
+
               webview.webview.postMessage({
                 type: 'chatStreamChunk',
                 requestId,
                 chunk: newText
               });
+              hasPostedNonThinkingChunk = true;
             }
           }
+        }
+
+        // Close thinking block if stream ends while in thinking state
+        if (hasEmittedThinkingOpen && isInThinkingBlock) {
+          webview.webview.postMessage({
+            type: 'chatStreamChunk',
+            requestId,
+            chunk: '</thinking>'
+          });
         }
       };
 

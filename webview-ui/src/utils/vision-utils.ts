@@ -71,7 +71,7 @@ export function getCurrentModel(): string {
   } else if (settings.provider === 'vscode-lm') {
     return settings.vscodeLmModel || settings.model || 'gpt-4o';
   } else if (settings.provider === 'qwen-code') {
-    return settings.qwenCodeModel || settings.model || 'qwen3-coder-plus';
+    return settings.qwenCodeModel || settings.model || 'coder-model';
   } else if (settings.provider === 'zai') {
     return settings.zaiModel || settings.model || 'glm-4.7';
   }

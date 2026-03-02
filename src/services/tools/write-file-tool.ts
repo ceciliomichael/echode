@@ -50,6 +50,50 @@ export class WriteFileTool implements ITool {
 
   private readonly MAX_CONTENT_SIZE = 1024 * 1024 * 5; // 5MB limit
 
+  private countEscapedNewlines(value: string): number {
+    const matches = value.match(/\\n/g);
+    return matches ? matches.length : 0;
+  }
+
+  private countActualLines(value: string): number {
+    return value.split(/\r?\n/).length;
+  }
+
+  /**
+   * Decide whether packed escaped sequences should be decoded.
+   * Some providers return code as `\\n`-escaped text with little/no real newlines.
+   */
+  private shouldDecodeEscapedSequences(content: string, expectedLineCount?: number): boolean {
+    const escapedNewlineCount = this.countEscapedNewlines(content);
+    if (escapedNewlineCount === 0) {
+      return false;
+    }
+
+    const actualLineCount = this.countActualLines(content);
+
+    // Strong signal: model provided expected multiline output but content is effectively single-line.
+    if (typeof expectedLineCount === 'number' && expectedLineCount > 1 && actualLineCount <= 2) {
+      return true;
+    }
+
+    // Legacy behavior: no real newlines at all but escaped sequences exist.
+    if (!content.includes('\n')) {
+      return true;
+    }
+
+    // Provider-escaped payload heuristic:
+    // if escaped newlines greatly exceed actual newlines, it's likely packed content.
+    const actualNewlineCount = Math.max(0, actualLineCount - 1);
+    return escapedNewlineCount >= Math.max(3, actualNewlineCount * 2);
+  }
+
+  private decodeEscapedSequences(content: string): string {
+    return content
+      .replace(/\\n/g, '\n')
+      .replace(/\\t/g, '\t')
+      .replace(/\\r/g, '\r');
+  }
+
   private isBinaryExtension(filePath: string): boolean {
     const ext = filePath.split('.').pop()?.toLowerCase();
     return ext ? this.BINARY_EXTENSIONS.has(ext) : false;
@@ -111,13 +155,9 @@ export class WriteFileTool implements ITool {
     content = unescapeHtmlEntities(content);
     content = stripAllCDataWrappers(content);
 
-    const hasActualNewlines = content.includes('\n');
-    const hasEscapedSequences = /\\[ntr]/.test(content);
-    if (!hasActualNewlines && hasEscapedSequences) {
-      content = content
-        .replace(/\\n/g, '\n')
-        .replace(/\\t/g, '\t')
-        .replace(/\\r/g, '\r');
+    const expectedLineCount = typeof parameters.line_count === 'number' ? parameters.line_count : undefined;
+    if (this.shouldDecodeEscapedSequences(content, expectedLineCount)) {
+      content = this.decodeEscapedSequences(content);
     }
 
     const workspaceRoot = getWorkspaceRoot();
@@ -233,14 +273,9 @@ export class WriteFileTool implements ITool {
     // Convert escaped \n, \t, \r sequences ONLY when the content appears to be
     // a single packed line with no real newlines. This prevents us from
     // touching intentional "\\n" inside string literals in normal multi-line code.
-    const hasActualNewlines = content.includes('\n');
-    const hasEscapedSequences = /\\[ntr]/.test(content);
-    if (!hasActualNewlines && hasEscapedSequences) {
-      console.log('[WRITE_FILE] Converting escaped sequences (\\n, \\t, \\r) to actual characters for single-line packed content');
-      content = content
-        .replace(/\\n/g, '\n')
-        .replace(/\\t/g, '\t')
-        .replace(/\\r/g, '\r');
+    if (this.shouldDecodeEscapedSequences(content, lineCountParam)) {
+      console.log('[WRITE_FILE] Converting escaped sequences (\\n, \\t, \\r) to actual characters for provider-packed content');
+      content = this.decodeEscapedSequences(content);
     }
 
     console.log('[WRITE_FILE] Content length:', content.length, 'characters');

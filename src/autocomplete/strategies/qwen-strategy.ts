@@ -7,6 +7,7 @@ import OpenAI from 'openai';
 import { ICompletionStrategy, AutocompleteConfig } from './types';
 import { QwenCredentialManager, QwenOAuthCredentials } from '../../services/llm/qwen/credential-manager';
 import { QwenTokenRefresher } from '../../services/llm/qwen/token-refresher';
+import { resolveQwenCodeModel } from '../../services/llm/qwen/model-mapping';
 
 export class QwenCompletionStrategy implements ICompletionStrategy {
   private credentials: QwenOAuthCredentials | null = null;
@@ -137,9 +138,11 @@ export class QwenCompletionStrategy implements ICompletionStrategy {
     config: AutocompleteConfig,
     signal: AbortSignal
   ): Promise<OpenAI.ChatCompletion> {
+    const resolvedModel = resolveQwenCodeModel(config.model);
+
     return await client.chat.completions.create(
       {
-        model: config.model,
+        model: resolvedModel.apiModel,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
@@ -147,6 +150,7 @@ export class QwenCompletionStrategy implements ICompletionStrategy {
         max_tokens: config.maxTokens || 100,
         temperature: config.temperature || 0,
         stop: ['\n\n', '```'],
+        ...(resolvedModel.enableThinking ? { extra_body: { enable_thinking: true } } : {}),
       },
       { signal }
     );

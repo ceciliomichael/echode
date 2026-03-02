@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
+import { QWEN_CODE_MODELS } from '../services/llm/qwen/model-mapping';
 
 interface ModelFetchRequest {
   requestId: number;
@@ -166,7 +167,7 @@ async function fetchVSCodeLMModels(): Promise<string[]> {
  * Fetch available Qwen Code models (static list)
  */
 async function fetchQwenCodeModels(): Promise<string[]> {
-  return ['qwen3-coder-plus', 'qwen3-coder-flash'];
+  return [QWEN_CODE_MODELS.STANDARD, QWEN_CODE_MODELS.THINKING];
 }
 
 /**
