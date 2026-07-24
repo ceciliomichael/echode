@@ -54,7 +54,7 @@ export function ToolBlockContent({ toolCall, fileInfo, isExpanded, messageId, is
         }`}
     >
       {shouldRenderInnerContent && (
-        <div className="border-t max-h-[400px] flex flex-col" style={{ borderColor: 'var(--vscode-input-border)' }}>
+        <div className="border-t max-h-[400px] min-h-0 overflow-hidden flex flex-col" style={{ borderColor: 'var(--vscode-input-border)' }}>
           {/* Processing indicator or Real-time Streaming */}
           {isStreamingPhase && (
             <>

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EchoDE Markdown Viewer — Design Preview</title>
+    <script>
+      const markdown = [
+        '# EchoDE Markdown Viewer',
+        '',
+        'A focused preview with the same calm reading layout, theme-aware surfaces, and practical document details.',
+        '',
+        '> This local page is a design fixture used to verify the standalone viewer without an Extension Host.',
+        '',
+        '## Everything stays readable',
+        '',
+        '- [x] GitHub Flavored Markdown',
+        '- [x] Code with line numbers and copy feedback',
+        '- [x] Responsive Mermaid diagrams',
+        '- [ ] Your next document',
+        '',
+        '| Surface | Behavior |',
+        '| --- | --- |',
+        '| Documents | Live updates |',
+        '| Diagrams | Theme aware |',
+        '',
+        '```typescript',
+        'export function preview(title: string) {',
+        '  return `Markdown: ${title}`;',
+        '}',
+        '```',
+        '',
+        '```mermaid',
+        'flowchart LR',
+        '  A[Markdown file] --> B[EchoDE viewer]',
+        '  B --> C[Comfortable preview]',
+        '```',
+        '',
+        'Jump back to the [top](#echode-markdown-viewer).',
+      ].join('\n');
+      window.__ECHODE_MARKDOWN__ = {
+        content: markdown,
+        documentUri: 'file:///design-preview.md',
+        documentBaseUri: null,
+        title: 'EchoDE Markdown Viewer',
+        docType: 'Markdown',
+      };
+      let savedState = {};
+      window.vscode = {
+        postMessage: console.info,
+        getState: () => savedState,
+        setState: (state) => { savedState = state; },
+      };
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./src/main.tsx"></script>
+  </body>
+</html>

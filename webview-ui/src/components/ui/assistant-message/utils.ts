@@ -24,8 +24,23 @@ export function sanitizeAssistantText(content: string): string {
     return content;
   }
 
-  const sanitizeSegment = (segment: string): string => {
+  const stripThinkBlocksFromSegment = (segment: string): string => {
     let sanitized = segment;
+
+    // Remove fully formed think/thinking blocks that leaked into plain text rendering.
+    // These blocks should be rendered via ThinkBlock tokens instead of visible markdown text.
+    sanitized = sanitized.replace(/<think>[\s\S]*?<\/think>/gi, '');
+    sanitized = sanitized.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '');
+
+    // Remove stray open/close tags if streaming or malformed output leaves them in text.
+    sanitized = sanitized.replace(/<\/?think>/gi, '');
+    sanitized = sanitized.replace(/<\/?thinking>/gi, '');
+
+    return sanitized;
+  };
+
+  const sanitizeSegment = (segment: string): string => {
+    let sanitized = stripThinkBlocksFromSegment(segment);
 
     sanitized = sanitized
       .split(REQUEST_BOUNDARY_MARKER)

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { PlanMarkdownRenderer } from '../ui/plan-markdown-renderer';
 
 declare global {
@@ -20,7 +21,19 @@ export function PlanViewer() {
     return value;
   };
 
-  const content = normalizePlanViewerContent(window.planContent || '');
+  const [content, setContent] = useState(() => normalizePlanViewerContent(window.planContent || ''));
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      const message = event.data;
+      if (message.type === 'updatePlanContent' && typeof message.content === 'string') {
+        setContent(normalizePlanViewerContent(message.content));
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
 
   if (!content) {
     return (

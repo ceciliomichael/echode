@@ -1,5 +1,7 @@
 import { Check, Copy } from "lucide-react";
 import { memo, useMemo } from "react";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { useClipboard } from "../../hooks/use-clipboard";
 import { getLanguageIcon } from "../../utils/file-icon-mapper";
 
@@ -127,26 +129,32 @@ const CodeBlockComponent = ({ children, className }: CodeBlockProps) => {
         <div
           className="flex-1 overflow-x-auto"
         >
-          <pre
-            className="text-xs font-mono m-0 pl-2 pr-4 py-1 whitespace-pre"
-            style={{
-              color: 'var(--vscode-editor-foreground)',
-              backgroundColor: 'var(--vscode-editor-background)',
-              minWidth: '100%',
-              width: 'fit-content',
+          <SyntaxHighlighter
+            language={language === "text" ? "text" : language}
+            style={vscDarkPlus}
+            customStyle={{
+              margin: 0,
+              padding: "0.25rem 1rem 0.25rem 0.5rem",
+              backgroundColor: "transparent",
+              fontSize: "0.75rem",
+            }}
+            codeTagProps={{
+              className: "font-mono block",
+              style: {
+                backgroundColor: "transparent",
+              },
+            }}
+            wrapLines={true}
+            lineProps={{
+              style: {
+                display: "block",
+                minHeight: "1.15rem",
+                lineHeight: "1.15rem",
+              },
             }}
           >
-            <code className="block" style={{ backgroundColor: 'var(--vscode-editor-background)' }}>
-              {codeLines.lines.map((line, index) => (
-                <div
-                  key={`content-${index}-${line.slice(0, 10)}`}
-                  className="min-h-[1.15rem] leading-[1.15rem] whitespace-pre"
-                >
-                  {line || "\u00A0"}
-                </div>
-              ))}
-            </code>
-          </pre>
+            {codeContent.replace(/\n$/, "")}
+          </SyntaxHighlighter>
         </div>
       </div>
     </div>

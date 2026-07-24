@@ -9,6 +9,51 @@ interface MarkdownRendererProps {
 }
 
 export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: MarkdownRendererProps) {
+  const processedContent = useMemo(() => {
+    const lines = content.split('\n');
+    let inCodeBlock = false;
+    const isTableLine = new Array(lines.length).fill(false);
+    
+    for (let i = 0; i < lines.length; i++) {
+      let trimmed = lines[i].trim();
+      if (trimmed.startsWith('```')) {
+        inCodeBlock = !inCodeBlock;
+        continue;
+      }
+      
+      if (!inCodeBlock) {
+        while (trimmed.startsWith('>')) {
+          trimmed = trimmed.substring(1).trim();
+        }
+        if (/^[ \t|:-]+$/.test(trimmed) && trimmed.includes('|') && trimmed.includes('-')) {
+          isTableLine[i] = true;
+          
+          let j = i - 1;
+          while (j >= 0 && !isTableLine[j] && lines[j].includes('|') && !lines[j].trim().startsWith('```')) {
+            isTableLine[j] = true;
+            j--;
+          }
+          
+          j = i + 1;
+          while (j < lines.length && !isTableLine[j] && lines[j].includes('|') && !lines[j].trim().startsWith('```')) {
+            isTableLine[j] = true;
+            j++;
+          }
+        }
+      }
+    }
+
+    for (let i = 0; i < lines.length; i++) {
+      if (isTableLine[i]) {
+        lines[i] = lines[i].replace(/(`+)([^`]+)\1/g, (_match, backticks, codeContent) => {
+          return backticks + codeContent.replace(/(?<!\\)\|/g, '\\|') + backticks;
+        });
+      }
+    }
+    
+    return lines.join('\n');
+  }, [content]);
+
   // Memoize components for stable rendering
   const markdownComponents = useMemo(() => ({
     h1: ({ ...props }) => (
@@ -115,7 +160,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: Mark
       if (isInline) {
         return (
           <code
-            className="px-1.5 py-0.5 text-xs font-mono border whitespace-pre-wrap break-all"
+            className="px-1.5 py-0.5 text-xs font-mono border whitespace-pre-wrap break-words"
             style={{
               backgroundColor: 'var(--vscode-textCodeBlock-background)',
               borderColor: 'var(--vscode-input-border)',
@@ -212,7 +257,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: Mark
     ),
     th: ({ ...props }) => (
       <th
-        className="px-4 py-2.5 text-left font-semibold text-xs uppercase tracking-wide border-r last:border-r-0"
+        className="px-4 py-2.5 text-left font-semibold text-xs uppercase tracking-wide border-r last:border-r-0 break-words"
         style={{
           color: 'var(--vscode-editor-foreground)',
           borderColor: 'var(--vscode-input-border)'
@@ -222,7 +267,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: Mark
     ),
     td: ({ ...props }) => (
       <td
-        className="px-4 py-2.5 text-sm border-r last:border-r-0"
+        className="px-4 py-2.5 text-sm border-r last:border-r-0 break-words"
         style={{
           color: 'var(--vscode-editor-foreground)',
           borderColor: 'var(--vscode-input-border)'
@@ -250,7 +295,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: Mark
       components={markdownComponents}
       remarkPlugins={[remarkGfm]}
     >
-      {content}
+      {processedContent}
     </ReactMarkdown>
   );
 }, (prev, next) => prev.content === next.content);

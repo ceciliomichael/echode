@@ -5,9 +5,10 @@ import { getWorkspaceFiles, getAgentsConfig } from '../utils/workspace-scanner';
 import { ApprovalViewerManager } from '../services/approval/approval-viewer-manager';
 import type { ChatMode } from '../services/tools/tool.interface';
 import { getSubAgentService } from '../services/sub-agent/sub-agent-service';
+import { refreshFileExplorer } from '../utils/refresh-file-explorer';
 
 // Tools that modify the file system and require workspace refresh
-const FILE_MODIFYING_TOOLS = new Set(['write_to_file', 'delete', 'edit']);
+const FILE_MODIFYING_TOOLS = new Set(['write_to_file', 'delete', 'edit', 'run_terminal']);
 
 function escapeForLog(value: string): string {
   return value
@@ -284,6 +285,10 @@ export async function handleToolExecution(
 
     // If a file-modifying tool succeeded, send fresh workspace info so mentions update
     if (result.success && FILE_MODIFYING_TOOLS.has(toolName)) {
+      // Do not rely solely on the OS watcher: tool execution already knows the
+      // file system changed, so refresh the native Explorer deterministically.
+      await refreshFileExplorer();
+
       const workspaceFolders = vscode.workspace.workspaceFolders;
       if (workspaceFolders && workspaceFolders.length > 0) {
         const workspaceInfo = {

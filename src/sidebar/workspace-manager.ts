@@ -4,6 +4,7 @@ import * as os from 'os';
 import { spawn } from 'child_process';
 import { getWorkspaceFiles, getAgentsConfig } from '../utils/workspace-scanner';
 import { getAllWorkspaceFolders } from '../services/tools/utils/workspace-utils';
+import { refreshFileExplorer } from '../utils/refresh-file-explorer';
 
 /**
  * Detect the user's default terminal shell type.
@@ -62,13 +63,23 @@ function normalizeShellName(name: string): string {
  */
 export class WorkspaceManager {
   private _fileWatchers: vscode.FileSystemWatcher[] = [];
+  private _windowStateListener?: vscode.Disposable;
   private _workspaceUpdateDebounce?: NodeJS.Timeout;
+  private _onWorkspaceUpdate?: () => void;
+  private _pendingRefactorInvalidation: boolean = false;
   private _refactorScanInProgress: boolean = false;
   private _refactorScanComplete: boolean = false;
   private _cachedLargeFiles: { path: string; lineCount: number }[] = [];
 
   constructor(private readonly _extensionPath: string) {
-    this.setupFileWatcher();
+    // OS watchers can occasionally miss events while the editor is in the
+    // background. Reconcile once when the user returns from a native file
+    // manager, matching the behavior users expect from VS Code's Explorer.
+    this._windowStateListener = vscode.window.onDidChangeWindowState(({ focused }) => {
+      if (focused) {
+        this.queueWorkspaceUpdate(false);
+      }
+    });
   }
 
   /**
@@ -85,6 +96,10 @@ export class WorkspaceManager {
    * Setup file system watcher to detect file changes in workspace
    */
   public setupFileWatcher(onUpdate?: () => void): void {
+    if (onUpdate) {
+      this._onWorkspaceUpdate = onUpdate;
+    }
+
     // Dispose existing watchers if any
     this._fileWatchers.forEach(w => w.dispose());
     this._fileWatchers = [];
@@ -94,17 +109,8 @@ export class WorkspaceManager {
       return;
     }
 
-    // Debounced update to avoid excessive refreshes
-    const debouncedUpdate = () => {
-      if (this._workspaceUpdateDebounce) {
-        clearTimeout(this._workspaceUpdateDebounce);
-      }
-      this._workspaceUpdateDebounce = setTimeout(() => {
-        this._refactorScanComplete = false;
-        this._cachedLargeFiles = [];
-        onUpdate?.();
-      }, 400);
-    };
+    // Debounce bursts such as folder moves into one tree reconciliation.
+    const debouncedUpdate = () => this.queueWorkspaceUpdate(true);
 
     // Watch for all file changes in all workspaces
     for (const folder of workspaceFolders) {
@@ -112,12 +118,34 @@ export class WorkspaceManager {
         new vscode.RelativePattern(folder, '**/*')
       );
 
-      // Listen for file create, delete, and rename events
+      // A rename is reported by VS Code as a delete/create pair.
       watcher.onDidCreate(debouncedUpdate);
       watcher.onDidDelete(debouncedUpdate);
       
       this._fileWatchers.push(watcher);
     }
+  }
+
+  private queueWorkspaceUpdate(invalidateRefactorScan: boolean): void {
+    // Preserve a real file-system invalidation if a focus event joins the same
+    // debounce window.
+    this._pendingRefactorInvalidation ||= invalidateRefactorScan;
+
+    if (this._workspaceUpdateDebounce) {
+      clearTimeout(this._workspaceUpdateDebounce);
+    }
+
+    this._workspaceUpdateDebounce = setTimeout(() => {
+      this._workspaceUpdateDebounce = undefined;
+
+      if (this._pendingRefactorInvalidation) {
+        this.resetRefactorScan();
+      }
+      this._pendingRefactorInvalidation = false;
+
+      void refreshFileExplorer();
+      this._onWorkspaceUpdate?.();
+    }, 250);
   }
 
   /**
@@ -285,8 +313,13 @@ export class WorkspaceManager {
    */
   public dispose(): void {
     this._fileWatchers.forEach(w => w.dispose());
+    this._fileWatchers = [];
+    this._windowStateListener?.dispose();
+    this._windowStateListener = undefined;
     if (this._workspaceUpdateDebounce) {
       clearTimeout(this._workspaceUpdateDebounce);
+      this._workspaceUpdateDebounce = undefined;
     }
+    this._pendingRefactorInvalidation = false;
   }
 }

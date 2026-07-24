@@ -46,6 +46,7 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
 
     // Initialize workspace manager
     this._workspaceManager = new WorkspaceManager(_context.extensionPath);
+    _context.subscriptions.push(this._workspaceManager);
 
     // Initialize panel manager with settings saved callback
     this._panelManager = new PanelManager(
@@ -59,7 +60,7 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
     );
 
     // Listen for workspace folder changes
-    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+    _context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(() => {
       const newWorkspacePath = this.getCurrentWorkspacePath();
       this._historyService.updateWorkspace(newWorkspacePath);
       this._workspaceManager.setupFileWatcher(() => {
@@ -67,7 +68,7 @@ export class EchodeSidebarProvider implements vscode.WebviewViewProvider {
           this._workspaceManager.sendWorkspaceInfo(this._view.webview);
         }
       });
-    });
+    }));
 
     // When files are modified via write_to_file or edit tools, we want to
     // rescan the workspace for large/refactor-sensitive files.

@@ -1,5 +1,6 @@
 import { type MouseEvent } from 'react';
 import { slugify } from '../../../utils/slug-utils';
+import { vscode } from '../../../utils/vscode';
 
 /**
  * Normalize an anchor href to match our slugified heading IDs.
@@ -60,6 +61,14 @@ export function LinkRenderer({ href, onClick, children, ...props }: LinkRenderer
           });
         }
       }
+    } else if (typeof href === 'string' && !href.startsWith('http') && !href.startsWith('mailto:') && !href.startsWith('#')) {
+      e.preventDefault();
+      e.stopPropagation();
+      vscode.postMessage({
+        type: 'openRelativeLink',
+        href: href
+      });
+      return;
     }
     
     if (onClick) {

@@ -81,13 +81,13 @@ Usage: Always use "execute" then "read" with timeout to get streaming output.`,
 
                 {/* Content - scrollable area with fixed max height */}
                 <div
-                    className="text-xs font-mono overflow-auto max-h-[340px]"
+                    className="text-xs font-mono flex-1 min-h-0 overflow-auto max-h-[340px]"
                     style={{
                         backgroundColor: 'var(--vscode-editor-background)',
                     }}
                 >
                     <pre
-                        className="px-3 py-2 whitespace-pre-wrap m-0 leading-[1.15rem]"
+                        className="px-3 py-2 whitespace-pre-wrap m-0 leading-[1.15rem] min-w-max"
                         style={{
                             color: 'var(--vscode-editor-foreground)',
                         }}

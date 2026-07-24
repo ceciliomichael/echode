@@ -87,14 +87,14 @@ registerToolPlugin({
     };
 
     return (
-      <div className="text-sm">
+      <div className="text-sm h-full min-h-0 flex flex-col">
         <div
           className="font-semibold mb-2 text-xs uppercase tracking-wide"
           style={{ color: 'var(--vscode-descriptionForeground)' }}
         >
           Todo List Updated ({tasks.filter(t => t.status === 'completed').length}/{tasks.length})
         </div>
-        <div className="space-y-2">
+        <div className="space-y-2 flex-1 min-h-0 overflow-y-auto pr-1">
           {tasks.map((task, index) => (
             <div key={task.id} className="flex items-center gap-2.5 py-1">
               <div className="flex-shrink-0 w-4 h-4 flex items-center justify-center">

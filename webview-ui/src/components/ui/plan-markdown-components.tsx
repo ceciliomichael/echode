@@ -127,7 +127,7 @@ export function usePlanMarkdownComponents() {
       if (isInline) {
         return (
           <code
-            className="px-1.5 py-0.5 text-xs font-mono border whitespace-pre-wrap break-all"
+            className="px-1.5 py-0.5 text-xs font-mono border whitespace-pre-wrap break-words"
             style={{
               backgroundColor: 'var(--vscode-textCodeBlock-background)',
               borderColor: 'var(--vscode-input-border)',
@@ -215,7 +215,7 @@ export function usePlanMarkdownComponents() {
     ),
     th: ({ ...props }) => (
       <th
-        className="px-4 py-2.5 text-left font-semibold text-xs uppercase tracking-wide border-r last:border-r-0"
+        className="px-4 py-2.5 text-left font-semibold text-xs uppercase tracking-wide border-r last:border-r-0 break-words"
         style={{
           color: 'var(--vscode-editor-foreground)',
           borderColor: 'var(--vscode-input-border)'
@@ -225,7 +225,7 @@ export function usePlanMarkdownComponents() {
     ),
     td: ({ ...props }) => (
       <td
-        className="px-4 py-2.5 text-sm border-r last:border-r-0"
+        className="px-4 py-2.5 text-sm border-r last:border-r-0 break-words"
         style={{
           color: 'var(--vscode-editor-foreground)',
           borderColor: 'var(--vscode-input-border)'

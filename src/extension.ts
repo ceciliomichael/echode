@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
 import { EchodeSidebarProvider } from './sidebar-provider';
 import { AutocompleteService } from './autocomplete';
 import { clearGitignoreCache } from './utils/workspace-scanner';
@@ -8,6 +7,7 @@ import { generateGitCommitMessage } from './services/git-commit-generator';
 import { getGlobalServerManager } from './services/mcp/mcp-server-manager';
 import { defaultRegistry } from './services/tools/tool-registry';
 import { MarkdownViewerManager } from './services/markdown-viewer/markdown-viewer-manager';
+import { isMarkdownPreviewableDocument } from './services/markdown-viewer/markdown-preview-utils';
 import { ApprovalViewerManager } from './services/approval/approval-viewer-manager';
 import { CreateSubAgentTool, UseSubAgentTool } from './services/tools';
 
@@ -95,34 +95,21 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('echode.openPlanPreview', async () => {
       const editor = vscode.window.activeTextEditor;
-      if (!editor || editor.document.languageId !== 'markdown') {
-        // Fallback for non-markdown context (though keybinding 'when' clause should prevent this)
-        await vscode.commands.executeCommand('markdown.showPreview');
+      if (!editor) {
+        vscode.window.showInformationMessage('Open a markdown file first to preview it.');
         return;
       }
 
       const document = editor.document;
-      const filePath = document.uri.fsPath;
-      const normalizedPath = filePath.replace(/\\/g, '/');
+      if (!isMarkdownPreviewableDocument(document)) {
+        // Fallback for non-markdown context (the keybinding should prevent this)
+        vscode.window.showInformationMessage('Markdown preview is only available for markdown files.');
+        return;
+      }
 
-      // Use custom markdown viewer for ALL .md files (unified experience with mermaid support)
+      // Use custom markdown viewer for markdown files (unified experience with Mermaid support)
       if (MarkdownViewerManager.isInitialized) {
-        const content = document.getText();
-        // Extract title from first line (e.g. "# Title") or use filename
-        const firstLine = content.split('\n')[0].trim();
-        const title = firstLine.startsWith('#') 
-          ? firstLine.replace(/^#+\s*/, '') 
-          : path.basename(filePath);
-
-        // Determine document type based on path for better labeling
-        let docType = 'Markdown';
-        if (normalizedPath.includes('/.echode/plan/')) {
-          docType = 'Plan';
-        } else if (normalizedPath.includes('/.echode/codereview/')) {
-          docType = 'Review';
-        }
-
-        MarkdownViewerManager.instance.openDocument(title, content, filePath, docType);
+        MarkdownViewerManager.instance.openTextDocument(document);
       } else {
         // Fallback to default markdown preview if manager not initialized
         await vscode.commands.executeCommand('markdown.showPreview', document.uri);

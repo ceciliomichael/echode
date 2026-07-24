@@ -151,17 +151,16 @@ export function renderToolResult(
   // Special handling for run_terminal tool - show scrollable terminal output
   if (toolName === 'run_terminal' && typeof data === 'string') {
     return (
-      <div className="px-3 py-3">
+      <div className="px-3 py-3 flex-1 min-h-0 overflow-hidden">
         <div className="space-y-2">
           <div className="text-xs font-semibold opacity-70">
             Terminal Output
           </div>
           <pre
-            className="text-xs font-mono whitespace-pre-wrap p-2 rounded"
+            className="text-xs font-mono whitespace-pre-wrap p-2 rounded max-h-[340px]"
             style={{
               backgroundColor: 'var(--vscode-textCodeBlock-background)',
               color: 'var(--vscode-editor-foreground)',
-              maxHeight: '400px',
               overflowY: 'auto',
               overflowX: 'auto'
             }}
@@ -185,7 +184,7 @@ export function renderToolResult(
   // Use registered renderer for other tools
   const renderer = getToolRenderer(toolName);
   if (renderer) {
-    return <div className="px-3 py-3">{renderer(data) as ReactNode}</div>;
+    return <div className="px-3 py-3 flex-1 min-h-0 overflow-y-auto">{renderer(data) as ReactNode}</div>;
   }
 
   // Default fallback
