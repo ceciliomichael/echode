@@ -1,0 +1,49 @@
+{
+  "name": "markdown-viewer",
+  "displayName": "Markdown Viewer",
+  "description": "Custom Markdown Previewer with live updates and Mermaid diagram support",
+  "version": "1.0.0",
+  "publisher": "EchoSphere",
+  "icon": "icon.png",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "markdown-viewer.openPreview",
+        "title": "Open Markdown Preview",
+        "icon": "icon.svg"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "markdown-viewer.openPreview",
+        "key": "ctrl+shift+v",
+        "mac": "cmd+shift+v",
+        "when": "editorTextFocus && (editorLangId == markdown || resourceExtname == .md || resourceExtname == .markdown)"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "cd webview-ui && npm run build && cd .. && npm run check-types && node esbuild.js",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "cd webview-ui && npm run build && cd .. && npm run check-types && node esbuild.js --production",
+    "check-types": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "22.x",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.27.0",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,6 +1,0 @@
-node_modules/
-dist/
-media/
-*.vsix
-.preview-*.png
-.chrome-preview-profile*/
